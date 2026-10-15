@@ -22,11 +22,23 @@ this file stays a pointer. Add repo-specific guidance below.
 
 ## This repository
 
-A contract-first Go + Vue application template. `task check` and `task e2e` are everything CI runs;
+The estate's Identity Provider: one OIDC sign-in for every app, at the Issuer
+`https://auth.jorisjonkers.dev`. It replaces auth-api and auth-ui
+([workspace ADR-0020](https://github.com/JorisJonkers-dev/workspace/blob/main/docs/decisions/ADR-0020-identity-replaces-auth-api.md)).
+Contract-first Go + Vue from `template-go-vue`. `task check` and `task e2e` are everything CI runs;
 `task` lists the targets. The toolchain is pinned in `mise.toml` (`mise install`).
 
+- **Use the words in `CONTEXT.md`.** Client, not Application (deploy-kit's release unit);
+  Assignment, not Grant (deploy-kit's Secret Store access); User, not account.
+- **Decisions are in `docs/adr/`.** Read them before changing sign-in, access, sessions or tokens.
+- **Never implement OIDC protocol code here.** It comes from `zitadel/oidc`; identity implements its
+  storage ([0001](docs/adr/0001-build-on-zitadel-oidc.md)).
+- **Clients are read-only here.** They come from deploy-kit `Client` objects; nothing in this
+  repository creates one ([0002](docs/adr/0002-clients-come-only-from-deploy-kit.md)).
 - **The contract comes first.** Change `openapi/v1/openapi.yaml`, then `task gen`. Never hand-edit
   `internal/platform/oas/`, `internal/platform/pg/queries/` or `web/src/infrastructure/api/`.
 - **The architecture is in `docs/blueprints/`.** Its numbered rules are gates; the README there
   says which ones the template has not wired yet.
-- See `README.md` for how to turn a copy into an application.
+- **Still template state.** The sample `notes` context and goose migrations are the template's;
+  both are replaced as the first features land
+  ([0010](docs/adr/0010-migrations-run-through-liquibase-runner.md)).
