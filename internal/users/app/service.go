@@ -24,6 +24,7 @@ var (
 	ErrInvalidCredentials = errors.New("the email or the password is wrong")
 	ErrInvalidToken       = errors.New("this link has expired or was already used")
 	ErrNoSession          = errors.New("not signed in")
+	ErrBusy               = errors.New("too many password checks at once")
 )
 
 const (
@@ -96,9 +97,8 @@ type Service struct {
 	random    io.Reader
 	publicURL string
 
-	decoyOnce sync.Once
-	decoy     string
-	decoyErr  error
+	decoyMu sync.Mutex
+	decoy   string
 }
 
 // New returns a Service. publicURL is where links in mail point, with no trailing slash.
@@ -229,15 +229,27 @@ func (s *Service) SignIn(ctx context.Context, rawEmail, password string) (string
 
 // decoyCheck verifies password against a hash no User has, to spend what a real check spends.
 func (s *Service) decoyCheck(password string) error {
-	s.decoyOnce.Do(func() {
-		p, _ := domain.NewPassword("a decoy no account has")
-		s.decoy, s.decoyErr = s.hasher.Hash(p)
-	})
-	if s.decoyErr != nil {
-		return s.decoyErr
+	decoy, err := s.decoyHash()
+	if err != nil {
+		return err
 	}
-	_, err := s.hasher.Verify(s.decoy, password)
+	_, err = s.hasher.Verify(decoy, password)
 	return err
+}
+
+// decoyHash makes the decoy once it first succeeds; a failure, such as ErrBusy, is not kept.
+func (s *Service) decoyHash() (string, error) {
+	s.decoyMu.Lock()
+	defer s.decoyMu.Unlock()
+	if s.decoy == "" {
+		p, _ := domain.NewPassword("a decoy no account has")
+		h, err := s.hasher.Hash(p)
+		if err != nil {
+			return "", err
+		}
+		s.decoy = h
+	}
+	return s.decoy, nil
 }
 
 // Authenticate returns the User a session token belongs to, and extends the session from its last

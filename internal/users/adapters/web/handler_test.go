@@ -233,3 +233,9 @@ func TestChangePassword(t *testing.T) {
 	res, err = h.ChangePassword(ctx, &oas.PasswordChange{})
 	wantProblem(t, res, err, http.StatusUnprocessableEntity, "A password is 12 to 128 characters.")
 }
+
+func TestABusyServerSaysToTryAgain(t *testing.T) {
+	h := web.New(&useCases{err: app.ErrBusy})
+	res, err := h.SignIn(context.Background(), &oas.SignIn{})
+	wantProblem(t, res, err, http.StatusServiceUnavailable, "Too many sign-ins at once. Try again in a moment.")
+}

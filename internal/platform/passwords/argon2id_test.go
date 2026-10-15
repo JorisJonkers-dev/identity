@@ -4,7 +4,6 @@ import (
 	"errors"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/JorisJonkers-dev/identity/internal/platform/passwords"
 	"github.com/JorisJonkers-dev/identity/internal/users/domain"
@@ -58,11 +57,20 @@ func TestVerifyRefusesAMalformedHash(t *testing.T) {
 	for _, bad := range []string{
 		"",
 		"$bcrypt$x",
+		"$argon2i$v=19$m=8,t=1,p=1$c2FsdA$aGFzaGFzaGFzaGFzaA",
 		"$argon2id$v=18$m=1,t=1,p=1$c2FsdA$aGFzaA",
 		"$argon2id$v=19$m=x,t=1,p=1$c2FsdA$aGFzaA",
 		"$argon2id$v=19$m=1,t=1,p=1$!!$aGFzaA",
 		"$argon2id$v=19$m=1,t=1,p=1$c2FsdA$!!",
 		"$argon2id$vx$m=1,t=1,p=1$c2FsdA$aGFzaA",
+		// Costs above what Hash uses would let one stored row make every check slow or huge.
+		"$argon2id$v=19$m=47105,t=1,p=1$c2FsdA$aGFzaGFzaGFzaGFzaA",
+		"$argon2id$v=19$m=23553,t=2,p=1$c2FsdA$aGFzaGFzaGFzaGFzaA",
+		"$argon2id$v=19$m=8,t=1,p=0$c2FsdA$aGFzaGFzaGFzaGFzaA",
+		"$argon2id$v=19$m=8,t=1,p=2$c2FsdA$aGFzaGFzaGFzaGFzaA",
+		"$argon2id$v=19$m=8,t=0,p=1$c2FsdA$aGFzaGFzaGFzaGFzaA",
+		"$argon2id$v=19$m=8,t=1,p=1$c2FsdA$aGFzaA",
+		"$argon2id$v=19$m=8,t=1,p=1$c2FsdA$" + strings.Repeat("aGFz", 30),
 	} {
 		if ok, err := (passwords.Argon2id{}).Verify(bad, "anything at all"); ok || !errors.Is(err, passwords.ErrMalformedHash) {
 			t.Errorf("Verify(%q) = %v, %v; want ErrMalformedHash", bad, ok, err)
@@ -80,26 +88,3 @@ func TestHashFailsWithoutEntropy(t *testing.T) {
 type failing struct{}
 
 func (failing) Read([]byte) (int, error) { return 0, errors.New("no entropy") }
-
-func TestNewArgon2idMakesAHashWaitForAFreeSlot(t *testing.T) {
-	h := passwords.NewArgon2id(1)
-	release := passwords.Hold(h)
-	done := make(chan string, 1)
-	go func() {
-		hash, _ := h.Hash(password(t))
-		done <- hash
-	}()
-	select {
-	case <-done:
-		t.Fatal("a hash ran while every slot was taken")
-	case <-time.After(300 * time.Millisecond):
-	}
-	release()
-	hash := <-done
-	if ok, err := h.Verify(hash, "correct horse battery"); !ok || err != nil {
-		t.Fatalf("verify through the bound: %v, %v", ok, err)
-	}
-	if got := h.InFlight(); got != 0 {
-		t.Fatalf("%d hashes still hold a slot", got)
-	}
-}

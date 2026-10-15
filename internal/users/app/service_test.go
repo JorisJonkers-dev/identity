@@ -659,3 +659,20 @@ func TestTokensComeFromTheRandomSource(t *testing.T) {
 		t.Fatal("a sign-in without entropy succeeded")
 	}
 }
+
+func TestAFailedDecoyIsTriedAgainOnTheNextSignIn(t *testing.T) {
+	f := newFixture()
+	f.hasher.failHash = app.ErrBusy
+	if _, err := f.SignIn(context.Background(), "nobody@b.c", pw); !errors.Is(err, app.ErrBusy) {
+		t.Fatalf("first sign-in: %v", err)
+	}
+	f.hasher.failHash = nil
+	if _, err := f.SignIn(context.Background(), "nobody@b.c", pw); !errors.Is(err, app.ErrInvalidCredentials) {
+		t.Fatalf("a passing busy spell still breaks sign-in for unknown emails: %v", err)
+	}
+	hashed := f.hasher.hashed
+	_, _ = f.SignIn(context.Background(), "nobody@b.c", pw)
+	if f.hasher.hashed != hashed {
+		t.Fatal("a decoy that was made is made again")
+	}
+}

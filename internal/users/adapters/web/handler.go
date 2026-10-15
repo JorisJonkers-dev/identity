@@ -154,6 +154,8 @@ func refusal(err error) (*oas.ProblemStatusCode, error) {
 		return problem(http.StatusUnprocessableEntity, "This link has expired or was already used. Sign up again for a new one."), nil
 	case errors.Is(err, app.ErrInvalidCredentials):
 		return problem(http.StatusUnauthorized, "The email or the password is wrong."), nil
+	case errors.Is(err, app.ErrBusy):
+		return problem(http.StatusServiceUnavailable, "Too many sign-ins at once. Try again in a moment."), nil
 	default:
 		return nil, err
 	}

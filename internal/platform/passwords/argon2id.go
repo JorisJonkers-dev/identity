@@ -10,9 +10,11 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/argon2"
 
+	"github.com/JorisJonkers-dev/identity/internal/users/app"
 	"github.com/JorisJonkers-dev/identity/internal/users/domain"
 )
 
@@ -27,6 +29,9 @@ const (
 	saltBytes  = 16
 	hashBytes  = 32
 	phcVersion = 19
+
+	minHashBytes = 16
+	maxHashBytes = 64
 )
 
 // Argon2id is the app.Hasher. Random defaults to crypto/rand. The zero value runs any number of
@@ -34,21 +39,28 @@ const (
 type Argon2id struct {
 	Random io.Reader
 	slots  chan struct{}
+	wait   time.Duration
 }
 
-// NewArgon2id returns an Argon2id running at most n hashes at once, so a burst of sign-ins waits
-// rather than asking for n times 46 MiB.
-func NewArgon2id(n int) Argon2id { return Argon2id{slots: make(chan struct{}, n)} }
+// NewArgon2id returns an Argon2id running at most n hashes at once. A hash waits up to wait for a
+// slot and then fails with app.ErrBusy, so a burst of sign-ins neither asks for n times 46 MiB nor
+// queues without end.
+func NewArgon2id(n int, wait time.Duration) Argon2id {
+	return Argon2id{slots: make(chan struct{}, n), wait: wait}
+}
 
-// InFlight is how many hashes hold a slot now.
-func (a Argon2id) InFlight() int { return len(a.slots) }
-
-func (a Argon2id) key(password, salt []byte, time, memory uint32, threads uint8, size uint32) []byte {
+func (a Argon2id) key(password, salt []byte, passes, memory uint32, threads uint8, size uint32) ([]byte, error) {
 	if a.slots != nil {
-		a.slots <- struct{}{}
-		defer func() { <-a.slots }()
+		timer := time.NewTimer(a.wait)
+		defer timer.Stop()
+		select {
+		case a.slots <- struct{}{}:
+			defer func() { <-a.slots }()
+		case <-timer.C:
+			return nil, app.ErrBusy
+		}
 	}
-	return argon2.IDKey(password, salt, time, memory, threads, size)
+	return argon2.IDKey(password, salt, passes, memory, threads, size), nil
 }
 
 // Hash returns a PHC string for p, under a fresh random salt.
@@ -61,7 +73,10 @@ func (a Argon2id) Hash(p domain.Password) (string, error) {
 	if _, err := io.ReadFull(random, salt); err != nil {
 		return "", fmt.Errorf("read a salt: %w", err)
 	}
-	key := a.key([]byte(p.String()), salt, passes, memoryKiB, lanes, hashBytes)
+	key, err := a.key([]byte(p.String()), salt, passes, memoryKiB, lanes, hashBytes)
+	if err != nil {
+		return "", err
+	}
 	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s", phcVersion, memoryKiB, passes, lanes,
 		base64.RawStdEncoding.EncodeToString(salt), base64.RawStdEncoding.EncodeToString(key)), nil
 }
@@ -76,9 +91,10 @@ func (a Argon2id) Verify(hash, password string) (bool, error) {
 	if _, err := fmt.Sscanf(parts[2], "v=%d", &version); err != nil || version != phcVersion {
 		return false, ErrMalformedHash
 	}
-	var memory, time uint32
+	var memory, iterations uint32
 	var threads uint8
-	if _, err := fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", &memory, &time, &threads); err != nil {
+	if _, err := fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", &memory, &iterations, &threads); err != nil ||
+		!affordable(memory, iterations, threads) {
 		return false, ErrMalformedHash
 	}
 	salt, err := base64.RawStdEncoding.DecodeString(parts[4])
@@ -89,6 +105,19 @@ func (a Argon2id) Verify(hash, password string) (bool, error) {
 	if err != nil {
 		return false, ErrMalformedHash
 	}
-	got := a.key([]byte(password), salt, time, memory, threads, uint32(len(want))) //nolint:gosec // len of a decoded hash, far below 2^32.
+	if len(want) < minHashBytes || len(want) > maxHashBytes {
+		return false, ErrMalformedHash
+	}
+	got, err := a.key([]byte(password), salt, iterations, memory, threads, uint32(len(want))) //nolint:gosec // at most maxHashBytes.
+	if err != nil {
+		return false, err
+	}
 	return subtle.ConstantTimeCompare(got, want) == 1, nil
+}
+
+// affordable reports whether a hash's recorded costs are no dearer than Hash's own: no more memory,
+// and no more memory times passes, so OWASP's lower-memory, more-pass settings still verify.
+func affordable(memory, iterations uint32, threads uint8) bool {
+	return memory <= memoryKiB && iterations >= 1 && uint64(memory)*uint64(iterations) <= memoryKiB*passes &&
+		threads >= 1 && threads <= lanes
 }
