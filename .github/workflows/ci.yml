@@ -1,8 +1,12 @@
 # One pipeline ending in "Pipeline Complete", the only required check (estate convention).
 # Every check is its own job, and they run in parallel: a pull request waits for the slowest
-# check rather than the sum of them, which is worth the extra minutes GitHub bills per job.
-# Each job runs one `task`, the same tasks `task check` runs in sequence, so local and CI
-# cannot drift.
+# check rather than the sum of them. Each job runs one `task`, the same tasks `task check` runs
+# in sequence, so local and CI cannot drift.
+#
+# `changes` decides which jobs a pull request's diff reaches, from .github/buckets.yml
+# (JorisJonkers-dev/github-workflows docs/path-buckets.md). A push to main or a dispatch runs
+# everything. The trigger has no `paths:` filter, because a filtered trigger reports no check,
+# and a check that never reports can never be required.
 name: CI
 
 on:
@@ -19,29 +23,58 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/path-buckets.yml@v0.22.0
+    with:
+      workflows: .github/workflows/ci.yml
+
   check:
     name: Check (${{ matrix.task }})
+    needs: changes
+    # A matrix entry cannot carry its own `if`, so each entry names the gate it needs and the
+    # first step ends the job early when that bucket is off.
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       # Every failure is reported, not only the first.
       fail-fast: false
       matrix:
-        task: [lint, gen:check, "test:unit", "test:integration", build, secrets]
+        include:
+          - {task: "lint:go", on: "${{ fromJSON(needs.changes.outputs.run).go || fromJSON(needs.changes.outputs.run).db }}"}
+          - {task: "lint:spec", on: "${{ fromJSON(needs.changes.outputs.run).contract }}"}
+          - {task: "lint:web", on: "${{ fromJSON(needs.changes.outputs.run).web || fromJSON(needs.changes.outputs.run).contract }}"}
+          - {task: "lint:actions", on: "true"}
+          - {task: "gen:check", on: "${{ fromJSON(needs.changes.outputs.run).app }}"}
+          - {task: "test:go:unit", on: "${{ fromJSON(needs.changes.outputs.run).go }}"}
+          - {task: "test:web", on: "${{ fromJSON(needs.changes.outputs.run).web }}"}
+          - {task: "test:integration", on: "${{ fromJSON(needs.changes.outputs.run).go || fromJSON(needs.changes.outputs.run).db }}"}
+          - {task: build, on: "${{ fromJSON(needs.changes.outputs.run).app }}"}
+          - {task: secrets, on: "true"}
     steps:
+      - name: Skip when this diff does not reach it
+        if: ${{ matrix.on != 'true' }}
+        env:
+          TASK: ${{ matrix.task }}
+        run: echo "No path in this diff reaches $TASK."
+
       - uses: actions/checkout@v7
+        if: ${{ matrix.on == 'true' }}
 
       - uses: jdx/mise-action@v5
+        if: ${{ matrix.on == 'true' }}
         with:
           cache: true
 
       - name: Run the task
+        if: ${{ matrix.on == 'true' }}
         env:
           TASK: ${{ matrix.task }}
         run: mise exec -- task "$TASK"
 
   e2e:
     name: End-to-end with axe
+    needs: changes
+    if: ${{ fromJSON(needs.changes.outputs.run).app }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -57,6 +90,8 @@ jobs:
   # The image builds need the Docker daemon the runner has, so they are not a task.
   images:
     name: Image (${{ matrix.image }})
+    needs: changes
+    if: ${{ fromJSON(needs.changes.outputs.run).app }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -78,19 +113,25 @@ jobs:
           # shellcheck disable=SC2086 # ARGS is a list of options, split on purpose
           docker build --build-arg VERSION=ci $ARGS -t "$IMAGE:ci" .
 
-  # The one required check: green only when every job above is. `always()` so a failed or
-  # cancelled job still reports here, as a failure, rather than leaving the check pending.
+  # The one required check: green only when every job above passed or was skipped by its
+  # bucket. `changes` itself must pass, so a broken buckets file can never read as green.
+  # `always()` so a failed or cancelled job still reports here, as a failure.
   pipeline-complete:
     name: Pipeline Complete
     if: ${{ always() }}
-    needs: [check, e2e, images]
+    needs: [changes, check, e2e, images]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Every job passed
+      - name: Every job passed or was not reached
         env:
+          CHANGES: ${{ needs.changes.result }}
           RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
+          [ "$CHANGES" = success ] || { echo "changes ended ${CHANGES}"; exit 1; }
           for result in $RESULTS; do
-            [ "$result" = success ] || { echo "a job ended ${result}"; exit 1; }
+            case "$result" in
+              success | skipped) ;;
+              *) echo "a job ended ${result}"; exit 1 ;;
+            esac
           done

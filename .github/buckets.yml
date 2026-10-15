@@ -1,0 +1,79 @@
+# Which CI jobs a changed path reaches (JorisJonkers-dev/github-workflows docs/path-buckets.md).
+# A path no bucket claims runs everything: the Taskfile, the toolchain, the root package files,
+# the Dockerfile and the workflows change how every suite builds or runs, so they are in none.
+# The fixtures are the self-test: one path for every pattern, and [] for a path in no bucket.
+
+buckets:
+  # Go code and what only Go reads.
+  go:
+    - '**/*.go'
+    - 'go.mod'
+    - 'go.sum'
+    - '.golangci.yml'
+    - 'scripts/coverage.sh'
+  # The schema and what migrates it.
+  db:
+    - 'db/**'
+    - 'sqlc.yaml'
+    - 'compose.yaml'
+    - 'Dockerfile.migration'
+  # The contract both sides are generated from.
+  contract:
+    - 'openapi/**'
+  # The Vue app.
+  web:
+    - 'web/**'
+    - '!web/**/*.go'
+  # What no CI job reads.
+  ignore:
+    - 'docs/**'
+    - '*.md'
+    - 'deploy/**'
+    - 'LICENSE'
+    - 'renovate.json'
+    - 'release-please-config.json'
+    - '.release-please-manifest.json'
+    - '.github/CODEOWNERS'
+    - '.github/dependabot.yml'
+    - '.editorconfig'
+    - '.gitattributes'
+    - '.gitignore'
+
+groups:
+  # Anything the binary is built from: build, e2e, images and gen:check run on it.
+  app: [go, db, contract, web]
+
+fixtures:
+  cmd/identity/main.go: [go]
+  internal/server/server_test.go: [go]
+  web/embed.go: [go]
+  go.mod: [go]
+  go.sum: [go]
+  .golangci.yml: [go]
+  scripts/coverage.sh: [go]
+  db/changelog/0001-notes.yaml: [db]
+  db/queries/notes.sql: [db]
+  sqlc.yaml: [db]
+  compose.yaml: [db]
+  Dockerfile.migration: [db]
+  openapi/v1/openapi.yaml: [contract]
+  web/src/main.ts: [web]
+  web/package.json: [web]
+  docs/adr/0011-unit-tests-reach-every-statement-branch-condition-and-function.md: [ignore]
+  README.md: [ignore]
+  CONTEXT.md: [ignore]
+  deploy/identity.project.yml: [ignore]
+  LICENSE: [ignore]
+  renovate.json: [ignore]
+  release-please-config.json: [ignore]
+  .release-please-manifest.json: [ignore]
+  .github/CODEOWNERS: [ignore]
+  .github/dependabot.yml: [ignore]
+  .editorconfig: [ignore]
+  .gitattributes: [ignore]
+  .gitignore: [ignore]
+  .github/workflows/ci.yml: []
+  Taskfile.yml: []
+  mise.toml: []
+  pnpm-lock.yaml: []
+  Dockerfile: []
