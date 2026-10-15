@@ -57,7 +57,7 @@ func New(cfg Config, svc *app.Service, ring *Ring, logger *slog.Logger, now func
 	l := &login{svc: svc, cookie: cfg.SessionCookie, callback: op.AuthCallbackURL(provider), logger: logger}
 	mux := http.NewServeMux()
 	mux.Handle("/oidc/authorize", bind(provider))
-	mux.Handle("GET /oidc/authorize/callback", bound(provider))
+	mux.Handle("/oidc/authorize/callback", bound(provider)) // every method: the library serves them all
 	mux.Handle("GET "+loginPath, op.NewIssuerInterceptor(provider.IssuerFromRequest).Handler(l))
 	mux.Handle("/", provider)
 	return mux, nil

@@ -345,6 +345,19 @@ func TestARequestCompletesOnlyInTheBrowserThatStartedIt(t *testing.T) {
 	if res := victim.get(t, callback, false); res.status != http.StatusBadRequest {
 		t.Fatalf("another browser fetched the code: %d %s", res.status, res.header.Get("Location"))
 	}
+	query := strings.TrimPrefix(callback, attacker.issuer+"/oidc/authorize/callback")
+	for _, variant := range []string{"/oidc/authorize/callback/", "/oidc/authorize/%63allback", "//oidc/authorize/callback", "/oidc/./authorize/callback"} {
+		res := victim.get(t, variant+query, false)
+		if strings.HasPrefix(res.header.Get("Location"), "https://spa.test") {
+			t.Fatalf("another browser fetched the code through %s", variant)
+		}
+	}
+	for _, method := range []string{http.MethodPost, http.MethodHead, http.MethodPut} {
+		req, _ := http.NewRequestWithContext(t.Context(), method, callback, nil)
+		if res := victim.do(t, req); res.status != http.StatusBadRequest {
+			t.Fatalf("another browser fetched the code with %s: %d %s", method, res.status, res.header.Get("Location"))
+		}
+	}
 	for _, wrong := range []string{"/oidc/authorize/callback?id=" + uuid.NewString(), "/oidc/authorize/callback"} {
 		if res := attacker.get(t, wrong, false); res.status != http.StatusBadRequest {
 			t.Fatalf("%s with a binding for another request = %d", wrong, res.status)
