@@ -9,8 +9,8 @@ import (
 )
 
 type Querier interface {
-	CreateNote(ctx context.Context, text string) (Note, error)
-	ListNotes(ctx context.Context, limit int32) ([]Note, error)
+	// Readiness: the database answers a query, not only a connection.
+	Ping(ctx context.Context) (int32, error)
 }
 
 var _ Querier = (*Queries)(nil)

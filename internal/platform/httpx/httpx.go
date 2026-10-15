@@ -1,5 +1,5 @@
-// Package httpx holds the HTTP pieces every inbound adapter shares: RFC 9457 problems, browser
-// hardening headers, and the local stand-in for the platform's forward-auth.
+// Package httpx holds the HTTP pieces every inbound adapter shares: RFC 9457 problems and browser
+// hardening headers.
 package httpx
 
 import (
@@ -7,9 +7,6 @@ import (
 
 	"github.com/JorisJonkers-dev/identity/internal/platform/oas"
 )
-
-// IdentityHeader carries the caller's subject. The platform's forward-auth sets it at the edge.
-const IdentityHeader = "X-User-Id"
 
 const contentSecurityPolicy = "default-src 'self'; img-src 'self' data:; style-src 'self'; " +
 	"connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
@@ -47,17 +44,6 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
-		next.ServeHTTP(w, r)
-	})
-}
-
-// DevIdentity fills in subject when a request carries no identity. Wire it only for local runs,
-// where no forward-auth sits in front of the service.
-func DevIdentity(subject string, next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get(IdentityHeader) == "" {
-			r.Header.Set(IdentityHeader, subject)
-		}
 		next.ServeHTTP(w, r)
 	})
 }

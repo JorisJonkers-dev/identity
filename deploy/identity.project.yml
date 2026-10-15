@@ -23,9 +23,9 @@ applications:
     exposure:
       - name: public
         host: auth.jorisjonkers.dev # the Issuer's host (docs/adr/0001-build-on-zitadel-oidc.md)
-        # The API requires the identity the platform's forward-auth puts on every request
-        # (X-User-Id, openapi/v1/openapi.yaml), so the whole host sits behind it.
-        audience: authenticated
+        # The Identity Provider serves its own sign-in page and authenticates its own API, so the
+        # edge lets everyone reach it; forward-auth in front of it would lock out signing in.
+        audience: anonymous
         contentPolicy: strict
         routes:
           - { path: /, match: prefix, process: identity, surface: http }

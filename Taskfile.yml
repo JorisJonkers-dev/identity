@@ -143,9 +143,9 @@ tasks:
       - pnpm --filter @{{.APP}}/web exec eslint . --fix
 
   dev:
-    desc: Run Postgres, the API on :8080 with a dev identity, and Vite with hot reload on :5173
+    desc: Run Postgres, the API on :8080, and Vite with hot reload on :5173
     deps: [db, install]
     cmd: |
       trap 'kill 0' EXIT
-      DATABASE_URL='{{.DATABASE_URL}}' DEV_USER=dev go run ./cmd/{{.APP}} &
+      DATABASE_URL='{{.DATABASE_URL}}' go run ./cmd/{{.APP}} &
       pnpm --filter @{{.APP}}/web dev

@@ -25,7 +25,7 @@ func get(h http.Handler, path string) *httptest.ResponseRecorder {
 func TestServesIndexAtRootAndForClientRoutes(t *testing.T) {
 	t.Parallel()
 	h := webui.Handler(app)
-	for _, p := range []string{"/", "/index.html", "/notes/42", "/settings"} {
+	for _, p := range []string{"/", "/index.html", "/launcher", "/settings"} {
 		rec := get(h, p)
 		if rec.Code != 200 || rec.Header().Get("Cache-Control") != "no-cache" || rec.Body.String() != "<!doctype html><title>app</title>" {
 			t.Fatalf("%s: %d %q %q", p, rec.Code, rec.Header().Get("Cache-Control"), rec.Body.String())

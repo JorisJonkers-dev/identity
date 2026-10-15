@@ -45,5 +45,5 @@ Contract-first Go + Vue from `template-go-vue`. `task check` and `task e2e` are 
 - **CI runs only what a diff reaches.** `.github/buckets.yml` maps paths to jobs; a new file
   type or top-level file needs a bucket (or none, to run everything) and a fixture, or the
   `changes` job's self-test fails.
-- **Still template state.** The sample `notes` context is the template's; it is replaced as the
-  first features land.
+- **Not behind forward-auth.** identity is the Identity Provider: its host is `anonymous` at the
+  edge, and its API authenticates with identity's own session, never an `X-User-Id` header.

@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateNoteData, CreateNoteErrors, CreateNoteResponses, ListNotesData, ListNotesErrors, ListNotesResponses } from './types.gen';
-import { zCreateNoteBody, zCreateNoteResponse, zListNotesQuery, zListNotesResponse } from './zod.gen';
+import type { GetVersionData, GetVersionErrors, GetVersionResponses } from './types.gen';
+import { zGetVersionResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -22,39 +22,17 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 };
 
 /**
- * List notes, newest first
+ * The running version
  *
- * Returns at most `limit` notes, newest first.
+ * The version of the build that is serving, for the Launcher's footer and for checks after a deploy. Needs no sign-in.
  */
-export const listNotes = <ThrowOnError extends boolean = false>(options?: Options<ListNotesData, ThrowOnError>): RequestResult<ListNotesResponses, ListNotesErrors, ThrowOnError> => (options?.client ?? client).get<ListNotesResponses, ListNotesErrors, ThrowOnError>({
+export const getVersion = <ThrowOnError extends boolean = false>(options?: Options<GetVersionData, ThrowOnError>): RequestResult<GetVersionResponses, GetVersionErrors, ThrowOnError> => (options?.client ?? client).get<GetVersionResponses, GetVersionErrors, ThrowOnError>({
     requestValidator: async (data) => await z.object({
         body: z.never().optional(),
         path: z.never().optional(),
-        query: zListNotesQuery.optional()
-    }).parseAsync(data),
-    responseValidator: async (data) => await zListNotesResponse.parseAsync(data),
-    security: [{ name: 'X-User-Id', type: 'apiKey' }],
-    url: '/api/v1/notes',
-    ...options
-});
-
-/**
- * Create a note
- *
- * Stores a note and returns it with its id and creation time.
- */
-export const createNote = <ThrowOnError extends boolean = false>(options: Options<CreateNoteData, ThrowOnError>): RequestResult<CreateNoteResponses, CreateNoteErrors, ThrowOnError> => (options.client ?? client).post<CreateNoteResponses, CreateNoteErrors, ThrowOnError>({
-    requestValidator: async (data) => await z.object({
-        body: zCreateNoteBody,
-        path: z.never().optional(),
         query: z.never().optional()
     }).parseAsync(data),
-    responseValidator: async (data) => await zCreateNoteResponse.parseAsync(data),
-    security: [{ name: 'X-User-Id', type: 'apiKey' }],
-    url: '/api/v1/notes',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
+    responseValidator: async (data) => await zGetVersionResponse.parseAsync(data),
+    url: '/api/v1/version',
+    ...options
 });

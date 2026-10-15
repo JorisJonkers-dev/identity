@@ -10,13 +10,6 @@ import (
 	"github.com/ogen-go/ogen/uri"
 )
 
-var (
-	rn1AllowedHeaders = map[string]string{
-		"GET":  "X-User-Id",
-		"POST": "Content-Type,X-User-Id",
-	}
-)
-
 func (s *Server) cutPrefix(path string) (string, bool) {
 	prefix := s.cfg.Prefix
 	if prefix == "" {
@@ -55,9 +48,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		switch elem[0] {
-		case '/': // Prefix: "/api/v1/notes"
+		case '/': // Prefix: "/api/v1/version"
 
-			if l := len("/api/v1/notes"); len(elem) >= l && elem[0:l] == "/api/v1/notes" {
+			if l := len("/api/v1/version"); len(elem) >= l && elem[0:l] == "/api/v1/version" {
 				elem = elem[l:]
 			} else {
 				break
@@ -67,14 +60,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				// Leaf node.
 				switch r.Method {
 				case "GET":
-					s.handleListNotesRequest([0]string{}, elemIsEscaped, w, r)
-				case "POST":
-					s.handleCreateNoteRequest([0]string{}, elemIsEscaped, w, r)
+					s.handleGetVersionRequest([0]string{}, elemIsEscaped, w, r)
 				default:
 					s.notAllowed(w, r, notAllowedParams{
-						allowedMethods: "GET,POST",
-						allowedHeaders: rn1AllowedHeaders,
-						acceptPost:     "application/json",
+						allowedMethods: "GET",
+						allowedHeaders: nil,
+						acceptPost:     "",
 						acceptPatch:    "",
 					})
 				}
@@ -168,9 +159,9 @@ func (s *Server) FindPath(method string, u *url.URL) (r Route, _ bool) {
 			break
 		}
 		switch elem[0] {
-		case '/': // Prefix: "/api/v1/notes"
+		case '/': // Prefix: "/api/v1/version"
 
-			if l := len("/api/v1/notes"); len(elem) >= l && elem[0:l] == "/api/v1/notes" {
+			if l := len("/api/v1/version"); len(elem) >= l && elem[0:l] == "/api/v1/version" {
 				elem = elem[l:]
 			} else {
 				break
@@ -180,20 +171,11 @@ func (s *Server) FindPath(method string, u *url.URL) (r Route, _ bool) {
 				// Leaf node.
 				switch method {
 				case "GET":
-					r.name = ListNotesOperation
-					r.summary = "List notes, newest first"
-					r.operationID = "listNotes"
+					r.name = GetVersionOperation
+					r.summary = "The running version"
+					r.operationID = "getVersion"
 					r.operationGroup = ""
-					r.pathPattern = "/api/v1/notes"
-					r.args = args
-					r.count = 0
-					return r, true
-				case "POST":
-					r.name = CreateNoteOperation
-					r.summary = "Create a note"
-					r.operationID = "createNote"
-					r.operationGroup = ""
-					r.pathPattern = "/api/v1/notes"
+					r.pathPattern = "/api/v1/version"
 					r.args = args
 					r.count = 0
 					return r, true

@@ -5,7 +5,7 @@ export function createAppRouter(history: RouterHistory = createWebHistory()): Ro
   return createRouter({
     history,
     routes: [
-      { path: '/', name: 'notes', component: () => import('../features/notes/components/NotesPage.vue') },
+      { path: '/', name: 'home', component: () => import('../features/home/components/HomePage.vue') },
       { path: '/:rest(.*)*', redirect: '/' },
     ],
   })

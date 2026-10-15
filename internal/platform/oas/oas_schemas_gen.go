@@ -4,171 +4,10 @@ package oas
 
 import (
 	"fmt"
-	"time"
-
-	"github.com/google/uuid"
 )
 
 func (s *ProblemStatusCode) Error() string {
 	return fmt.Sprintf("code %d: %+v", s.StatusCode, s.Response)
-}
-
-type CreateNoteBadRequest ProblemStatusCode
-
-func (*CreateNoteBadRequest) createNoteRes() {}
-
-type CreateNoteUnprocessableEntity ProblemStatusCode
-
-func (*CreateNoteUnprocessableEntity) createNoteRes() {}
-
-type ForwardAuth struct {
-	APIKey string
-	Roles  []string
-}
-
-// GetAPIKey returns the value of APIKey.
-func (s *ForwardAuth) GetAPIKey() string {
-	return s.APIKey
-}
-
-// GetRoles returns the value of Roles.
-func (s *ForwardAuth) GetRoles() []string {
-	return s.Roles
-}
-
-// SetAPIKey sets the value of APIKey.
-func (s *ForwardAuth) SetAPIKey(val string) {
-	s.APIKey = val
-}
-
-// SetRoles sets the value of Roles.
-func (s *ForwardAuth) SetRoles(val []string) {
-	s.Roles = val
-}
-
-// A note to create.
-// Ref: #/components/schemas/NewNote
-type NewNote struct {
-	// The note's text.
-	Text string `json:"text"`
-}
-
-// GetText returns the value of Text.
-func (s *NewNote) GetText() string {
-	return s.Text
-}
-
-// SetText sets the value of Text.
-func (s *NewNote) SetText(val string) {
-	s.Text = val
-}
-
-// A stored note.
-// Ref: #/components/schemas/Note
-type Note struct {
-	// The note's id.
-	ID uuid.UUID `json:"id"`
-	// The note's text.
-	Text string `json:"text"`
-	// When the note was stored.
-	CreatedAt time.Time `json:"createdAt"`
-}
-
-// GetID returns the value of ID.
-func (s *Note) GetID() uuid.UUID {
-	return s.ID
-}
-
-// GetText returns the value of Text.
-func (s *Note) GetText() string {
-	return s.Text
-}
-
-// GetCreatedAt returns the value of CreatedAt.
-func (s *Note) GetCreatedAt() time.Time {
-	return s.CreatedAt
-}
-
-// SetID sets the value of ID.
-func (s *Note) SetID(val uuid.UUID) {
-	s.ID = val
-}
-
-// SetText sets the value of Text.
-func (s *Note) SetText(val string) {
-	s.Text = val
-}
-
-// SetCreatedAt sets the value of CreatedAt.
-func (s *Note) SetCreatedAt(val time.Time) {
-	s.CreatedAt = val
-}
-
-func (*Note) createNoteRes() {}
-
-// A page of notes, newest first.
-// Ref: #/components/schemas/NoteList
-type NoteList struct {
-	// The notes.
-	Items []Note `json:"items"`
-}
-
-// GetItems returns the value of Items.
-func (s *NoteList) GetItems() []Note {
-	return s.Items
-}
-
-// SetItems sets the value of Items.
-func (s *NoteList) SetItems(val []Note) {
-	s.Items = val
-}
-
-func (*NoteList) listNotesRes() {}
-
-// NewOptInt32 returns new OptInt32 with value set to v.
-func NewOptInt32(v int32) OptInt32 {
-	return OptInt32{
-		Value: v,
-		Set:   true,
-	}
-}
-
-// OptInt32 is optional int32.
-type OptInt32 struct {
-	Value int32
-	Set   bool
-}
-
-// IsSet returns true if OptInt32 was set.
-func (o OptInt32) IsSet() bool { return o.Set }
-
-// Reset unsets value.
-func (o *OptInt32) Reset() {
-	var v int32
-	o.Value = v
-	o.Set = false
-}
-
-// SetTo sets value to v.
-func (o *OptInt32) SetTo(v int32) {
-	o.Set = true
-	o.Value = v
-}
-
-// Get returns value and boolean that denotes whether value was set.
-func (o OptInt32) Get() (v int32, ok bool) {
-	if !o.Set {
-		return v, false
-	}
-	return o.Value, true
-}
-
-// Or returns value if set, or given parameter if does not.
-func (o OptInt32) Or(d int32) int32 {
-	if v, ok := o.Get(); ok {
-		return v
-	}
-	return d
 }
 
 // NewOptString returns new OptString with value set to v.
@@ -296,4 +135,23 @@ func (s *ProblemStatusCode) SetResponse(val Problem) {
 	s.Response = val
 }
 
-func (*ProblemStatusCode) listNotesRes() {}
+func (*ProblemStatusCode) getVersionRes() {}
+
+// The running build.
+// Ref: #/components/schemas/Version
+type Version struct {
+	// The release version, or `dev` for a local build.
+	Version string `json:"version"`
+}
+
+// GetVersion returns the value of Version.
+func (s *Version) GetVersion() string {
+	return s.Version
+}
+
+// SetVersion sets the value of Version.
+func (s *Version) SetVersion(val string) {
+	s.Version = val
+}
+
+func (*Version) getVersionRes() {}

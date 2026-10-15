@@ -9,21 +9,20 @@ import (
 
 	"github.com/ogen-go/ogen/ogenerrors"
 
-	notesweb "github.com/JorisJonkers-dev/identity/internal/notes/adapters/web"
 	"github.com/JorisJonkers-dev/identity/internal/platform/httpx"
 	"github.com/JorisJonkers-dev/identity/internal/platform/oas"
 )
 
 // api is the oas.Handler: one embedded web adapter per context, plus the shared error mapping.
 type api struct {
-	*notesweb.Handler
-	logger *slog.Logger
+	logger  *slog.Logger
+	version string
 }
 
 var _ oas.Handler = (*api)(nil)
 
-// NewError maps every error the contract does not name to a problem: a request without an
-// identity to a 401, anything else a handler returned to a 500. A 500's cause is logged, never sent.
+// NewError maps every error the contract does not name to a problem with the status ogen gives
+// it; anything a handler returned is a 500. A 500's cause is logged, never sent.
 func (a *api) NewError(ctx context.Context, err error) *oas.ProblemStatusCode {
 	code := ogenerrors.ErrorCode(err)
 	if code >= http.StatusInternalServerError {
@@ -32,22 +31,16 @@ func (a *api) NewError(ctx context.Context, err error) *oas.ProblemStatusCode {
 	return &oas.ProblemStatusCode{StatusCode: code, Response: httpx.Problem(code, "")}
 }
 
-// identity accepts every request the edge put an identity on; ogen refuses one without before
-// calling it. A service that authorizes per subject reads t.APIKey here and puts it on ctx.
-type identity struct{}
-
-func (identity) HandleForwardAuth(ctx context.Context, _ oas.OperationName, _ oas.ForwardAuth) (context.Context, error) {
-	return ctx, nil
+// GetVersion reports the build that is serving; it needs no sign-in.
+func (a *api) GetVersion(context.Context) (oas.GetVersionRes, error) {
+	return &oas.Version{Version: a.version}, nil
 }
 
 // New returns the API's http.Handler, serving every path the contract declares under /api.
-func New(logger *slog.Logger, notes notesweb.UseCases) (http.Handler, error) {
+func New(logger *slog.Logger, version string) (http.Handler, error) {
 	return oas.NewServer(
-		&api{Handler: notesweb.New(notes), logger: logger},
-		identity{},
-		oas.WithErrorHandler(func(_ context.Context, w http.ResponseWriter, _ *http.Request, err error) {
-			httpx.WriteProblem(w, ogenerrors.ErrorCode(err), "")
-		}),
+		&api{logger: logger, version: version},
+		oas.WithErrorHandler(writeError),
 		oas.WithNotFound(func(w http.ResponseWriter, _ *http.Request) {
 			httpx.WriteProblem(w, http.StatusNotFound, "")
 		}),
@@ -56,4 +49,9 @@ func New(logger *slog.Logger, notes notesweb.UseCases) (http.Handler, error) {
 			httpx.WriteProblem(w, http.StatusMethodNotAllowed, "")
 		}),
 	)
+}
+
+// writeError answers a request ogen could not decode with a problem carrying ogen's status.
+func writeError(_ context.Context, w http.ResponseWriter, _ *http.Request, err error) {
+	httpx.WriteProblem(w, ogenerrors.ErrorCode(err), "")
 }

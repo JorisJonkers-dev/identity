@@ -20,7 +20,7 @@ func TestStartWithADatabase(t *testing.T) {
 	t.Run("serves until cancelled", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 		defer cancel()
-		vars := map[string]string{"DATABASE_URL": url, "ADDR": "127.0.0.1:0", "DEV_USER": "dev"}
+		vars := map[string]string{"DATABASE_URL": url, "ADDR": "127.0.0.1:0"}
 		if code := start(ctx, env(vars)); code != 0 {
 			t.Fatalf("start after a clean shutdown = %d, want 0", code)
 		}

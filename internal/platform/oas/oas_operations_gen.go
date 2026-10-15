@@ -6,6 +6,5 @@ package oas
 type OperationName = string
 
 const (
-	CreateNoteOperation OperationName = "CreateNote"
-	ListNotesOperation  OperationName = "ListNotes"
+	GetVersionOperation OperationName = "GetVersion"
 )
