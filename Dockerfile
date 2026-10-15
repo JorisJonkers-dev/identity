@@ -8,10 +8,10 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY openapi/package.json openapi/package.json
 COPY web/package.json web/package.json
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile --filter @template-go-vue/web...
+    pnpm install --frozen-lockfile --filter @identity/web...
 COPY openapi openapi
 COPY web web
-RUN pnpm --filter @template-go-vue/web build
+RUN pnpm --filter @identity/web build
 
 # Cross-compiles on the build platform, so a multi-arch build needs no emulation for the Go stage.
 FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS build
@@ -26,10 +26,10 @@ ARG VERSION=dev
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
-    go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/template-go-vue ./cmd/template-go-vue
+    go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/identity ./cmd/identity
 
 FROM gcr.io/distroless/static-debian12:nonroot
-COPY --from=build /out/template-go-vue /template-go-vue
+COPY --from=build /out/identity /identity
 EXPOSE 8080
 USER nonroot:nonroot
-ENTRYPOINT ["/template-go-vue"]
+ENTRYPOINT ["/identity"]

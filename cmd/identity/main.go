@@ -1,4 +1,4 @@
-// Command template-go-vue serves the API and the embedded web app, migrates its database at
+// Command identity serves the API and the embedded web app, migrates its database at
 // startup, and drains on SIGTERM.
 //
 // Environment: DATABASE_URL (required), ADDR (default :8080), and DEV_USER, which stands in for
@@ -14,14 +14,14 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/JorisJonkers-dev/template-go-vue/internal/notes/adapters/persistence"
-	"github.com/JorisJonkers-dev/template-go-vue/internal/notes/app"
-	"github.com/JorisJonkers-dev/template-go-vue/internal/platform/httpapi"
-	"github.com/JorisJonkers-dev/template-go-vue/internal/platform/httpx"
-	"github.com/JorisJonkers-dev/template-go-vue/internal/platform/pg"
-	"github.com/JorisJonkers-dev/template-go-vue/internal/platform/webui"
-	"github.com/JorisJonkers-dev/template-go-vue/internal/server"
-	"github.com/JorisJonkers-dev/template-go-vue/web"
+	"github.com/JorisJonkers-dev/identity/internal/notes/adapters/persistence"
+	"github.com/JorisJonkers-dev/identity/internal/notes/app"
+	"github.com/JorisJonkers-dev/identity/internal/platform/httpapi"
+	"github.com/JorisJonkers-dev/identity/internal/platform/httpx"
+	"github.com/JorisJonkers-dev/identity/internal/platform/pg"
+	"github.com/JorisJonkers-dev/identity/internal/platform/webui"
+	"github.com/JorisJonkers-dev/identity/internal/server"
+	"github.com/JorisJonkers-dev/identity/web"
 )
 
 // version is set at build time with -ldflags "-X main.version=…".
@@ -39,7 +39,7 @@ func start(parent context.Context, getenv func(string) string) int {
 	ctx, stop := signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if err := run(ctx, logger, getenv); err != nil {
-		logger.Error("template-go-vue stopped", "error", err)
+		logger.Error("identity stopped", "error", err)
 		return 1
 	}
 	return 0

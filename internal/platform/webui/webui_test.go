@@ -7,7 +7,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/JorisJonkers-dev/template-go-vue/internal/platform/webui"
+	"github.com/JorisJonkers-dev/identity/internal/platform/webui"
 )
 
 var app = fstest.MapFS{

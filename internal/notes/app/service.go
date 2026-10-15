@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/JorisJonkers-dev/template-go-vue/internal/notes/domain"
+	"github.com/JorisJonkers-dev/identity/internal/notes/domain"
 )
 
 const (

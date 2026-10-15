@@ -9,9 +9,9 @@ import (
 
 	"github.com/ogen-go/ogen/ogenerrors"
 
-	notesweb "github.com/JorisJonkers-dev/template-go-vue/internal/notes/adapters/web"
-	"github.com/JorisJonkers-dev/template-go-vue/internal/platform/httpx"
-	"github.com/JorisJonkers-dev/template-go-vue/internal/platform/oas"
+	notesweb "github.com/JorisJonkers-dev/identity/internal/notes/adapters/web"
+	"github.com/JorisJonkers-dev/identity/internal/platform/httpx"
+	"github.com/JorisJonkers-dev/identity/internal/platform/oas"
 )
 
 // api is the oas.Handler: one embedded web adapter per context, plus the shared error mapping.

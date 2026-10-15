@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JorisJonkers-dev/template-go-vue/internal/server"
+	"github.com/JorisJonkers-dev/identity/internal/server"
 )
 
 func named(name string) http.Handler {

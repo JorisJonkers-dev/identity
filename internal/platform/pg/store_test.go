@@ -6,8 +6,8 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/JorisJonkers-dev/template-go-vue/internal/platform/pg"
-	"github.com/JorisJonkers-dev/template-go-vue/internal/platform/pg/pgtest"
+	"github.com/JorisJonkers-dev/identity/internal/platform/pg"
+	"github.com/JorisJonkers-dev/identity/internal/platform/pg/pgtest"
 )
 
 const unreachable = "postgres://nobody@127.0.0.1:1/none?sslmode=disable&connect_timeout=1"

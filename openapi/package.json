@@ -1,5 +1,5 @@
 {
-  "name": "@template-go-vue/openapi",
+  "name": "@identity/openapi",
   "private": true,
   "scripts": {
     "lint": "pnpm run lint:redocly && pnpm run lint:spectral",

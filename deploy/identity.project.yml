@@ -1,18 +1,19 @@
-# deploy-kit Project Intent for a Go + Vue application: one Process serving the API and the
-# embedded web app, reading the project's Postgres database. Shape follows spec/v1/examples/minimal
-# and spec/v1/examples/knowledge in JorisJonkers-dev/deploy-kit.
+# deploy-kit Project Intent for identity: one Process serving the API and the embedded web app,
+# reading the project's Postgres database.
 #
-# `template-go-vue` is a placeholder: rename it to the application (see README.md).
+# Not published yet. auth.jorisjonkers.dev is still served by the auth project (auth-api, auth-ui),
+# so composing both would refuse the duplicate host. The host moves here at the phase 1 cutover
+# (docs/adr/0006-legacy-auth-is-a-client-during-migration.md).
 
 apiVersion: intent.jorisjonkers.dev/v1
 kind: Project
 schemaVersion: 1.0.0
 
-project: template-go-vue # the namespace derives: template-go-vue-system; the database: template-go-vue_db
+project: identity # the namespace derives: identity-system; the database: identity_db
 owner: joris
 
 applications:
-  - id: template-go-vue
+  - id: identity
     # The binary applies its goose migrations at startup (db/migrations), so it holds the owner
     # role and startupBudget covers the migration.
     migration: self
@@ -20,18 +21,18 @@ applications:
     # No observability block: the template serves no /metrics yet.
     exposure:
       - name: public
-        host: template-go-vue.jorisjonkers.dev # the full FQDN, authored; replace on rename
+        host: auth.jorisjonkers.dev # the Issuer's host (docs/adr/0001-build-on-zitadel-oidc.md)
         # The API requires the identity the platform's forward-auth puts on every request
         # (X-User-Id, openapi/v1/openapi.yaml), so the whole host sits behind it.
         audience: authenticated
         contentPolicy: strict
         routes:
-          - { path: /, match: prefix, process: template-go-vue, surface: http }
+          - { path: /, match: prefix, process: identity, surface: http }
 
     processes:
-      - name: template-go-vue
+      - name: identity
         lifecycle: application
-        image: template-go-vue # an alias; the lock resolves digest, uid and gid
+        image: identity # an alias; the lock resolves digest, uid and gid
         runtime: none # a static Go binary needs no Runtime Profile
 
         provides:

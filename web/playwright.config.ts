@@ -17,7 +17,7 @@ export default defineConfig({
     { name: 'phone', use: { ...devices['Pixel 7'] } },
   ],
   webServer: {
-    command: '../bin/template-go-vue',
+    command: '../bin/identity',
     url: `${origin}/readyz`,
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,

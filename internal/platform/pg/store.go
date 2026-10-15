@@ -11,8 +11,8 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib" // registers the "pgx" database/sql driver goose runs on
 	"github.com/pressly/goose/v3"
 
-	"github.com/JorisJonkers-dev/template-go-vue/db"
-	"github.com/JorisJonkers-dev/template-go-vue/internal/platform/pg/queries"
+	"github.com/JorisJonkers-dev/identity/db"
+	"github.com/JorisJonkers-dev/identity/internal/platform/pg/queries"
 )
 
 // Store owns the connection pool.

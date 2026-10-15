@@ -5,7 +5,7 @@ package httpx
 import (
 	"net/http"
 
-	"github.com/JorisJonkers-dev/template-go-vue/internal/platform/oas"
+	"github.com/JorisJonkers-dev/identity/internal/platform/oas"
 )
 
 // IdentityHeader carries the caller's subject. The platform's forward-auth sets it at the edge.

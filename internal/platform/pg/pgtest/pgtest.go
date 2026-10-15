@@ -17,7 +17,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/JorisJonkers-dev/template-go-vue/internal/platform/pg"
+	"github.com/JorisJonkers-dev/identity/internal/platform/pg"
 )
 
 const (
