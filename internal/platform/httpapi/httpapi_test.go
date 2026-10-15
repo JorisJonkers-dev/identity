@@ -14,10 +14,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JorisJonkers-dev/template-go-vue/internal/notes/app"
-	"github.com/JorisJonkers-dev/template-go-vue/internal/notes/domain"
-	"github.com/JorisJonkers-dev/template-go-vue/internal/platform/httpapi"
-	"github.com/JorisJonkers-dev/template-go-vue/internal/platform/httpx"
+	"github.com/JorisJonkers-dev/identity/internal/notes/app"
+	"github.com/JorisJonkers-dev/identity/internal/notes/domain"
+	"github.com/JorisJonkers-dev/identity/internal/platform/httpapi"
+	"github.com/JorisJonkers-dev/identity/internal/platform/httpx"
 )
 
 // memory is an in-memory domain.Repository, so these tests exercise the contract, not Postgres.

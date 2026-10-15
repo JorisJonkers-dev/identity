@@ -1,4 +1,4 @@
-module github.com/JorisJonkers-dev/template-go-vue
+module github.com/JorisJonkers-dev/identity
 
 go 1.26.4
 

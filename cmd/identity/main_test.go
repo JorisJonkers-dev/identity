@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JorisJonkers-dev/template-go-vue/internal/platform/pg/pgtest"
+	"github.com/JorisJonkers-dev/identity/internal/platform/pg/pgtest"
 )
 
 func env(vars map[string]string) func(string) string {

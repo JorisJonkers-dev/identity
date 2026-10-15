@@ -1,21 +1,21 @@
-# template-go-vue
+# identity
 
-A GitHub template repository for a contract-first Go + Vue application in the
-[JorisJonkers-dev](https://github.com/JorisJonkers-dev) estate: a Go API generated from an OpenAPI
-document with ogen, a Vue SPA whose client is generated from the same document with
-`@hey-api/openapi-ts`, Postgres through goose and sqlc, and one distroless image in which the Go
-binary serves the embedded web build. A repository generated from it builds, tests and runs its
-end-to-end suite green with no edits.
+The [JorisJonkers-dev](https://github.com/JorisJonkers-dev) estate's Identity Provider: one OIDC
+sign-in for every app, at `https://auth.jorisjonkers.dev`. Apps register through a `client` block in
+[deploy-kit](https://github.com/JorisJonkers-dev/deploy-kit) instead of code changes here; people
+get access through Groups that hold App Roles; admins manage people and access in the portal. It
+replaces auth-api and auth-ui
+([workspace ADR-0020](https://github.com/JorisJonkers-dev/workspace/blob/main/docs/decisions/ADR-0020-identity-replaces-auth-api.md)).
 
-The estate's decisions on this shape live in `JorisJonkers-dev/workspace`:
-[ADR-0016](https://github.com/JorisJonkers-dev/workspace/blob/main/docs/decisions/ADR-0016-go-vue-contract-first-standard.md)
-(Go + Vue, contract first) and
-[ADR-0018](https://github.com/JorisJonkers-dev/workspace/blob/main/docs/decisions/ADR-0018-repository-templates.md)
-(the repository templates). [`docs/blueprints/`](docs/blueprints/README.md) holds the architecture the
-code follows, and says which parts the template leaves for later. A Go service without a web app
-starts from [`template-go`](https://github.com/JorisJonkers-dev/template-go) instead. Hygiene files
-(licence, security policy, `CODEOWNERS`, Renovate, editor config, release flow) come from
-[`repo-template`](https://github.com/JorisJonkers-dev/repo-template).
+**Status: bootstrapped from `template-go-vue`.** The sample `notes` context and the goose migrations
+below are still the template's and are replaced as the first features land.
+
+- [`CONTEXT.md`](CONTEXT.md): the words this repository uses, and the ones it avoids.
+- [`docs/adr/`](docs/adr/): the decisions behind sign-in, access, sessions, tokens and migrations.
+- deploy-kit [chapter 17](https://github.com/JorisJonkers-dev/deploy-kit/blob/main/spec/v1/17-sign-in.md):
+  the `client` block and the `Client` object identity reads.
+
+The template's own notes follow.
 
 ## What is in it
 
@@ -64,24 +64,3 @@ branches, functions and statements (`web/vite.config.ts`). Raise them as the sui
 **Identity.** The API requires an `X-User-Id` header, which the platform's forward-auth sets at the
 edge (`audience: authenticated` in the project file). On a local run nothing sits in front of the
 binary, so `DEV_USER` fills the header in. Never set `DEV_USER` in a deployment.
-
-## Use it
-
-1. **Create the repository** with "Use this template" on GitHub.
-2. **Rename the module.** Replace `github.com/JorisJonkers-dev/template-go-vue` with the new module
-   path in `go.mod`, `.golangci.yml` (the goimports prefix and the depguard rule),
-   `.testcoverage.yml` and every import.
-3. **Rename the application.** Rename `cmd/template-go-vue/` to `cmd/<name>`, then replace
-   `template-go-vue` in `Taskfile.yml` (`APP`), `Dockerfile`, `package.json`, `openapi/package.json`,
-   `web/package.json`, `web/index.html`, `web/playwright.config.ts`, `openapi/v1/openapi.yaml`,
-   `.github/workflows/ci.yml` and `release.yml`.
-4. **Rename the project file.** Move `deploy/template-go-vue.project.yml` to
-   `deploy/<name>.project.yml` and change `project`, `owner`, the Application `id`, the Process
-   `name` and `image`, and the host.
-5. **Reset release state**: delete `CHANGELOG.md` if present and keep `.release-please-manifest.json`
-   at `0.0.0`.
-6. `mise install && task check && task e2e`.
-
-Ruleset and project boarding are described in [`CONTRIBUTING.md`](CONTRIBUTING.md) and
-[`VERSIONING.md`](VERSIONING.md); `add-to-project.yml` should be deleted in a private repository,
-as its header explains.

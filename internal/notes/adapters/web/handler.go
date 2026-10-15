@@ -7,9 +7,9 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/JorisJonkers-dev/template-go-vue/internal/notes/domain"
-	"github.com/JorisJonkers-dev/template-go-vue/internal/platform/httpx"
-	"github.com/JorisJonkers-dev/template-go-vue/internal/platform/oas"
+	"github.com/JorisJonkers-dev/identity/internal/notes/domain"
+	"github.com/JorisJonkers-dev/identity/internal/platform/httpx"
+	"github.com/JorisJonkers-dev/identity/internal/platform/oas"
 )
 
 // UseCases is what the adapter needs from the application layer.

@@ -50,4 +50,4 @@ jobs:
       contents: read
     steps:
       # The GitHub Release is the artifact; add image publishing here when the service deploys.
-      - run: echo 'Released template-go-vue at ${{ needs.release-please.outputs.tag_name }}'
+      - run: echo 'Released identity at ${{ needs.release-please.outputs.tag_name }}'

@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JorisJonkers-dev/template-go-vue/internal/notes/app"
-	"github.com/JorisJonkers-dev/template-go-vue/internal/notes/domain"
+	"github.com/JorisJonkers-dev/identity/internal/notes/app"
+	"github.com/JorisJonkers-dev/identity/internal/notes/domain"
 )
 
 // memory is an in-memory domain.Repository; it records the last limit it was asked for.

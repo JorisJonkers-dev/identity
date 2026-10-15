@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/JorisJonkers-dev/template-go-vue/internal/platform/httpx"
+	"github.com/JorisJonkers-dev/identity/internal/platform/httpx"
 )
 
 func TestWriteProblem(t *testing.T) {

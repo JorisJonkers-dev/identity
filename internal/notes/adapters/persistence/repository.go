@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/JorisJonkers-dev/template-go-vue/internal/notes/domain"
-	"github.com/JorisJonkers-dev/template-go-vue/internal/platform/pg/queries"
+	"github.com/JorisJonkers-dev/identity/internal/notes/domain"
+	"github.com/JorisJonkers-dev/identity/internal/platform/pg/queries"
 )
 
 // Repository maps rows to domain notes, so the domain never sees a generated type.

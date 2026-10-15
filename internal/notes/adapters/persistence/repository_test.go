@@ -7,10 +7,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JorisJonkers-dev/template-go-vue/internal/notes/adapters/persistence"
-	"github.com/JorisJonkers-dev/template-go-vue/internal/notes/domain"
-	"github.com/JorisJonkers-dev/template-go-vue/internal/platform/pg"
-	"github.com/JorisJonkers-dev/template-go-vue/internal/platform/pg/pgtest"
+	"github.com/JorisJonkers-dev/identity/internal/notes/adapters/persistence"
+	"github.com/JorisJonkers-dev/identity/internal/notes/domain"
+	"github.com/JorisJonkers-dev/identity/internal/platform/pg"
+	"github.com/JorisJonkers-dev/identity/internal/platform/pg/pgtest"
 )
 
 func repository(t *testing.T) *persistence.Repository {

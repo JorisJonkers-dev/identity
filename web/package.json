@@ -1,5 +1,5 @@
 {
-  "name": "@template-go-vue/web",
+  "name": "@identity/web",
   "private": true,
   "type": "module",
   "scripts": {

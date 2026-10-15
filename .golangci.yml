@@ -42,7 +42,7 @@ linters:
               desc: the core never sees persistence; implement a port in an adapter
             - pkg: github.com/jackc/pgx
               desc: the core never sees persistence; implement a port in an adapter
-            - pkg: github.com/JorisJonkers-dev/template-go-vue/internal/platform
+            - pkg: github.com/JorisJonkers-dev/identity/internal/platform
               desc: the core never imports platform adapters or generated code
   exclusions:
     rules:
@@ -69,7 +69,7 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - "github.com/JorisJonkers-dev/template-go-vue"
+        - "github.com/JorisJonkers-dev/identity"
   exclusions:
     paths:
       - internal/platform/oas

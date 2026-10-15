@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/JorisJonkers-dev/template-go-vue/internal/platform/httpx"
+	"github.com/JorisJonkers-dev/identity/internal/platform/httpx"
 )
 
 const (

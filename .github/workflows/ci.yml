@@ -63,7 +63,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - image: template-go-vue
+          - image: identity
             args: ""
     steps:
       - uses: actions/checkout@v7

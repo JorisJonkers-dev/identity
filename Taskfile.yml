@@ -2,7 +2,7 @@
 version: "3"
 
 vars:
-  APP: template-go-vue
+  APP: identity
   # The compose Postgres (compose.yaml).
   DATABASE_URL: postgres://app:app@localhost:55432/app?sslmode=disable
 
