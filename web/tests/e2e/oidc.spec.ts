@@ -5,7 +5,7 @@ test('the Provider publishes discovery at the Issuer and its signing key', async
   expect(discovery.ok()).toBe(true)
   const config = (await discovery.json()) as { issuer: string; jwks_uri: string; authorization_endpoint: string }
   expect(config.issuer).toBe(baseURL)
-  expect(config.authorization_endpoint).toBe(`${baseURL}/oidc/authorize`)
+  expect(config.authorization_endpoint).toBe(config.issuer + '/oidc/authorize')
 
   const jwks = (await (await request.get(config.jwks_uri)).json()) as { keys: { alg: string; use: string }[] }
   expect(jwks.keys).toEqual([expect.objectContaining({ alg: 'RS256', use: 'sig' })])

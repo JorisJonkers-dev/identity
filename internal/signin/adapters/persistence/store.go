@@ -34,8 +34,8 @@ func (s *Store) RequestByID(ctx context.Context, id uuid.UUID) (domain.AuthReque
 	return toRequest(s.q.AuthRequestByID(ctx, id))
 }
 
-func (s *Store) RequestByCodeHash(ctx context.Context, codeHash []byte) (domain.AuthRequest, error) {
-	return toRequest(s.q.AuthRequestByCodeHash(ctx, codeHash))
+func (s *Store) TakeByCodeHash(ctx context.Context, codeHash []byte) (domain.AuthRequest, error) {
+	return toRequest(s.q.TakeAuthRequestByCodeHash(ctx, codeHash))
 }
 
 func (s *Store) CompleteRequest(ctx context.Context, id uuid.UUID, in domain.SignIn) (bool, error) {

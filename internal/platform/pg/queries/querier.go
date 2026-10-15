@@ -11,7 +11,6 @@ import (
 )
 
 type Querier interface {
-	AuthRequestByCodeHash(ctx context.Context, codeHash []byte) (AuthRequest, error)
 	AuthRequestByID(ctx context.Context, id uuid.UUID) (AuthRequest, error)
 	// Records who signed in, once: a request already completed keeps its first User.
 	CompleteAuthRequest(ctx context.Context, arg CompleteAuthRequestParams) (int64, error)
@@ -32,6 +31,9 @@ type Querier interface {
 	SaveAuthCode(ctx context.Context, arg SaveAuthCodeParams) (int64, error)
 	SessionByHash(ctx context.Context, tokenHash []byte) (SessionByHashRow, error)
 	SignupByHash(ctx context.Context, tokenHash []byte) (SignupByHashRow, error)
+	// Redeeming a code removes its request in the same statement, so two exchanges racing with one
+	// code cannot both get tokens.
+	TakeAuthRequestByCodeHash(ctx context.Context, codeHash []byte) (AuthRequest, error)
 	TouchSession(ctx context.Context, arg TouchSessionParams) error
 	UpdateUserName(ctx context.Context, arg UpdateUserNameParams) error
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error

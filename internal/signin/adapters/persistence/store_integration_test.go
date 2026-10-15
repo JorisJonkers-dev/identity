@@ -83,12 +83,21 @@ func TestARequestFromStartToCode(t *testing.T) {
 	if saved, _ := s.SaveCode(ctx, r.ID, []byte("other")); saved {
 		t.Fatal("a request got a second code")
 	}
-	got, err = s.RequestByCodeHash(ctx, []byte("code-hash"))
+	got, err = s.TakeByCodeHash(ctx, []byte("code-hash"))
 	if err != nil || got.ID != r.ID || got.SignIn == nil || got.SignIn.UserID != in.UserID ||
 		got.SignIn.SessionID != in.SessionID || !got.SignIn.At.Equal(in.At) {
 		t.Fatalf("RequestByCodeHash = %+v, %v", got, err)
 	}
 
+	if _, err := s.TakeByCodeHash(ctx, []byte("code-hash")); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("a code taken twice: %v", err)
+	}
+	if _, err := s.RequestByID(ctx, r.ID); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("a taken request is still there: %v", err)
+	}
+
+	r = request()
+	_ = s.CreateRequest(ctx, r)
 	if err := s.DeleteRequest(ctx, r.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -118,5 +127,30 @@ func TestFailuresOtherThanNotFoundPassThrough(t *testing.T) {
 	cancel()
 	if _, err := s.RequestByID(ctx, uuid.New()); err == nil || errors.Is(err, app.ErrNotFound) {
 		t.Fatalf("a cancelled query: %v", err)
+	}
+}
+
+func TestOnlyOneOfTwoRacingExchangesTakesACode(t *testing.T) {
+	ctx := context.Background()
+	s, pool := open(t)
+	for range 20 {
+		r := request()
+		_ = s.CreateRequest(ctx, r)
+		userID, sessionID := session(t, pool)
+		_, _ = s.CompleteRequest(ctx, r.ID, domain.SignIn{UserID: userID, SessionID: sessionID, At: t0})
+		hash := []byte("race-" + r.ID.String())
+		_, _ = s.SaveCode(ctx, r.ID, hash)
+
+		taken := make(chan error, 2)
+		for range 2 {
+			go func() {
+				_, err := s.TakeByCodeHash(ctx, hash)
+				taken <- err
+			}()
+		}
+		first, second := <-taken, <-taken
+		if (first == nil) == (second == nil) {
+			t.Fatalf("two exchanges with one code: %v and %v", first, second)
+		}
 	}
 }

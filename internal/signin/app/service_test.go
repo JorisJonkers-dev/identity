@@ -44,12 +44,15 @@ func (r *requests) RequestByID(_ context.Context, id uuid.UUID) (domain.AuthRequ
 	return req, nil
 }
 
-func (r *requests) RequestByCodeHash(ctx context.Context, h []byte) (domain.AuthRequest, error) {
+func (r *requests) TakeByCodeHash(ctx context.Context, h []byte) (domain.AuthRequest, error) {
 	id, ok := r.code[string(h)]
 	if !ok {
 		return domain.AuthRequest{}, app.ErrNotFound
 	}
-	return r.RequestByID(ctx, id)
+	req, err := r.RequestByID(ctx, id)
+	delete(r.byID, id)
+	delete(r.code, string(h))
+	return req, err
 }
 
 func (r *requests) CompleteRequest(_ context.Context, id uuid.UUID, s domain.SignIn) (bool, error) {
@@ -241,14 +244,23 @@ func TestACodeIsStoredHashedAndIssuedOnce(t *testing.T) {
 			t.Fatal("the code is stored as it is")
 		}
 	}
-	if got, err := f.RequestByCode(ctx, "the-code"); err != nil || got.ID != r.ID {
-		t.Fatalf("RequestByCode = %+v, %v", got, err)
+	if got, err := f.Redeem(ctx, "the-code"); err != nil || got.ID != r.ID {
+		t.Fatalf("Redeem = %+v, %v", got, err)
 	}
+	if _, err := f.Redeem(ctx, "the-code"); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("a code redeemed twice: %v", err)
+	}
+	if _, err := f.Request(ctx, r.ID); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("a redeemed request is still there: %v", err)
+	}
+	if _, err := f.Redeem(ctx, "wrong"); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("a wrong code: %v", err)
+	}
+	r = f.started(t)
+	_ = f.Complete(ctx, r.ID, "tok")
+	_ = f.SaveCode(ctx, r.ID, "first")
 	if err := f.SaveCode(ctx, r.ID, "another"); !errors.Is(err, app.ErrNotFound) {
 		t.Fatalf("a second code: %v", err)
-	}
-	if _, err := f.RequestByCode(ctx, "wrong"); !errors.Is(err, app.ErrNotFound) {
-		t.Fatalf("a wrong code: %v", err)
 	}
 	f.requests.fail["SaveCode"] = errBoom
 	if err := f.SaveCode(ctx, r.ID, "x"); !errors.Is(err, errBoom) {
@@ -257,7 +269,7 @@ func TestACodeIsStoredHashedAndIssuedOnce(t *testing.T) {
 	if err := f.Finish(ctx, r.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.RequestByCode(ctx, "the-code"); !errors.Is(err, app.ErrNotFound) {
+	if _, err := f.Redeem(ctx, "first"); !errors.Is(err, app.ErrNotFound) {
 		t.Fatalf("a finished request: %v", err)
 	}
 }

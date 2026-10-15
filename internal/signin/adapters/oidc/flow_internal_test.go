@@ -20,6 +20,7 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 
 	"github.com/JorisJonkers-dev/identity/internal/signin/app"
+	"github.com/JorisJonkers-dev/identity/internal/signin/domain"
 )
 
 var t0 = time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC)
@@ -30,9 +31,17 @@ const cookieName = "__Host-identity_session"
 type env struct {
 	issuer   string
 	session  string
+	cookies  map[string]string // what the server set in this browser
 	requests *requests
 	accounts *accounts
 	browser  *http.Client
+}
+
+// elsewhere is another browser holding the same session, as a victim lured to a link would.
+func (e *env) elsewhere() *env {
+	other := *e
+	other.cookies = map[string]string{}
+	return &other
 }
 
 func newEnv(t *testing.T) *env {
@@ -58,6 +67,7 @@ func serve(t *testing.T, requests app.Requests, accounts app.Accounts, session s
 	return &env{
 		issuer:  srv.URL,
 		session: session,
+		cookies: map[string]string{},
 		browser: &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
 			return http.ErrUseLastResponse
 		}},
@@ -77,8 +87,11 @@ func (e *env) get(t *testing.T, target string, signedIn bool) page {
 		target = e.issuer + target
 	}
 	req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, target, nil)
+	for name, value := range e.cookies {
+		req.AddCookie(&http.Cookie{Name: name, Value: value}) //nolint:gosec // a request's cookie carries no attributes
+	}
 	if signedIn {
-		req.Header.Set("Cookie", cookieName+"="+e.session)
+		req.AddCookie(&http.Cookie{Name: cookieName, Value: e.session}) //nolint:gosec // as above
 	}
 	return e.do(t, req)
 }
@@ -90,6 +103,13 @@ func (e *env) do(t *testing.T, req *http.Request) page {
 		t.Fatal(err)
 	}
 	defer func() { _ = res.Body.Close() }()
+	for _, c := range res.Cookies() {
+		if c.MaxAge < 0 {
+			delete(e.cookies, c.Name)
+		} else {
+			e.cookies[c.Name] = c.Value
+		}
+	}
 	body, _ := io.ReadAll(res.Body)
 	return page{status: res.StatusCode, header: res.Header, body: body}
 }
@@ -294,8 +314,44 @@ func TestTheLoginPageRefusesWhatItCannotComplete(t *testing.T) {
 		}
 	}
 	login := e.loginURL(t, authorizeQuery("spa", "https://spa.test/cb", "v"))
+	gone := e.loginURL(t, authorizeQuery("spa", "https://spa.test/cb", "v"))
+	e.requests.byID = map[uuid.UUID]domain.AuthRequest{}
+	if res := e.get(t, gone, true); res.status != http.StatusBadRequest || !strings.Contains(string(res.body), "expired") {
+		t.Fatalf("an expired request = %d %s", res.status, res.body)
+	}
+	e.requests.byID[uuid.MustParse(strings.TrimPrefix(login, loginPath+"?authRequestID="))] = domain.AuthRequest{ExpiresAt: time.Now().Add(time.Hour)}
+	e.cookies[bindingCookie] = strings.TrimPrefix(login, loginPath+"?authRequestID=")
 	e.requests.fail = errBoom
 	if res := e.get(t, login, true); res.status != http.StatusInternalServerError {
 		t.Fatalf("a failing store = %d", res.status)
+	}
+}
+
+func TestARequestCompletesOnlyInTheBrowserThatStartedIt(t *testing.T) {
+	attacker := newEnv(t)
+	login := attacker.loginURL(t, authorizeQuery("spa", "https://spa.test/cb", "a-verifier-of-at-least-forty-three-characters-long"))
+	id := strings.TrimPrefix(login, loginPath+"?authRequestID=")
+
+	victim := attacker.elsewhere()
+	if res := victim.get(t, login, true); res.status != http.StatusBadRequest {
+		t.Fatalf("a request started elsewhere was completed with this browser's session: %d %s", res.status, res.header.Get("Location"))
+	}
+	if r, _ := attacker.requests.RequestByID(t.Context(), uuid.MustParse(id)); r.SignIn != nil {
+		t.Fatal("the request was completed")
+	}
+
+	// Even a completed request gives its code only to the browser that started it.
+	callback := redirect(t, attacker.get(t, login, true), http.StatusSeeOther, attacker.issuer+"/oidc/authorize/callback?id=")
+	if res := victim.get(t, callback, false); res.status != http.StatusBadRequest {
+		t.Fatalf("another browser fetched the code: %d %s", res.status, res.header.Get("Location"))
+	}
+	for _, wrong := range []string{"/oidc/authorize/callback?id=" + uuid.NewString(), "/oidc/authorize/callback"} {
+		if res := attacker.get(t, wrong, false); res.status != http.StatusBadRequest {
+			t.Fatalf("%s with a binding for another request = %d", wrong, res.status)
+		}
+	}
+	redirect(t, attacker.get(t, callback, false), http.StatusFound, "https://spa.test/cb?")
+	if _, bound := attacker.cookies[bindingCookie]; bound {
+		t.Fatal("the binding outlived the callback")
 	}
 }

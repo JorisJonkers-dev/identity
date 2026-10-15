@@ -60,10 +60,14 @@ func (r *requests) get(id uuid.UUID) (domain.AuthRequest, error) {
 	return req, nil
 }
 
-func (r *requests) RequestByCodeHash(_ context.Context, h []byte) (domain.AuthRequest, error) {
+func (r *requests) TakeByCodeHash(_ context.Context, h []byte) (domain.AuthRequest, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return r.get(r.code[string(h)])
+	id := r.code[string(h)]
+	req, err := r.get(id)
+	delete(r.byID, id)
+	delete(r.code, string(h))
+	return req, err
 }
 
 func (r *requests) CompleteRequest(_ context.Context, id uuid.UUID, s domain.SignIn) (bool, error) {

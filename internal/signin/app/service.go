@@ -29,7 +29,8 @@ var (
 type Requests interface {
 	CreateRequest(ctx context.Context, r domain.AuthRequest) error
 	RequestByID(ctx context.Context, id uuid.UUID) (domain.AuthRequest, error)
-	RequestByCodeHash(ctx context.Context, codeHash []byte) (domain.AuthRequest, error)
+	// TakeByCodeHash removes and returns the request a code was issued for, atomically.
+	TakeByCodeHash(ctx context.Context, codeHash []byte) (domain.AuthRequest, error)
 	// CompleteRequest records s on a request no one has completed yet, reporting whether it did.
 	CompleteRequest(ctx context.Context, id uuid.UUID, s domain.SignIn) (bool, error)
 	// SaveCode records the code of a completed request that has none yet, reporting whether it did.
@@ -90,9 +91,10 @@ func (s *Service) Request(ctx context.Context, id uuid.UUID) (domain.AuthRequest
 	return s.live(s.requests.RequestByID(ctx, id))
 }
 
-// RequestByCode returns the unexpired request a code was issued for.
-func (s *Service) RequestByCode(ctx context.Context, code string) (domain.AuthRequest, error) {
-	return s.live(s.requests.RequestByCodeHash(ctx, hashOf(code)))
+// Redeem spends a code: it returns the unexpired request the code was issued for, and no later
+// call with that code finds it. A failed exchange spends the code too.
+func (s *Service) Redeem(ctx context.Context, code string) (domain.AuthRequest, error) {
+	return s.live(s.requests.TakeByCodeHash(ctx, hashOf(code)))
 }
 
 func (s *Service) live(r domain.AuthRequest, err error) (domain.AuthRequest, error) {

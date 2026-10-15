@@ -12,34 +12,6 @@ import (
 	"github.com/google/uuid"
 )
 
-const authRequestByCodeHash = `-- name: AuthRequestByCodeHash :one
-SELECT id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode, code_challenge, code_challenge_method, created_at, expires_at, user_id, session_id, auth_time, code_hash FROM auth_requests WHERE code_hash = $1
-`
-
-func (q *Queries) AuthRequestByCodeHash(ctx context.Context, codeHash []byte) (AuthRequest, error) {
-	row := q.db.QueryRow(ctx, authRequestByCodeHash, codeHash)
-	var i AuthRequest
-	err := row.Scan(
-		&i.ID,
-		&i.ClientID,
-		&i.RedirectUri,
-		&i.Scopes,
-		&i.State,
-		&i.Nonce,
-		&i.ResponseType,
-		&i.ResponseMode,
-		&i.CodeChallenge,
-		&i.CodeChallengeMethod,
-		&i.CreatedAt,
-		&i.ExpiresAt,
-		&i.UserID,
-		&i.SessionID,
-		&i.AuthTime,
-		&i.CodeHash,
-	)
-	return i, err
-}
-
 const authRequestByID = `-- name: AuthRequestByID :one
 SELECT id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode, code_challenge, code_challenge_method, created_at, expires_at, user_id, session_id, auth_time, code_hash FROM auth_requests WHERE id = $1
 `
@@ -157,4 +129,34 @@ func (q *Queries) SaveAuthCode(ctx context.Context, arg SaveAuthCodeParams) (int
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const takeAuthRequestByCodeHash = `-- name: TakeAuthRequestByCodeHash :one
+DELETE FROM auth_requests WHERE code_hash = $1 RETURNING id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode, code_challenge, code_challenge_method, created_at, expires_at, user_id, session_id, auth_time, code_hash
+`
+
+// Redeeming a code removes its request in the same statement, so two exchanges racing with one
+// code cannot both get tokens.
+func (q *Queries) TakeAuthRequestByCodeHash(ctx context.Context, codeHash []byte) (AuthRequest, error) {
+	row := q.db.QueryRow(ctx, takeAuthRequestByCodeHash, codeHash)
+	var i AuthRequest
+	err := row.Scan(
+		&i.ID,
+		&i.ClientID,
+		&i.RedirectUri,
+		&i.Scopes,
+		&i.State,
+		&i.Nonce,
+		&i.ResponseType,
+		&i.ResponseMode,
+		&i.CodeChallenge,
+		&i.CodeChallengeMethod,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.UserID,
+		&i.SessionID,
+		&i.AuthTime,
+		&i.CodeHash,
+	)
+	return i, err
 }

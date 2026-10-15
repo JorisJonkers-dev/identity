@@ -71,7 +71,7 @@ func (s *storage) AuthRequestByID(ctx context.Context, id string) (op.AuthReques
 }
 
 func (s *storage) AuthRequestByCode(ctx context.Context, code string) (op.AuthRequest, error) {
-	r, err := s.svc.RequestByCode(ctx, code)
+	r, err := s.svc.Redeem(ctx, code)
 	if err != nil {
 		return nil, s.fail(ctx, err)
 	}
