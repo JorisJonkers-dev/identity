@@ -1,9 +1,9 @@
-// Package db embeds the SQL migrations, so the binary migrates its own database at startup.
+// Package db embeds the Liquibase changelog, so tests can hand it to liquibase-runner.
 package db
 
 import "embed"
 
-// Migrations holds the goose migrations, applied in file-name order.
+// Changelog holds changelog/, the tree the migration image copies to /liquibase/changelog.
 //
-//go:embed migrations/*.sql
-var Migrations embed.FS
+//go:embed changelog
+var Changelog embed.FS

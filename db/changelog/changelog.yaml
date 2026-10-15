@@ -1,0 +1,7 @@
+# The root changelog liquibase-runner applies (docs/adr/0010). Every changeset is recorded under
+# this file name, so it never moves. One file per change beside it, included in order. The
+# directory stays flat: the tests copy it into the runner file by file.
+databaseChangeLog:
+  - include:
+      file: 0001-notes.yaml
+      relativeToChangelogFile: true

@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// MaxTextLength is the longest note, in characters. db/migrations holds the same rule as a CHECK.
+// MaxTextLength is the longest note, in characters. db/changelog holds the same rule as a CHECK.
 const MaxTextLength = 500
 
 // ErrInvalidText is returned for text that is empty after trimming, or longer than MaxTextLength.

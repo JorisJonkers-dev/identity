@@ -7,7 +7,7 @@ here from [`JorisJonkers-dev/grimoire`](https://github.com/JorisJonkers-dev/grim
 
 | Blueprint | Used for |
 |---|---|
-| [go-api.md](go-api.md) | the Go module: hexagonal API, spec-first OpenAPI (ogen), sqlc, goose |
+| [go-api.md](go-api.md) | the Go module: hexagonal API, spec-first OpenAPI (ogen), sqlc, Liquibase through liquibase-runner |
 | [vue-ts-spa.md](vue-ts-spa.md) | `web/`: Vue 3 + TypeScript SPA with a generated, validated client |
 
 Rails, Rust, .NET and Spring/Kotlin variants were evaluated for grimoire and not chosen

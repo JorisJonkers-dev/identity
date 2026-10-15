@@ -1,8 +1,9 @@
-# Typed SQL (docs/blueprints/go-api.md §8.3): goose migrations are the schema, db/queries the SQL.
+# Typed SQL (docs/blueprints/go-api.md §8.3): db/schema.sql, generated from the Liquibase changelog
+# by `task gen`, is the schema; db/queries the SQL.
 version: "2"
 sql:
   - engine: postgresql
-    schema: db/migrations
+    schema: db/schema.sql
     queries: db/queries
     gen:
       go:
@@ -13,6 +14,8 @@ sql:
         emit_empty_slices: true
         overrides:
           - db_type: timestamptz
+            go_type: time.Time
+          - db_type: pg_catalog.timestamptz # how pg_dump spells it in db/schema.sql
             go_type: time.Time
           - db_type: uuid
             go_type: github.com/google/uuid.UUID

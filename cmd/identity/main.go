@@ -1,5 +1,5 @@
-// Command identity serves the API and the embedded web app, migrates its database at
-// startup, and drains on SIGTERM.
+// Command identity serves the API and the embedded web app, and drains on SIGTERM. It never
+// migrates its database: the identity-migration image does, before it starts (docs/adr/0010).
 //
 // Environment: DATABASE_URL (required), ADDR (default :8080), and DEV_USER, which stands in for
 // the platform's forward-auth on a local run and must never be set in a deployment.
@@ -51,9 +51,6 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 	dbURL := getenv("DATABASE_URL")
 	if dbURL == "" {
 		return errors.New("DATABASE_URL is not set")
-	}
-	if err := pg.Migrate(ctx, dbURL); err != nil {
-		return err
 	}
 	store, err := pg.Open(ctx, dbURL)
 	if err != nil {
