@@ -22,24 +22,27 @@ var (
 	ErrNotFound           = errors.New("not found")
 	ErrEmailTaken         = errors.New("email already registered")
 	ErrInvalidCredentials = errors.New("the email or the password is wrong")
-	ErrUnconfirmed        = errors.New("confirm your email first; a new link is on its way")
 	ErrInvalidToken       = errors.New("this link has expired or was already used")
 	ErrNoSession          = errors.New("not signed in")
 )
 
 const (
-	confirmationLifetime = 24 * time.Hour
+	signupLifetime  = 24 * time.Hour
 	sessionLifetime      = 30 * 24 * time.Hour
 	// A session's last use is written at most once a minute, not on every request (docs/adr/0009).
 	touchInterval = time.Minute
 	tokenBytes    = 32
 )
 
-// Confirmation is an email confirmation waiting to be used, stored by its token's hash.
-type Confirmation struct {
-	TokenHash []byte
-	UserID    uuid.UUID
-	ExpiresAt time.Time
+// Signup is a sign-up waiting for its email to be confirmed, stored by its token's hash. It holds
+// the credentials the User will have, so confirming creates exactly the account that was asked for
+// and an unconfirmed account never exists to be taken over.
+type Signup struct {
+	TokenHash    []byte
+	Email        domain.Email
+	Name         domain.Name
+	PasswordHash string
+	ExpiresAt    time.Time
 }
 
 // Session is a Single sign-on session, stored by its token's hash.
@@ -56,15 +59,15 @@ type Store interface {
 	CreateUser(ctx context.Context, u domain.User) error
 	UserByEmail(ctx context.Context, e domain.Email) (domain.User, error)
 	UserByID(ctx context.Context, id uuid.UUID) (domain.User, error)
-	ConfirmUser(ctx context.Context, id uuid.UUID, at time.Time) error
 	UpdateName(ctx context.Context, id uuid.UUID, n domain.Name) error
 	UpdatePasswordHash(ctx context.Context, id uuid.UUID, hash string) error
-	CreateConfirmation(ctx context.Context, c Confirmation) error
-	TakeConfirmation(ctx context.Context, tokenHash []byte) (Confirmation, error)
+	CreateSignup(ctx context.Context, s Signup) error
+	TakeSignup(ctx context.Context, tokenHash []byte) (Signup, error)
 	CreateSession(ctx context.Context, s Session) error
 	SessionByHash(ctx context.Context, tokenHash []byte) (Session, error)
 	TouchSession(ctx context.Context, tokenHash []byte, lastSeen, expires time.Time) error
 	DeleteSession(ctx context.Context, tokenHash []byte) error
+	DeleteOtherSessions(ctx context.Context, userID uuid.UUID, keepTokenHash []byte) error
 }
 
 // Hasher turns a password into a stored hash and checks a candidate against one.
@@ -102,8 +105,9 @@ func New(store Store, hasher Hasher, mailer Mailer, now func() time.Time, random
 	return &Service{store: store, hasher: hasher, mailer: mailer, now: now, random: random, publicURL: publicURL}
 }
 
-// SignUp registers an unconfirmed User and mails a confirmation link. It answers the same for an
-// email that is already registered, and tells that address so by mail instead.
+// SignUp waits for an email confirmation and mails the link. It answers the same for an email
+// that is already registered, and tells that address so by mail instead. No mail carries text the
+// signer-up chose: the address may not be theirs.
 func (s *Service) SignUp(ctx context.Context, rawEmail, rawName, rawPassword string) error {
 	email, err := domain.NewEmail(rawEmail)
 	if err != nil {
@@ -118,10 +122,14 @@ func (s *Service) SignUp(ctx context.Context, rawEmail, rawName, rawPassword str
 		return err
 	}
 
-	existing, err := s.store.UserByEmail(ctx, email)
-	switch {
+	switch _, err := s.store.UserByEmail(ctx, email); {
 	case err == nil:
-		return s.answerExisting(ctx, existing)
+		return s.mailer.Send(ctx, Mail{
+			To:      email.String(),
+			Subject: "You already have an account",
+			Text: "Someone, perhaps you, tried to sign up with this email address, which already has an account.\n\n" +
+				"Sign in at " + s.publicURL + "/signin\n\nIf it was not you, you can ignore this message.\n",
+		})
 	case !errors.Is(err, ErrNotFound):
 		return err
 	}
@@ -130,51 +138,26 @@ func (s *Service) SignUp(ctx context.Context, rawEmail, rawName, rawPassword str
 	if err != nil {
 		return err
 	}
-	u := domain.User{ID: uuid.New(), Email: email, Name: name, PasswordHash: hash, CreatedAt: s.now()}
-	if err := s.store.CreateUser(ctx, u); err != nil {
-		if !errors.Is(err, ErrEmailTaken) {
-			return err
-		}
-		// Another sign-up for the same email committed first: answer as for an existing User.
-		if existing, err = s.store.UserByEmail(ctx, email); err != nil {
-			return err
-		}
-		return s.answerExisting(ctx, existing)
-	}
-	return s.mailConfirmation(ctx, u)
-}
-
-func (s *Service) answerExisting(ctx context.Context, u domain.User) error {
-	if !u.Confirmed() {
-		return s.mailConfirmation(ctx, u)
-	}
-	return s.mailer.Send(ctx, Mail{
-		To:      u.Email.String(),
-		Subject: "You already have an account",
-		Text: "Someone, perhaps you, tried to sign up with this email address, which already has an account.\n\n" +
-			"Sign in at " + s.publicURL + "/signin\n\nIf it was not you, you can ignore this message.\n",
-	})
-}
-
-func (s *Service) mailConfirmation(ctx context.Context, u domain.User) error {
-	token, hash, err := s.token()
+	token, tokenHash, err := s.token()
 	if err != nil {
 		return err
 	}
-	if err := s.store.CreateConfirmation(ctx, Confirmation{TokenHash: hash, UserID: u.ID, ExpiresAt: s.now().Add(confirmationLifetime)}); err != nil {
+	signup := Signup{TokenHash: tokenHash, Email: email, Name: name, PasswordHash: hash, ExpiresAt: s.now().Add(signupLifetime)}
+	if err := s.store.CreateSignup(ctx, signup); err != nil {
 		return err
 	}
 	return s.mailer.Send(ctx, Mail{
-		To:      u.Email.String(),
+		To:      email.String(),
 		Subject: "Confirm your email",
-		Text: "Hello " + u.Name.String() + ",\n\nConfirm your email address to finish signing up:\n\n" +
-			s.publicURL + "/confirm?token=" + token + "\n\nThe link works once, for 24 hours.\n",
+		Text: "Confirm this email address to finish signing up:\n\n" + s.publicURL + "/confirm?token=" + token +
+			"\n\nThe link works once, for 24 hours. If you did not sign up, ignore this message and no account is made.\n",
 	})
 }
 
-// Confirm uses a confirmation token, once, before it expires.
+// Confirm uses a sign-up's token, once, before it expires, and creates the User it describes. A
+// second sign-up for an email already confirmed is refused like a spent link.
 func (s *Service) Confirm(ctx context.Context, token string) error {
-	c, err := s.store.TakeConfirmation(ctx, hashOf(token))
+	signup, err := s.store.TakeSignup(ctx, hashOf(token))
 	if errors.Is(err, ErrNotFound) {
 		return ErrInvalidToken
 	}
@@ -182,10 +165,14 @@ func (s *Service) Confirm(ctx context.Context, token string) error {
 		return err
 	}
 	now := s.now()
-	if !now.Before(c.ExpiresAt) {
+	if !now.Before(signup.ExpiresAt) {
 		return ErrInvalidToken
 	}
-	return s.store.ConfirmUser(ctx, c.UserID, now)
+	err = s.store.CreateUser(ctx, domain.User{ID: uuid.New(), Email: signup.Email, Name: signup.Name, PasswordHash: signup.PasswordHash, CreatedAt: now})
+	if errors.Is(err, ErrEmailTaken) {
+		return ErrInvalidToken
+	}
+	return err
 }
 
 // SignIn checks an email and a password and starts a Single sign-on session, returning its token.
@@ -211,12 +198,6 @@ func (s *Service) SignIn(ctx context.Context, rawEmail, password string) (string
 	}
 	if !ok {
 		return "", ErrInvalidCredentials
-	}
-	if !u.Confirmed() {
-		if err := s.mailConfirmation(ctx, u); err != nil {
-			return "", err
-		}
-		return "", ErrUnconfirmed
 	}
 
 	token, hash, err := s.token()
@@ -285,8 +266,9 @@ func (s *Service) Rename(ctx context.Context, id uuid.UUID, rawName string) erro
 	return s.store.UpdateName(ctx, id, name)
 }
 
-// ChangePassword replaces a User's password after checking the current one.
-func (s *Service) ChangePassword(ctx context.Context, id uuid.UUID, current, next string) error {
+// ChangePassword replaces a User's password after checking the current one, and ends every other
+// session of theirs: whoever knew the old password is signed out everywhere but here.
+func (s *Service) ChangePassword(ctx context.Context, id uuid.UUID, sessionToken, current, next string) error {
 	password, err := domain.NewPassword(next)
 	if err != nil {
 		return err
@@ -306,7 +288,10 @@ func (s *Service) ChangePassword(ctx context.Context, id uuid.UUID, current, nex
 	if err != nil {
 		return err
 	}
-	return s.store.UpdatePasswordHash(ctx, id, hash)
+	if err := s.store.UpdatePasswordHash(ctx, id, hash); err != nil {
+		return err
+	}
+	return s.store.DeleteOtherSessions(ctx, id, hashOf(sessionToken))
 }
 
 // token returns a fresh random token and the hash it is stored under.

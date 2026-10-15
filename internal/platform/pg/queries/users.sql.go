@@ -10,37 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
-
-const confirmUser = `-- name: ConfirmUser :exec
-UPDATE users SET confirmed_at = $2 WHERE id = $1 AND confirmed_at IS NULL
-`
-
-type ConfirmUserParams struct {
-	ID          uuid.UUID
-	ConfirmedAt pgtype.Timestamptz
-}
-
-func (q *Queries) ConfirmUser(ctx context.Context, arg ConfirmUserParams) error {
-	_, err := q.db.Exec(ctx, confirmUser, arg.ID, arg.ConfirmedAt)
-	return err
-}
-
-const createConfirmation = `-- name: CreateConfirmation :exec
-INSERT INTO email_confirmations (token_hash, user_id, expires_at) VALUES ($1, $2, $3)
-`
-
-type CreateConfirmationParams struct {
-	TokenHash []byte
-	UserID    uuid.UUID
-	ExpiresAt time.Time
-}
-
-func (q *Queries) CreateConfirmation(ctx context.Context, arg CreateConfirmationParams) error {
-	_, err := q.db.Exec(ctx, createConfirmation, arg.TokenHash, arg.UserID, arg.ExpiresAt)
-	return err
-}
 
 const createSession = `-- name: CreateSession :exec
 INSERT INTO sessions (token_hash, user_id, created_at, last_seen_at, expires_at) VALUES ($1, $2, $3, $3, $4)
@@ -58,6 +28,29 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) er
 		arg.TokenHash,
 		arg.UserID,
 		arg.CreatedAt,
+		arg.ExpiresAt,
+	)
+	return err
+}
+
+const createSignup = `-- name: CreateSignup :exec
+INSERT INTO signups (token_hash, email, name, password_hash, expires_at) VALUES ($1, $2, $3, $4, $5)
+`
+
+type CreateSignupParams struct {
+	TokenHash    []byte
+	Email        string
+	Name         string
+	PasswordHash string
+	ExpiresAt    time.Time
+}
+
+func (q *Queries) CreateSignup(ctx context.Context, arg CreateSignupParams) error {
+	_, err := q.db.Exec(ctx, createSignup,
+		arg.TokenHash,
+		arg.Email,
+		arg.Name,
+		arg.PasswordHash,
 		arg.ExpiresAt,
 	)
 	return err
@@ -83,6 +76,21 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 		arg.PasswordHash,
 		arg.CreatedAt,
 	)
+	return err
+}
+
+const deleteOtherSessions = `-- name: DeleteOtherSessions :exec
+DELETE FROM sessions WHERE user_id = $1 AND token_hash <> $2
+`
+
+type DeleteOtherSessionsParams struct {
+	UserID    uuid.UUID
+	TokenHash []byte
+}
+
+// Ends every session of a User but one, as changing the password does.
+func (q *Queries) DeleteOtherSessions(ctx context.Context, arg DeleteOtherSessionsParams) error {
+	_, err := q.db.Exec(ctx, deleteOtherSessions, arg.UserID, arg.TokenHash)
 	return err
 }
 
@@ -118,20 +126,27 @@ func (q *Queries) SessionByHash(ctx context.Context, tokenHash []byte) (SessionB
 	return i, err
 }
 
-const takeConfirmation = `-- name: TakeConfirmation :one
-DELETE FROM email_confirmations WHERE token_hash = $1 RETURNING user_id, expires_at
+const takeSignup = `-- name: TakeSignup :one
+DELETE FROM signups WHERE token_hash = $1 RETURNING email, name, password_hash, expires_at
 `
 
-type TakeConfirmationRow struct {
-	UserID    uuid.UUID
-	ExpiresAt time.Time
+type TakeSignupRow struct {
+	Email        string
+	Name         string
+	PasswordHash string
+	ExpiresAt    time.Time
 }
 
-// A confirmation is single use: taking it deletes it, whether or not it has expired.
-func (q *Queries) TakeConfirmation(ctx context.Context, tokenHash []byte) (TakeConfirmationRow, error) {
-	row := q.db.QueryRow(ctx, takeConfirmation, tokenHash)
-	var i TakeConfirmationRow
-	err := row.Scan(&i.UserID, &i.ExpiresAt)
+// A sign-up is confirmed once: taking it deletes it, whether or not it has expired.
+func (q *Queries) TakeSignup(ctx context.Context, tokenHash []byte) (TakeSignupRow, error) {
+	row := q.db.QueryRow(ctx, takeSignup, tokenHash)
+	var i TakeSignupRow
+	err := row.Scan(
+		&i.Email,
+		&i.Name,
+		&i.PasswordHash,
+		&i.ExpiresAt,
+	)
 	return i, err
 }
 
@@ -179,7 +194,7 @@ func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPassword
 }
 
 const userByEmail = `-- name: UserByEmail :one
-SELECT id, email, name, password_hash, confirmed_at, created_at FROM users WHERE email = $1
+SELECT id, email, name, password_hash, created_at FROM users WHERE email = $1
 `
 
 func (q *Queries) UserByEmail(ctx context.Context, email string) (User, error) {
@@ -190,14 +205,13 @@ func (q *Queries) UserByEmail(ctx context.Context, email string) (User, error) {
 		&i.Email,
 		&i.Name,
 		&i.PasswordHash,
-		&i.ConfirmedAt,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const userByID = `-- name: UserByID :one
-SELECT id, email, name, password_hash, confirmed_at, created_at FROM users WHERE id = $1
+SELECT id, email, name, password_hash, created_at FROM users WHERE id = $1
 `
 
 func (q *Queries) UserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -208,7 +222,6 @@ func (q *Queries) UserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.Email,
 		&i.Name,
 		&i.PasswordHash,
-		&i.ConfirmedAt,
 		&i.CreatedAt,
 	)
 	return i, err

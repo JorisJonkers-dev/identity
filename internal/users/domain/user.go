@@ -69,15 +69,12 @@ func NewPassword(raw string) (Password, error) {
 
 func (p Password) String() string { return p.value }
 
-// User is a person registered with the Identity Provider.
+// User is a person registered with the Identity Provider. A User exists only once their email is
+// confirmed; until then a sign-up waits on its own (docs/adr/0005).
 type User struct {
 	ID           uuid.UUID
 	Email        Email
 	Name         Name
 	PasswordHash string
-	ConfirmedAt  *time.Time
 	CreatedAt    time.Time
 }
-
-// Confirmed reports whether the User has confirmed their email, which signing in needs.
-func (u User) Confirmed() bool { return u.ConfirmedAt != nil }

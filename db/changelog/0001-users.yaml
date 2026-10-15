@@ -1,5 +1,6 @@
-# Users, the email confirmations that activate them, and their Single sign-on sessions
-# (docs/adr/0005, 0007). Tokens are stored only as SHA-256 hashes.
+# Users, the sign-ups waiting for an email confirmation, and Single sign-on sessions (docs/adr/0005,
+# 0007). A User exists only once their email is confirmed, so an unconfirmed account can never be
+# taken over. Tokens are stored only as SHA-256 hashes.
 databaseChangeLog:
   - changeSet:
       id: 0001-create-users
@@ -12,7 +13,6 @@ databaseChangeLog:
               - column: {name: email, type: text, constraints: {nullable: false, unique: true, uniqueConstraintName: users_email_key}}
               - column: {name: name, type: text, constraints: {nullable: false}}
               - column: {name: password_hash, type: text, constraints: {nullable: false}}
-              - column: {name: confirmed_at, type: timestamptz}
               - column: {name: created_at, type: timestamptz, constraints: {nullable: false}}
 
   # Integrity lives in the database too (docs/blueprints/go-api.md §8.2). Liquibase has no
@@ -31,23 +31,22 @@ databaseChangeLog:
             sql: ALTER TABLE users DROP CONSTRAINT users_email_lower, DROP CONSTRAINT users_name_length
 
   - changeSet:
-      id: 0001-create-email-confirmations
+      id: 0001-create-signups
       author: identity
       changes:
         - createTable:
-            tableName: email_confirmations
+            tableName: signups
             columns:
               - column: {name: token_hash, type: bytea, constraints: {primaryKey: true, nullable: false}}
-              - column:
-                  name: user_id
-                  type: uuid
-                  constraints: {nullable: false, foreignKeyName: email_confirmations_user_fk, references: users(id), deleteCascade: true}
+              - column: {name: email, type: text, constraints: {nullable: false}}
+              - column: {name: name, type: text, constraints: {nullable: false}}
+              - column: {name: password_hash, type: text, constraints: {nullable: false}}
               - column: {name: expires_at, type: timestamptz, constraints: {nullable: false}}
         - createIndex:
-            tableName: email_confirmations
-            indexName: email_confirmations_user_idx
+            tableName: signups
+            indexName: signups_expires_at_idx
             columns:
-              - column: {name: user_id}
+              - column: {name: expires_at}
 
   - changeSet:
       id: 0001-create-sessions

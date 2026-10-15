@@ -53,15 +53,3 @@ func TestNewPasswordBoundsByCharacters(t *testing.T) {
 		t.Fatalf("String() = %q", p.String())
 	}
 }
-
-func TestUserIsConfirmedOnlyWithAConfirmationTime(t *testing.T) {
-	var u domain.User
-	if u.Confirmed() {
-		t.Fatal("a User with no confirmation time reads as confirmed")
-	}
-	now := domain.User{}.CreatedAt
-	u.ConfirmedAt = &now
-	if !u.Confirmed() {
-		t.Fatal("a User with a confirmation time reads as unconfirmed")
-	}
-}

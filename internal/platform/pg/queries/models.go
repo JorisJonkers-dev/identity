@@ -8,14 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
-
-type EmailConfirmation struct {
-	TokenHash []byte
-	UserID    uuid.UUID
-	ExpiresAt time.Time
-}
 
 type Session struct {
 	TokenHash  []byte
@@ -25,11 +18,18 @@ type Session struct {
 	ExpiresAt  time.Time
 }
 
+type Signup struct {
+	TokenHash    []byte
+	Email        string
+	Name         string
+	PasswordHash string
+	ExpiresAt    time.Time
+}
+
 type User struct {
 	ID           uuid.UUID
 	Email        string
 	Name         string
 	PasswordHash string
-	ConfirmedAt  pgtype.Timestamptz
 	CreatedAt    time.Time
 }

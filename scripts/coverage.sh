@@ -14,7 +14,7 @@ mkdir -p "$out"
 # composition root's main() is exercised by the e2e suite.
 generated='/internal/platform/(oas|pg/queries|pg/pgtest)(/|$)'
 # What needs Postgres to run at all: only the integration bucket reaches it.
-needs_db='/(cmd/identity|internal/platform/pg)$'
+needs_db='/(cmd/identity|internal/platform/pg|internal/users/adapters/persistence)$'
 
 packages() {
   go list ./... | grep -Ev "$generated"

@@ -19,20 +19,18 @@ var t0 = time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC)
 // store is an in-memory app.Store; fail makes the named method return its error.
 type store struct {
 	users         map[uuid.UUID]domain.User
-	confirmations map[string]app.Confirmation
+	signups       map[string]app.Signup
 	sessions      map[string]app.Session
 	fail          map[string]error
-	failOnce      map[string][]error
 	touches       int
 }
 
 func newStore() *store {
 	return &store{
 		users:         map[uuid.UUID]domain.User{},
-		confirmations: map[string]app.Confirmation{},
+		signups:       map[string]app.Signup{},
 		sessions:      map[string]app.Session{},
 		fail:          map[string]error{},
-		failOnce:      map[string][]error{},
 	}
 }
 
@@ -53,10 +51,6 @@ func (s *store) UserByEmail(_ context.Context, e domain.Email) (domain.User, err
 	if err := s.fail["UserByEmail"]; err != nil {
 		return domain.User{}, err
 	}
-	if queued := s.failOnce["UserByEmail"]; len(queued) > 0 {
-		s.failOnce["UserByEmail"] = queued[1:]
-		return domain.User{}, queued[0]
-	}
 	for _, u := range s.users {
 		if u.Email == e {
 			return u, nil
@@ -74,16 +68,6 @@ func (s *store) UserByID(_ context.Context, id uuid.UUID) (domain.User, error) {
 		return domain.User{}, app.ErrNotFound
 	}
 	return u, nil
-}
-
-func (s *store) ConfirmUser(_ context.Context, id uuid.UUID, at time.Time) error {
-	if err := s.fail["ConfirmUser"]; err != nil {
-		return err
-	}
-	u := s.users[id]
-	u.ConfirmedAt = &at
-	s.users[id] = u
-	return nil
 }
 
 func (s *store) UpdateName(_ context.Context, id uuid.UUID, n domain.Name) error {
@@ -106,24 +90,24 @@ func (s *store) UpdatePasswordHash(_ context.Context, id uuid.UUID, hash string)
 	return nil
 }
 
-func (s *store) CreateConfirmation(_ context.Context, c app.Confirmation) error {
-	if err := s.fail["CreateConfirmation"]; err != nil {
+func (s *store) CreateSignup(_ context.Context, su app.Signup) error {
+	if err := s.fail["CreateSignup"]; err != nil {
 		return err
 	}
-	s.confirmations[string(c.TokenHash)] = c
+	s.signups[string(su.TokenHash)] = su
 	return nil
 }
 
-func (s *store) TakeConfirmation(_ context.Context, hash []byte) (app.Confirmation, error) {
-	if err := s.fail["TakeConfirmation"]; err != nil {
-		return app.Confirmation{}, err
+func (s *store) TakeSignup(_ context.Context, hash []byte) (app.Signup, error) {
+	if err := s.fail["TakeSignup"]; err != nil {
+		return app.Signup{}, err
 	}
-	c, ok := s.confirmations[string(hash)]
+	su, ok := s.signups[string(hash)]
 	if !ok {
-		return app.Confirmation{}, app.ErrNotFound
+		return app.Signup{}, app.ErrNotFound
 	}
-	delete(s.confirmations, string(hash))
-	return c, nil
+	delete(s.signups, string(hash))
+	return su, nil
 }
 
 func (s *store) CreateSession(_ context.Context, sess app.Session) error {
@@ -161,6 +145,18 @@ func (s *store) DeleteSession(_ context.Context, hash []byte) error {
 		return err
 	}
 	delete(s.sessions, string(hash))
+	return nil
+}
+
+func (s *store) DeleteOtherSessions(_ context.Context, userID uuid.UUID, keep []byte) error {
+	if err := s.fail["DeleteOtherSessions"]; err != nil {
+		return err
+	}
+	for k, sess := range s.sessions {
+		if sess.UserID == userID && k != string(keep) {
+			delete(s.sessions, k)
+		}
+	}
 	return nil
 }
 
@@ -248,31 +244,81 @@ func (f *fixture) signedUp(t *testing.T, email string) uuid.UUID {
 		t.Fatal(err)
 	}
 	e, _ := domain.NewEmail(email)
-	u, _ := f.store.UserByEmail(ctx, e)
+	u, err := f.store.UserByEmail(ctx, e)
+	if err != nil {
+		t.Fatal(err)
+	}
 	return u.ID
 }
 
 const pw = "correct horse battery"
 
-func TestSignUpStoresAnUnconfirmedUserAndMailsALink(t *testing.T) {
+func TestSignUpWaitsForConfirmationAndMailsALinkWithNoChosenText(t *testing.T) {
 	f := newFixture()
-	if err := f.SignUp(context.Background(), " Ada@Example.org ", " Ada ", pw); err != nil {
+	if err := f.SignUp(context.Background(), " Ada@Example.org ", "Ada <a href=evil>", pw); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.store.users) != 0 {
+		t.Fatal("a User exists before their email is confirmed")
+	}
+	mail := f.mailer.sent[0]
+	if mail.To != "ada@example.org" || mail.Subject != "Confirm your email" || strings.Contains(mail.Text, "Ada") || strings.Contains(mail.Text, "evil") {
+		t.Fatalf("mail %+v carries text the signer-up chose", mail)
+	}
+	sum := sha256.Sum256([]byte(f.confirmationToken(t)))
+	su, ok := f.store.signups[string(sum[:])]
+	if !ok || su.Email.String() != "ada@example.org" || su.PasswordHash != "hash:"+pw || !su.ExpiresAt.Equal(t0.Add(24*time.Hour)) {
+		t.Fatalf("sign-up %+v stored under the token's hash: %v", su, ok)
+	}
+}
+
+func TestConfirmCreatesTheUserTheSignupDescribes(t *testing.T) {
+	f := newFixture()
+	ctx := context.Background()
+	_ = f.SignUp(ctx, "ada@example.org", " Ada ", pw)
+	token := f.confirmationToken(t)
+	f.now = t0.Add(time.Hour)
+	if err := f.Confirm(ctx, token); err != nil {
 		t.Fatal(err)
 	}
 	e, _ := domain.NewEmail("ada@example.org")
-	u, err := f.store.UserByEmail(context.Background(), e)
-	if err != nil || u.Name.String() != "Ada" || u.PasswordHash != "hash:"+pw || u.Confirmed() || !u.CreatedAt.Equal(t0) {
-		t.Fatalf("stored %+v, %v", u, err)
+	u, err := f.store.UserByEmail(ctx, e)
+	if err != nil || u.Name.String() != "Ada" || u.PasswordHash != "hash:"+pw || !u.CreatedAt.Equal(t0.Add(time.Hour)) {
+		t.Fatalf("created %+v, %v", u, err)
 	}
-	mail := f.mailer.sent[0]
-	if mail.To != "ada@example.org" || mail.Subject != "Confirm your email" {
-		t.Fatalf("mail %+v", mail)
+	if err := f.Confirm(ctx, token); !errors.Is(err, app.ErrInvalidToken) {
+		t.Fatalf("a second use: %v", err)
 	}
-	token := f.confirmationToken(t)
-	sum := sha256.Sum256([]byte(token))
-	c, ok := f.store.confirmations[string(sum[:])]
-	if !ok || c.UserID != u.ID || !c.ExpiresAt.Equal(t0.Add(24*time.Hour)) {
-		t.Fatalf("confirmation %+v stored under the token's hash: %v", c, ok)
+}
+
+// An attacker signs up with the victim's email first. The victim's own sign-up and confirmation
+// must give the victim an account with the victim's password, and nothing the attacker set.
+func TestASignupBeforeTheOwnersCannotTakeTheAccountOver(t *testing.T) {
+	f := newFixture()
+	ctx := context.Background()
+	_ = f.SignUp(ctx, "victim@example.org", "Attacker", "attacker's password")
+	_ = f.SignUp(ctx, "victim@example.org", "Victim", pw)
+	if err := f.Confirm(ctx, f.confirmationToken(t)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.SignIn(ctx, "victim@example.org", "attacker's password"); !errors.Is(err, app.ErrInvalidCredentials) {
+		t.Fatalf("the attacker's password signs in: %v", err)
+	}
+	if _, err := f.SignIn(ctx, "victim@example.org", pw); err != nil {
+		t.Fatalf("the victim's password does not: %v", err)
+	}
+}
+
+func TestASecondConfirmationForAConfirmedEmailIsRefused(t *testing.T) {
+	f := newFixture()
+	ctx := context.Background()
+	_ = f.SignUp(ctx, "ada@example.org", "Ada", pw)
+	first := f.confirmationToken(t)
+	_ = f.SignUp(ctx, "ada@example.org", "Ada", "another password!")
+	second := f.confirmationToken(t)
+	_ = f.Confirm(ctx, first)
+	if err := f.Confirm(ctx, second); !errors.Is(err, app.ErrInvalidToken) {
+		t.Fatalf("confirming a second sign-up for a confirmed email: %v", err)
 	}
 }
 
@@ -291,65 +337,26 @@ func TestSignUpRefusesWhatTheDomainRefuses(t *testing.T) {
 			t.Errorf("%s: err = %v, want %v", name, err, c.want)
 		}
 	}
-	if len(f.store.users) != 0 || len(f.mailer.sent) != 0 {
+	if len(f.store.signups) != 0 || len(f.mailer.sent) != 0 {
 		t.Fatal("a refused sign-up stored or mailed something")
 	}
 }
 
-func TestSignUpAgainWhileUnconfirmedMailsANewLink(t *testing.T) {
-	f := newFixture()
-	ctx := context.Background()
-	_ = f.SignUp(ctx, "ada@example.org", "Ada", pw)
-	first := f.confirmationToken(t)
-	if err := f.SignUp(ctx, "ada@example.org", "Someone Else", "another password!"); err != nil {
-		t.Fatal(err)
-	}
-	if second := f.confirmationToken(t); second == first || len(f.store.users) != 1 {
-		t.Fatalf("second sign-up: token %q (first %q), %d users", second, first, len(f.store.users))
-	}
-	for _, u := range f.store.users {
-		if u.Name.String() != "Ada" || u.PasswordHash != "hash:"+pw {
-			t.Fatalf("a second sign-up changed the account: %+v", u)
-		}
-	}
-}
-
-func TestSignUpForAConfirmedEmailSaysSoByMailOnly(t *testing.T) {
+func TestSignUpForARegisteredEmailSaysSoByMailOnly(t *testing.T) {
 	f := newFixture()
 	f.signedUp(t, "ada@example.org")
 	if err := f.SignUp(context.Background(), "ada@example.org", "Mallory", pw); err != nil {
 		t.Fatalf("err = %v; a sign-up must not reveal that the email is registered", err)
 	}
 	last := f.mailer.sent[len(f.mailer.sent)-1]
-	if last.Subject != "You already have an account" || !strings.Contains(last.Text, "https://auth.test/signin") {
+	if last.Subject != "You already have an account" || !strings.Contains(last.Text, "https://auth.test/signin") || strings.Contains(last.Text, "Mallory") {
 		t.Fatalf("mail %+v", last)
-	}
-}
-
-func TestSignUpRaceForTheSameEmailFallsBackToTheExistingUser(t *testing.T) {
-	f := newFixture()
-	ctx := context.Background()
-	_ = f.SignUp(ctx, "ada@example.org", "Ada", pw)
-	first := f.confirmationToken(t)
-	// The lookup misses, as if the other request had not committed yet, and the insert collides.
-	f.store.failOnce["UserByEmail"] = []error{app.ErrNotFound}
-	if err := f.SignUp(ctx, "ada@example.org", "Ada", pw); err != nil {
-		t.Fatal(err)
-	}
-	if second := f.confirmationToken(t); second == first || len(f.store.users) != 1 {
-		t.Fatalf("after the collision: token %q (first %q), %d users", second, first, len(f.store.users))
-	}
-
-	boom := errors.New("boom")
-	f.store.failOnce["UserByEmail"] = []error{app.ErrNotFound, boom}
-	if err := f.SignUp(ctx, "ada@example.org", "Ada", pw); !errors.Is(err, boom) {
-		t.Fatalf("the lookup after a collision failing: err = %v", err)
 	}
 }
 
 func TestSignUpReportsStoreHasherAndMailerFailures(t *testing.T) {
 	boom := errors.New("boom")
-	for _, method := range []string{"UserByEmail", "CreateUser", "CreateConfirmation"} {
+	for _, method := range []string{"UserByEmail", "CreateSignup"} {
 		f := newFixture()
 		f.store.fail[method] = boom
 		if err := f.SignUp(context.Background(), "a@b.c", "Ada", pw); !errors.Is(err, boom) {
@@ -366,43 +373,25 @@ func TestSignUpReportsStoreHasherAndMailerFailures(t *testing.T) {
 	if err := f.SignUp(context.Background(), "a@b.c", "Ada", pw); !errors.Is(err, boom) {
 		t.Errorf("mailer failing: err = %v", err)
 	}
-	f = newFixture()
-	f.signedUp(t, "a@b.c")
-	f.mailer.fail = boom
-	if err := f.SignUp(context.Background(), "a@b.c", "Ada", pw); !errors.Is(err, boom) {
-		t.Errorf("mailer failing for a confirmed email: err = %v", err)
-	}
 }
 
 func TestConfirmIsSingleUseAndExpires(t *testing.T) {
 	f := newFixture()
 	ctx := context.Background()
-	_ = f.SignUp(ctx, "ada@example.org", "Ada", pw)
-	token := f.confirmationToken(t)
-	f.now = t0.Add(time.Hour)
-	if err := f.Confirm(ctx, token); err != nil {
-		t.Fatal(err)
-	}
-	for _, u := range f.store.users {
-		if u.ConfirmedAt == nil || !u.ConfirmedAt.Equal(t0.Add(time.Hour)) {
-			t.Fatalf("confirmed at %v", u.ConfirmedAt)
-		}
-	}
-	if err := f.Confirm(ctx, token); !errors.Is(err, app.ErrInvalidToken) {
-		t.Fatalf("second use err = %v", err)
-	}
-
 	_ = f.SignUp(ctx, "late@example.org", "Late", pw)
 	late := f.confirmationToken(t)
-	f.now = f.now.Add(25 * time.Hour)
+	f.now = t0.Add(25 * time.Hour)
 	if err := f.Confirm(ctx, late); !errors.Is(err, app.ErrInvalidToken) {
 		t.Fatalf("expired token err = %v", err)
+	}
+	if err := f.Confirm(ctx, "never issued"); !errors.Is(err, app.ErrInvalidToken) {
+		t.Fatalf("unknown token err = %v", err)
 	}
 }
 
 func TestConfirmReportsStoreFailures(t *testing.T) {
 	boom := errors.New("boom")
-	for _, method := range []string{"TakeConfirmation", "ConfirmUser"} {
+	for _, method := range []string{"TakeSignup", "CreateUser"} {
 		f := newFixture()
 		_ = f.SignUp(context.Background(), "a@b.c", "Ada", pw)
 		token := f.confirmationToken(t)
@@ -448,18 +437,6 @@ func TestSignInRefusesWithOneAnswerAndOneCost(t *testing.T) {
 	}
 }
 
-func TestSignInBeforeConfirmingMailsANewLinkAndSaysSo(t *testing.T) {
-	f := newFixture()
-	_ = f.SignUp(context.Background(), "ada@example.org", "Ada", pw)
-	sent := len(f.mailer.sent)
-	if _, err := f.SignIn(context.Background(), "ada@example.org", pw); !errors.Is(err, app.ErrUnconfirmed) {
-		t.Fatalf("err = %v", err)
-	}
-	if len(f.mailer.sent) != sent+1 || len(f.store.sessions) != 0 {
-		t.Fatalf("%d new mails, %d sessions", len(f.mailer.sent)-sent, len(f.store.sessions))
-	}
-}
-
 func TestSignInReportsFailures(t *testing.T) {
 	boom := errors.New("boom")
 	for _, method := range []string{"UserByEmail", "CreateSession"} {
@@ -480,12 +457,6 @@ func TestSignInReportsFailures(t *testing.T) {
 	f.hasher.fail = boom
 	if _, err := f.SignIn(context.Background(), "nobody@b.c", pw); !errors.Is(err, boom) {
 		t.Errorf("hasher failing on the decoy check: err = %v", err)
-	}
-	f = newFixture()
-	_ = f.SignUp(context.Background(), "a@b.c", "Ada", pw)
-	f.mailer.fail = boom
-	if _, err := f.SignIn(context.Background(), "a@b.c", pw); !errors.Is(err, boom) {
-		t.Errorf("mailer failing for an unconfirmed User: err = %v", err)
 	}
 }
 
@@ -560,14 +531,22 @@ func TestProfileChanges(t *testing.T) {
 		t.Fatalf("empty name err = %v", err)
 	}
 
-	if err := f.ChangePassword(ctx, id, "wrong password!!", "a new password!"); !errors.Is(err, app.ErrInvalidCredentials) {
+	if err := f.ChangePassword(ctx, id, "", "wrong password!!", "a new password!"); !errors.Is(err, app.ErrInvalidCredentials) {
 		t.Fatalf("wrong current password err = %v", err)
 	}
-	if err := f.ChangePassword(ctx, id, pw, "short"); !errors.Is(err, domain.ErrWeakPassword) {
+	if err := f.ChangePassword(ctx, id, "", pw, "short"); !errors.Is(err, domain.ErrWeakPassword) {
 		t.Fatalf("weak new password err = %v", err)
 	}
-	if err := f.ChangePassword(ctx, id, pw, "a new password!"); err != nil {
+	keep, _ := f.SignIn(ctx, "ada@example.org", pw)
+	other, _ := f.SignIn(ctx, "ada@example.org", pw)
+	if err := f.ChangePassword(ctx, id, keep, pw, "a new password!"); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := f.Authenticate(ctx, other); !errors.Is(err, app.ErrNoSession) {
+		t.Fatalf("another session survived the password change: %v", err)
+	}
+	if _, err := f.Authenticate(ctx, keep); err != nil {
+		t.Fatalf("the session that changed the password ended: %v", err)
 	}
 	if _, err := f.SignIn(ctx, "ada@example.org", "a new password!"); err != nil {
 		t.Fatalf("signing in with the new password: %v", err)
@@ -581,7 +560,7 @@ func TestProfileChanges(t *testing.T) {
 func TestProfileChangesReportFailures(t *testing.T) {
 	boom := errors.New("boom")
 	ctx := context.Background()
-	for _, method := range []string{"UpdateName", "UserByID", "UpdatePasswordHash"} {
+	for _, method := range []string{"UpdateName", "UserByID", "UpdatePasswordHash", "DeleteOtherSessions"} {
 		f := newFixture()
 		id := f.signedUp(t, "a@b.c")
 		f.store.fail[method] = boom
@@ -590,7 +569,7 @@ func TestProfileChangesReportFailures(t *testing.T) {
 		case "UpdateName":
 			err = f.Rename(ctx, id, "Ada")
 		default:
-			err = f.ChangePassword(ctx, id, pw, "a new password!")
+			err = f.ChangePassword(ctx, id, "", pw, "a new password!")
 		}
 		if !errors.Is(err, boom) {
 			t.Errorf("%s failing: err = %v", method, err)
@@ -599,11 +578,11 @@ func TestProfileChangesReportFailures(t *testing.T) {
 	f := newFixture()
 	id := f.signedUp(t, "a@b.c")
 	f.hasher.fail = boom
-	if err := f.ChangePassword(ctx, id, pw, "a new password!"); !errors.Is(err, boom) {
+	if err := f.ChangePassword(ctx, id, "", pw, "a new password!"); !errors.Is(err, boom) {
 		t.Errorf("hasher failing: err = %v", err)
 	}
 	f.hasher.fail, f.hasher.failHash = nil, boom
-	if err := f.ChangePassword(ctx, id, pw, "a new password!"); !errors.Is(err, boom) {
+	if err := f.ChangePassword(ctx, id, "", pw, "a new password!"); !errors.Is(err, boom) {
 		t.Errorf("hashing the new password failing: err = %v", err)
 	}
 }
