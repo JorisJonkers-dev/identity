@@ -6,11 +6,26 @@ package queries
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 )
 
 type Querier interface {
+	ConfirmUser(ctx context.Context, arg ConfirmUserParams) error
+	CreateConfirmation(ctx context.Context, arg CreateConfirmationParams) error
+	CreateSession(ctx context.Context, arg CreateSessionParams) error
+	CreateUser(ctx context.Context, arg CreateUserParams) error
+	DeleteSession(ctx context.Context, tokenHash []byte) error
 	// Readiness: the database answers a query, not only a connection.
 	Ping(ctx context.Context) (int32, error)
+	SessionByHash(ctx context.Context, tokenHash []byte) (SessionByHashRow, error)
+	// A confirmation is single use: taking it deletes it, whether or not it has expired.
+	TakeConfirmation(ctx context.Context, tokenHash []byte) (TakeConfirmationRow, error)
+	TouchSession(ctx context.Context, arg TouchSessionParams) error
+	UpdateUserName(ctx context.Context, arg UpdateUserNameParams) error
+	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
+	UserByEmail(ctx context.Context, email string) (User, error)
+	UserByID(ctx context.Context, id uuid.UUID) (User, error)
 }
 
 var _ Querier = (*Queries)(nil)

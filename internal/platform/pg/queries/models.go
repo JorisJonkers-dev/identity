@@ -3,3 +3,33 @@
 //   sqlc v1.31.1
 
 package queries
+
+import (
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
+)
+
+type EmailConfirmation struct {
+	TokenHash []byte
+	UserID    uuid.UUID
+	ExpiresAt time.Time
+}
+
+type Session struct {
+	TokenHash  []byte
+	UserID     uuid.UUID
+	CreatedAt  time.Time
+	LastSeenAt time.Time
+	ExpiresAt  time.Time
+}
+
+type User struct {
+	ID           uuid.UUID
+	Email        string
+	Name         string
+	PasswordHash string
+	ConfirmedAt  pgtype.Timestamptz
+	CreatedAt    time.Time
+}
