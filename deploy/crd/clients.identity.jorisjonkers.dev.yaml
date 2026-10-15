@@ -1,0 +1,92 @@
+# The Client kind (deploy-kit chapter 17, docs/adr/0002). deploy-kit renders one cluster-scoped
+# Client per Application with a `client` block; identity only reads them. The API server refuses an
+# object these rules refuse, so identity never sees a host outside the estate or a redirect to
+# another host.
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: clients.identity.jorisjonkers.dev
+spec:
+  group: identity.jorisjonkers.dev
+  scope: Cluster
+  names:
+    kind: Client
+    listKind: ClientList
+    plural: clients
+    singular: client
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - {name: Sign-in, type: string, jsonPath: .spec.signIn}
+        - {name: Host, type: string, jsonPath: .spec.host}
+      schema:
+        openAPIV3Schema:
+          type: object
+          required: [spec]
+          properties:
+            spec:
+              type: object
+              required: [signIn, host, roles]
+              properties:
+                signIn:
+                  type: string
+                  enum: [native, gated, token]
+                host:
+                  description: The host of the exposure the Client names, in the estate's domain.
+                  type: string
+                  maxLength: 253
+                  pattern: '^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\.)*jorisjonkers\.dev$'
+                label:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                description:
+                  type: string
+                  maxLength: 200
+                launchUrl:
+                  type: string
+                  maxLength: 2048
+                iconUrl:
+                  type: string
+                  maxLength: 2048
+                redirectUris:
+                  type: array
+                  minItems: 1
+                  maxItems: 16
+                  items:
+                    type: string
+                    maxLength: 2048
+                credential:
+                  type: string
+                  enum: [secret, pkce]
+                secretPath:
+                  type: string
+                  maxLength: 512
+                roles:
+                  description: The Client's App Roles, user first.
+                  type: array
+                  minItems: 1
+                  maxItems: 64
+                  items:
+                    type: string
+                    maxLength: 63
+                    pattern: '^[a-z][a-z0-9-]*$'
+              x-kubernetes-validations:
+                - rule: "self.roles[0] == 'user'"
+                  message: roles start with user, which every Client has
+                - rule: "!has(self.redirectUris) || self.redirectUris.all(u, u.startsWith('https://' + self.host + '/'))"
+                  message: every redirect URI is https on the Client's own host
+                - rule: "!has(self.launchUrl) || self.launchUrl.startsWith('https://' + self.host + '/')"
+                  message: the launch URL is https on the Client's own host
+                - rule: "!has(self.iconUrl) || self.iconUrl.startsWith('https://' + self.host + '/')"
+                  message: the icon URL is https on the Client's own host
+                - rule: "self.signIn != 'native' || (has(self.redirectUris) && has(self.credential))"
+                  message: a native Client has redirect URIs and a credential
+                - rule: "self.signIn == 'native' || (!has(self.redirectUris) && !has(self.credential) && !has(self.secretPath))"
+                  message: only a native Client has redirect URIs or a credential
+                - rule: "has(self.secretPath) == (has(self.credential) && self.credential == 'secret')"
+                  message: a secret Client, and only a secret Client, has a secret path
+                - rule: "has(self.label) == (self.signIn != 'token')"
+                  message: a native or gated Client has a label, a token Client none

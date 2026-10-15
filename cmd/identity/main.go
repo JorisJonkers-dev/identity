@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -19,6 +20,9 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
 
 	"github.com/JorisJonkers-dev/identity/internal/platform/httpapi"
 	"github.com/JorisJonkers-dev/identity/internal/platform/mail"
@@ -83,7 +87,11 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 	if err != nil {
 		return err
 	}
-	provider, err := oidcProvider(cfg, store, users, logger)
+	index, synced, err := watchClients(ctx, cfg, logger)
+	if err != nil {
+		return err
+	}
+	provider, err := oidcProvider(cfg, store, users, index, logger)
 	if err != nil {
 		return err
 	}
@@ -94,22 +102,47 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 		return err
 	}
 	return server.New(logger, version, server.Routes{
-		API:   api,
-		OIDC:  provider,
-		Web:   webui.Handler(web.Dist()),
-		Ready: store.Ping,
+		API:  api,
+		OIDC: provider,
+		Web:  webui.Handler(web.Dist()),
+		Ready: func(ctx context.Context) error {
+			if !synced() {
+				return errClientsNotListed
+			}
+			return store.Ping(ctx)
+		},
 	}).Serve(ctx, ln)
 }
 
-// oidcProvider is the OIDC Provider over the sign-in context. It knows no Clients until they come
-// from Kubernetes (identity#13), and signs with a key made at start-up until keys are kept
-// (identity#30).
-func oidcProvider(cfg config, store *pg.Store, users *app.Service, logger *slog.Logger) (http.Handler, error) {
+var errClientsNotListed = errors.New("the Client objects are not listed yet")
+
+// watchClients keeps an Index of the cluster's Client objects. Outside a cluster there are none, and
+// the Index stays empty.
+func watchClients(ctx context.Context, cfg config, logger *slog.Logger) (*clients.Index, func() bool, error) {
+	index := clients.NewIndex()
+	if !cfg.inCluster {
+		logger.Warn("not in a cluster: no Clients")
+		return index, func() bool { return true }, nil
+	}
+	rc, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, nil, err
+	}
+	dyn, err := dynamic.NewForConfig(rc)
+	if err != nil {
+		return nil, nil, err
+	}
+	return index, clients.Watch(ctx, dyn, index, logger), nil
+}
+
+// oidcProvider is the OIDC Provider over the sign-in context. It signs with a key made at start-up
+// until keys are kept (identity#30).
+func oidcProvider(cfg config, store *pg.Store, users *app.Service, index *clients.Index, logger *slog.Logger) (http.Handler, error) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, err
 	}
-	svc := signinapp.New(signinpersistence.New(store.Queries()), clients.Static{}, accounts.New(users), time.Now, rand.Reader)
+	svc := signinapp.New(signinpersistence.New(store.Queries()), index, accounts.New(users), time.Now, rand.Reader)
 	return signinoidc.New(signinoidc.Config{
 		Issuer:        cfg.publicURL,
 		Insecure:      strings.HasPrefix(cfg.publicURL, "http://"),
@@ -122,6 +155,8 @@ type config struct {
 	publicURL   string
 	addr        string
 	mailer      mail.SMTP
+	// inCluster is set when running in Kubernetes, the only place Client objects exist.
+	inCluster bool
 }
 
 // readConfig reads the environment, naming every required variable that is missing at once.
@@ -138,6 +173,7 @@ func readConfig(getenv func(string) string) (config, error) {
 		databaseURL: need("DATABASE_URL"),
 		publicURL:   strings.TrimRight(need("PUBLIC_URL"), "/"),
 		addr:        getenv("ADDR"),
+		inCluster:   getenv("KUBERNETES_SERVICE_HOST") != "",
 		mailer: mail.SMTP{
 			Addr: need("SMTP_ADDR"), From: need("MAIL_FROM"),
 			Username: getenv("SMTP_USERNAME"), Password: getenv("SMTP_PASSWORD"),

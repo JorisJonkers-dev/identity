@@ -19,6 +19,14 @@ func TestStartWithADatabase(t *testing.T) {
 			t.Fatalf("start with an invalid ADDR = %d, want 1", code)
 		}
 	})
+	t.Run("in a cluster it cannot read", func(t *testing.T) {
+		vars := complete()
+		vars["DATABASE_URL"], vars["ADDR"] = url, "127.0.0.1:0"
+		vars["KUBERNETES_SERVICE_HOST"], vars["KUBERNETES_SERVICE_PORT"] = "10.0.0.1", "443"
+		if code := start(t.Context(), env(vars)); code != 1 {
+			t.Fatalf("start without a service account = %d, want 1", code)
+		}
+	})
 	t.Run("serves until cancelled", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 		defer cancel()

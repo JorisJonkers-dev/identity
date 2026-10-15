@@ -10,8 +10,9 @@ replaces auth-api and auth-ui
 **Status: sign-up and OIDC sign-in.** A person signs up, confirms their email from a mailed link, signs
 in to a Single sign-on session and edits their Profile. The OIDC Provider serves discovery at the
 Issuer and the code flow under `/oidc/`, on `zitadel/oidc`; a second app signs in without a
-password while the session holds. Clients from Kubernetes, kept signing keys and access arrive with
-the following tickets. The schema moves through
+password while the session holds. Clients come from the cluster's `Client` objects, watched without
+a restart; outside a cluster there are none. Kept signing keys, Client secrets and access arrive
+with the following tickets. The schema moves through
 liquibase-runner, not goose ([0010](docs/adr/0010-migrations-run-through-liquibase-runner.md)).
 
 - [`CONTEXT.md`](CONTEXT.md): the words this repository uses, and the ones it avoids.
@@ -45,6 +46,7 @@ How the repository is laid out and worked on.
 | `Dockerfile` | Builds the web app, embeds it, ships a static binary on `distroless/static:nonroot` |
 | `.github/workflows/ci.yml`, `.github/buckets.yml` | A `changes` job decides from the buckets file which jobs a diff reaches; one job per `task check` task, `task e2e` and each image build; `Pipeline Complete`, the one required check, passes when every job passed or was not reached |
 | `.github/workflows/release.yml`, `release-please-config.json` | release-please, as in the rest of the estate |
+| `deploy/crd/` | The cluster-scoped `Client` kind (`identity.jorisjonkers.dev/v1`) deploy-kit renders, with the CEL rules the API server holds every Client to. identity needs `get`, `list` and `watch` on `clients` |
 | `deploy/identity.project.yml` | The [deploy-kit](https://github.com/JorisJonkers-dev/deploy-kit) Project Intent: one Process on the Issuer's host, a Postgres edge, the changelog. Not published until the cutover |
 
 ## The loop
