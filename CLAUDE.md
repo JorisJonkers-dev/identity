@@ -42,5 +42,8 @@ Contract-first Go + Vue from `template-go-vue`. `task check` and `task e2e` are 
 - **The schema moves only through `db/changelog/`.** liquibase-runner applies it from
   `Dockerfile.migration`; the binary never migrates. Every changeset must roll back
   ([0010](docs/adr/0010-migrations-run-through-liquibase-runner.md)). After changing it, `task gen`.
+- **CI runs only what a diff reaches.** `.github/buckets.yml` maps paths to jobs; a new file
+  type or top-level file needs a bucket (or none, to run everything) and a fixture, or the
+  `changes` job's self-test fails.
 - **Still template state.** The sample `notes` context is the template's; it is replaced as the
   first features land.
