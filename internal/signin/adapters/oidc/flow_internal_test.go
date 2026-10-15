@@ -358,7 +358,7 @@ func TestARequestCompletesOnlyInTheBrowserThatStartedIt(t *testing.T) {
 			t.Fatalf("another browser fetched the code with %s: %d %s", method, res.status, res.header.Get("Location"))
 		}
 	}
-	for _, wrong := range []string{"/oidc/authorize/callback?id=" + uuid.NewString(), "/oidc/authorize/callback"} {
+	for _, wrong := range []string{"/oidc/authorize/callback?id=" + uuid.NewString(), "/oidc/authorize/callback", "/oidc/authorize/callback?id="} {
 		if res := attacker.get(t, wrong, false); res.status != http.StatusBadRequest {
 			t.Fatalf("%s with a binding for another request = %d", wrong, res.status)
 		}
@@ -366,5 +366,28 @@ func TestARequestCompletesOnlyInTheBrowserThatStartedIt(t *testing.T) {
 	redirect(t, attacker.get(t, callback, false), http.StatusFound, "https://spa.test/cb?")
 	if _, bound := attacker.cookies[bindingCookie]; bound {
 		t.Fatal("the binding outlived the callback")
+	}
+}
+
+func TestTheCallbackServesOnlyTheRequestItChecked(t *testing.T) {
+	e := newEnv(t)
+	victimLogin := e.loginURL(t, authorizeQuery("spa", "https://spa.test/cb", "v"))
+	victimID := strings.TrimPrefix(victimLogin, loginPath+"?authRequestID=")
+	redirect(t, e.get(t, victimLogin, true), http.StatusSeeOther, e.issuer+"/oidc/authorize/callback?id=")
+
+	// The attacker holds a binding for a request of their own, and names the victim's elsewhere.
+	attacker := e.elsewhere()
+	own := strings.TrimPrefix(attacker.loginURL(t, authorizeQuery("spa", "https://spa.test/cb", "v")), loginPath+"?authRequestID=")
+	smuggled := []*http.Request{}
+	post, _ := http.NewRequestWithContext(t.Context(), http.MethodPost, e.issuer+"/oidc/authorize/callback?id="+own, strings.NewReader("id="+victimID))
+	post.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	smuggled = append(smuggled, post)
+	twice, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, e.issuer+"/oidc/authorize/callback?id="+own+"&id="+victimID, nil)
+	smuggled = append(smuggled, twice)
+	for _, req := range smuggled {
+		req.AddCookie(&http.Cookie{Name: bindingCookie, Value: attacker.cookies[bindingCookie]}) //nolint:gosec // a request's cookie carries no attributes
+		if res := attacker.do(t, req); strings.HasPrefix(res.header.Get("Location"), "https://spa.test") {
+			t.Fatalf("%s %s fetched the victim's code", req.Method, req.URL)
+		}
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -57,7 +58,7 @@ func New(cfg Config, svc *app.Service, ring *Ring, logger *slog.Logger, now func
 	l := &login{svc: svc, cookie: cfg.SessionCookie, callback: op.AuthCallbackURL(provider), logger: logger}
 	mux := http.NewServeMux()
 	mux.Handle("/oidc/authorize", bind(provider))
-	mux.Handle("/oidc/authorize/callback", bound(provider)) // every method: the library serves them all
+	mux.Handle("/oidc/authorize/callback", bound(provider)) // every method: bound refuses all but GET
 	mux.Handle("GET "+loginPath, op.NewIssuerInterceptor(provider.IssuerFromRequest).Handler(l))
 	mux.Handle("/", provider)
 	return mux, nil
@@ -82,14 +83,20 @@ func (b binder) WriteHeader(code int) {
 }
 
 // bound lets only the browser that started a request collect its code, and clears the binding.
+// The library reads the id from the whole form, body first, so it is handed a GET carrying only
+// the one id checked here.
 func bound(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !startedHere(r, r.URL.Query().Get("id")) {
+		ids := r.URL.Query()["id"]
+		if r.Method != http.MethodGet || len(ids) != 1 || !startedHere(r, ids[0]) {
 			httpx.WriteProblem(w, http.StatusBadRequest, startedElsewhere)
 			return
 		}
 		http.SetCookie(w, binding("", expireNow))
-		next.ServeHTTP(w, r)
+		checked := r.Clone(r.Context())
+		checked.URL.RawQuery = url.Values{"id": ids}.Encode()
+		checked.Form, checked.PostForm = nil, nil
+		next.ServeHTTP(w, checked)
 	})
 }
 
