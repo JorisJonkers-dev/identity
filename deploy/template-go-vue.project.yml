@@ -1,0 +1,57 @@
+# deploy-kit Project Intent for a Go + Vue application: one Process serving the API and the
+# embedded web app, reading the project's Postgres database. Shape follows spec/v1/examples/minimal
+# and spec/v1/examples/knowledge in JorisJonkers-dev/deploy-kit.
+#
+# `template-go-vue` is a placeholder: rename it to the application (see README.md).
+
+apiVersion: intent.jorisjonkers.dev/v1
+kind: Project
+schemaVersion: 1.0.0
+
+project: template-go-vue # the namespace derives: template-go-vue-system; the database: template-go-vue_db
+owner: joris
+
+applications:
+  - id: template-go-vue
+    # The binary applies its goose migrations at startup (db/migrations), so it holds the owner
+    # role and startupBudget covers the migration.
+    migration: self
+
+    # No observability block: the template serves no /metrics yet.
+    exposure:
+      - name: public
+        host: template-go-vue.jorisjonkers.dev # the full FQDN, authored; replace on rename
+        # The API requires the identity the platform's forward-auth puts on every request
+        # (X-User-Id, openapi/v1/openapi.yaml), so the whole host sits behind it.
+        audience: authenticated
+        contentPolicy: strict
+        routes:
+          - { path: /, match: prefix, process: template-go-vue, surface: http }
+
+    processes:
+      - name: template-go-vue
+        lifecycle: application
+        image: template-go-vue # an alias; the lock resolves digest, uid and gid
+        runtime: none # a static Go binary needs no Runtime Profile
+
+        provides:
+          http: 8080 # matches the default ADDR; above 1024, so no CAP_NET_BIND_SERVICE
+
+        # The edge derives the project's database and this Process's data credential.
+        dependsOn:
+          - application: platform-postgres
+            surface: postgres
+            credentials: { rotation: { tolerates: restart } } # pgxpool reads its URL once
+
+        placement:
+          memory: 96Mi
+          cpu: 50m
+
+        probes:
+          readiness: { path: /readyz, port: 8080 } # fails while Postgres does not answer
+          liveness: { path: /healthz, port: 8080 }
+
+        startupBudget: 30s # covers the migrations
+
+        # No volumes, so a continuous cutover is honourable.
+        cutover: continuous

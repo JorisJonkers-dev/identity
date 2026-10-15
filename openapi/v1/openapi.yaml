@@ -1,0 +1,169 @@
+openapi: 3.1.0
+info:
+  title: template-go-vue API
+  version: 1.0.0
+  description: >-
+    The contract the Go server (ogen) and the Vue client (@hey-api/openapi-ts) are both generated
+    from. Change this document first; `task gen` regenerates both sides and `task gen:check` fails
+    when either is stale.
+  contact:
+    name: Joris Jonkers
+    url: https://github.com/JorisJonkers-dev
+  license:
+    name: Proprietary
+    url: https://github.com/JorisJonkers-dev/template-go-vue/blob/main/LICENSE
+servers:
+  - url: https://template-go-vue.jorisjonkers.dev
+    description: Production. The SPA and the API share one origin.
+    x-internal: false
+security:
+  - forwardAuth: []
+tags:
+  - name: notes
+    description: The sample resource. Replace it with the service's own.
+paths:
+  /api/v1/notes:
+    get:
+      operationId: listNotes
+      summary: List notes, newest first
+      description: Returns at most `limit` notes, newest first.
+      tags: [notes]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: How many notes to return.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: The notes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoteList"
+        "400":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createNote
+      summary: Create a note
+      description: Stores a note and returns it with its id and creation time.
+      tags: [notes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewNote"
+      responses:
+        "201":
+          description: The created note.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+components:
+  securitySchemes:
+    forwardAuth:
+      type: apiKey
+      in: header
+      name: X-User-Id
+      description: >-
+        Set by the platform's forward-auth at the edge, never by a client. The server refuses a
+        request without it; on a local run DEV_USER fills it in.
+  responses:
+    Problem:
+      description: An RFC 9457 problem.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+  schemas:
+    NewNote:
+      description: A note to create.
+      type: object
+      additionalProperties: false
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: The note's text.
+          example: Buy milk
+    Note:
+      description: A stored note.
+      type: object
+      additionalProperties: false
+      required: [id, text, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+          maxLength: 36
+          description: The note's id.
+          example: 5b0c1a9e-2d3f-4e5a-8b6c-7d8e9f0a1b2c
+        text:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: The note's text.
+          example: Buy milk
+        createdAt:
+          type: string
+          format: date-time
+          maxLength: 64
+          description: When the note was stored.
+          example: "2026-10-02T09:30:00Z"
+    NoteList:
+      description: A page of notes, newest first.
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          description: The notes.
+          items:
+            $ref: "#/components/schemas/Note"
+    Problem:
+      description: An RFC 9457 problem detail.
+      type: object
+      additionalProperties: false
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          maxLength: 256
+          description: A URI naming the problem type.
+          example: about:blank
+        title:
+          type: string
+          maxLength: 256
+          description: A short summary of the problem type.
+          example: Invalid note
+        status:
+          type: integer
+          format: int32
+          minimum: 100
+          maximum: 599
+          description: The HTTP status code.
+          example: 422
+        detail:
+          type: string
+          maxLength: 1024
+          description: What went wrong in this occurrence.
+          example: A note needs some text.

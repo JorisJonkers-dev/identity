@@ -1,0 +1,16 @@
+# Go coverage gate (docs/blueprints/go-api.md §16): 80% overall, 100% on each context's pure core.
+# Raise a threshold as the suite grows; never lower one to land a change.
+profile: coverage.out
+local-prefix: github.com/JorisJonkers-dev/template-go-vue
+threshold:
+  total: 80
+override:
+  - path: ^internal/[^/]+/domain
+    threshold: 100
+  - path: ^internal/[^/]+/app
+    threshold: 100
+exclude:
+  paths:
+    - /oas/       # ogen-generated
+    - /queries/   # sqlc-generated
+    - /pgtest/    # test helper

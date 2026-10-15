@@ -1,0 +1,14 @@
+{
+  "name": "@template-go-vue/openapi",
+  "private": true,
+  "scripts": {
+    "lint": "pnpm run lint:redocly && pnpm run lint:spectral",
+    "lint:redocly": "redocly lint v1/openapi.yaml --config redocly.yaml",
+    "lint:spectral": "spectral lint v1/openapi.yaml --ruleset .spectral.yaml --fail-severity error"
+  },
+  "devDependencies": {
+    "@redocly/cli": "2.54.2",
+    "@stoplight/spectral-cli": "6.16.3",
+    "@stoplight/spectral-owasp-ruleset": "2.0.1"
+  }
+}

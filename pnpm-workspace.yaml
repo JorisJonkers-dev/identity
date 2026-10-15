@@ -1,0 +1,12 @@
+packages:
+  - openapi
+  - web
+
+# Supply-chain defaults (docs/blueprints/vue-ts-spa.md §19.2): a week's release age, no exotic
+# sub-dependencies, and install scripts blocked except where allowed below.
+minimumReleaseAge: 10080
+blockExoticSubdeps: true
+strictDepBuilds: true
+allowBuilds:
+  '@scarf/scarf': false # telemetry, not a build step
+  vue-demi: true # selects the Vue 3 entry for @tanstack/vue-query

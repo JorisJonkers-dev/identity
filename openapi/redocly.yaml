@@ -1,0 +1,8 @@
+# Contract conformance, gate 1 of 3 (docs/blueprints/go-api.md §9).
+extends:
+  - recommended-strict
+rules:
+  operation-operationId: error
+  operation-4xx-response: error
+  security-defined: error
+  no-unused-components: error

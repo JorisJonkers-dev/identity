@@ -1,0 +1,76 @@
+# Lint gate (docs/blueprints/go-api.md §15). Zero issues is required.
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - depguard
+    - errname
+    - errorlint
+    - exhaustive
+    - gochecknoglobals
+    - gochecksumtype
+    - gocognit
+    - gocritic
+    - gosec
+    - nilerr
+    - nilnil
+    - noctx
+    - revive
+    - unparam
+  settings:
+    exhaustive:
+      default-signifies-exhaustive: false
+    gocognit:
+      min-complexity: 15
+    # The dependency rule (docs/blueprints/go-api.md §2): a context's domain and use cases see no
+    # transport, no persistence and no generated code.
+    depguard:
+      rules:
+        core-is-pure:
+          files:
+            - "**/internal/*/domain/**"
+            - "**/internal/*/app/**"
+          deny:
+            - pkg: net/http
+              desc: the core never sees transport; that is an inbound adapter's job
+            - pkg: database/sql
+              desc: the core never sees persistence; implement a port in an adapter
+            - pkg: github.com/jackc/pgx
+              desc: the core never sees persistence; implement a port in an adapter
+            - pkg: github.com/JorisJonkers-dev/template-go-vue/internal/platform
+              desc: the core never imports platform adapters or generated code
+  exclusions:
+    rules:
+      # Sparse comments by convention: no doc comment required on every exported name.
+      - linters:
+          - revive
+        text: "^(exported|package-comments):"
+      - path: _test\.go
+        linters:
+          - gocognit
+          - gochecknoglobals
+      - path: pgtest/
+        linters:
+          - gochecknoglobals
+    # ogen and sqlc output is regenerated, never edited, so it is not linted.
+    paths:
+      - internal/platform/oas
+      - internal/platform/pg/queries
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - "github.com/JorisJonkers-dev/template-go-vue"
+  exclusions:
+    paths:
+      - internal/platform/oas
+      - internal/platform/pg/queries

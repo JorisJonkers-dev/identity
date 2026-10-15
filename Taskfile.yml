@@ -1,0 +1,140 @@
+# One command per loop. `task` lists targets; `task check` and `task e2e` are what CI runs.
+version: "3"
+
+vars:
+  APP: template-go-vue
+  # The compose Postgres (compose.yaml).
+  DATABASE_URL: postgres://app:app@localhost:55432/app?sslmode=disable
+
+tasks:
+  default:
+    cmd: task --list
+    silent: true
+
+  install:
+    desc: Install JS tooling from the frozen lockfile
+    cmd: pnpm install --frozen-lockfile
+    sources: [pnpm-lock.yaml, package.json, "*/package.json"]
+
+  gen:
+    desc: Gate the contract, then regenerate the server (ogen), the queries (sqlc) and the client (hey-api)
+    cmds:
+      - task: lint:spec
+      - go generate ./...
+      - sqlc generate
+      - pnpm --filter @{{.APP}}/web gen
+
+  gen:check:
+    desc: Fail if generated code is stale
+    cmds:
+      - task: gen
+      - git diff --exit-code
+      - cmd: |
+          if [ -n "$(git ls-files --others --exclude-standard)" ]; then
+            echo "generation left untracked files:" >&2
+            git ls-files --others --exclude-standard >&2
+            exit 1
+          fi
+
+  lint:
+    desc: All linters
+    cmds:
+      - task: lint:go
+      - task: lint:spec
+      - task: lint:sql
+      - task: lint:web
+      - task: lint:actions
+
+  lint:go:
+    desc: go.sum against the module cache, golangci-lint, and the gofumpt/goimports format check
+    cmds:
+      - go mod verify
+      - golangci-lint run ./...
+      - golangci-lint fmt --diff ./...
+
+  lint:spec:
+    desc: OpenAPI conformance; Redocly recommended-strict, Spectral with OWASP, vacuum
+    deps: [install]
+    cmds:
+      - pnpm --filter @{{.APP}}/openapi run lint
+      - vacuum lint --details --fail-severity error openapi/v1/openapi.yaml
+
+  lint:sql:
+    desc: Migration safety lint (squawk)
+    cmd: squawk db/migrations/*.sql
+
+  lint:web:
+    desc: ESLint (type-checked, a11y) and vue-tsc
+    deps: [install]
+    cmds:
+      - pnpm --filter @{{.APP}}/web lint
+      - pnpm --filter @{{.APP}}/web typecheck
+
+  lint:actions:
+    desc: actionlint on every workflow
+    cmd: actionlint
+
+  test:
+    desc: Go and web tests, each with its coverage gate
+    cmds:
+      - task: test:go
+      - task: test:web
+
+  test:go:
+    desc: Go tests (race detector, Postgres through testcontainers) and the coverage gate in .testcoverage.yml
+    cmds:
+      - go test -race -count=1 -covermode=atomic -coverpkg=./... -coverprofile=coverage.out ./...
+      - go-test-coverage --config .testcoverage.yml
+
+  test:web:
+    desc: Web unit tests and the coverage gate in web/vite.config.ts
+    deps: [install]
+    cmd: pnpm --filter @{{.APP}}/web test
+
+  build:
+    desc: Build the web app, then the binary that embeds it
+    deps: [install]
+    cmds:
+      - pnpm --filter @{{.APP}}/web build
+      - CGO_ENABLED=0 go build -trimpath -o bin/{{.APP}} ./cmd/{{.APP}}
+
+  db:
+    desc: Start the compose Postgres
+    cmd: docker compose up -d --wait postgres
+
+  e2e:
+    desc: Playwright with axe against the built binary and the compose Postgres
+    deps: [build, db]
+    cmds:
+      - pnpm --filter @{{.APP}}/web exec playwright install --with-deps chromium
+      - pnpm --filter @{{.APP}}/web e2e
+    env:
+      DATABASE_URL: "{{.DATABASE_URL}}"
+
+  secrets:
+    desc: Scan the working tree for secrets
+    cmd: gitleaks dir --no-banner --redact .
+
+  check:
+    desc: Everything CI runs on a pull request, except the e2e suite
+    cmds:
+      - task: lint
+      - task: gen:check
+      - task: test
+      - task: build
+      - task: secrets
+
+  fix:
+    desc: Apply formatters and autofixes
+    cmds:
+      - golangci-lint fmt ./...
+      - golangci-lint run --fix ./...
+      - pnpm --filter @{{.APP}}/web exec eslint . --fix
+
+  dev:
+    desc: Run Postgres, the API on :8080 with a dev identity, and Vite with hot reload on :5173
+    deps: [db, install]
+    cmd: |
+      trap 'kill 0' EXIT
+      DATABASE_URL='{{.DATABASE_URL}}' DEV_USER=dev go run ./cmd/{{.APP}} &
+      pnpm --filter @{{.APP}}/web dev

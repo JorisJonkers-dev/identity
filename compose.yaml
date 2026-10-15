@@ -1,0 +1,15 @@
+# Local Postgres for `task dev` and `task e2e`. Published on 55432 so a Postgres already running
+# on the default port does not collide with it.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+    ports:
+      - "55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app"]
+      interval: 2s
+      retries: 30

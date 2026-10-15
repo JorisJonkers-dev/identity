@@ -1,0 +1,10 @@
+.git
+.github
+**/node_modules
+bin
+coverage.out
+web/dist
+!web/dist/.gitkeep
+web/coverage
+web/playwright-report
+web/test-results

@@ -1,0 +1,10 @@
+# Contract conformance, gate 2 of 3 (docs/blueprints/go-api.md §9). A rule turned off says why.
+extends:
+  - spectral:oas
+  - "@stoplight/spectral-owasp-ruleset"
+rules:
+  # The SPA and the API share one origin; no cross-origin client exists.
+  owasp:api8:2023-define-cors-origin: off
+  # The sample service does not rate-limit. A service that does declares the RateLimit headers and
+  # a 429 response, and turns this rule back on.
+  owasp:api4:2023-rate-limit: off

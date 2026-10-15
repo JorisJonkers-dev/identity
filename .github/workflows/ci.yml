@@ -1,0 +1,94 @@
+# One pipeline ending in "Pipeline Complete", the only required check (estate convention).
+# Every check is its own job, and they run in parallel: a pull request waits for the slowest
+# check rather than the sum of them, which is worth the extra minutes GitHub bills per job.
+# Each job runs one `task`, the same tasks `task check` runs in sequence, so local and CI
+# cannot drift.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check (${{ matrix.task }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      # Every failure is reported, not only the first.
+      fail-fast: false
+      matrix:
+        task: [lint, gen:check, test, build, secrets]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: jdx/mise-action@v5
+        with:
+          cache: true
+
+      - name: Run the task
+        env:
+          TASK: ${{ matrix.task }}
+        run: mise exec -- task "$TASK"
+
+  e2e:
+    name: End-to-end with axe
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: jdx/mise-action@v5
+        with:
+          cache: true
+
+      - name: End-to-end with axe
+        run: mise exec -- task e2e
+
+  # The image builds need the Docker daemon the runner has, so they are not a task.
+  images:
+    name: Image (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: template-go-vue
+            args: ""
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the image
+        env:
+          IMAGE: ${{ matrix.image }}
+          ARGS: ${{ matrix.args }}
+        run: |
+          # shellcheck disable=SC2086 # ARGS is a list of options, split on purpose
+          docker build --build-arg VERSION=ci $ARGS -t "$IMAGE:ci" .
+
+  # The one required check: green only when every job above is. `always()` so a failed or
+  # cancelled job still reports here, as a failure, rather than leaving the check pending.
+  pipeline-complete:
+    name: Pipeline Complete
+    if: ${{ always() }}
+    needs: [check, e2e, images]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every job passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for result in $RESULTS; do
+            [ "$result" = success ] || { echo "a job ended ${result}"; exit 1; }
+          done
