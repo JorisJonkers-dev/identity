@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   changes:
-    uses: JorisJonkers-dev/github-workflows/.github/workflows/path-buckets.yml@v0.22.0
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/path-buckets.yml@v0.23.0
     with:
       workflows: .github/workflows/ci.yml
 
