@@ -10,12 +10,32 @@ import (
 	"github.com/google/uuid"
 )
 
+type AuthRequest struct {
+	ID                  uuid.UUID
+	ClientID            string
+	RedirectUri         string
+	Scopes              []string
+	State               string
+	Nonce               string
+	ResponseType        string
+	ResponseMode        string
+	CodeChallenge       string
+	CodeChallengeMethod string
+	CreatedAt           time.Time
+	ExpiresAt           time.Time
+	UserID              *uuid.UUID
+	SessionID           *uuid.UUID
+	AuthTime            *time.Time
+	CodeHash            []byte
+}
+
 type Session struct {
 	TokenHash  []byte
 	UserID     uuid.UUID
 	CreatedAt  time.Time
 	LastSeenAt time.Time
 	ExpiresAt  time.Time
+	ID         uuid.UUID
 }
 
 type Signup struct {

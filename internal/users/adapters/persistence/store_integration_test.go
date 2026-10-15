@@ -129,7 +129,7 @@ func TestSessions(t *testing.T) {
 	s, pool := open(t)
 	u := user(t)
 	_ = s.CreateUser(ctx, u)
-	sess := app.Session{TokenHash: []byte("hash"), UserID: u.ID, CreatedAt: t0, LastSeenAt: t0, ExpiresAt: t0.Add(time.Hour)}
+	sess := app.Session{TokenHash: []byte("hash"), ID: uuid.New(), UserID: u.ID, CreatedAt: t0, LastSeenAt: t0, ExpiresAt: t0.Add(time.Hour)}
 	if err := s.CreateSession(ctx, sess); err != nil {
 		t.Fatal(err)
 	}
@@ -137,8 +137,8 @@ func TestSessions(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := s.SessionByHash(ctx, sess.TokenHash)
-	if err != nil || !bytes.Equal(got.TokenHash, sess.TokenHash) || got.UserID != u.ID ||
-		!got.LastSeenAt.Equal(t0.Add(time.Minute)) || !got.ExpiresAt.Equal(t0.Add(2*time.Hour)) {
+	if err != nil || !bytes.Equal(got.TokenHash, sess.TokenHash) || got.ID != sess.ID || got.UserID != u.ID ||
+		!got.CreatedAt.Equal(t0) || !got.LastSeenAt.Equal(t0.Add(time.Minute)) || !got.ExpiresAt.Equal(t0.Add(2*time.Hour)) {
 		t.Fatalf("SessionByHash = %+v, %v", got, err)
 	}
 	if err := s.DeleteSession(ctx, sess.TokenHash); err != nil {
@@ -151,9 +151,9 @@ func TestSessions(t *testing.T) {
 		t.Fatalf("deleting a session that does not exist: %v", err)
 	}
 
-	keep := app.Session{TokenHash: []byte("keep"), UserID: u.ID, CreatedAt: t0, LastSeenAt: t0, ExpiresAt: t0.Add(time.Hour)}
+	keep := app.Session{TokenHash: []byte("keep"), ID: uuid.New(), UserID: u.ID, CreatedAt: t0, LastSeenAt: t0, ExpiresAt: t0.Add(time.Hour)}
 	other := keep
-	other.TokenHash = []byte("other")
+	other.TokenHash, other.ID = []byte("other"), uuid.New()
 	_ = s.CreateSession(ctx, keep)
 	_ = s.CreateSession(ctx, other)
 	if err := s.DeleteOtherSessions(ctx, u.ID, keep.TokenHash); err != nil {
@@ -164,6 +164,13 @@ func TestSessions(t *testing.T) {
 	}
 	if _, err := s.SessionByHash(ctx, keep.TokenHash); err != nil {
 		t.Fatalf("the kept session ended: %v", err)
+	}
+
+	if err := s.DeleteSessionsOfUser(ctx, u.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SessionByHash(ctx, keep.TokenHash); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("a session survived signing out everywhere: %v", err)
 	}
 
 	// Deleting a User takes their sessions with them.

@@ -13,11 +13,12 @@ import (
 )
 
 const createSession = `-- name: CreateSession :exec
-INSERT INTO sessions (token_hash, user_id, created_at, last_seen_at, expires_at) VALUES ($1, $2, $3, $3, $4)
+INSERT INTO sessions (token_hash, id, user_id, created_at, last_seen_at, expires_at) VALUES ($1, $2, $3, $4, $4, $5)
 `
 
 type CreateSessionParams struct {
 	TokenHash []byte
+	ID        uuid.UUID
 	UserID    uuid.UUID
 	CreatedAt time.Time
 	ExpiresAt time.Time
@@ -26,6 +27,7 @@ type CreateSessionParams struct {
 func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) error {
 	_, err := q.db.Exec(ctx, createSession,
 		arg.TokenHash,
+		arg.ID,
 		arg.UserID,
 		arg.CreatedAt,
 		arg.ExpiresAt,
@@ -103,6 +105,16 @@ func (q *Queries) DeleteSession(ctx context.Context, tokenHash []byte) error {
 	return err
 }
 
+const deleteSessionsOfUser = `-- name: DeleteSessionsOfUser :exec
+DELETE FROM sessions WHERE user_id = $1
+`
+
+// Signing out from any Client signs out everywhere (docs/adr/0007).
+func (q *Queries) DeleteSessionsOfUser(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteSessionsOfUser, userID)
+	return err
+}
+
 const deleteSignup = `-- name: DeleteSignup :exec
 DELETE FROM signups WHERE token_hash = $1
 `
@@ -113,12 +125,14 @@ func (q *Queries) DeleteSignup(ctx context.Context, tokenHash []byte) error {
 }
 
 const sessionByHash = `-- name: SessionByHash :one
-SELECT token_hash, user_id, last_seen_at, expires_at FROM sessions WHERE token_hash = $1
+SELECT token_hash, id, user_id, created_at, last_seen_at, expires_at FROM sessions WHERE token_hash = $1
 `
 
 type SessionByHashRow struct {
 	TokenHash  []byte
+	ID         uuid.UUID
 	UserID     uuid.UUID
+	CreatedAt  time.Time
 	LastSeenAt time.Time
 	ExpiresAt  time.Time
 }
@@ -128,7 +142,9 @@ func (q *Queries) SessionByHash(ctx context.Context, tokenHash []byte) (SessionB
 	var i SessionByHashRow
 	err := row.Scan(
 		&i.TokenHash,
+		&i.ID,
 		&i.UserID,
+		&i.CreatedAt,
 		&i.LastSeenAt,
 		&i.ExpiresAt,
 	)

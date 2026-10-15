@@ -168,6 +168,18 @@ func (s *store) DeleteOtherSessions(_ context.Context, userID uuid.UUID, keep []
 	return nil
 }
 
+func (s *store) DeleteSessionsOfUser(_ context.Context, userID uuid.UUID) error {
+	if err := s.fail["DeleteSessionsOfUser"]; err != nil {
+		return err
+	}
+	for k, sess := range s.sessions {
+		if sess.UserID == userID {
+			delete(s.sessions, k)
+		}
+	}
+	return nil
+}
+
 // hasher "hashes" by prefixing, so a test can read what was stored.
 type hasher struct {
 	fail     error
@@ -658,6 +670,67 @@ func TestTokensComeFromTheRandomSource(t *testing.T) {
 	f.Service = app.New(f.store, f.hasher, f.mailer, func() time.Time { return f.now }, broken, "https://auth.test")
 	if _, err := f.SignIn(context.Background(), "a@b.c", pw); err == nil {
 		t.Fatal("a sign-in without entropy succeeded")
+	}
+
+	// Entropy for the token but none for the session's id.
+	reads := 0
+	once := readerFunc(func(p []byte) (int, error) {
+		reads++
+		if reads > 1 {
+			return 0, errors.New("no entropy")
+		}
+		return len(p), nil
+	})
+	f.Service = app.New(f.store, f.hasher, f.mailer, func() time.Time { return f.now }, once, "https://auth.test")
+	if _, err := f.SignIn(context.Background(), "a@b.c", pw); err == nil {
+		t.Fatal("a sign-in without entropy for the session id succeeded")
+	}
+}
+
+func TestSignedInNamesTheSessionAndWhenThePasswordWasChecked(t *testing.T) {
+	f := newFixture()
+	id := f.signedUp(t, "a@b.c")
+	ctx := context.Background()
+	first, _ := f.SignIn(ctx, "a@b.c", pw)
+	second, _ := f.SignIn(ctx, "a@b.c", pw)
+	f.now = t0.Add(time.Hour)
+
+	u, sess, err := f.SignedIn(ctx, first)
+	if err != nil || u.ID != id || sess.UserID != id || !sess.CreatedAt.Equal(t0) {
+		t.Fatalf("SignedIn = %+v, %+v, %v", u, sess, err)
+	}
+	_, other, _ := f.SignedIn(ctx, second)
+	if sess.ID == uuid.Nil || sess.ID == other.ID {
+		t.Fatalf("session ids %v and %v are not distinct", sess.ID, other.ID)
+	}
+	if _, _, err := f.SignedIn(ctx, "nope"); !errors.Is(err, app.ErrNoSession) {
+		t.Fatalf("an unknown token: %v", err)
+	}
+}
+
+func TestSignOutEverywhereEndsEverySessionOfThatUser(t *testing.T) {
+	f := newFixture()
+	ada := f.signedUp(t, "a@b.c")
+	f.signedUp(t, "b@b.c")
+	ctx := context.Background()
+	one, _ := f.SignIn(ctx, "a@b.c", pw)
+	two, _ := f.SignIn(ctx, "a@b.c", pw)
+	bob, _ := f.SignIn(ctx, "b@b.c", pw)
+	if err := f.SignOutEverywhere(ctx, ada); err != nil {
+		t.Fatal(err)
+	}
+	for _, tok := range []string{one, two} {
+		if _, err := f.Authenticate(ctx, tok); !errors.Is(err, app.ErrNoSession) {
+			t.Fatalf("a session of the signed-out User survived: %v", err)
+		}
+	}
+	if _, err := f.Authenticate(ctx, bob); err != nil {
+		t.Fatalf("another User's session ended: %v", err)
+	}
+	boom := errors.New("boom")
+	f.store.fail["DeleteSessionsOfUser"] = boom
+	if err := f.SignOutEverywhere(ctx, ada); !errors.Is(err, boom) {
+		t.Fatalf("a failing store: %v", err)
 	}
 }
 
