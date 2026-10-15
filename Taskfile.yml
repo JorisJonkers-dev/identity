@@ -54,6 +54,7 @@ tasks:
     cmds:
       - go mod verify
       - golangci-lint run ./...
+      - golangci-lint run --build-tags integration ./...
       - golangci-lint fmt --diff ./...
 
   lint:spec:
@@ -75,16 +76,24 @@ tasks:
     cmd: actionlint
 
   test:
-    desc: Go and web tests, each with its coverage gate
+    desc: Every test bucket but e2e, each with its coverage gate (docs/adr/0011)
     cmds:
-      - task: test:go
+      - task: test:unit
+      - task: test:integration
+
+  test:unit:
+    desc: Unit tests, no Docker; Go and web at 100% of statements, branches, conditions and functions
+    cmds:
+      - task: test:go:unit
       - task: test:web
 
-  test:go:
-    desc: Go tests (race detector, Postgres through testcontainers) and the coverage gate in .testcoverage.yml
-    cmds:
-      - go test -race -count=1 -covermode=atomic -coverpkg=./... -coverprofile=coverage.out ./...
-      - go-test-coverage --config .testcoverage.yml
+  test:go:unit:
+    desc: Go unit tests and their gate (gobco for branches and conditions)
+    cmd: sh scripts/coverage.sh unit
+
+  test:integration:
+    desc: Go unit and integration tests together (Postgres and liquibase-runner in testcontainers); every function reached
+    cmd: sh scripts/coverage.sh integration
 
   test:web:
     desc: Web unit tests and the coverage gate in web/vite.config.ts

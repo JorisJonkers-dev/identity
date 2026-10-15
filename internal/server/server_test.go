@@ -113,6 +113,35 @@ func TestServeIsReadyThenDrainsOnCancel(t *testing.T) {
 	}
 }
 
+func TestServeReportsADrainThatOutlastsTheGrace(t *testing.T) {
+	ln := listen(t)
+	held := make(chan struct{})
+	release := make(chan struct{})
+	defer close(release)
+	slow := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		close(held)
+		<-release
+	})
+	s := server.New(slog.New(slog.DiscardHandler), "test",
+		server.Routes{API: slow, Web: named("web"), Ready: func(context.Context) error { return nil }},
+		server.WithShutdownGrace(50*time.Millisecond))
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() { done <- s.Serve(ctx, ln) }()
+
+	go func() { _ = get(t, "http://"+ln.Addr().String()+"/api/slow") }()
+	<-held
+	cancel()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("Serve returned %v, want the drain's deadline", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Serve did not give up after the grace period")
+	}
+}
+
 func TestServeReturnsListenerError(t *testing.T) {
 	ln := listen(t)
 	_ = ln.Close()
