@@ -114,14 +114,24 @@ func (c clients) Client(_ context.Context, id string) (domain.Client, error) {
 	return cl, nil
 }
 
+func (c clients) ClientForHost(context.Context, string) (domain.Client, error) {
+	return domain.Client{}, app.ErrNotFound
+}
+
 func secretHash(s string) []byte {
 	h := sha256.Sum256([]byte(s))
 	return h[:]
 }
 
 var testClients = clients{
-	"spa": {ID: "spa", RedirectURIs: []string{"https://spa.test/cb"}, PostLogoutRedirectURIs: []string{"https://spa.test/bye"}},
-	"web": {ID: "web", RedirectURIs: []string{"https://web.test/cb"}, SecretHash: secretHash("s3cret")},
+	"spa": {
+		ID: "spa", SignIn: domain.Native, Credential: domain.PKCE,
+		RedirectURIs: []string{"https://spa.test/cb"}, PostLogoutRedirectURIs: []string{"https://spa.test/bye"},
+	},
+	"web": {
+		ID: "web", SignIn: domain.Native, Credential: domain.Secret,
+		RedirectURIs: []string{"https://web.test/cb"}, SecretHash: secretHash("s3cret"),
+	},
 }
 
 // accounts knows one session token, "tok", for Ada.

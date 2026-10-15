@@ -11,6 +11,7 @@ buckets:
     - 'go.sum'
     - '.golangci.yml'
     - 'scripts/coverage.sh'
+    - 'deploy/crd/**' # the integration tests apply it to a real API server
   # The schema and what migrates it.
   db:
     - 'db/**'
@@ -29,6 +30,7 @@ buckets:
     - 'docs/**'
     - '*.md'
     - 'deploy/**'
+    - '!deploy/crd/**'
     - 'LICENSE'
     - 'renovate.json'
     - 'release-please-config.json'
@@ -63,6 +65,7 @@ fixtures:
   README.md: [ignore]
   CONTEXT.md: [ignore]
   deploy/identity.project.yml: [ignore]
+  deploy/crd/clients.identity.jorisjonkers.dev.yaml: [go]
   LICENSE: [ignore]
   renovate.json: [ignore]
   release-please-config.json: [ignore]

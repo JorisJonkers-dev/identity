@@ -99,6 +99,15 @@ func (c clients) Client(_ context.Context, id string) (domain.Client, error) {
 	return cl, nil
 }
 
+func (c clients) ClientForHost(_ context.Context, host string) (domain.Client, error) {
+	for _, cl := range c {
+		if cl.Host == host {
+			return cl, nil
+		}
+	}
+	return domain.Client{}, app.ErrNotFound
+}
+
 // accounts knows one session token, "tok", for Ada.
 type accounts struct {
 	ada        uuid.UUID
@@ -156,8 +165,10 @@ func newFixture() *fixture {
 		now:      t0,
 	}
 	cs := clients{
-		"spa": {ID: "spa", RedirectURIs: []string{"https://spa.test/cb"}},
-		"web": {ID: "web", RedirectURIs: []string{"https://web.test/cb"}, SecretHash: secretHash("s3cret")},
+		"spa":     {ID: "spa", SignIn: domain.Native, Host: "spa.test", Credential: domain.PKCE},
+		"web":     {ID: "web", SignIn: domain.Native, Host: "web.test", Credential: domain.Secret, SecretHash: secretHash("s3cret")},
+		"unready": {ID: "unready", SignIn: domain.Native, Host: "unready.test", Credential: domain.Secret},
+		"gated":   {ID: "gated", SignIn: domain.Gated, Host: "gated.test"},
 	}
 	f.Service = app.New(f.requests, cs, f.accounts, func() time.Time { return f.now }, &counter{})
 	return f
@@ -280,7 +291,7 @@ func TestAuthorizeSecret(t *testing.T) {
 	if err := f.AuthorizeSecret(ctx, "web", "s3cret"); err != nil {
 		t.Fatalf("the right secret: %v", err)
 	}
-	for _, c := range [][2]string{{"web", "wrong"}, {"spa", ""}, {"nobody", "s3cret"}} {
+	for _, c := range [][2]string{{"web", "wrong"}, {"spa", ""}, {"nobody", "s3cret"}, {"unready", ""}, {"gated", ""}} {
 		if err := f.AuthorizeSecret(ctx, c[0], c[1]); !errors.Is(err, app.ErrInvalidClient) {
 			t.Errorf("AuthorizeSecret(%q, %q) = %v", c[0], c[1], err)
 		}
@@ -290,6 +301,28 @@ func TestAuthorizeSecret(t *testing.T) {
 	}
 	if c, err := f.Client(ctx, "spa"); err != nil || !c.Public() {
 		t.Fatalf("Client = %+v, %v", c, err)
+	}
+}
+
+func TestOnlyANativeClientSignsInOverOIDC(t *testing.T) {
+	f := newFixture()
+	ctx := context.Background()
+	if _, err := f.Client(ctx, "gated"); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("a gated Client as an OIDC client: %v", err)
+	}
+	if _, err := f.Client(ctx, "broken"); !errors.Is(err, errBoom) {
+		t.Fatalf("a failing source: %v", err)
+	}
+}
+
+func TestAHostWithNoClientIsRefused(t *testing.T) {
+	f := newFixture()
+	ctx := context.Background()
+	if c, err := f.ClientForHost(ctx, "gated.test"); err != nil || c.ID != "gated" {
+		t.Fatalf("ClientForHost(gated.test) = %+v, %v", c, err)
+	}
+	if _, err := f.ClientForHost(ctx, "nobody.test"); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("a host with no Client: %v", err)
 	}
 }
 

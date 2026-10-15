@@ -38,9 +38,10 @@ type Requests interface {
 	DeleteRequest(ctx context.Context, id uuid.UUID) error
 }
 
-// Clients finds Clients by id.
+// Clients finds Clients, by id or by host; a Removed Client is found by neither.
 type Clients interface {
 	Client(ctx context.Context, id string) (domain.Client, error)
+	ClientForHost(ctx context.Context, host string) (domain.Client, error)
 }
 
 // Claims is what an ID token and userinfo say about a User.
@@ -144,22 +145,36 @@ func (s *Service) Finish(ctx context.Context, id uuid.UUID) error {
 	return s.requests.DeleteRequest(ctx, id)
 }
 
-// Client returns a Client by id.
+// Client returns a Client that signs in over OIDC itself: a native one. Gated and token Clients
+// are not OIDC clients, so they are not found here.
 func (s *Service) Client(ctx context.Context, id string) (domain.Client, error) {
-	return s.clients.Client(ctx, id)
+	c, err := s.clients.Client(ctx, id)
+	if err != nil {
+		return domain.Client{}, err
+	}
+	if c.SignIn != domain.Native {
+		return domain.Client{}, ErrNotFound
+	}
+	return c, nil
+}
+
+// ClientForHost returns the Client a host belongs to, whatever its mode. A host with no Client is
+// refused with ErrNotFound.
+func (s *Service) ClientForHost(ctx context.Context, host string) (domain.Client, error) {
+	return s.clients.ClientForHost(ctx, host)
 }
 
 // AuthorizeSecret checks a confidential Client's secret, in constant time. A public Client, an
 // unknown one and a wrong secret all fail with ErrInvalidClient.
 func (s *Service) AuthorizeSecret(ctx context.Context, clientID, secret string) error {
-	c, err := s.clients.Client(ctx, clientID)
+	c, err := s.Client(ctx, clientID)
 	if errors.Is(err, ErrNotFound) {
 		return ErrInvalidClient
 	}
 	if err != nil {
 		return err
 	}
-	if c.Public() || subtle.ConstantTimeCompare(hashOf(secret), c.SecretHash) != 1 {
+	if c.Public() || len(c.SecretHash) == 0 || subtle.ConstantTimeCompare(hashOf(secret), c.SecretHash) != 1 {
 		return ErrInvalidClient
 	}
 	return nil

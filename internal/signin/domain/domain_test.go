@@ -6,8 +6,8 @@ import (
 	"github.com/JorisJonkers-dev/identity/internal/signin/domain"
 )
 
-func TestAClientWithoutASecretIsPublic(t *testing.T) {
-	if !(domain.Client{}).Public() || (domain.Client{SecretHash: []byte{1}}).Public() {
-		t.Fatal("Public reads the secret wrong")
+func TestOnlyAPKCEClientIsPublic(t *testing.T) {
+	if !(domain.Client{Credential: domain.PKCE}).Public() || (domain.Client{Credential: domain.Secret}).Public() || (domain.Client{}).Public() {
+		t.Fatal("Public reads the credential wrong")
 	}
 }
