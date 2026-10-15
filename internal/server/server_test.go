@@ -20,6 +20,7 @@ func named(name string) http.Handler {
 func newServer(ready error) *server.Server {
 	return server.New(slog.New(slog.DiscardHandler), "test", server.Routes{
 		API:   named("api"),
+		OIDC:  named("oidc"),
 		Web:   named("web"),
 		Ready: func(context.Context) error { return ready },
 	})
@@ -61,7 +62,10 @@ func TestProbesBeforeServing(t *testing.T) {
 
 func TestRoutesAPIAndWebBehindSecurityHeaders(t *testing.T) {
 	h := newServer(nil).Handler()
-	for path, want := range map[string]string{"/api/v1/version": "api", "/": "web", "/launcher": "web", "/apiary": "web"} {
+	for path, want := range map[string]string{
+		"/api/v1/version": "api", "/": "web", "/launcher": "web", "/apiary": "web",
+		"/.well-known/openid-configuration": "oidc", "/oidc/authorize": "oidc", "/oidcx": "web",
+	} {
 		rec := &recorder{header: http.Header{}}
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
 		if err != nil {
@@ -123,7 +127,7 @@ func TestServeReportsADrainThatOutlastsTheGrace(t *testing.T) {
 		<-release
 	})
 	s := server.New(slog.New(slog.DiscardHandler), "test",
-		server.Routes{API: slow, Web: named("web"), Ready: func(context.Context) error { return nil }},
+		server.Routes{API: slow, OIDC: named("oidc"), Web: named("web"), Ready: func(context.Context) error { return nil }},
 		server.WithShutdownGrace(50*time.Millisecond))
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)

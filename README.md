@@ -7,9 +7,11 @@ get access through Groups that hold App Roles; admins manage people and access i
 replaces auth-api and auth-ui
 ([workspace ADR-0020](https://github.com/JorisJonkers-dev/workspace/blob/main/docs/decisions/ADR-0020-identity-replaces-auth-api.md)).
 
-**Status: sign-up and sign-in.** A person signs up, confirms their email from a mailed link, signs
-in to a Single sign-on session and edits their Profile. OIDC, Clients and access arrive with the
-following tickets. The schema moves through
+**Status: sign-up and OIDC sign-in.** A person signs up, confirms their email from a mailed link, signs
+in to a Single sign-on session and edits their Profile. The OIDC Provider serves discovery at the
+Issuer and the code flow under `/oidc/`, on `zitadel/oidc`; a second app signs in without a
+password while the session holds. Clients from Kubernetes, kept signing keys and access arrive with
+the following tickets. The schema moves through
 liquibase-runner, not goose ([0010](docs/adr/0010-migrations-run-through-liquibase-runner.md)).
 
 - [`CONTEXT.md`](CONTEXT.md): the words this repository uses, and the ones it avoids.
@@ -35,6 +37,7 @@ How the repository is laid out and worked on.
 | `internal/server/` | Probes, `/api/` to the API, everything else to the SPA, graceful drain |
 | `cmd/identity/` | The composition root; reads `DATABASE_URL`, `PUBLIC_URL`, `SMTP_ADDR`, `MAIL_FROM`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_TLS` and `ADDR` (default `:8080`) |
 | `internal/users/` | The users context: sign-up, confirmation, sign-in, sessions and the Profile |
+| `internal/signin/` | The sign-in context: the OIDC Provider on zitadel/oidc, authorization requests, and the Single sign-on check at `/oidc/login` |
 | `compose.yaml` | Postgres, the migration runner and Mailpit for `task dev` and `task e2e` |
 | `web/` | The Vue 3 SPA, and `embed.go`, which embeds its build (`web/dist`) in the binary |
 | `web/tests/e2e/` | Playwright with axe, on a desktop and a phone, against the built binary |

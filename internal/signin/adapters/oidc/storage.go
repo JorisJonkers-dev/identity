@@ -1,0 +1,238 @@
+// Package oidc is the sign-in context's OIDC adapter: zitadel/oidc's Provider over the sign-in use
+// cases (docs/adr/0001). identity writes no protocol code; it answers what the library's storage
+// asks, and serves the one page the library leaves to it, the check for a Single sign-on session.
+package oidc
+
+import (
+	"context"
+	"errors"
+	"log/slog"
+	"time"
+
+	"github.com/go-jose/go-jose/v4"
+	"github.com/google/uuid"
+	"github.com/zitadel/oidc/v3/pkg/oidc"
+	"github.com/zitadel/oidc/v3/pkg/op"
+
+	"github.com/JorisJonkers-dev/identity/internal/signin/app"
+	"github.com/JorisJonkers-dev/identity/internal/signin/domain"
+)
+
+// storage is the op.Storage. Every failure the library may show a browser or a Client is an OIDC
+// error with a generic description; the cause goes to the log.
+type storage struct {
+	svc    *app.Service
+	ring   *Ring
+	logger *slog.Logger
+	now    func() time.Time
+}
+
+var (
+	_ op.Storage                   = (*storage)(nil)
+	_ op.CanSetUserinfoFromRequest = (*storage)(nil)
+)
+
+// fail turns err into what a browser or a Client may see.
+func (s *storage) fail(ctx context.Context, err error) error {
+	switch {
+	case errors.Is(err, app.ErrNotFound):
+		return oidc.ErrInvalidRequest().WithDescription("This sign-in has expired or was already used. Start again from the app.")
+	case errors.Is(err, app.ErrInvalidClient):
+		return oidc.ErrInvalidClient()
+	default:
+		s.logger.ErrorContext(ctx, "sign-in storage", "error", err)
+		return oidc.ErrServerError()
+	}
+}
+
+func (s *storage) CreateAuthRequest(ctx context.Context, req *oidc.AuthRequest, _ string) (op.AuthRequest, error) {
+	r := domain.AuthRequest{
+		ClientID: req.ClientID, RedirectURI: req.RedirectURI, Scopes: req.Scopes, State: req.State, Nonce: req.Nonce,
+		ResponseType: string(req.ResponseType), ResponseMode: string(req.ResponseMode),
+		CodeChallenge: req.CodeChallenge, CodeChallengeMethod: string(req.CodeChallengeMethod),
+	}
+	started, err := s.svc.Start(ctx, r)
+	if err != nil {
+		return nil, s.fail(ctx, err)
+	}
+	return authRequest{started}, nil
+}
+
+func (s *storage) AuthRequestByID(ctx context.Context, id string) (op.AuthRequest, error) {
+	rid, err := uuid.Parse(id)
+	if err != nil {
+		return nil, s.fail(ctx, app.ErrNotFound)
+	}
+	r, err := s.svc.Request(ctx, rid)
+	if err != nil {
+		return nil, s.fail(ctx, err)
+	}
+	return authRequest{r}, nil
+}
+
+func (s *storage) AuthRequestByCode(ctx context.Context, code string) (op.AuthRequest, error) {
+	r, err := s.svc.RequestByCode(ctx, code)
+	if err != nil {
+		return nil, s.fail(ctx, err)
+	}
+	return authRequest{r}, nil
+}
+
+func (s *storage) SaveAuthCode(ctx context.Context, id, code string) error {
+	rid, err := uuid.Parse(id)
+	if err != nil {
+		return s.fail(ctx, app.ErrNotFound)
+	}
+	if err := s.svc.SaveCode(ctx, rid, code); err != nil {
+		return s.fail(ctx, err)
+	}
+	return nil
+}
+
+func (s *storage) DeleteAuthRequest(ctx context.Context, id string) error {
+	rid, err := uuid.Parse(id)
+	if err != nil {
+		return s.fail(ctx, app.ErrNotFound)
+	}
+	if err := s.svc.Finish(ctx, rid); err != nil {
+		return s.fail(ctx, err)
+	}
+	return nil
+}
+
+// CreateAccessToken names a JWT access token; Clients verify it against JWKS, so nothing is stored.
+func (s *storage) CreateAccessToken(context.Context, op.TokenRequest) (string, time.Time, error) {
+	return uuid.NewString(), s.now().Add(accessTokenLifetime), nil
+}
+
+var errNoRefreshTokens = oidc.ErrUnsupportedGrantType().WithDescription("Refresh tokens are not offered.")
+
+func (s *storage) CreateAccessAndRefreshTokens(context.Context, op.TokenRequest, string) (string, string, time.Time, error) {
+	return "", "", time.Time{}, errNoRefreshTokens
+}
+
+func (s *storage) TokenRequestByRefreshToken(context.Context, string) (op.RefreshTokenRequest, error) {
+	return nil, op.ErrInvalidRefreshToken
+}
+
+func (s *storage) GetRefreshTokenInfo(context.Context, string, string) (string, string, error) {
+	return "", "", op.ErrInvalidRefreshToken
+}
+
+// TerminateSession signs the User out everywhere (docs/adr/0007).
+func (s *storage) TerminateSession(ctx context.Context, userID, _ string) error {
+	id, err := uuid.Parse(userID)
+	if err != nil {
+		return s.fail(ctx, app.ErrNotFound)
+	}
+	if err := s.svc.SignOutEverywhere(ctx, id); err != nil {
+		return s.fail(ctx, err)
+	}
+	return nil
+}
+
+// RevokeToken refuses: a JWT access token lives its 15 minutes, and there are no refresh tokens.
+func (s *storage) RevokeToken(context.Context, string, string, string) *oidc.Error {
+	return oidc.ErrRequestNotSupported().WithDescription("Tokens cannot be revoked; an access token expires after 15 minutes.")
+}
+
+func (s *storage) SigningKey(context.Context) (op.SigningKey, error) { return s.ring.Signing(), nil }
+
+func (s *storage) SignatureAlgorithms(context.Context) ([]jose.SignatureAlgorithm, error) {
+	return []jose.SignatureAlgorithm{s.ring.Signing().SignatureAlgorithm()}, nil
+}
+
+func (s *storage) KeySet(context.Context) ([]op.Key, error) { return s.ring.Published(), nil }
+
+func (s *storage) GetClientByClientID(ctx context.Context, id string) (op.Client, error) {
+	c, err := s.svc.Client(ctx, id)
+	if err != nil {
+		return nil, s.fail(ctx, err)
+	}
+	return client{c}, nil
+}
+
+func (s *storage) AuthorizeClientIDSecret(ctx context.Context, id, secret string) error {
+	if err := s.svc.AuthorizeSecret(ctx, id, secret); err != nil {
+		return s.fail(ctx, err)
+	}
+	return nil
+}
+
+// SetUserinfoFromScopes is deprecated in favour of SetUserinfoFromRequest, which zitadel/oidc calls
+// right after it.
+func (s *storage) SetUserinfoFromScopes(context.Context, *oidc.UserInfo, string, string, []string) error {
+	return nil
+}
+
+// SetUserinfoFromRequest fills the ID token: email and name as the scopes ask, and the session's sid.
+func (s *storage) SetUserinfoFromRequest(ctx context.Context, info *oidc.UserInfo, req op.IDTokenRequest, scopes []string) error {
+	claims, err := s.claims(ctx, req.GetSubject())
+	if err != nil {
+		return err
+	}
+	info.Subject = req.GetSubject()
+	for _, scope := range scopes {
+		switch scope {
+		case oidc.ScopeEmail:
+			info.Email, info.EmailVerified = claims.Email, true
+		case oidc.ScopeProfile:
+			info.Name = claims.Name
+		}
+	}
+	// An authorization request reaching here is done: its subject resolved above.
+	if r, ok := req.(authRequest); ok {
+		info.AppendClaims("sid", r.SignIn.SessionID.String())
+	}
+	return nil
+}
+
+// SetUserinfoFromToken answers userinfo for a verified access token: the User's own email and name.
+func (s *storage) SetUserinfoFromToken(ctx context.Context, info *oidc.UserInfo, _, subject, _ string) error {
+	claims, err := s.claims(ctx, subject)
+	if err != nil {
+		return err
+	}
+	info.Subject = subject
+	info.Email, info.EmailVerified, info.Name = claims.Email, true, claims.Name
+	return nil
+}
+
+func (s *storage) SetIntrospectionFromToken(ctx context.Context, resp *oidc.IntrospectionResponse, tokenID, subject, clientID string) error {
+	info := new(oidc.UserInfo)
+	if err := s.SetUserinfoFromToken(ctx, info, tokenID, subject, clientID); err != nil {
+		return err
+	}
+	resp.SetUserInfo(info)
+	return nil
+}
+
+func (s *storage) claims(ctx context.Context, subject string) (app.Claims, error) {
+	id, err := uuid.Parse(subject)
+	if err != nil {
+		return app.Claims{}, s.fail(ctx, app.ErrNotFound)
+	}
+	c, err := s.svc.Claims(ctx, id)
+	if err != nil {
+		return app.Claims{}, s.fail(ctx, err)
+	}
+	return c, nil
+}
+
+// GetPrivateClaimsFromScopes adds nothing yet; App Roles arrive with identity#14.
+func (s *storage) GetPrivateClaimsFromScopes(context.Context, string, string, []string) (map[string]any, error) {
+	return nil, nil //nolint:nilnil // no private claims is not an error
+}
+
+var errNoJWTProfile = oidc.ErrUnauthorizedClient().WithDescription("The JWT profile grant is not offered.")
+
+func (s *storage) GetKeyByIDAndClientID(context.Context, string, string) (*jose.JSONWebKey, error) {
+	return nil, errNoJWTProfile
+}
+
+func (s *storage) ValidateJWTProfileScopes(context.Context, string, []string) ([]string, error) {
+	return nil, errNoJWTProfile
+}
+
+// Health is answered by /readyz, which pings Postgres.
+func (s *storage) Health(context.Context) error { return nil }
