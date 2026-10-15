@@ -4,11 +4,53 @@ package oas
 
 import (
 	"fmt"
+	"time"
 )
 
 func (s *ProblemStatusCode) Error() string {
 	return fmt.Sprintf("code %d: %+v", s.StatusCode, s.Response)
 }
+
+// ChangePasswordNoContent is response for ChangePassword operation.
+type ChangePasswordNoContent struct{}
+
+func (*ChangePasswordNoContent) changePasswordRes() {}
+
+// ConfirmEmailNoContent is response for ConfirmEmail operation.
+type ConfirmEmailNoContent struct{}
+
+func (*ConfirmEmailNoContent) confirmEmailRes() {}
+
+// A confirmation token from a mailed link, with the password chosen at sign-up, so a link sent to
+// someone else's address confirms nothing for whoever signed up with it.
+// Ref: #/components/schemas/Confirmation
+type Confirmation struct {
+	Password Password `json:"password"`
+	// The token the link carried.
+	Token string `json:"token"`
+}
+
+// GetPassword returns the value of Password.
+func (s *Confirmation) GetPassword() Password {
+	return s.Password
+}
+
+// GetToken returns the value of Token.
+func (s *Confirmation) GetToken() string {
+	return s.Token
+}
+
+// SetPassword sets the value of Password.
+func (s *Confirmation) SetPassword(val Password) {
+	s.Password = val
+}
+
+// SetToken sets the value of Token.
+func (s *Confirmation) SetToken(val string) {
+	s.Token = val
+}
+
+type Email string
 
 // NewOptString returns new OptString with value set to v.
 func NewOptString(v string) OptString {
@@ -54,6 +96,35 @@ func (o OptString) Or(d string) string {
 		return v
 	}
 	return d
+}
+
+type Password string
+
+// The current password and the new one.
+// Ref: #/components/schemas/PasswordChange
+type PasswordChange struct {
+	Current Password `json:"current"`
+	Next    Password `json:"next"`
+}
+
+// GetCurrent returns the value of Current.
+func (s *PasswordChange) GetCurrent() Password {
+	return s.Current
+}
+
+// GetNext returns the value of Next.
+func (s *PasswordChange) GetNext() Password {
+	return s.Next
+}
+
+// SetCurrent sets the value of Current.
+func (s *PasswordChange) SetCurrent(val Password) {
+	s.Current = val
+}
+
+// SetNext sets the value of Next.
+func (s *PasswordChange) SetNext(val Password) {
+	s.Next = val
 }
 
 // An RFC 9457 problem detail.
@@ -135,7 +206,205 @@ func (s *ProblemStatusCode) SetResponse(val Problem) {
 	s.Response = val
 }
 
-func (*ProblemStatusCode) getVersionRes() {}
+func (*ProblemStatusCode) changePasswordRes() {}
+func (*ProblemStatusCode) confirmEmailRes()   {}
+func (*ProblemStatusCode) getProfileRes()     {}
+func (*ProblemStatusCode) getVersionRes()     {}
+func (*ProblemStatusCode) signInRes()         {}
+func (*ProblemStatusCode) signOutRes()        {}
+func (*ProblemStatusCode) signUpRes()         {}
+func (*ProblemStatusCode) updateProfileRes()  {}
+
+// The signed-in User.
+// Ref: #/components/schemas/Profile
+type Profile struct {
+	Email Email `json:"email"`
+	// What the User is called.
+	Name string `json:"name"`
+	// When the User signed up.
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+// GetEmail returns the value of Email.
+func (s *Profile) GetEmail() Email {
+	return s.Email
+}
+
+// GetName returns the value of Name.
+func (s *Profile) GetName() string {
+	return s.Name
+}
+
+// GetCreatedAt returns the value of CreatedAt.
+func (s *Profile) GetCreatedAt() time.Time {
+	return s.CreatedAt
+}
+
+// SetEmail sets the value of Email.
+func (s *Profile) SetEmail(val Email) {
+	s.Email = val
+}
+
+// SetName sets the value of Name.
+func (s *Profile) SetName(val string) {
+	s.Name = val
+}
+
+// SetCreatedAt sets the value of CreatedAt.
+func (s *Profile) SetCreatedAt(val time.Time) {
+	s.CreatedAt = val
+}
+
+func (*Profile) getProfileRes()    {}
+func (*Profile) updateProfileRes() {}
+
+// A new name.
+// Ref: #/components/schemas/ProfileUpdate
+type ProfileUpdate struct {
+	// What the User is called, 1 to 100 characters.
+	Name string `json:"name"`
+}
+
+// GetName returns the value of Name.
+func (s *ProfileUpdate) GetName() string {
+	return s.Name
+}
+
+// SetName sets the value of Name.
+func (s *ProfileUpdate) SetName(val string) {
+	s.Name = val
+}
+
+type Session struct {
+	APIKey string
+	Roles  []string
+}
+
+// GetAPIKey returns the value of APIKey.
+func (s *Session) GetAPIKey() string {
+	return s.APIKey
+}
+
+// GetRoles returns the value of Roles.
+func (s *Session) GetRoles() []string {
+	return s.Roles
+}
+
+// SetAPIKey sets the value of APIKey.
+func (s *Session) SetAPIKey(val string) {
+	s.APIKey = val
+}
+
+// SetRoles sets the value of Roles.
+func (s *Session) SetRoles(val []string) {
+	s.Roles = val
+}
+
+// An email and a password.
+// Ref: #/components/schemas/SignIn
+type SignIn struct {
+	// The email address signed up with.
+	Email    string   `json:"email"`
+	Password Password `json:"password"`
+}
+
+// GetEmail returns the value of Email.
+func (s *SignIn) GetEmail() string {
+	return s.Email
+}
+
+// GetPassword returns the value of Password.
+func (s *SignIn) GetPassword() Password {
+	return s.Password
+}
+
+// SetEmail sets the value of Email.
+func (s *SignIn) SetEmail(val string) {
+	s.Email = val
+}
+
+// SetPassword sets the value of Password.
+func (s *SignIn) SetPassword(val Password) {
+	s.Password = val
+}
+
+// SignInNoContent is response for SignIn operation.
+type SignInNoContent struct {
+	SetCookie string
+}
+
+// GetSetCookie returns the value of SetCookie.
+func (s *SignInNoContent) GetSetCookie() string {
+	return s.SetCookie
+}
+
+// SetSetCookie sets the value of SetCookie.
+func (s *SignInNoContent) SetSetCookie(val string) {
+	s.SetCookie = val
+}
+
+func (*SignInNoContent) signInRes() {}
+
+// SignOutNoContent is response for SignOut operation.
+type SignOutNoContent struct {
+	SetCookie string
+}
+
+// GetSetCookie returns the value of SetCookie.
+func (s *SignOutNoContent) GetSetCookie() string {
+	return s.SetCookie
+}
+
+// SetSetCookie sets the value of SetCookie.
+func (s *SignOutNoContent) SetSetCookie(val string) {
+	s.SetCookie = val
+}
+
+func (*SignOutNoContent) signOutRes() {}
+
+// Who is signing up.
+// Ref: #/components/schemas/SignUp
+type SignUp struct {
+	Email Email `json:"email"`
+	// What the User is called, 1 to 100 characters.
+	Name     string   `json:"name"`
+	Password Password `json:"password"`
+}
+
+// GetEmail returns the value of Email.
+func (s *SignUp) GetEmail() Email {
+	return s.Email
+}
+
+// GetName returns the value of Name.
+func (s *SignUp) GetName() string {
+	return s.Name
+}
+
+// GetPassword returns the value of Password.
+func (s *SignUp) GetPassword() Password {
+	return s.Password
+}
+
+// SetEmail sets the value of Email.
+func (s *SignUp) SetEmail(val Email) {
+	s.Email = val
+}
+
+// SetName sets the value of Name.
+func (s *SignUp) SetName(val string) {
+	s.Name = val
+}
+
+// SetPassword sets the value of Password.
+func (s *SignUp) SetPassword(val Password) {
+	s.Password = val
+}
+
+// SignUpAccepted is response for SignUp operation.
+type SignUpAccepted struct{}
+
+func (*SignUpAccepted) signUpRes() {}
 
 // The running build.
 // Ref: #/components/schemas/Version

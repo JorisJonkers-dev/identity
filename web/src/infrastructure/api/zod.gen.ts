@@ -3,6 +3,65 @@
 import * as z from 'zod';
 
 /**
+ * An email address.
+ */
+export const zEmail = z.email().max(254);
+
+/**
+ * A password, 12 to 128 characters.
+ */
+export const zPassword = z.string().min(1).max(512);
+
+/**
+ * Who is signing up.
+ */
+export const zSignUp = z.object({
+    email: zEmail,
+    name: z.string().min(1).max(400),
+    password: zPassword
+});
+
+/**
+ * A confirmation token from a mailed link, with the password chosen at sign-up, so a link sent to someone else's address confirms nothing for whoever signed up with it.
+ */
+export const zConfirmation = z.object({
+    password: zPassword,
+    token: z.string().min(1).max(128)
+});
+
+/**
+ * An email and a password.
+ */
+export const zSignIn = z.object({
+    email: z.string().min(1).max(254),
+    password: zPassword
+});
+
+/**
+ * The signed-in User.
+ */
+export const zProfile = z.object({
+    email: zEmail,
+    name: z.string().max(400),
+    createdAt: z.iso.datetime({ offset: true }).max(64)
+});
+
+/**
+ * A new name.
+ */
+export const zProfileUpdate = z.object({
+    name: z.string().min(1).max(400)
+});
+
+/**
+ * The current password and the new one.
+ */
+export const zPasswordChange = z.object({
+    current: zPassword,
+    next: zPassword
+});
+
+/**
  * The running build.
  */
 export const zVersion = z.object({
@@ -23,3 +82,43 @@ export const zProblem = z.object({
  * The version.
  */
 export const zGetVersionResponse = zVersion;
+
+export const zSignUpBody = zSignUp;
+
+export const zConfirmEmailBody = zConfirmation;
+
+/**
+ * The email is confirmed; the User can sign in.
+ */
+export const zConfirmEmailResponse = z.void();
+
+/**
+ * Signed out.
+ */
+export const zSignOutResponse = z.void();
+
+export const zSignInBody = zSignIn;
+
+/**
+ * Signed in.
+ */
+export const zSignInResponse = z.void();
+
+/**
+ * The Profile.
+ */
+export const zGetProfileResponse = zProfile;
+
+export const zUpdateProfileBody = zProfileUpdate;
+
+/**
+ * The changed Profile.
+ */
+export const zUpdateProfileResponse = zProfile;
+
+export const zChangePasswordBody = zPasswordChange;
+
+/**
+ * The password is changed.
+ */
+export const zChangePasswordResponse = z.void();

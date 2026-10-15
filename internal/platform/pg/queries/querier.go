@@ -6,11 +6,27 @@ package queries
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 )
 
 type Querier interface {
+	CreateSession(ctx context.Context, arg CreateSessionParams) error
+	CreateSignup(ctx context.Context, arg CreateSignupParams) error
+	CreateUser(ctx context.Context, arg CreateUserParams) error
+	// Ends every session of a User but one, as changing the password does.
+	DeleteOtherSessions(ctx context.Context, arg DeleteOtherSessionsParams) error
+	DeleteSession(ctx context.Context, tokenHash []byte) error
+	DeleteSignup(ctx context.Context, tokenHash []byte) error
 	// Readiness: the database answers a query, not only a connection.
 	Ping(ctx context.Context) (int32, error)
+	SessionByHash(ctx context.Context, tokenHash []byte) (SessionByHashRow, error)
+	SignupByHash(ctx context.Context, tokenHash []byte) (SignupByHashRow, error)
+	TouchSession(ctx context.Context, arg TouchSessionParams) error
+	UpdateUserName(ctx context.Context, arg UpdateUserNameParams) error
+	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
+	UserByEmail(ctx context.Context, email string) (User, error)
+	UserByID(ctx context.Context, id uuid.UUID) (User, error)
 }
 
 var _ Querier = (*Queries)(nil)

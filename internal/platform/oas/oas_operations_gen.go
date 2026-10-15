@@ -6,5 +6,12 @@ package oas
 type OperationName = string
 
 const (
-	GetVersionOperation OperationName = "GetVersion"
+	ChangePasswordOperation OperationName = "ChangePassword"
+	ConfirmEmailOperation   OperationName = "ConfirmEmail"
+	GetProfileOperation     OperationName = "GetProfile"
+	GetVersionOperation     OperationName = "GetVersion"
+	SignInOperation         OperationName = "SignIn"
+	SignOutOperation        OperationName = "SignOut"
+	SignUpOperation         OperationName = "SignUp"
+	UpdateProfileOperation  OperationName = "UpdateProfile"
 )

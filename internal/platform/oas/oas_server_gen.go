@@ -8,6 +8,25 @@ import (
 
 // Handler handles operations described by OpenAPI v3 specification.
 type Handler interface {
+	// ChangePassword implements changePassword operation.
+	//
+	// Replaces the password after checking the current one.
+	//
+	// POST /api/v1/profile/password
+	ChangePassword(ctx context.Context, req *PasswordChange) (ChangePasswordRes, error)
+	// ConfirmEmail implements confirmEmail operation.
+	//
+	// Creates the User a sign-up describes, given the token from the mailed link and the password chosen
+	// at sign-up, within 24 hours. A wrong password leaves the link usable.
+	//
+	// POST /api/v1/confirmations
+	ConfirmEmail(ctx context.Context, req *Confirmation) (ConfirmEmailRes, error)
+	// GetProfile implements getProfile operation.
+	//
+	// Who is signed in.
+	//
+	// GET /api/v1/profile
+	GetProfile(ctx context.Context) (GetProfileRes, error)
 	// GetVersion implements getVersion operation.
 	//
 	// The version of the build that is serving, for the Launcher's footer and for checks after a deploy.
@@ -15,6 +34,32 @@ type Handler interface {
 	//
 	// GET /api/v1/version
 	GetVersion(ctx context.Context) (GetVersionRes, error)
+	// SignIn implements signIn operation.
+	//
+	// Checks an email and a password and starts a Single sign-on session in a host-only cookie. A wrong
+	// email and a wrong password get the same 401.
+	//
+	// POST /api/v1/session
+	SignIn(ctx context.Context, req *SignIn) (SignInRes, error)
+	// SignOut implements signOut operation.
+	//
+	// Ends this session and clears its cookie.
+	//
+	// DELETE /api/v1/session
+	SignOut(ctx context.Context) (SignOutRes, error)
+	// SignUp implements signUp operation.
+	//
+	// Registers an unconfirmed User and mails a confirmation link. Answers 202 whether or not the email is
+	// already registered, so the answer never tells who has an account.
+	//
+	// POST /api/v1/signup
+	SignUp(ctx context.Context, req *SignUp) (SignUpRes, error)
+	// UpdateProfile implements updateProfile operation.
+	//
+	// Changes what the User is called.
+	//
+	// PATCH /api/v1/profile
+	UpdateProfile(ctx context.Context, req *ProfileUpdate) (UpdateProfileRes, error)
 	// NewError creates *ProblemStatusCode from error returned by handler.
 	//
 	// Used for common default response.
@@ -24,18 +69,20 @@ type Handler interface {
 // Server implements http server based on OpenAPI v3 specification and
 // calls Handler to handle requests.
 type Server struct {
-	h Handler
+	h   Handler
+	sec SecurityHandler
 	baseServer
 }
 
 // NewServer creates new Server.
-func NewServer(h Handler, opts ...ServerOption) (*Server, error) {
+func NewServer(h Handler, sec SecurityHandler, opts ...ServerOption) (*Server, error) {
 	s, err := newServerConfig(opts...).baseServer()
 	if err != nil {
 		return nil, err
 	}
 	return &Server{
 		h:          h,
+		sec:        sec,
 		baseServer: s,
 	}, nil
 }

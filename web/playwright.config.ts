@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
-const origin = 'http://127.0.0.1:18573'
+// localhost, not 127.0.0.1: Chromium accepts the __Host- session cookie's Secure flag from it.
+const origin = 'http://localhost:18573'
 
 // E2E runs the real binary, with the web build embedded, against the compose Postgres: the same
 // artifact the image ships. `task e2e` builds it first.
@@ -24,6 +25,11 @@ export default defineConfig({
     env: {
       ADDR: new URL(origin).host,
       DATABASE_URL: process.env.DATABASE_URL ?? 'postgres://app:app@localhost:55432/app?sslmode=disable',
+      PUBLIC_URL: origin,
+      // The compose Mailpit, which offers no TLS; only a local run may send in the clear.
+      SMTP_ADDR: 'localhost:51025',
+      SMTP_TLS: 'none',
+      MAIL_FROM: 'identity@localhost',
     },
   },
 })

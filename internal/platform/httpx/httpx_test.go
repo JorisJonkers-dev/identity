@@ -2,8 +2,10 @@ package httpx_test
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/JorisJonkers-dev/identity/internal/platform/httpx"
@@ -37,5 +39,38 @@ func TestSecurityHeaders(t *testing.T) {
 		if rec.Header().Get(h) == "" {
 			t.Errorf("missing %s", h)
 		}
+	}
+}
+
+func TestLimitBodyRefusesADeclaredOversizeAndCapsTheRest(t *testing.T) {
+	var read int
+	h := httpx.LimitBody(10, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, err := io.ReadAll(r.Body)
+		read = len(b)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+		}
+	}))
+
+	declared := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader(strings.Repeat("x", 11)))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, declared)
+	if rec.Code != http.StatusRequestEntityTooLarge || read != 0 {
+		t.Fatalf("a declared 11 bytes = %d, read %d; want 413 before reading", rec.Code, read)
+	}
+
+	chunked := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader(strings.Repeat("x", 11)))
+	chunked.ContentLength = -1
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, chunked)
+	if rec.Code != http.StatusBadRequest || read > 10 {
+		t.Fatalf("an undeclared 11 bytes = %d, read %d; want the read stopped at 10", rec.Code, read)
+	}
+
+	small := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader("ok"))
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, small)
+	if rec.Code != http.StatusOK || read != 2 {
+		t.Fatalf("a small body = %d, read %d", rec.Code, read)
 	}
 }

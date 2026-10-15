@@ -5,6 +5,83 @@ export type ClientOptions = {
 };
 
 /**
+ * An email address.
+ */
+export type Email = string;
+
+/**
+ * A password, 12 to 128 characters.
+ */
+export type Password = string;
+
+/**
+ * Who is signing up.
+ */
+export type SignUp = {
+    email: Email;
+    /**
+     * What the User is called, 1 to 100 characters.
+     */
+    name: string;
+    password: Password;
+};
+
+/**
+ * A confirmation token from a mailed link, with the password chosen at sign-up, so a link sent to someone else's address confirms nothing for whoever signed up with it.
+ */
+export type Confirmation = {
+    password: Password;
+    /**
+     * The token the link carried.
+     */
+    token: string;
+};
+
+/**
+ * An email and a password.
+ */
+export type SignIn = {
+    /**
+     * The email address signed up with.
+     */
+    email: string;
+    password: Password;
+};
+
+/**
+ * The signed-in User.
+ */
+export type Profile = {
+    email: Email;
+    /**
+     * What the User is called.
+     */
+    name: string;
+    /**
+     * When the User signed up.
+     */
+    createdAt: string;
+};
+
+/**
+ * A new name.
+ */
+export type ProfileUpdate = {
+    /**
+     * What the User is called, 1 to 100 characters.
+     */
+    name: string;
+};
+
+/**
+ * The current password and the new one.
+ */
+export type PasswordChange = {
+    current: Password;
+    next: Password;
+};
+
+/**
  * The running build.
  */
 export type Version = {
@@ -64,3 +141,204 @@ export type GetVersionResponses = {
 };
 
 export type GetVersionResponse = GetVersionResponses[keyof GetVersionResponses];
+
+export type SignUpData = {
+    body: SignUp;
+    path?: never;
+    query?: never;
+    url: '/api/v1/signup';
+};
+
+export type SignUpErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type SignUpError = SignUpErrors[keyof SignUpErrors];
+
+export type SignUpResponses = {
+    /**
+     * A confirmation link is on its way, or the address was told it already has an account.
+     */
+    202: unknown;
+};
+
+export type ConfirmEmailData = {
+    body: Confirmation;
+    path?: never;
+    query?: never;
+    url: '/api/v1/confirmations';
+};
+
+export type ConfirmEmailErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type ConfirmEmailError = ConfirmEmailErrors[keyof ConfirmEmailErrors];
+
+export type ConfirmEmailResponses = {
+    /**
+     * The email is confirmed; the User can sign in.
+     */
+    204: void;
+};
+
+export type ConfirmEmailResponse = ConfirmEmailResponses[keyof ConfirmEmailResponses];
+
+export type SignOutData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/session';
+};
+
+export type SignOutErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type SignOutError = SignOutErrors[keyof SignOutErrors];
+
+export type SignOutResponses = {
+    /**
+     * Signed out.
+     */
+    204: void;
+};
+
+export type SignOutResponse = SignOutResponses[keyof SignOutResponses];
+
+export type SignInData = {
+    body: SignIn;
+    path?: never;
+    query?: never;
+    url: '/api/v1/session';
+};
+
+export type SignInErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type SignInError = SignInErrors[keyof SignInErrors];
+
+export type SignInResponses = {
+    /**
+     * Signed in.
+     */
+    204: void;
+};
+
+export type SignInResponse = SignInResponses[keyof SignInResponses];
+
+export type GetProfileData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/profile';
+};
+
+export type GetProfileErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type GetProfileError = GetProfileErrors[keyof GetProfileErrors];
+
+export type GetProfileResponses = {
+    /**
+     * The Profile.
+     */
+    200: Profile;
+};
+
+export type GetProfileResponse = GetProfileResponses[keyof GetProfileResponses];
+
+export type UpdateProfileData = {
+    body: ProfileUpdate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/profile';
+};
+
+export type UpdateProfileErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type UpdateProfileError = UpdateProfileErrors[keyof UpdateProfileErrors];
+
+export type UpdateProfileResponses = {
+    /**
+     * The changed Profile.
+     */
+    200: Profile;
+};
+
+export type UpdateProfileResponse = UpdateProfileResponses[keyof UpdateProfileResponses];
+
+export type ChangePasswordData = {
+    body: PasswordChange;
+    path?: never;
+    query?: never;
+    url: '/api/v1/profile/password';
+};
+
+export type ChangePasswordErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type ChangePasswordError = ChangePasswordErrors[keyof ChangePasswordErrors];
+
+export type ChangePasswordResponses = {
+    /**
+     * The password is changed.
+     */
+    204: void;
+};
+
+export type ChangePasswordResponse = ChangePasswordResponses[keyof ChangePasswordResponses];

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { RouterLink } from 'vue-router'
 import { useVersion } from '../composables/useVersion'
 
 const { version, loadError } = useVersion()
@@ -8,6 +9,7 @@ const { version, loadError } = useVersion()
   <section aria-labelledby="home-title">
     <h1 id="home-title">jorisjonkers.dev</h1>
     <p>Sign in here once, and every estate app knows who you are.</p>
+    <p><RouterLink to="/signin">Sign in</RouterLink> or <RouterLink to="/signup">sign up</RouterLink>.</p>
     <p v-if="loadError" role="alert" class="error">{{ loadError }}</p>
     <footer v-else-if="version">Version {{ version }}</footer>
   </section>

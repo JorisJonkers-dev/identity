@@ -16,9 +16,15 @@ servers:
   - url: https://auth.jorisjonkers.dev
     description: Production. The SPA and the API share one origin.
     x-internal: false
+security:
+  - session: []
 tags:
   - name: service
     description: Facts about the running service.
+  - name: account
+    description: Signing up, confirming an email, and signing in and out.
+  - name: profile
+    description: What a signed-in User may change about themselves.
 paths:
   /api/v1/version:
     get:
@@ -38,7 +44,165 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/signup:
+    post:
+      operationId: signUp
+      summary: Sign up
+      description: >-
+        Registers an unconfirmed User and mails a confirmation link. Answers 202 whether or not the
+        email is already registered, so the answer never tells who has an account.
+      tags: [account]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignUp"
+      responses:
+        "202":
+          description: A confirmation link is on its way, or the address was told it already has an account.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/confirmations:
+    post:
+      operationId: confirmEmail
+      summary: Confirm an email
+      description: >-
+        Creates the User a sign-up describes, given the token from the mailed link and the password
+        chosen at sign-up, within 24 hours. A wrong password leaves the link usable.
+      tags: [account]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Confirmation"
+      responses:
+        "204":
+          description: The email is confirmed; the User can sign in.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/session:
+    post:
+      operationId: signIn
+      summary: Sign in
+      description: >-
+        Checks an email and a password and starts a Single sign-on session in a host-only cookie.
+        A wrong email and a wrong password get the same 401.
+      tags: [account]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignIn"
+      responses:
+        "204":
+          description: Signed in.
+          headers:
+            Set-Cookie:
+              description: The session cookie.
+              required: true
+              schema:
+                type: string
+                maxLength: 256
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: signOut
+      summary: Sign out
+      description: Ends this session and clears its cookie.
+      tags: [account]
+      responses:
+        "204":
+          description: Signed out.
+          headers:
+            Set-Cookie:
+              description: Clears the session cookie.
+              required: true
+              schema:
+                type: string
+                maxLength: 256
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/profile:
+    get:
+      operationId: getProfile
+      summary: The signed-in User's Profile
+      description: Who is signed in.
+      tags: [profile]
+      responses:
+        "200":
+          description: The Profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    patch:
+      operationId: updateProfile
+      summary: Change the signed-in User's name
+      description: Changes what the User is called.
+      tags: [profile]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+      responses:
+        "200":
+          description: The changed Profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/profile/password:
+    post:
+      operationId: changePassword
+      summary: Change the signed-in User's password
+      description: Replaces the password after checking the current one.
+      tags: [profile]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordChange"
+      responses:
+        "204":
+          description: The password is changed.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: __Host-identity_session
+      description: >-
+        The Single sign-on session, set by signIn as a host-only, HttpOnly, Secure, SameSite=Lax
+        cookie. The API takes JSON bodies only, so a cross-site form cannot post to it.
   responses:
     Problem:
       description: An RFC 9457 problem.
@@ -47,6 +211,106 @@ components:
           schema:
             $ref: "#/components/schemas/Problem"
   schemas:
+    Email:
+      description: An email address.
+      type: string
+      format: email
+      maxLength: 254
+      example: ada@example.org
+    Password:
+      description: A password, 12 to 128 characters.
+      type: string
+      format: password
+      minLength: 1
+      maxLength: 512
+      example: correct horse battery
+    SignUp:
+      description: Who is signing up.
+      type: object
+      additionalProperties: false
+      required: [email, name, password]
+      properties:
+        email:
+          $ref: "#/components/schemas/Email"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 400
+          description: What the User is called, 1 to 100 characters.
+          example: Ada Lovelace
+        password:
+          $ref: "#/components/schemas/Password"
+    Confirmation:
+      description: >-
+        A confirmation token from a mailed link, with the password chosen at sign-up, so a link
+        sent to someone else's address confirms nothing for whoever signed up with it.
+      type: object
+      additionalProperties: false
+      required: [token, password]
+      properties:
+        password:
+          $ref: "#/components/schemas/Password"
+        token:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: The token the link carried.
+          example: q3J0h9w2mVd1fC4kJXn7p8sR1tY6uE5wB0aZ3cD9eF2
+    SignIn:
+      description: An email and a password.
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          minLength: 1
+          maxLength: 254
+          description: The email address signed up with.
+          example: ada@example.org
+        password:
+          $ref: "#/components/schemas/Password"
+    Profile:
+      description: The signed-in User.
+      type: object
+      additionalProperties: false
+      required: [email, name, createdAt]
+      properties:
+        email:
+          $ref: "#/components/schemas/Email"
+        name:
+          type: string
+          maxLength: 400
+          description: What the User is called.
+          example: Ada Lovelace
+        createdAt:
+          type: string
+          format: date-time
+          maxLength: 64
+          description: When the User signed up.
+          example: "2026-10-15T12:00:00Z"
+    ProfileUpdate:
+      description: A new name.
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 400
+          description: What the User is called, 1 to 100 characters.
+          example: Ada King
+    PasswordChange:
+      description: The current password and the new one.
+      type: object
+      additionalProperties: false
+      required: [current, next]
+      properties:
+        current:
+          $ref: "#/components/schemas/Password"
+        next:
+          $ref: "#/components/schemas/Password"
     Version:
       description: The running build.
       type: object

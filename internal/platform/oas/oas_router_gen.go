@@ -10,6 +10,24 @@ import (
 	"github.com/ogen-go/ogen/uri"
 )
 
+var (
+	rn3AllowedHeaders = map[string]string{
+		"POST": "Content-Type",
+	}
+	rn4AllowedHeaders = map[string]string{
+		"PATCH": "Content-Type",
+	}
+	rn1AllowedHeaders = map[string]string{
+		"POST": "Content-Type",
+	}
+	rn6AllowedHeaders = map[string]string{
+		"POST": "Content-Type",
+	}
+	rn8AllowedHeaders = map[string]string{
+		"POST": "Content-Type",
+	}
+)
+
 func (s *Server) cutPrefix(path string) (string, bool) {
 	prefix := s.cfg.Prefix
 	if prefix == "" {
@@ -48,29 +66,187 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		switch elem[0] {
-		case '/': // Prefix: "/api/v1/version"
+		case '/': // Prefix: "/api/v1/"
 
-			if l := len("/api/v1/version"); len(elem) >= l && elem[0:l] == "/api/v1/version" {
+			if l := len("/api/v1/"); len(elem) >= l && elem[0:l] == "/api/v1/" {
 				elem = elem[l:]
 			} else {
 				break
 			}
 
 			if len(elem) == 0 {
-				// Leaf node.
-				switch r.Method {
-				case "GET":
-					s.handleGetVersionRequest([0]string{}, elemIsEscaped, w, r)
-				default:
-					s.notAllowed(w, r, notAllowedParams{
-						allowedMethods: "GET",
-						allowedHeaders: nil,
-						acceptPost:     "",
-						acceptPatch:    "",
-					})
+				break
+			}
+			switch elem[0] {
+			case 'c': // Prefix: "confirmations"
+
+				if l := len("confirmations"); len(elem) >= l && elem[0:l] == "confirmations" {
+					elem = elem[l:]
+				} else {
+					break
 				}
 
-				return
+				if len(elem) == 0 {
+					// Leaf node.
+					switch r.Method {
+					case "POST":
+						s.handleConfirmEmailRequest([0]string{}, elemIsEscaped, w, r)
+					default:
+						s.notAllowed(w, r, notAllowedParams{
+							allowedMethods: "POST",
+							allowedHeaders: rn3AllowedHeaders,
+							acceptPost:     "application/json",
+							acceptPatch:    "",
+						})
+					}
+
+					return
+				}
+
+			case 'p': // Prefix: "profile"
+
+				if l := len("profile"); len(elem) >= l && elem[0:l] == "profile" {
+					elem = elem[l:]
+				} else {
+					break
+				}
+
+				if len(elem) == 0 {
+					switch r.Method {
+					case "GET":
+						s.handleGetProfileRequest([0]string{}, elemIsEscaped, w, r)
+					case "PATCH":
+						s.handleUpdateProfileRequest([0]string{}, elemIsEscaped, w, r)
+					default:
+						s.notAllowed(w, r, notAllowedParams{
+							allowedMethods: "GET,PATCH",
+							allowedHeaders: rn4AllowedHeaders,
+							acceptPost:     "",
+							acceptPatch:    "application/json",
+						})
+					}
+
+					return
+				}
+				switch elem[0] {
+				case '/': // Prefix: "/password"
+
+					if l := len("/password"); len(elem) >= l && elem[0:l] == "/password" {
+						elem = elem[l:]
+					} else {
+						break
+					}
+
+					if len(elem) == 0 {
+						// Leaf node.
+						switch r.Method {
+						case "POST":
+							s.handleChangePasswordRequest([0]string{}, elemIsEscaped, w, r)
+						default:
+							s.notAllowed(w, r, notAllowedParams{
+								allowedMethods: "POST",
+								allowedHeaders: rn1AllowedHeaders,
+								acceptPost:     "application/json",
+								acceptPatch:    "",
+							})
+						}
+
+						return
+					}
+
+				}
+
+			case 's': // Prefix: "s"
+
+				if l := len("s"); len(elem) >= l && elem[0:l] == "s" {
+					elem = elem[l:]
+				} else {
+					break
+				}
+
+				if len(elem) == 0 {
+					break
+				}
+				switch elem[0] {
+				case 'e': // Prefix: "ession"
+
+					if l := len("ession"); len(elem) >= l && elem[0:l] == "ession" {
+						elem = elem[l:]
+					} else {
+						break
+					}
+
+					if len(elem) == 0 {
+						// Leaf node.
+						switch r.Method {
+						case "DELETE":
+							s.handleSignOutRequest([0]string{}, elemIsEscaped, w, r)
+						case "POST":
+							s.handleSignInRequest([0]string{}, elemIsEscaped, w, r)
+						default:
+							s.notAllowed(w, r, notAllowedParams{
+								allowedMethods: "DELETE,POST",
+								allowedHeaders: rn6AllowedHeaders,
+								acceptPost:     "application/json",
+								acceptPatch:    "",
+							})
+						}
+
+						return
+					}
+
+				case 'i': // Prefix: "ignup"
+
+					if l := len("ignup"); len(elem) >= l && elem[0:l] == "ignup" {
+						elem = elem[l:]
+					} else {
+						break
+					}
+
+					if len(elem) == 0 {
+						// Leaf node.
+						switch r.Method {
+						case "POST":
+							s.handleSignUpRequest([0]string{}, elemIsEscaped, w, r)
+						default:
+							s.notAllowed(w, r, notAllowedParams{
+								allowedMethods: "POST",
+								allowedHeaders: rn8AllowedHeaders,
+								acceptPost:     "application/json",
+								acceptPatch:    "",
+							})
+						}
+
+						return
+					}
+
+				}
+
+			case 'v': // Prefix: "version"
+
+				if l := len("version"); len(elem) >= l && elem[0:l] == "version" {
+					elem = elem[l:]
+				} else {
+					break
+				}
+
+				if len(elem) == 0 {
+					// Leaf node.
+					switch r.Method {
+					case "GET":
+						s.handleGetVersionRequest([0]string{}, elemIsEscaped, w, r)
+					default:
+						s.notAllowed(w, r, notAllowedParams{
+							allowedMethods: "GET",
+							allowedHeaders: nil,
+							acceptPost:     "",
+							acceptPatch:    "",
+						})
+					}
+
+					return
+				}
+
 			}
 
 		}
@@ -159,29 +335,201 @@ func (s *Server) FindPath(method string, u *url.URL) (r Route, _ bool) {
 			break
 		}
 		switch elem[0] {
-		case '/': // Prefix: "/api/v1/version"
+		case '/': // Prefix: "/api/v1/"
 
-			if l := len("/api/v1/version"); len(elem) >= l && elem[0:l] == "/api/v1/version" {
+			if l := len("/api/v1/"); len(elem) >= l && elem[0:l] == "/api/v1/" {
 				elem = elem[l:]
 			} else {
 				break
 			}
 
 			if len(elem) == 0 {
-				// Leaf node.
-				switch method {
-				case "GET":
-					r.name = GetVersionOperation
-					r.summary = "The running version"
-					r.operationID = "getVersion"
-					r.operationGroup = ""
-					r.pathPattern = "/api/v1/version"
-					r.args = args
-					r.count = 0
-					return r, true
-				default:
-					return
+				break
+			}
+			switch elem[0] {
+			case 'c': // Prefix: "confirmations"
+
+				if l := len("confirmations"); len(elem) >= l && elem[0:l] == "confirmations" {
+					elem = elem[l:]
+				} else {
+					break
 				}
+
+				if len(elem) == 0 {
+					// Leaf node.
+					switch method {
+					case "POST":
+						r.name = ConfirmEmailOperation
+						r.summary = "Confirm an email"
+						r.operationID = "confirmEmail"
+						r.operationGroup = ""
+						r.pathPattern = "/api/v1/confirmations"
+						r.args = args
+						r.count = 0
+						return r, true
+					default:
+						return
+					}
+				}
+
+			case 'p': // Prefix: "profile"
+
+				if l := len("profile"); len(elem) >= l && elem[0:l] == "profile" {
+					elem = elem[l:]
+				} else {
+					break
+				}
+
+				if len(elem) == 0 {
+					switch method {
+					case "GET":
+						r.name = GetProfileOperation
+						r.summary = "The signed-in User's Profile"
+						r.operationID = "getProfile"
+						r.operationGroup = ""
+						r.pathPattern = "/api/v1/profile"
+						r.args = args
+						r.count = 0
+						return r, true
+					case "PATCH":
+						r.name = UpdateProfileOperation
+						r.summary = "Change the signed-in User's name"
+						r.operationID = "updateProfile"
+						r.operationGroup = ""
+						r.pathPattern = "/api/v1/profile"
+						r.args = args
+						r.count = 0
+						return r, true
+					default:
+						return
+					}
+				}
+				switch elem[0] {
+				case '/': // Prefix: "/password"
+
+					if l := len("/password"); len(elem) >= l && elem[0:l] == "/password" {
+						elem = elem[l:]
+					} else {
+						break
+					}
+
+					if len(elem) == 0 {
+						// Leaf node.
+						switch method {
+						case "POST":
+							r.name = ChangePasswordOperation
+							r.summary = "Change the signed-in User's password"
+							r.operationID = "changePassword"
+							r.operationGroup = ""
+							r.pathPattern = "/api/v1/profile/password"
+							r.args = args
+							r.count = 0
+							return r, true
+						default:
+							return
+						}
+					}
+
+				}
+
+			case 's': // Prefix: "s"
+
+				if l := len("s"); len(elem) >= l && elem[0:l] == "s" {
+					elem = elem[l:]
+				} else {
+					break
+				}
+
+				if len(elem) == 0 {
+					break
+				}
+				switch elem[0] {
+				case 'e': // Prefix: "ession"
+
+					if l := len("ession"); len(elem) >= l && elem[0:l] == "ession" {
+						elem = elem[l:]
+					} else {
+						break
+					}
+
+					if len(elem) == 0 {
+						// Leaf node.
+						switch method {
+						case "DELETE":
+							r.name = SignOutOperation
+							r.summary = "Sign out"
+							r.operationID = "signOut"
+							r.operationGroup = ""
+							r.pathPattern = "/api/v1/session"
+							r.args = args
+							r.count = 0
+							return r, true
+						case "POST":
+							r.name = SignInOperation
+							r.summary = "Sign in"
+							r.operationID = "signIn"
+							r.operationGroup = ""
+							r.pathPattern = "/api/v1/session"
+							r.args = args
+							r.count = 0
+							return r, true
+						default:
+							return
+						}
+					}
+
+				case 'i': // Prefix: "ignup"
+
+					if l := len("ignup"); len(elem) >= l && elem[0:l] == "ignup" {
+						elem = elem[l:]
+					} else {
+						break
+					}
+
+					if len(elem) == 0 {
+						// Leaf node.
+						switch method {
+						case "POST":
+							r.name = SignUpOperation
+							r.summary = "Sign up"
+							r.operationID = "signUp"
+							r.operationGroup = ""
+							r.pathPattern = "/api/v1/signup"
+							r.args = args
+							r.count = 0
+							return r, true
+						default:
+							return
+						}
+					}
+
+				}
+
+			case 'v': // Prefix: "version"
+
+				if l := len("version"); len(elem) >= l && elem[0:l] == "version" {
+					elem = elem[l:]
+				} else {
+					break
+				}
+
+				if len(elem) == 0 {
+					// Leaf node.
+					switch method {
+					case "GET":
+						r.name = GetVersionOperation
+						r.summary = "The running version"
+						r.operationID = "getVersion"
+						r.operationGroup = ""
+						r.pathPattern = "/api/v1/version"
+						r.args = args
+						r.count = 0
+						return r, true
+					default:
+						return
+					}
+				}
+
 			}
 
 		}

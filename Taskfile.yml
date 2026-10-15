@@ -108,9 +108,9 @@ tasks:
       - CGO_ENABLED=0 go build -trimpath -o bin/{{.APP}} ./cmd/{{.APP}}
 
   db:
-    desc: Start the compose Postgres and migrate it with liquibase-runner
+    desc: Start the compose Postgres and Mailpit, and migrate Postgres with liquibase-runner
     cmds:
-      - docker compose up -d --wait postgres
+      - docker compose up -d --wait postgres mailpit
       - docker compose run --rm migrate
 
   e2e:
@@ -147,5 +147,6 @@ tasks:
     deps: [db, install]
     cmd: |
       trap 'kill 0' EXIT
-      DATABASE_URL='{{.DATABASE_URL}}' go run ./cmd/{{.APP}} &
+      DATABASE_URL='{{.DATABASE_URL}}' PUBLIC_URL=http://localhost:5173 SMTP_ADDR=localhost:51025 \
+        MAIL_FROM=identity@localhost SMTP_TLS=none go run ./cmd/{{.APP}} &
       pnpm --filter @{{.APP}}/web dev

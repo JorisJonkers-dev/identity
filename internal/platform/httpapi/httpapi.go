@@ -11,10 +11,12 @@ import (
 
 	"github.com/JorisJonkers-dev/identity/internal/platform/httpx"
 	"github.com/JorisJonkers-dev/identity/internal/platform/oas"
+	usersweb "github.com/JorisJonkers-dev/identity/internal/users/adapters/web"
 )
 
 // api is the oas.Handler: one embedded web adapter per context, plus the shared error mapping.
 type api struct {
+	*usersweb.Handler
 	logger  *slog.Logger
 	version string
 }
@@ -36,10 +38,16 @@ func (a *api) GetVersion(context.Context) (oas.GetVersionRes, error) {
 	return &oas.Version{Version: a.version}, nil
 }
 
+// maxBody caps a request body; the largest the contract accepts is a few hundred bytes.
+const maxBody = 64 << 10
+
 // New returns the API's http.Handler, serving every path the contract declares under /api.
-func New(logger *slog.Logger, version string) (http.Handler, error) {
-	return oas.NewServer(
-		&api{logger: logger, version: version},
+// The users adapter is also the session security handler.
+func New(logger *slog.Logger, version string, users usersweb.UseCases) (http.Handler, error) {
+	h := usersweb.New(users)
+	srv, err := oas.NewServer(
+		&api{Handler: h, logger: logger, version: version},
+		h,
 		oas.WithErrorHandler(writeError),
 		oas.WithNotFound(func(w http.ResponseWriter, _ *http.Request) {
 			httpx.WriteProblem(w, http.StatusNotFound, "")
@@ -49,6 +57,7 @@ func New(logger *slog.Logger, version string) (http.Handler, error) {
 			httpx.WriteProblem(w, http.StatusMethodNotAllowed, "")
 		}),
 	)
+	return httpx.LimitBody(maxBody, srv), err // NewServer fails only on a bad option, never at run time
 }
 
 // writeError answers a request ogen could not decode with a problem carrying ogen's status.

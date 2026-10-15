@@ -1,19 +1,49 @@
 package httpapi_test
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/JorisJonkers-dev/identity/internal/platform/httpapi"
+	"github.com/JorisJonkers-dev/identity/internal/users/app"
+	"github.com/JorisJonkers-dev/identity/internal/users/domain"
 )
+
+// users accepts one session token, "good", for one User.
+type users struct{}
+
+func (users) SignUp(context.Context, string, string, string) error { return nil }
+func (users) Confirm(context.Context, string, string) error        { return nil }
+func (users) SignIn(context.Context, string, string) (string, error) {
+	return "good", nil
+}
+func (users) SignOut(context.Context, string) error { return nil }
+func (users) Authenticate(_ context.Context, token string) (domain.User, error) {
+	if token != "good" {
+		return domain.User{}, app.ErrNoSession
+	}
+	e, _ := domain.NewEmail("ada@example.org")
+	n, _ := domain.NewName("Ada")
+	return domain.User{ID: uuid.New(), Email: e, Name: n, CreatedAt: time.Unix(0, 0).UTC()}, nil
+}
+func (users) Rename(context.Context, uuid.UUID, string) error                         { return nil }
+func (users) ChangePassword(context.Context, uuid.UUID, string, string, string) error { return nil }
+func (u users) User(ctx context.Context, _ uuid.UUID) (domain.User, error) {
+	return u.Authenticate(ctx, "good")
+}
 
 func serve(t *testing.T) *httptest.Server {
 	t.Helper()
-	h, err := httpapi.New(slog.New(slog.DiscardHandler), "1.2.3")
+	h, err := httpapi.New(slog.New(slog.DiscardHandler), "1.2.3", users{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,9 +54,20 @@ func serve(t *testing.T) *httptest.Server {
 
 func call(t *testing.T, srv *httptest.Server, method, path string) (int, http.Header, map[string]any) {
 	t.Helper()
-	req, err := http.NewRequestWithContext(t.Context(), method, srv.URL+path, nil)
+	return send(t, srv, method, path, "", "", "")
+}
+
+func send(t *testing.T, srv *httptest.Server, method, path, contentType, body, session string) (int, http.Header, map[string]any) {
+	t.Helper()
+	req, err := http.NewRequestWithContext(t.Context(), method, srv.URL+path, strings.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
+	}
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	if session != "" {
+		req.AddCookie(&http.Cookie{Name: "__Host-identity_session", Value: session, Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode})
 	}
 	resp, err := srv.Client().Do(req)
 	if err != nil {
@@ -37,13 +78,13 @@ func call(t *testing.T, srv *httptest.Server, method, path string) (int, http.He
 	if err != nil {
 		t.Fatal(err)
 	}
-	body := map[string]any{}
+	decoded := map[string]any{}
 	if len(raw) > 0 {
-		if err := json.Unmarshal(raw, &body); err != nil {
+		if err := json.Unmarshal(raw, &decoded); err != nil {
 			t.Fatalf("%s %s: body is not JSON: %s", method, path, raw)
 		}
 	}
-	return resp.StatusCode, resp.Header, body
+	return resp.StatusCode, resp.Header, decoded
 }
 
 func TestVersionNeedsNoSignIn(t *testing.T) {
@@ -72,5 +113,46 @@ func TestProblems(t *testing.T) {
 				t.Fatalf("Content-Type = %q", ct)
 			}
 		})
+	}
+}
+
+func TestTheSessionCookieGuardsTheProfile(t *testing.T) {
+	srv := serve(t)
+	for name, session := range map[string]string{"no cookie": "", "an unknown session": "stolen"} {
+		code, _, body := send(t, srv, http.MethodGet, "/api/v1/profile", "", "", session)
+		if code != http.StatusUnauthorized || body["status"] != float64(http.StatusUnauthorized) {
+			t.Errorf("%s: GET /api/v1/profile = %d %v, want a 401 problem", name, code, body)
+		}
+	}
+	code, _, body := send(t, srv, http.MethodGet, "/api/v1/profile", "", "", "good")
+	if code != http.StatusOK || body["email"] != "ada@example.org" {
+		t.Fatalf("signed in: GET /api/v1/profile = %d %v", code, body)
+	}
+}
+
+func TestSignInSetsTheCookieOverHTTP(t *testing.T) {
+	code, header, _ := send(t, serve(t), http.MethodPost, "/api/v1/session", "application/json", `{"email":"a@b.c","password":"correct horse battery"}`, "")
+	if code != http.StatusNoContent || !strings.HasPrefix(header.Get("Set-Cookie"), "__Host-identity_session=good;") {
+		t.Fatalf("POST /api/v1/session = %d, Set-Cookie %q", code, header.Get("Set-Cookie"))
+	}
+}
+
+// A cross-site form can post only urlencoded, multipart or plain text, never JSON, so refusing
+// every other content type keeps a forged form from using the session cookie.
+func TestAFormCannotPostToTheAPI(t *testing.T) {
+	srv := serve(t)
+	for _, ct := range []string{"application/x-www-form-urlencoded", "multipart/form-data; boundary=x", "text/plain"} {
+		code, _, _ := send(t, srv, http.MethodPost, "/api/v1/profile/password", ct, "current=a&next=b", "good")
+		if code < 400 || code >= 500 {
+			t.Errorf("a %s post = %d, want a 4xx", ct, code)
+		}
+	}
+}
+
+func TestABodyOverTheCapIsRefusedUnread(t *testing.T) {
+	big := `{"email":"a@b.c","password":"` + strings.Repeat("x", 64<<10) + `"}`
+	code, _, body := send(t, serve(t), http.MethodPost, "/api/v1/session", "application/json", big, "")
+	if code != http.StatusRequestEntityTooLarge || body["status"] != float64(http.StatusRequestEntityTooLarge) {
+		t.Fatalf("a 64 KiB sign-in = %d %v, want a 413 problem", code, body)
 	}
 }
