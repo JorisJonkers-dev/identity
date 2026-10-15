@@ -165,9 +165,11 @@ type hasher struct {
 	fail     error
 	failHash error
 	verified int
+	hashed   int
 }
 
 func (h *hasher) Hash(p domain.Password) (string, error) {
+	h.hashed++
 	if h.failHash != nil {
 		return "", h.failHash
 	}
@@ -339,6 +341,22 @@ func TestSignUpRefusesWhatTheDomainRefuses(t *testing.T) {
 	}
 	if len(f.store.signups) != 0 || len(f.mailer.sent) != 0 {
 		t.Fatal("a refused sign-up stored or mailed something")
+	}
+}
+
+// Hashing is the slow step, so a sign-up hashes whether or not the email is registered: the time
+// an answer takes must not tell the two apart.
+func TestSignUpCostsOneHashWhetherOrNotTheEmailIsRegistered(t *testing.T) {
+	f := newFixture()
+	f.signedUp(t, "ada@example.org")
+	for _, email := range []string{"ada@example.org", "new@example.org"} {
+		before := f.hasher.hashed
+		if err := f.SignUp(context.Background(), email, "Ada", pw); err != nil {
+			t.Fatal(err)
+		}
+		if f.hasher.hashed != before+1 {
+			t.Errorf("%s: %d hashes, want 1", email, f.hasher.hashed-before)
+		}
 	}
 }
 

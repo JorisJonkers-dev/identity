@@ -122,6 +122,12 @@ func (s *Service) SignUp(ctx context.Context, rawEmail, rawName, rawPassword str
 		return err
 	}
 
+	// Hash first, whatever the lookup finds: hashing is the slow step, and skipping it for a
+	// registered email would let the response time say who has an account.
+	hash, err := s.hasher.Hash(password)
+	if err != nil {
+		return err
+	}
 	switch _, err := s.store.UserByEmail(ctx, email); {
 	case err == nil:
 		return s.mailer.Send(ctx, Mail{
@@ -134,10 +140,6 @@ func (s *Service) SignUp(ctx context.Context, rawEmail, rawName, rawPassword str
 		return err
 	}
 
-	hash, err := s.hasher.Hash(password)
-	if err != nil {
-		return err
-	}
 	token, tokenHash, err := s.token()
 	if err != nil {
 		return err
