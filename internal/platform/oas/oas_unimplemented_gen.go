@@ -24,7 +24,8 @@ func (UnimplementedHandler) ChangePassword(ctx context.Context, req *PasswordCha
 
 // ConfirmEmail implements confirmEmail operation.
 //
-// Uses a confirmation token from the mailed link, once, within 24 hours.
+// Creates the User a sign-up describes, given the token from the mailed link and the password chosen
+// at sign-up, within 24 hours. A wrong password leaves the link usable.
 //
 // POST /api/v1/confirmations
 func (UnimplementedHandler) ConfirmEmail(ctx context.Context, req *Confirmation) (r ConfirmEmailRes, _ error) {

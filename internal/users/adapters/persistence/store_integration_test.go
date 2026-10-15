@@ -94,7 +94,7 @@ func TestARowTheDomainRefusesIsAnError(t *testing.T) {
 	}
 }
 
-func TestSignupsAreTakenOnce(t *testing.T) {
+func TestSignups(t *testing.T) {
 	ctx := context.Background()
 	s, pool := open(t)
 	u := user(t)
@@ -102,12 +102,15 @@ func TestSignupsAreTakenOnce(t *testing.T) {
 	if err := s.CreateSignup(ctx, su); err != nil {
 		t.Fatal(err)
 	}
-	got, err := s.TakeSignup(ctx, su.TokenHash)
+	got, err := s.SignupByHash(ctx, su.TokenHash)
 	if err != nil || got.Email != su.Email || got.Name != su.Name || got.PasswordHash != su.PasswordHash || !got.ExpiresAt.Equal(su.ExpiresAt) {
-		t.Fatalf("TakeSignup = %+v, %v", got, err)
+		t.Fatalf("SignupByHash = %+v, %v", got, err)
 	}
-	if _, err := s.TakeSignup(ctx, su.TokenHash); !errors.Is(err, app.ErrNotFound) {
-		t.Fatalf("taking it again: %v", err)
+	if err := s.DeleteSignup(ctx, su.TokenHash); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SignupByHash(ctx, su.TokenHash); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("after deleting: %v", err)
 	}
 
 	for _, row := range [][2]string{{"not-an-email", "Ada"}, {"ada@example.org", ""}} {
@@ -115,7 +118,7 @@ func TestSignupsAreTakenOnce(t *testing.T) {
 		if _, err := pool.Exec(ctx, `INSERT INTO signups (token_hash, email, name, password_hash, expires_at) VALUES ($1, $2, $3, 'h', now())`, hash, row[0], row[1]); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := s.TakeSignup(ctx, hash); err == nil {
+		if _, err := s.SignupByHash(ctx, hash); err == nil {
 			t.Fatalf("a sign-up row %v the domain refuses was read", row)
 		}
 	}

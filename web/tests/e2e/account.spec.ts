@@ -40,6 +40,8 @@ test('a person signs up, confirms by mail, signs in, sees their profile and sign
   await expect(page.getByRole('status')).toHaveText('Check your email for a link to finish signing up.')
 
   await page.goto(await confirmationLink(page, email))
+  await page.getByLabel('Password', { exact: true }).fill(password)
+  await page.getByRole('button', { name: 'Confirm' }).click()
   await expect(page.getByRole('status')).toContainText('Your email is confirmed.')
 
   await page.getByRole('link', { name: 'Sign in' }).first().click()

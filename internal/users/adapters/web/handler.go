@@ -29,7 +29,7 @@ const expireNow = -1
 // UseCases is what the adapter needs from the application layer.
 type UseCases interface {
 	SignUp(ctx context.Context, email, name, password string) error
-	Confirm(ctx context.Context, token string) error
+	Confirm(ctx context.Context, token, password string) error
 	SignIn(ctx context.Context, email, password string) (string, error)
 	SignOut(ctx context.Context, token string) error
 	Authenticate(ctx context.Context, token string) (domain.User, error)
@@ -78,7 +78,11 @@ func (h *Handler) SignUp(ctx context.Context, req *oas.SignUp) (oas.SignUpRes, e
 
 // ConfirmEmail implements confirmEmail.
 func (h *Handler) ConfirmEmail(ctx context.Context, req *oas.Confirmation) (oas.ConfirmEmailRes, error) {
-	if err := h.uc.Confirm(ctx, req.Token); err != nil {
+	err := h.uc.Confirm(ctx, req.Token, string(req.Password))
+	if errors.Is(err, app.ErrInvalidCredentials) {
+		return problem(http.StatusUnprocessableEntity, "That is not the password you signed up with."), nil
+	}
+	if err != nil {
 		return refusal(err)
 	}
 	return &oas.ConfirmEmailNoContent{}, nil

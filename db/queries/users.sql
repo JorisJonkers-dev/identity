@@ -16,9 +16,11 @@ UPDATE users SET password_hash = $2 WHERE id = $1;
 -- name: CreateSignup :exec
 INSERT INTO signups (token_hash, email, name, password_hash, expires_at) VALUES ($1, $2, $3, $4, $5);
 
--- name: TakeSignup :one
--- A sign-up is confirmed once: taking it deletes it, whether or not it has expired.
-DELETE FROM signups WHERE token_hash = $1 RETURNING email, name, password_hash, expires_at;
+-- name: SignupByHash :one
+SELECT email, name, password_hash, expires_at FROM signups WHERE token_hash = $1;
+
+-- name: DeleteSignup :exec
+DELETE FROM signups WHERE token_hash = $1;
 
 -- name: CreateSession :exec
 INSERT INTO sessions (token_hash, user_id, created_at, last_seen_at, expires_at) VALUES ($1, $2, $3, $3, $4);

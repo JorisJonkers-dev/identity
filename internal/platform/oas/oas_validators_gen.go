@@ -14,6 +14,17 @@ func (s *Confirmation) Validate() error {
 
 	var failures []validate.FieldError
 	if err := func() error {
+		if err := s.Password.Validate(); err != nil {
+			return err
+		}
+		return nil
+	}(); err != nil {
+		failures = append(failures, validate.FieldError{
+			Name:  "password",
+			Error: err,
+		})
+	}
+	if err := func() error {
 		if err := (validate.String{
 			MinLength:     1,
 			MinLengthSet:  true,

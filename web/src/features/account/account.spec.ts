@@ -76,28 +76,30 @@ describe('signing up', () => {
 })
 
 describe('confirming an email', () => {
-  it('confirms the token from the link', async () => {
+  it('confirms the token from the link with the sign-up password', async () => {
     const { wrapper, requests } = await mountAt('/confirm?token=abc', { 'POST /api/v1/confirmations': new Response(null, { status: 204 }) })
-    expect(requests.at(-1)).toEqual({ key: 'POST /api/v1/confirmations', body: { token: 'abc' } })
+    expect(requests).toEqual([])
+    await wrapper.get('#confirm-password').setValue('correct horse battery')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(requests.at(-1)).toEqual({ key: 'POST /api/v1/confirmations', body: { token: 'abc', password: 'correct horse battery' } })
     expect(wrapper.get('[role="status"]').text()).toContain('Your email is confirmed.')
   })
 
-  it('says when the link is spent', async () => {
-    const { wrapper } = await mountAt('/confirm?token=spent', {
-      'POST /api/v1/confirmations': problem(422, 'This link has expired or was already used. Sign up again for a new one.'),
+  it('says when the password or the link is wrong', async () => {
+    const { wrapper } = await mountAt('/confirm?token=abc', {
+      'POST /api/v1/confirmations': problem(422, 'That is not the password you signed up with.'),
     })
-    expect(wrapper.get('[role="alert"]').text()).toBe('This link has expired or was already used. Sign up again for a new one.')
+    await wrapper.get('#confirm-password').setValue('wrong password!!')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(wrapper.get('[role="alert"]').text()).toBe('That is not the password you signed up with.')
   })
 
   it('says when the link has no token, without asking the server', async () => {
     const { wrapper, requests } = await mountAt('/confirm', {})
     expect(requests).toEqual([])
     expect(wrapper.get('[role="alert"]').text()).toBe('This link is missing its token. Open the link from the email again.')
-  })
-
-  it('says it is confirming while the request is in flight', async () => {
-    const { wrapper } = await mountAt('/confirm?token=abc', { 'POST /api/v1/confirmations': () => new Promise<Response>(() => undefined) })
-    expect(wrapper.text()).toContain('Confirming…')
   })
 })
 

@@ -29,7 +29,7 @@ type useCases struct {
 }
 
 func (u *useCases) SignUp(context.Context, string, string, string) error { return u.err }
-func (u *useCases) Confirm(context.Context, string) error                { return u.err }
+func (u *useCases) Confirm(context.Context, string, string) error        { return u.err }
 func (u *useCases) SignIn(context.Context, string, string) (string, error) {
 	return u.token, u.err
 }
@@ -205,6 +205,12 @@ func TestProfile(t *testing.T) {
 	uc.err = domain.ErrInvalidName
 	res2, err := h.UpdateProfile(ctx, &oas.ProfileUpdate{})
 	wantProblem(t, res2, err, http.StatusUnprocessableEntity, "A name is 1 to 100 characters.")
+}
+
+func TestConfirmWithTheWrongPasswordSaysSo(t *testing.T) {
+	h := web.New(&useCases{err: app.ErrInvalidCredentials})
+	res, err := h.ConfirmEmail(context.Background(), &oas.Confirmation{Token: "t", Password: "wrong"})
+	wantProblem(t, res, err, http.StatusUnprocessableEntity, "That is not the password you signed up with.")
 }
 
 func TestChangePassword(t *testing.T) {

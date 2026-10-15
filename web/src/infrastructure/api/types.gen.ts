@@ -27,9 +27,10 @@ export type SignUp = {
 };
 
 /**
- * A confirmation token from a mailed link.
+ * A confirmation token from a mailed link, with the password chosen at sign-up, so a link sent to someone else's address confirms nothing for whoever signed up with it.
  */
 export type Confirmation = {
+    password: Password;
     /**
      * The token the link carried.
      */

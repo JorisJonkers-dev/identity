@@ -22,9 +22,10 @@ export const zSignUp = z.object({
 });
 
 /**
- * A confirmation token from a mailed link.
+ * A confirmation token from a mailed link, with the password chosen at sign-up, so a link sent to someone else's address confirms nothing for whoever signed up with it.
  */
 export const zConfirmation = z.object({
+    password: zPassword,
     token: z.string().min(1).max(128)
 });
 

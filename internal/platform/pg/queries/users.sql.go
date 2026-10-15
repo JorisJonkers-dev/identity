@@ -103,6 +103,15 @@ func (q *Queries) DeleteSession(ctx context.Context, tokenHash []byte) error {
 	return err
 }
 
+const deleteSignup = `-- name: DeleteSignup :exec
+DELETE FROM signups WHERE token_hash = $1
+`
+
+func (q *Queries) DeleteSignup(ctx context.Context, tokenHash []byte) error {
+	_, err := q.db.Exec(ctx, deleteSignup, tokenHash)
+	return err
+}
+
 const sessionByHash = `-- name: SessionByHash :one
 SELECT token_hash, user_id, last_seen_at, expires_at FROM sessions WHERE token_hash = $1
 `
@@ -126,21 +135,20 @@ func (q *Queries) SessionByHash(ctx context.Context, tokenHash []byte) (SessionB
 	return i, err
 }
 
-const takeSignup = `-- name: TakeSignup :one
-DELETE FROM signups WHERE token_hash = $1 RETURNING email, name, password_hash, expires_at
+const signupByHash = `-- name: SignupByHash :one
+SELECT email, name, password_hash, expires_at FROM signups WHERE token_hash = $1
 `
 
-type TakeSignupRow struct {
+type SignupByHashRow struct {
 	Email        string
 	Name         string
 	PasswordHash string
 	ExpiresAt    time.Time
 }
 
-// A sign-up is confirmed once: taking it deletes it, whether or not it has expired.
-func (q *Queries) TakeSignup(ctx context.Context, tokenHash []byte) (TakeSignupRow, error) {
-	row := q.db.QueryRow(ctx, takeSignup, tokenHash)
-	var i TakeSignupRow
+func (q *Queries) SignupByHash(ctx context.Context, tokenHash []byte) (SignupByHashRow, error) {
+	row := q.db.QueryRow(ctx, signupByHash, tokenHash)
+	var i SignupByHashRow
 	err := row.Scan(
 		&i.Email,
 		&i.Name,

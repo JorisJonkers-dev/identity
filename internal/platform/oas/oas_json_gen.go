@@ -22,13 +22,18 @@ func (s *Confirmation) Encode(e *jx.Encoder) {
 // encodeFields encodes fields.
 func (s *Confirmation) encodeFields(e *jx.Encoder) {
 	{
+		e.FieldStart("password")
+		s.Password.Encode(e)
+	}
+	{
 		e.FieldStart("token")
 		e.Str(s.Token)
 	}
 }
 
-var jsonFieldsNameOfConfirmation = [1]string{
-	0: "token",
+var jsonFieldsNameOfConfirmation = [2]string{
+	0: "password",
+	1: "token",
 }
 
 // Decode decodes Confirmation from json.
@@ -40,8 +45,18 @@ func (s *Confirmation) Decode(d *jx.Decoder) error {
 
 	if err := d.ObjBytes(func(d *jx.Decoder, k []byte) error {
 		switch string(k) {
-		case "token":
+		case "password":
 			requiredBitSet[0] |= 1 << 0
+			if err := func() error {
+				if err := s.Password.Decode(d); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"password\"")
+			}
+		case "token":
+			requiredBitSet[0] |= 1 << 1
 			if err := func() error {
 				v, err := d.Str()
 				s.Token = string(v)
@@ -62,7 +77,7 @@ func (s *Confirmation) Decode(d *jx.Decoder) error {
 	// Validate required fields.
 	var failures []validate.FieldError
 	for i, mask := range [1]uint8{
-		0b00000001,
+		0b00000011,
 	} {
 		if result := (requiredBitSet[i] & mask) ^ mask; result != 0 {
 			// Mask only required fields and check equality to mask using XOR.

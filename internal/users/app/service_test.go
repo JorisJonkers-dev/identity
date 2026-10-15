@@ -98,16 +98,23 @@ func (s *store) CreateSignup(_ context.Context, su app.Signup) error {
 	return nil
 }
 
-func (s *store) TakeSignup(_ context.Context, hash []byte) (app.Signup, error) {
-	if err := s.fail["TakeSignup"]; err != nil {
+func (s *store) SignupByHash(_ context.Context, hash []byte) (app.Signup, error) {
+	if err := s.fail["SignupByHash"]; err != nil {
 		return app.Signup{}, err
 	}
 	su, ok := s.signups[string(hash)]
 	if !ok {
 		return app.Signup{}, app.ErrNotFound
 	}
-	delete(s.signups, string(hash))
 	return su, nil
+}
+
+func (s *store) DeleteSignup(_ context.Context, hash []byte) error {
+	if err := s.fail["DeleteSignup"]; err != nil {
+		return err
+	}
+	delete(s.signups, string(hash))
+	return nil
 }
 
 func (s *store) CreateSession(_ context.Context, sess app.Session) error {
@@ -242,7 +249,7 @@ func (f *fixture) signedUp(t *testing.T, email string) uuid.UUID {
 	if err := f.SignUp(ctx, email, "Ada", pw); err != nil {
 		t.Fatal(err)
 	}
-	if err := f.Confirm(ctx, f.confirmationToken(t)); err != nil {
+	if err := f.Confirm(ctx, f.confirmationToken(t), pw); err != nil {
 		t.Fatal(err)
 	}
 	e, _ := domain.NewEmail(email)
@@ -280,7 +287,7 @@ func TestConfirmCreatesTheUserTheSignupDescribes(t *testing.T) {
 	_ = f.SignUp(ctx, "ada@example.org", " Ada ", pw)
 	token := f.confirmationToken(t)
 	f.now = t0.Add(time.Hour)
-	if err := f.Confirm(ctx, token); err != nil {
+	if err := f.Confirm(ctx, token, pw); err != nil {
 		t.Fatal(err)
 	}
 	e, _ := domain.NewEmail("ada@example.org")
@@ -288,19 +295,26 @@ func TestConfirmCreatesTheUserTheSignupDescribes(t *testing.T) {
 	if err != nil || u.Name.String() != "Ada" || u.PasswordHash != "hash:"+pw || !u.CreatedAt.Equal(t0.Add(time.Hour)) {
 		t.Fatalf("created %+v, %v", u, err)
 	}
-	if err := f.Confirm(ctx, token); !errors.Is(err, app.ErrInvalidToken) {
+	if err := f.Confirm(ctx, token, pw); !errors.Is(err, app.ErrInvalidToken) {
 		t.Fatalf("a second use: %v", err)
 	}
 }
 
-// An attacker signs up with the victim's email first. The victim's own sign-up and confirmation
-// must give the victim an account with the victim's password, and nothing the attacker set.
+// An attacker signs up with the victim's email and their own password. The link goes to the
+// victim; whichever link the victim follows, it confirms only with the password the victim knows,
+// so the attacker's sign-up can never become the victim's account.
 func TestASignupBeforeTheOwnersCannotTakeTheAccountOver(t *testing.T) {
 	f := newFixture()
 	ctx := context.Background()
 	_ = f.SignUp(ctx, "victim@example.org", "Attacker", "attacker's password")
+	attackers := f.confirmationToken(t)
 	_ = f.SignUp(ctx, "victim@example.org", "Victim", pw)
-	if err := f.Confirm(ctx, f.confirmationToken(t)); err != nil {
+	victims := f.confirmationToken(t)
+
+	if err := f.Confirm(ctx, attackers, pw); !errors.Is(err, app.ErrInvalidCredentials) {
+		t.Fatalf("the victim following the attacker's link with their own password: %v", err)
+	}
+	if err := f.Confirm(ctx, victims, pw); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := f.SignIn(ctx, "victim@example.org", "attacker's password"); !errors.Is(err, app.ErrInvalidCredentials) {
@@ -308,6 +322,22 @@ func TestASignupBeforeTheOwnersCannotTakeTheAccountOver(t *testing.T) {
 	}
 	if _, err := f.SignIn(ctx, "victim@example.org", pw); err != nil {
 		t.Fatalf("the victim's password does not: %v", err)
+	}
+	if err := f.Confirm(ctx, attackers, "attacker's password"); !errors.Is(err, app.ErrInvalidToken) {
+		t.Fatalf("the attacker's link after the victim confirmed: %v", err)
+	}
+}
+
+func TestAWrongPasswordLeavesTheLinkUsable(t *testing.T) {
+	f := newFixture()
+	ctx := context.Background()
+	_ = f.SignUp(ctx, "ada@example.org", "Ada", pw)
+	token := f.confirmationToken(t)
+	if err := f.Confirm(ctx, token, "a typo in it!!!"); !errors.Is(err, app.ErrInvalidCredentials) {
+		t.Fatalf("wrong password: %v", err)
+	}
+	if err := f.Confirm(ctx, token, pw); err != nil {
+		t.Fatalf("the right password after a typo: %v", err)
 	}
 }
 
@@ -318,8 +348,8 @@ func TestASecondConfirmationForAConfirmedEmailIsRefused(t *testing.T) {
 	first := f.confirmationToken(t)
 	_ = f.SignUp(ctx, "ada@example.org", "Ada", "another password!")
 	second := f.confirmationToken(t)
-	_ = f.Confirm(ctx, first)
-	if err := f.Confirm(ctx, second); !errors.Is(err, app.ErrInvalidToken) {
+	_ = f.Confirm(ctx, first, pw)
+	if err := f.Confirm(ctx, second, "another password!"); !errors.Is(err, app.ErrInvalidToken) {
 		t.Fatalf("confirming a second sign-up for a confirmed email: %v", err)
 	}
 }
@@ -399,24 +429,34 @@ func TestConfirmIsSingleUseAndExpires(t *testing.T) {
 	_ = f.SignUp(ctx, "late@example.org", "Late", pw)
 	late := f.confirmationToken(t)
 	f.now = t0.Add(25 * time.Hour)
-	if err := f.Confirm(ctx, late); !errors.Is(err, app.ErrInvalidToken) {
+	if err := f.Confirm(ctx, late, pw); !errors.Is(err, app.ErrInvalidToken) {
 		t.Fatalf("expired token err = %v", err)
 	}
-	if err := f.Confirm(ctx, "never issued"); !errors.Is(err, app.ErrInvalidToken) {
+	if len(f.store.signups) != 0 {
+		t.Fatal("an expired sign-up was kept")
+	}
+	if err := f.Confirm(ctx, "never issued", pw); !errors.Is(err, app.ErrInvalidToken) {
 		t.Fatalf("unknown token err = %v", err)
 	}
 }
 
 func TestConfirmReportsStoreFailures(t *testing.T) {
 	boom := errors.New("boom")
-	for _, method := range []string{"TakeSignup", "CreateUser"} {
+	for _, method := range []string{"SignupByHash", "CreateUser", "DeleteSignup"} {
 		f := newFixture()
 		_ = f.SignUp(context.Background(), "a@b.c", "Ada", pw)
 		token := f.confirmationToken(t)
 		f.store.fail[method] = boom
-		if err := f.Confirm(context.Background(), token); !errors.Is(err, boom) {
+		if err := f.Confirm(context.Background(), token, pw); !errors.Is(err, boom) {
 			t.Errorf("%s failing: err = %v", method, err)
 		}
+	}
+	f := newFixture()
+	_ = f.SignUp(context.Background(), "a@b.c", "Ada", pw)
+	token := f.confirmationToken(t)
+	f.hasher.fail = boom
+	if err := f.Confirm(context.Background(), token, pw); !errors.Is(err, boom) {
+		t.Errorf("hasher failing: err = %v", err)
 	}
 }
 

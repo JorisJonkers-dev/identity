@@ -81,7 +81,7 @@ export const signUpMutation = (options?: Partial<Options<SignUpData>>): UseMutat
 /**
  * Confirm an email
  *
- * Uses a confirmation token from the mailed link, once, within 24 hours.
+ * Creates the User a sign-up describes, given the token from the mailed link and the password chosen at sign-up, within 24 hours. A wrong password leaves the link usable.
  */
 export const confirmEmailMutation = (options?: Partial<Options<ConfirmEmailData>>): UseMutationOptions<ConfirmEmailResponse, ConfirmEmailError, Options<ConfirmEmailData>> => {
     const mutationOptions: UseMutationOptions<ConfirmEmailResponse, ConfirmEmailError, Options<ConfirmEmailData>> = {

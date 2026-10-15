@@ -21,16 +21,28 @@ type ConfirmEmailNoContent struct{}
 
 func (*ConfirmEmailNoContent) confirmEmailRes() {}
 
-// A confirmation token from a mailed link.
+// A confirmation token from a mailed link, with the password chosen at sign-up, so a link sent to
+// someone else's address confirms nothing for whoever signed up with it.
 // Ref: #/components/schemas/Confirmation
 type Confirmation struct {
+	Password Password `json:"password"`
 	// The token the link carried.
 	Token string `json:"token"`
+}
+
+// GetPassword returns the value of Password.
+func (s *Confirmation) GetPassword() Password {
+	return s.Password
 }
 
 // GetToken returns the value of Token.
 func (s *Confirmation) GetToken() string {
 	return s.Token
+}
+
+// SetPassword sets the value of Password.
+func (s *Confirmation) SetPassword(val Password) {
+	s.Password = val
 }
 
 // SetToken sets the value of Token.

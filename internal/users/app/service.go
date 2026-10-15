@@ -62,7 +62,8 @@ type Store interface {
 	UpdateName(ctx context.Context, id uuid.UUID, n domain.Name) error
 	UpdatePasswordHash(ctx context.Context, id uuid.UUID, hash string) error
 	CreateSignup(ctx context.Context, s Signup) error
-	TakeSignup(ctx context.Context, tokenHash []byte) (Signup, error)
+	SignupByHash(ctx context.Context, tokenHash []byte) (Signup, error)
+	DeleteSignup(ctx context.Context, tokenHash []byte) error
 	CreateSession(ctx context.Context, s Session) error
 	SessionByHash(ctx context.Context, tokenHash []byte) (Session, error)
 	TouchSession(ctx context.Context, tokenHash []byte, lastSeen, expires time.Time) error
@@ -156,10 +157,13 @@ func (s *Service) SignUp(ctx context.Context, rawEmail, rawName, rawPassword str
 	})
 }
 
-// Confirm uses a sign-up's token, once, before it expires, and creates the User it describes. A
-// second sign-up for an email already confirmed is refused like a spent link.
-func (s *Service) Confirm(ctx context.Context, token string) error {
-	signup, err := s.store.TakeSignup(ctx, hashOf(token))
+// Confirm creates the User a sign-up describes, given its mailed token and the password chosen at
+// sign-up. Both are needed: the mailbox's owner never knows a stranger's password, and the stranger
+// never sees the link, so signing up with someone else's address first takes nothing over. A wrong
+// password leaves the link usable; an expired link, or one for an email already confirmed, is spent.
+func (s *Service) Confirm(ctx context.Context, token, password string) error {
+	hash := hashOf(token)
+	signup, err := s.store.SignupByHash(ctx, hash)
 	if errors.Is(err, ErrNotFound) {
 		return ErrInvalidToken
 	}
@@ -168,13 +172,23 @@ func (s *Service) Confirm(ctx context.Context, token string) error {
 	}
 	now := s.now()
 	if !now.Before(signup.ExpiresAt) {
-		return ErrInvalidToken
+		return errors.Join(ErrInvalidToken, s.store.DeleteSignup(ctx, hash))
+	}
+	ok, err := s.hasher.Verify(signup.PasswordHash, password)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrInvalidCredentials
 	}
 	err = s.store.CreateUser(ctx, domain.User{ID: uuid.New(), Email: signup.Email, Name: signup.Name, PasswordHash: signup.PasswordHash, CreatedAt: now})
 	if errors.Is(err, ErrEmailTaken) {
-		return ErrInvalidToken
+		return errors.Join(ErrInvalidToken, s.store.DeleteSignup(ctx, hash))
 	}
-	return err
+	if err != nil {
+		return err
+	}
+	return s.store.DeleteSignup(ctx, hash)
 }
 
 // SignIn checks an email and a password and starts a Single sign-on session, returning its token.

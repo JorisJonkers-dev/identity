@@ -70,7 +70,9 @@ paths:
     post:
       operationId: confirmEmail
       summary: Confirm an email
-      description: Uses a confirmation token from the mailed link, once, within 24 hours.
+      description: >-
+        Creates the User a sign-up describes, given the token from the mailed link and the password
+        chosen at sign-up, within 24 hours. A wrong password leaves the link usable.
       tags: [account]
       security: []
       requestBody:
@@ -239,11 +241,15 @@ components:
         password:
           $ref: "#/components/schemas/Password"
     Confirmation:
-      description: A confirmation token from a mailed link.
+      description: >-
+        A confirmation token from a mailed link, with the password chosen at sign-up, so a link
+        sent to someone else's address confirms nothing for whoever signed up with it.
       type: object
       additionalProperties: false
-      required: [token]
+      required: [token, password]
       properties:
+        password:
+          $ref: "#/components/schemas/Password"
         token:
           type: string
           minLength: 1

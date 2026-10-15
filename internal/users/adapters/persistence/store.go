@@ -66,8 +66,8 @@ func (s *Store) CreateSignup(ctx context.Context, su app.Signup) error {
 	})
 }
 
-func (s *Store) TakeSignup(ctx context.Context, hash []byte) (app.Signup, error) {
-	row, err := s.q.TakeSignup(ctx, hash)
+func (s *Store) SignupByHash(ctx context.Context, hash []byte) (app.Signup, error) {
+	row, err := s.q.SignupByHash(ctx, hash)
 	if err != nil {
 		return app.Signup{}, notFound(err)
 	}
@@ -80,6 +80,10 @@ func (s *Store) TakeSignup(ctx context.Context, hash []byte) (app.Signup, error)
 		return app.Signup{}, err
 	}
 	return app.Signup{TokenHash: hash, Email: email, Name: name, PasswordHash: row.PasswordHash, ExpiresAt: row.ExpiresAt}, nil
+}
+
+func (s *Store) DeleteSignup(ctx context.Context, hash []byte) error {
+	return s.q.DeleteSignup(ctx, hash)
 }
 
 func (s *Store) CreateSession(ctx context.Context, sess app.Session) error {

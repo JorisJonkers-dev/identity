@@ -17,11 +17,11 @@ type Querier interface {
 	// Ends every session of a User but one, as changing the password does.
 	DeleteOtherSessions(ctx context.Context, arg DeleteOtherSessionsParams) error
 	DeleteSession(ctx context.Context, tokenHash []byte) error
+	DeleteSignup(ctx context.Context, tokenHash []byte) error
 	// Readiness: the database answers a query, not only a connection.
 	Ping(ctx context.Context) (int32, error)
 	SessionByHash(ctx context.Context, tokenHash []byte) (SessionByHashRow, error)
-	// A sign-up is confirmed once: taking it deletes it, whether or not it has expired.
-	TakeSignup(ctx context.Context, tokenHash []byte) (TakeSignupRow, error)
+	SignupByHash(ctx context.Context, tokenHash []byte) (SignupByHashRow, error)
 	TouchSession(ctx context.Context, arg TouchSessionParams) error
 	UpdateUserName(ctx context.Context, arg UpdateUserNameParams) error
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error

@@ -59,7 +59,7 @@ export const signUp = <ThrowOnError extends boolean = false>(options: Options<Si
 /**
  * Confirm an email
  *
- * Uses a confirmation token from the mailed link, once, within 24 hours.
+ * Creates the User a sign-up describes, given the token from the mailed link and the password chosen at sign-up, within 24 hours. A wrong password leaves the link usable.
  */
 export const confirmEmail = <ThrowOnError extends boolean = false>(options: Options<ConfirmEmailData, ThrowOnError>): RequestResult<ConfirmEmailResponses, ConfirmEmailErrors, ThrowOnError> => (options.client ?? client).post<ConfirmEmailResponses, ConfirmEmailErrors, ThrowOnError>({
     requestValidator: async (data) => await z.object({
