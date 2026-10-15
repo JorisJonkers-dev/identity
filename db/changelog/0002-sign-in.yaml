@@ -1,0 +1,52 @@
+# OIDC sign-in (docs/adr/0001, 0007): each session gets a public id, the `sid` an ID token
+# carries, and each authorization request is kept from /authorize until its code is redeemed.
+# A code is stored only as its SHA-256 hash.
+databaseChangeLog:
+  - changeSet:
+      id: 0002-sessions-id
+      author: identity
+      changes:
+        - addColumn:
+            tableName: sessions
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  defaultValueComputed: gen_random_uuid()
+                  constraints: {nullable: false, unique: true, uniqueConstraintName: sessions_id_key}
+
+  - changeSet:
+      id: 0002-create-auth-requests
+      author: identity
+      changes:
+        - createTable:
+            tableName: auth_requests
+            columns:
+              - column: {name: id, type: uuid, constraints: {primaryKey: true, nullable: false}}
+              - column: {name: client_id, type: text, constraints: {nullable: false}}
+              - column: {name: redirect_uri, type: text, constraints: {nullable: false}}
+              - column: {name: scopes, type: "text[]", constraints: {nullable: false}}
+              - column: {name: state, type: text, constraints: {nullable: false}}
+              - column: {name: nonce, type: text, constraints: {nullable: false}}
+              - column: {name: response_type, type: text, constraints: {nullable: false}}
+              - column: {name: response_mode, type: text, constraints: {nullable: false}}
+              - column: {name: code_challenge, type: text, constraints: {nullable: false}}
+              - column: {name: code_challenge_method, type: text, constraints: {nullable: false}}
+              - column: {name: created_at, type: timestamptz, constraints: {nullable: false}}
+              - column: {name: expires_at, type: timestamptz, constraints: {nullable: false}}
+              - column:
+                  name: user_id
+                  type: uuid
+                  constraints: {foreignKeyName: auth_requests_user_fk, references: users(id), deleteCascade: true}
+              # Signing out mid-flow ends the request with the session.
+              - column:
+                  name: session_id
+                  type: uuid
+                  constraints: {foreignKeyName: auth_requests_session_fk, references: sessions(id), deleteCascade: true}
+              - column: {name: auth_time, type: timestamptz}
+              - column: {name: code_hash, type: bytea, constraints: {unique: true, uniqueConstraintName: auth_requests_code_hash_key}}
+        - createIndex:
+            tableName: auth_requests
+            indexName: auth_requests_expires_at_idx
+            columns:
+              - column: {name: expires_at}

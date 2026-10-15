@@ -11,17 +11,29 @@ import (
 )
 
 type Querier interface {
+	AuthRequestByID(ctx context.Context, id uuid.UUID) (AuthRequest, error)
+	// Records who signed in, once: a request already completed keeps its first User.
+	CompleteAuthRequest(ctx context.Context, arg CompleteAuthRequestParams) (int64, error)
+	CreateAuthRequest(ctx context.Context, arg CreateAuthRequestParams) error
 	CreateSession(ctx context.Context, arg CreateSessionParams) error
 	CreateSignup(ctx context.Context, arg CreateSignupParams) error
 	CreateUser(ctx context.Context, arg CreateUserParams) error
+	DeleteAuthRequest(ctx context.Context, id uuid.UUID) error
 	// Ends every session of a User but one, as changing the password does.
 	DeleteOtherSessions(ctx context.Context, arg DeleteOtherSessionsParams) error
 	DeleteSession(ctx context.Context, tokenHash []byte) error
+	// Signing out from any Client signs out everywhere (docs/adr/0007).
+	DeleteSessionsOfUser(ctx context.Context, userID uuid.UUID) error
 	DeleteSignup(ctx context.Context, tokenHash []byte) error
 	// Readiness: the database answers a query, not only a connection.
 	Ping(ctx context.Context) (int32, error)
+	// A request gets one code; a second is refused.
+	SaveAuthCode(ctx context.Context, arg SaveAuthCodeParams) (int64, error)
 	SessionByHash(ctx context.Context, tokenHash []byte) (SessionByHashRow, error)
 	SignupByHash(ctx context.Context, tokenHash []byte) (SignupByHashRow, error)
+	// Redeeming a code removes its request in the same statement, so two exchanges racing with one
+	// code cannot both get tokens.
+	TakeAuthRequestByCodeHash(ctx context.Context, codeHash []byte) (AuthRequest, error)
 	TouchSession(ctx context.Context, arg TouchSessionParams) error
 	UpdateUserName(ctx context.Context, arg UpdateUserNameParams) error
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error

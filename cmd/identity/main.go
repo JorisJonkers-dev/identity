@@ -9,9 +9,11 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"crypto/rsa"
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -24,7 +26,13 @@ import (
 	"github.com/JorisJonkers-dev/identity/internal/platform/pg"
 	"github.com/JorisJonkers-dev/identity/internal/platform/webui"
 	"github.com/JorisJonkers-dev/identity/internal/server"
+	"github.com/JorisJonkers-dev/identity/internal/signin/adapters/accounts"
+	"github.com/JorisJonkers-dev/identity/internal/signin/adapters/clients"
+	signinoidc "github.com/JorisJonkers-dev/identity/internal/signin/adapters/oidc"
+	signinpersistence "github.com/JorisJonkers-dev/identity/internal/signin/adapters/persistence"
+	signinapp "github.com/JorisJonkers-dev/identity/internal/signin/app"
 	"github.com/JorisJonkers-dev/identity/internal/users/adapters/persistence"
+	usersweb "github.com/JorisJonkers-dev/identity/internal/users/adapters/web"
 	"github.com/JorisJonkers-dev/identity/internal/users/app"
 	"github.com/JorisJonkers-dev/identity/web"
 )
@@ -75,6 +83,10 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 	if err != nil {
 		return err
 	}
+	provider, err := oidcProvider(cfg, store, users, logger)
+	if err != nil {
+		return err
+	}
 
 	var lc net.ListenConfig
 	ln, err := lc.Listen(ctx, "tcp", cfg.addr)
@@ -83,9 +95,26 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 	}
 	return server.New(logger, version, server.Routes{
 		API:   api,
+		OIDC:  provider,
 		Web:   webui.Handler(web.Dist()),
 		Ready: store.Ping,
 	}).Serve(ctx, ln)
+}
+
+// oidcProvider is the OIDC Provider over the sign-in context. It knows no Clients until they come
+// from Kubernetes (identity#13), and signs with a key made at start-up until keys are kept
+// (identity#30).
+func oidcProvider(cfg config, store *pg.Store, users *app.Service, logger *slog.Logger) (http.Handler, error) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, err
+	}
+	svc := signinapp.New(signinpersistence.New(store.Queries()), clients.Static{}, accounts.New(users), time.Now, rand.Reader)
+	return signinoidc.New(signinoidc.Config{
+		Issuer:        cfg.publicURL,
+		Insecure:      strings.HasPrefix(cfg.publicURL, "http://"),
+		SessionCookie: usersweb.CookieName,
+	}, svc, signinoidc.NewRing(key), logger, time.Now)
 }
 
 type config struct {

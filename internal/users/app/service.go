@@ -49,6 +49,7 @@ type Signup struct {
 // Session is a Single sign-on session, stored by its token's hash.
 type Session struct {
 	TokenHash  []byte
+	ID         uuid.UUID
 	UserID     uuid.UUID
 	CreatedAt  time.Time
 	LastSeenAt time.Time
@@ -70,6 +71,7 @@ type Store interface {
 	TouchSession(ctx context.Context, tokenHash []byte, lastSeen, expires time.Time) error
 	DeleteSession(ctx context.Context, tokenHash []byte) error
 	DeleteOtherSessions(ctx context.Context, userID uuid.UUID, keepTokenHash []byte) error
+	DeleteSessionsOfUser(ctx context.Context, userID uuid.UUID) error
 }
 
 // Hasher turns a password into a stored hash and checks a candidate against one.
@@ -219,8 +221,13 @@ func (s *Service) SignIn(ctx context.Context, rawEmail, password string) (string
 	if err != nil {
 		return "", err
 	}
+	id, err := uuid.NewRandomFromReader(s.random)
+	if err != nil {
+		return "", err
+	}
 	now := s.now()
-	if err := s.store.CreateSession(ctx, Session{TokenHash: hash, UserID: u.ID, CreatedAt: now, LastSeenAt: now, ExpiresAt: now.Add(sessionLifetime)}); err != nil {
+	sess := Session{TokenHash: hash, ID: id, UserID: u.ID, CreatedAt: now, LastSeenAt: now, ExpiresAt: now.Add(sessionLifetime)}
+	if err := s.store.CreateSession(ctx, sess); err != nil {
 		return "", err
 	}
 	return token, nil
@@ -254,24 +261,37 @@ func (s *Service) decoyHash() (string, error) {
 // Authenticate returns the User a session token belongs to, and extends the session from its last
 // use, writing that at most once a minute.
 func (s *Service) Authenticate(ctx context.Context, token string) (domain.User, error) {
+	u, _, err := s.SignedIn(ctx, token)
+	return u, err
+}
+
+// SignedIn is Authenticate that also returns the session, whose CreatedAt is when the password
+// was checked.
+func (s *Service) SignedIn(ctx context.Context, token string) (domain.User, Session, error) {
 	hash := hashOf(token)
 	sess, err := s.store.SessionByHash(ctx, hash)
 	if errors.Is(err, ErrNotFound) {
-		return domain.User{}, ErrNoSession
+		return domain.User{}, Session{}, ErrNoSession
 	}
 	if err != nil {
-		return domain.User{}, err
+		return domain.User{}, Session{}, err
 	}
 	now := s.now()
 	if !now.Before(sess.ExpiresAt) {
-		return domain.User{}, ErrNoSession
+		return domain.User{}, Session{}, ErrNoSession
 	}
 	if now.Sub(sess.LastSeenAt) >= touchInterval {
 		if err := s.store.TouchSession(ctx, hash, now, now.Add(sessionLifetime)); err != nil {
-			return domain.User{}, err
+			return domain.User{}, Session{}, err
 		}
 	}
-	return s.store.UserByID(ctx, sess.UserID)
+	u, err := s.store.UserByID(ctx, sess.UserID)
+	return u, sess, err
+}
+
+// SignOutEverywhere ends every session of a User (docs/adr/0007).
+func (s *Service) SignOutEverywhere(ctx context.Context, userID uuid.UUID) error {
+	return s.store.DeleteSessionsOfUser(ctx, userID)
 }
 
 // SignOut ends the session a token belongs to; ending one that does not exist is not an error.

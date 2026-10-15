@@ -88,7 +88,7 @@ func (s *Store) DeleteSignup(ctx context.Context, hash []byte) error {
 
 func (s *Store) CreateSession(ctx context.Context, sess app.Session) error {
 	return s.q.CreateSession(ctx, queries.CreateSessionParams{
-		TokenHash: sess.TokenHash, UserID: sess.UserID, CreatedAt: sess.CreatedAt, ExpiresAt: sess.ExpiresAt,
+		TokenHash: sess.TokenHash, ID: sess.ID, UserID: sess.UserID, CreatedAt: sess.CreatedAt, ExpiresAt: sess.ExpiresAt,
 	})
 }
 
@@ -97,7 +97,10 @@ func (s *Store) SessionByHash(ctx context.Context, hash []byte) (app.Session, er
 	if err != nil {
 		return app.Session{}, notFound(err)
 	}
-	return app.Session{TokenHash: row.TokenHash, UserID: row.UserID, LastSeenAt: row.LastSeenAt, ExpiresAt: row.ExpiresAt}, nil
+	return app.Session{
+		TokenHash: row.TokenHash, ID: row.ID, UserID: row.UserID,
+		CreatedAt: row.CreatedAt, LastSeenAt: row.LastSeenAt, ExpiresAt: row.ExpiresAt,
+	}, nil
 }
 
 func (s *Store) TouchSession(ctx context.Context, hash []byte, lastSeen, expires time.Time) error {
@@ -106,6 +109,10 @@ func (s *Store) TouchSession(ctx context.Context, hash []byte, lastSeen, expires
 
 func (s *Store) DeleteSession(ctx context.Context, hash []byte) error {
 	return s.q.DeleteSession(ctx, hash)
+}
+
+func (s *Store) DeleteSessionsOfUser(ctx context.Context, userID uuid.UUID) error {
+	return s.q.DeleteSessionsOfUser(ctx, userID)
 }
 
 func (s *Store) DeleteOtherSessions(ctx context.Context, userID uuid.UUID, keep []byte) error {

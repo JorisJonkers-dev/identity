@@ -5,6 +5,7 @@ import { createMemoryHistory } from 'vue-router'
 import App from '../../app/App.vue'
 import { createAppRouter } from '../../app/router'
 import { configureApi } from '../../infrastructure/http'
+import { navigation } from '../../infrastructure/navigation'
 
 type Answer = Response | (() => Response) | (() => Promise<Response>)
 
@@ -115,6 +116,18 @@ describe('signing in', () => {
     await settle()
     expect(requests.find((r) => r.key === 'POST /api/v1/session')?.body).toEqual({ email: 'ada@example.org', password: 'correct horse battery' })
     expect(router.currentRoute.value.path).toBe('/profile')
+  })
+
+  it('hands back to the Provider when an app sent the person here', async () => {
+    const leave = vi.spyOn(navigation, 'leave').mockImplementation(() => undefined)
+    const { wrapper, router } = await mountAt('/signin?authRequestID=a1b2', { 'POST /api/v1/session': new Response(null, { status: 204 }) })
+    await wrapper.get('#signin-email').setValue('ada@example.org')
+    await wrapper.get('#signin-password').setValue('correct horse battery')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(leave).toHaveBeenCalledWith('/oidc/login?authRequestID=a1b2')
+    expect(router.currentRoute.value.path).toBe('/signin')
+    leave.mockRestore()
   })
 
   it('says when the email or the password is wrong', async () => {
