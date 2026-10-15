@@ -32,24 +32,24 @@ func open(t *testing.T) (*persistence.Store, *pgxpool.Pool) {
 	return persistence.New(queries.New(pool)), pool
 }
 
-func user(t *testing.T, email string) domain.User {
+func user(t *testing.T) domain.User {
 	t.Helper()
-	e, err := domain.NewEmail(email)
+	e, err := domain.NewEmail("ada@example.org")
 	if err != nil {
 		t.Fatal(err)
 	}
 	n, _ := domain.NewName("Ada")
-	return domain.User{ID: uuid.New(), Email: e, Name: n, PasswordHash: "$argon2id$x", CreatedAt: t0}
+	return domain.User{ID: uuid.New(), Email: e, Name: n, PasswordHash: "stored-hash-1", CreatedAt: t0}
 }
 
 func TestUsers(t *testing.T) {
 	ctx := context.Background()
 	s, _ := open(t)
-	u := user(t, "ada@example.org")
+	u := user(t)
 	if err := s.CreateUser(ctx, u); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.CreateUser(ctx, user(t, "ada@example.org")); !errors.Is(err, app.ErrEmailTaken) {
+	if err := s.CreateUser(ctx, user(t)); !errors.Is(err, app.ErrEmailTaken) {
 		t.Fatalf("a second user with the same email: %v", err)
 	}
 
@@ -69,11 +69,11 @@ func TestUsers(t *testing.T) {
 	if err := s.UpdateName(ctx, u.ID, newName); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.UpdatePasswordHash(ctx, u.ID, "$argon2id$y"); err != nil {
+	if err := s.UpdatePasswordHash(ctx, u.ID, "stored-hash-2"); err != nil {
 		t.Fatal(err)
 	}
 	got, err := s.UserByID(ctx, u.ID)
-	if err != nil || got.Name != newName || got.PasswordHash != "$argon2id$y" {
+	if err != nil || got.Name != newName || got.PasswordHash != "stored-hash-2" {
 		t.Fatalf("after the changes: %+v, %v", got, err)
 	}
 }
@@ -97,8 +97,8 @@ func TestARowTheDomainRefusesIsAnError(t *testing.T) {
 func TestSignupsAreTakenOnce(t *testing.T) {
 	ctx := context.Background()
 	s, pool := open(t)
-	u := user(t, "ada@example.org")
-	su := app.Signup{TokenHash: []byte("hash-of-a-token"), Email: u.Email, Name: u.Name, PasswordHash: "$argon2id$x", ExpiresAt: t0.Add(24 * time.Hour)}
+	u := user(t)
+	su := app.Signup{TokenHash: []byte("hash-of-a-token"), Email: u.Email, Name: u.Name, PasswordHash: "stored-hash-1", ExpiresAt: t0.Add(24 * time.Hour)}
 	if err := s.CreateSignup(ctx, su); err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func TestSignupsAreTakenOnce(t *testing.T) {
 func TestSessions(t *testing.T) {
 	ctx := context.Background()
 	s, pool := open(t)
-	u := user(t, "ada@example.org")
+	u := user(t)
 	_ = s.CreateUser(ctx, u)
 	sess := app.Session{TokenHash: []byte("hash"), UserID: u.ID, CreatedAt: t0, LastSeenAt: t0, ExpiresAt: t0.Add(time.Hour)}
 	if err := s.CreateSession(ctx, sess); err != nil {

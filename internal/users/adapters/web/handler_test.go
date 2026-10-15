@@ -29,7 +29,7 @@ type useCases struct {
 }
 
 func (u *useCases) SignUp(context.Context, string, string, string) error { return u.err }
-func (u *useCases) Confirm(context.Context, string) error                 { return u.err }
+func (u *useCases) Confirm(context.Context, string) error                { return u.err }
 func (u *useCases) SignIn(context.Context, string, string) (string, error) {
 	return u.token, u.err
 }

@@ -137,26 +137,22 @@ func profile(u domain.User) *oas.Profile {
 }
 
 // refusal answers a rule the caller broke with a problem saying which, and passes anything else on
-// to NewError as a 500. Its result type is every operation's response union, through problem.
+// to NewError as a 500. Its result type fits every operation's response union.
 func refusal(err error) (*oas.ProblemStatusCode, error) {
-	for _, r := range refusals {
-		if errors.Is(err, r.err) {
-			return problem(r.status, r.detail), nil
-		}
+	switch {
+	case errors.Is(err, domain.ErrInvalidEmail):
+		return problem(http.StatusUnprocessableEntity, "Enter a valid email address."), nil
+	case errors.Is(err, domain.ErrInvalidName):
+		return problem(http.StatusUnprocessableEntity, "A name is 1 to 100 characters."), nil
+	case errors.Is(err, domain.ErrWeakPassword):
+		return problem(http.StatusUnprocessableEntity, "A password is 12 to 128 characters."), nil
+	case errors.Is(err, app.ErrInvalidToken):
+		return problem(http.StatusUnprocessableEntity, "This link has expired or was already used. Sign up again for a new one."), nil
+	case errors.Is(err, app.ErrInvalidCredentials):
+		return problem(http.StatusUnauthorized, "The email or the password is wrong."), nil
+	default:
+		return nil, err
 	}
-	return nil, err
-}
-
-var refusals = []struct {
-	err    error
-	status int
-	detail string
-}{
-	{domain.ErrInvalidEmail, http.StatusUnprocessableEntity, "Enter a valid email address."},
-	{domain.ErrInvalidName, http.StatusUnprocessableEntity, "A name is 1 to 100 characters."},
-	{domain.ErrWeakPassword, http.StatusUnprocessableEntity, "A password is 12 to 128 characters."},
-	{app.ErrInvalidToken, http.StatusUnprocessableEntity, "This link has expired or was already used. Sign up again for a new one."},
-	{app.ErrInvalidCredentials, http.StatusUnauthorized, "The email or the password is wrong."},
 }
 
 func problem(status int, detail string) *oas.ProblemStatusCode {

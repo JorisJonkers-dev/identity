@@ -28,7 +28,7 @@ var (
 
 const (
 	signupLifetime  = 24 * time.Hour
-	sessionLifetime      = 30 * 24 * time.Hour
+	sessionLifetime = 30 * 24 * time.Hour
 	// A session's last use is written at most once a minute, not on every request (docs/adr/0009).
 	touchInterval = time.Minute
 	tokenBytes    = 32

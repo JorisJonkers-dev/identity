@@ -22,7 +22,7 @@ import (
 type users struct{}
 
 func (users) SignUp(context.Context, string, string, string) error { return nil }
-func (users) Confirm(context.Context, string) error                 { return nil }
+func (users) Confirm(context.Context, string) error                { return nil }
 func (users) SignIn(context.Context, string, string) (string, error) {
 	return "good", nil
 }
@@ -35,7 +35,7 @@ func (users) Authenticate(_ context.Context, token string) (domain.User, error) 
 	n, _ := domain.NewName("Ada")
 	return domain.User{ID: uuid.New(), Email: e, Name: n, CreatedAt: time.Unix(0, 0).UTC()}, nil
 }
-func (users) Rename(context.Context, uuid.UUID, string) error                       { return nil }
+func (users) Rename(context.Context, uuid.UUID, string) error                         { return nil }
 func (users) ChangePassword(context.Context, uuid.UUID, string, string, string) error { return nil }
 func (u users) User(ctx context.Context, _ uuid.UUID) (domain.User, error) {
 	return u.Authenticate(ctx, "good")
@@ -67,7 +67,7 @@ func send(t *testing.T, srv *httptest.Server, method, path, contentType, body, s
 		req.Header.Set("Content-Type", contentType)
 	}
 	if session != "" {
-		req.AddCookie(&http.Cookie{Name: "__Host-identity_session", Value: session})
+		req.AddCookie(&http.Cookie{Name: "__Host-identity_session", Value: session, Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode})
 	}
 	resp, err := srv.Client().Do(req)
 	if err != nil {

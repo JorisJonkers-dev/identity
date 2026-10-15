@@ -18,19 +18,19 @@ var t0 = time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC)
 
 // store is an in-memory app.Store; fail makes the named method return its error.
 type store struct {
-	users         map[uuid.UUID]domain.User
-	signups       map[string]app.Signup
-	sessions      map[string]app.Session
-	fail          map[string]error
-	touches       int
+	users    map[uuid.UUID]domain.User
+	signups  map[string]app.Signup
+	sessions map[string]app.Session
+	fail     map[string]error
+	touches  int
 }
 
 func newStore() *store {
 	return &store{
-		users:         map[uuid.UUID]domain.User{},
-		signups:       map[string]app.Signup{},
-		sessions:      map[string]app.Session{},
-		fail:          map[string]error{},
+		users:    map[uuid.UUID]domain.User{},
+		signups:  map[string]app.Signup{},
+		sessions: map[string]app.Session{},
+		fail:     map[string]error{},
 	}
 }
 
