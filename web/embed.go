@@ -12,10 +12,13 @@ import (
 var dist embed.FS
 
 // Dist returns the files of the web build that was present when the binary was compiled.
-func Dist() fs.FS {
-	sub, err := fs.Sub(dist, "dist")
+func Dist() fs.FS { return sub(dist, "dist") }
+
+// sub panics on an invalid directory name, which "dist" is not.
+func sub(fsys fs.FS, dir string) fs.FS {
+	s, err := fs.Sub(fsys, dir)
 	if err != nil {
-		panic(err) // unreachable: dist is a valid directory name in an embedded FS
+		panic(err)
 	}
-	return sub
+	return s
 }

@@ -27,7 +27,7 @@ jobs:
       # Every failure is reported, not only the first.
       fail-fast: false
       matrix:
-        task: [lint, gen:check, test, build, secrets]
+        task: [lint, gen:check, "test:unit", "test:integration", build, secrets]
     steps:
       - uses: actions/checkout@v7
 

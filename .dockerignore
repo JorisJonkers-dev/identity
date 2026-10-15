@@ -2,7 +2,7 @@
 .github
 **/node_modules
 bin
-coverage.out
+coverage
 web/dist
 !web/dist/.gitkeep
 web/coverage

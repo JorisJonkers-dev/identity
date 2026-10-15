@@ -58,9 +58,11 @@ skips the tests that need it.
 lints the contract first), then fix what no longer compiles on either side. `task gen:check` fails
 when committed generated code is stale, and CI runs it.
 
-**Coverage gates.** Go: 80% total and 100% on each context's `domain` and `app`
-(`.testcoverage.yml`), measured across packages and excluding generated code. Web: 90% on lines,
-branches, functions and statements (`web/vite.config.ts`). Raise them as the suite grows.
+**Test buckets and coverage gates** ([0011](docs/adr/0011-unit-tests-reach-every-statement-branch-condition-and-function.md)).
+`task test:unit` needs no Docker and holds Go and web to 100% of statements, branches and functions,
+and Go also to 100% of conditions (gobco). `task test:integration` adds the tests behind the
+`integration` build tag, which need Docker, and holds every function to at least one test. Totals
+land in `coverage/coverage-totals.json`.
 
 **Identity.** The API requires an `X-User-Id` header, which the platform's forward-auth sets at the
 edge (`audience: authenticated` in the project file). On a local run nothing sits in front of the

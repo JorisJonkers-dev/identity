@@ -4,7 +4,6 @@ package server
 
 import (
 	"context"
-	"errors"
 	"io"
 	"log/slog"
 	"net"
@@ -36,12 +35,25 @@ type Server struct {
 	logger  *slog.Logger
 	version string
 	routes  Routes
+	grace   time.Duration
 	serving atomic.Bool
 }
 
+// Option changes a Server's defaults.
+type Option func(*Server)
+
+// WithShutdownGrace bounds how long a drain waits for in-flight requests; the default is 10s.
+func WithShutdownGrace(d time.Duration) Option {
+	return func(s *Server) { s.grace = d }
+}
+
 // New returns a Server that logs to logger and reports version at startup.
-func New(logger *slog.Logger, version string, routes Routes) *Server {
-	return &Server{logger: logger, version: version, routes: routes}
+func New(logger *slog.Logger, version string, routes Routes, opts ...Option) *Server {
+	s := &Server{logger: logger, version: version, routes: routes, grace: shutdownGrace}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 // Handler returns the routes, behind the browser hardening headers. Liveness never depends on
@@ -86,14 +98,12 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 	case <-ctx.Done():
 	}
 	s.serving.Store(false)
-	drain, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownGrace)
+	drain, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.grace)
 	defer cancel()
 	if err := srv.Shutdown(drain); err != nil {
 		return err
 	}
-	if err := <-errs; !errors.Is(err, http.ErrServerClosed) {
-		return err
-	}
+	<-errs // http.ErrServerClosed: Serve returns nothing else once Shutdown has run
 	s.logger.Info("stopped")
 	return nil
 }

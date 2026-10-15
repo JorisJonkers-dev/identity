@@ -103,7 +103,7 @@ github.com/coder/websocket       # optional realtime
 github.com/riverqueue/river      # Postgres-backed jobs (or goroutines)
 log/slog                         # stdlib structured logging — zero deps
 # dev: golangci-lint v2 (2.12.x), gofumpt, go.uber.org/nilaway, govulncheck,
-#      gremlins (mutation), go-test-coverage, testcontainers-go
+#      gremlins (mutation), gobco (branches and conditions), testcontainers-go
 ```
 
 Keep the dependency count low — every import is supply-chain surface, and the stdlib covers logging,
@@ -376,6 +376,6 @@ codegen validation, reflection-free JSON, `oneOf` unions, tri-state `Opt`/`OptNi
 alternative. **sqlc** + **pgx/v5** (type-safe SQL, no ORM/lazy loading). **Liquibase** through the
 estate's **liquibase-runner** (YAML changelog, automatic rollbacks, a reversibility check). **golangci-lint v2 (2.12.x)** bundles exhaustive /
 gochecksumtype / exhaustruct / depguard / gosec; **NilAway** as a module plugin; **govulncheck**
-(official scanner); **gofumpt**; **gremlins** (mutation); **go-test-coverage**; **testcontainers-go**.
+(official scanner); **gofumpt**; **gremlins** (mutation); **gobco**; **testcontainers-go**.
 Realtime: goroutine hub + `coder/websocket`; jobs via **River**; no Redis; `log/slog`. Conformance via
 **Redocly** (`recommended-strict`), **vacuum** (OWASP built-in), **Spectral** + OWASP.
