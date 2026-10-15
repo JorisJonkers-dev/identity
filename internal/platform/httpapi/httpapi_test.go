@@ -22,7 +22,7 @@ import (
 type users struct{}
 
 func (users) SignUp(context.Context, string, string, string) error { return nil }
-func (users) Confirm(context.Context, string) error                { return nil }
+func (users) Confirm(context.Context, string, string) error        { return nil }
 func (users) SignIn(context.Context, string, string) (string, error) {
 	return "good", nil
 }
@@ -146,5 +146,13 @@ func TestAFormCannotPostToTheAPI(t *testing.T) {
 		if code < 400 || code >= 500 {
 			t.Errorf("a %s post = %d, want a 4xx", ct, code)
 		}
+	}
+}
+
+func TestABodyOverTheCapIsRefusedUnread(t *testing.T) {
+	big := `{"email":"a@b.c","password":"` + strings.Repeat("x", 64<<10) + `"}`
+	code, _, body := send(t, serve(t), http.MethodPost, "/api/v1/session", "application/json", big, "")
+	if code != http.StatusRequestEntityTooLarge || body["status"] != float64(http.StatusRequestEntityTooLarge) {
+		t.Fatalf("a 64 KiB sign-in = %d %v, want a 413 problem", code, body)
 	}
 }

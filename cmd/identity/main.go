@@ -52,6 +52,9 @@ func start(parent context.Context, getenv func(string) string) int {
 
 // run is the composition root: it reads the environment and builds the store, the use cases and
 // the server. httpapi assembles the contexts' web adapters into the one generated API.
+// maxConcurrentHashes bounds argon2id's 46 MiB per hash to under 200 MiB however many sign in at once.
+const maxConcurrentHashes = 4
+
 func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) error {
 	cfg, err := readConfig(getenv)
 	if err != nil {
@@ -63,7 +66,7 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 	}
 	defer store.Close()
 
-	users := app.New(persistence.New(store.Queries()), passwords.Argon2id{}, cfg.mailer, time.Now, rand.Reader, cfg.publicURL)
+	users := app.New(persistence.New(store.Queries()), passwords.NewArgon2id(maxConcurrentHashes), cfg.mailer, time.Now, rand.Reader, cfg.publicURL)
 	api, err := httpapi.New(logger, version, users)
 	if err != nil {
 		return err

@@ -1,5 +1,5 @@
 // Package httpx holds the HTTP pieces every inbound adapter shares: RFC 9457 problems and browser
-// hardening headers.
+// hardening headers, and the request body cap.
 package httpx
 
 import (
@@ -44,6 +44,19 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+		next.ServeHTTP(w, r)
+	})
+}
+
+// LimitBody refuses a request declaring a body over limit bytes with a 413, and stops reading an
+// undeclared one at limit, so no request can make the server buffer more than that.
+func LimitBody(limit int64, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.ContentLength > limit {
+			WriteProblem(w, http.StatusRequestEntityTooLarge, "")
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, limit)
 		next.ServeHTTP(w, r)
 	})
 }

@@ -29,9 +29,26 @@ const (
 	phcVersion = 19
 )
 
-// Argon2id is the app.Hasher. Random defaults to crypto/rand.
+// Argon2id is the app.Hasher. Random defaults to crypto/rand. The zero value runs any number of
+// hashes at once; NewArgon2id bounds them.
 type Argon2id struct {
 	Random io.Reader
+	slots  chan struct{}
+}
+
+// NewArgon2id returns an Argon2id running at most n hashes at once, so a burst of sign-ins waits
+// rather than asking for n times 46 MiB.
+func NewArgon2id(n int) Argon2id { return Argon2id{slots: make(chan struct{}, n)} }
+
+// InFlight is how many hashes hold a slot now.
+func (a Argon2id) InFlight() int { return len(a.slots) }
+
+func (a Argon2id) key(password, salt []byte, time, memory uint32, threads uint8, size uint32) []byte {
+	if a.slots != nil {
+		a.slots <- struct{}{}
+		defer func() { <-a.slots }()
+	}
+	return argon2.IDKey(password, salt, time, memory, threads, size)
 }
 
 // Hash returns a PHC string for p, under a fresh random salt.
@@ -44,13 +61,13 @@ func (a Argon2id) Hash(p domain.Password) (string, error) {
 	if _, err := io.ReadFull(random, salt); err != nil {
 		return "", fmt.Errorf("read a salt: %w", err)
 	}
-	key := argon2.IDKey([]byte(p.String()), salt, passes, memoryKiB, lanes, hashBytes)
+	key := a.key([]byte(p.String()), salt, passes, memoryKiB, lanes, hashBytes)
 	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s", phcVersion, memoryKiB, passes, lanes,
 		base64.RawStdEncoding.EncodeToString(salt), base64.RawStdEncoding.EncodeToString(key)), nil
 }
 
 // Verify reports whether password matches hash, using the parameters hash records.
-func (Argon2id) Verify(hash, password string) (bool, error) {
+func (a Argon2id) Verify(hash, password string) (bool, error) {
 	parts := strings.Split(hash, "$")
 	if len(parts) != 6 || parts[1] != "argon2id" {
 		return false, ErrMalformedHash
@@ -72,6 +89,6 @@ func (Argon2id) Verify(hash, password string) (bool, error) {
 	if err != nil {
 		return false, ErrMalformedHash
 	}
-	got := argon2.IDKey([]byte(password), salt, time, memory, threads, uint32(len(want))) //nolint:gosec // len of a decoded hash, far below 2^32.
+	got := a.key([]byte(password), salt, time, memory, threads, uint32(len(want))) //nolint:gosec // len of a decoded hash, far below 2^32.
 	return subtle.ConstantTimeCompare(got, want) == 1, nil
 }

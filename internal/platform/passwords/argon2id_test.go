@@ -4,14 +4,17 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/JorisJonkers-dev/identity/internal/platform/passwords"
 	"github.com/JorisJonkers-dev/identity/internal/users/domain"
 )
 
-func password(t *testing.T, raw string) domain.Password {
+const secret = "correct horse battery"
+
+func password(t *testing.T) domain.Password {
 	t.Helper()
-	p, err := domain.NewPassword(raw)
+	p, err := domain.NewPassword(secret)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -20,7 +23,7 @@ func password(t *testing.T, raw string) domain.Password {
 
 func TestHashThenVerify(t *testing.T) {
 	h := passwords.Argon2id{}
-	hash, err := h.Hash(password(t, "correct horse battery"))
+	hash, err := h.Hash(password(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +36,7 @@ func TestHashThenVerify(t *testing.T) {
 	if ok, err := h.Verify(hash, "wrong horse battery!"); ok || err != nil {
 		t.Fatalf("a wrong password: %v, %v", ok, err)
 	}
-	again, _ := h.Hash(password(t, "correct horse battery"))
+	again, _ := h.Hash(password(t))
 	if again == hash {
 		t.Fatal("two hashes of one password share a salt")
 	}
@@ -69,7 +72,7 @@ func TestVerifyRefusesAMalformedHash(t *testing.T) {
 
 func TestHashFailsWithoutEntropy(t *testing.T) {
 	h := passwords.Argon2id{Random: failing{}}
-	if _, err := h.Hash(password(t, "correct horse battery")); err == nil {
+	if _, err := h.Hash(password(t)); err == nil {
 		t.Fatal("hashed without a salt")
 	}
 }
@@ -77,3 +80,26 @@ func TestHashFailsWithoutEntropy(t *testing.T) {
 type failing struct{}
 
 func (failing) Read([]byte) (int, error) { return 0, errors.New("no entropy") }
+
+func TestNewArgon2idMakesAHashWaitForAFreeSlot(t *testing.T) {
+	h := passwords.NewArgon2id(1)
+	release := passwords.Hold(h)
+	done := make(chan string, 1)
+	go func() {
+		hash, _ := h.Hash(password(t))
+		done <- hash
+	}()
+	select {
+	case <-done:
+		t.Fatal("a hash ran while every slot was taken")
+	case <-time.After(300 * time.Millisecond):
+	}
+	release()
+	hash := <-done
+	if ok, err := h.Verify(hash, "correct horse battery"); !ok || err != nil {
+		t.Fatalf("verify through the bound: %v, %v", ok, err)
+	}
+	if got := h.InFlight(); got != 0 {
+		t.Fatalf("%d hashes still hold a slot", got)
+	}
+}

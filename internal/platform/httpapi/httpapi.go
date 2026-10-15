@@ -38,11 +38,14 @@ func (a *api) GetVersion(context.Context) (oas.GetVersionRes, error) {
 	return &oas.Version{Version: a.version}, nil
 }
 
+// maxBody caps a request body; the largest the contract accepts is a few hundred bytes.
+const maxBody = 64 << 10
+
 // New returns the API's http.Handler, serving every path the contract declares under /api.
 // The users adapter is also the session security handler.
 func New(logger *slog.Logger, version string, users usersweb.UseCases) (http.Handler, error) {
 	h := usersweb.New(users)
-	return oas.NewServer(
+	srv, err := oas.NewServer(
 		&api{Handler: h, logger: logger, version: version},
 		h,
 		oas.WithErrorHandler(writeError),
@@ -54,6 +57,7 @@ func New(logger *slog.Logger, version string, users usersweb.UseCases) (http.Han
 			httpx.WriteProblem(w, http.StatusMethodNotAllowed, "")
 		}),
 	)
+	return httpx.LimitBody(maxBody, srv), err // NewServer fails only on a bad option, never at run time
 }
 
 // writeError answers a request ogen could not decode with a problem carrying ogen's status.
