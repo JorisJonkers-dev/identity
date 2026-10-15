@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -31,5 +32,13 @@ func TestNewErrorMapsCodesAndLogsOnlyServerFailures(t *testing.T) {
 	}
 	if !strings.Contains(logs.String(), "connection refused to 10.0.0.7") {
 		t.Fatalf("a 500's cause was not logged: %s", logs.String())
+	}
+}
+
+func TestADecodeFailureIsAProblemWithOgensStatus(t *testing.T) {
+	rec := httptest.NewRecorder()
+	writeError(t.Context(), rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), &ogenerrors.DecodeRequestError{Err: errors.New("bad body")})
+	if rec.Code != http.StatusBadRequest || rec.Header().Get("Content-Type") != "application/problem+json" {
+		t.Fatalf("decode failure = %d %q, want a 400 problem", rec.Code, rec.Header().Get("Content-Type"))
 	}
 }

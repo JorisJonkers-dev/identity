@@ -40,9 +40,7 @@ func (a *api) GetVersion(context.Context) (oas.GetVersionRes, error) {
 func New(logger *slog.Logger, version string) (http.Handler, error) {
 	return oas.NewServer(
 		&api{logger: logger, version: version},
-		oas.WithErrorHandler(func(_ context.Context, w http.ResponseWriter, _ *http.Request, err error) {
-			httpx.WriteProblem(w, ogenerrors.ErrorCode(err), "")
-		}),
+		oas.WithErrorHandler(writeError),
 		oas.WithNotFound(func(w http.ResponseWriter, _ *http.Request) {
 			httpx.WriteProblem(w, http.StatusNotFound, "")
 		}),
@@ -51,4 +49,9 @@ func New(logger *slog.Logger, version string) (http.Handler, error) {
 			httpx.WriteProblem(w, http.StatusMethodNotAllowed, "")
 		}),
 	)
+}
+
+// writeError answers a request ogen could not decode with a problem carrying ogen's status.
+func writeError(_ context.Context, w http.ResponseWriter, _ *http.Request, err error) {
+	httpx.WriteProblem(w, ogenerrors.ErrorCode(err), "")
 }
