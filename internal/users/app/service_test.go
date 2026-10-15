@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"errors"
 	"strings"
@@ -674,5 +675,43 @@ func TestAFailedDecoyIsTriedAgainOnTheNextSignIn(t *testing.T) {
 	_, _ = f.SignIn(context.Background(), "nobody@b.c", pw)
 	if f.hasher.hashed != hashed {
 		t.Fatal("a decoy that was made is made again")
+	}
+}
+
+// gatedHasher holds every Hash until the test opens its gate, and says when one has started.
+type gatedHasher struct {
+	hasher
+	started chan struct{}
+	gate    chan struct{}
+}
+
+func (g *gatedHasher) Hash(domain.Password) (string, error) {
+	g.started <- struct{}{}
+	<-g.gate
+	return "", app.ErrBusy
+}
+
+func TestMakingTheDecoyHoldsNoLockThatOutlastsTheHashBound(t *testing.T) {
+	g := &gatedHasher{started: make(chan struct{}), gate: make(chan struct{})}
+	s := app.New(newStore(), g, &mailer{}, time.Now, rand.Reader, "https://auth.test")
+	done := make(chan error, 2)
+	for range 2 {
+		go func() {
+			_, err := s.SignIn(context.Background(), "nobody@b.c", pw)
+			done <- err
+		}()
+	}
+	for range 2 {
+		select {
+		case <-g.started:
+		case <-time.After(2 * time.Second):
+			t.Fatal("a second sign-in waits on the first one's decoy instead of the hash bound")
+		}
+	}
+	close(g.gate)
+	for range 2 {
+		if err := <-done; !errors.Is(err, app.ErrBusy) {
+			t.Fatalf("SignIn = %v", err)
+		}
 	}
 }

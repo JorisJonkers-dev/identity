@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -97,8 +97,7 @@ type Service struct {
 	random    io.Reader
 	publicURL string
 
-	decoyMu sync.Mutex
-	decoy   string
+	decoy atomic.Pointer[string]
 }
 
 // New returns a Service. publicURL is where links in mail point, with no trailing slash.
@@ -237,19 +236,19 @@ func (s *Service) decoyCheck(password string) error {
 	return err
 }
 
-// decoyHash makes the decoy once it first succeeds; a failure, such as ErrBusy, is not kept.
+// decoyHash keeps the first decoy made; a failure, such as ErrBusy, is not kept. No lock is held
+// while hashing, so a sign-in waits only on the hasher's own bound, never on another sign-in.
 func (s *Service) decoyHash() (string, error) {
-	s.decoyMu.Lock()
-	defer s.decoyMu.Unlock()
-	if s.decoy == "" {
-		p, _ := domain.NewPassword("a decoy no account has")
-		h, err := s.hasher.Hash(p)
-		if err != nil {
-			return "", err
-		}
-		s.decoy = h
+	if d := s.decoy.Load(); d != nil {
+		return *d, nil
 	}
-	return s.decoy, nil
+	p, _ := domain.NewPassword("a decoy no account has")
+	h, err := s.hasher.Hash(p)
+	if err != nil {
+		return "", err
+	}
+	s.decoy.CompareAndSwap(nil, &h)
+	return *s.decoy.Load(), nil
 }
 
 // Authenticate returns the User a session token belongs to, and extends the session from its last
