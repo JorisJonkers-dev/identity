@@ -1,0 +1,45 @@
+# The template's sample table, kept until the first identity schema replaces it.
+databaseChangeLog:
+  - changeSet:
+      id: 0001-create-notes
+      author: identity
+      changes:
+        - createTable:
+            tableName: notes
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  defaultValueComputed: gen_random_uuid()
+                  constraints: {primaryKey: true, nullable: false}
+              - column:
+                  name: text
+                  type: text
+                  constraints: {nullable: false}
+              - column:
+                  name: created_at
+                  type: timestamptz
+                  defaultValueComputed: now()
+                  constraints: {nullable: false}
+
+  # Integrity lives in the database (docs/blueprints/go-api.md §8.2): the domain's length rule
+  # is a CHECK too. Liquibase has no open-source change type for it, so the rollback is explicit.
+  - changeSet:
+      id: 0001-notes-text-length
+      author: identity
+      changes:
+        - sql:
+            sql: ALTER TABLE notes ADD CONSTRAINT notes_text_length CHECK (char_length(text) BETWEEN 1 AND 500)
+      rollback:
+        - sql:
+            sql: ALTER TABLE notes DROP CONSTRAINT notes_text_length
+
+  - changeSet:
+      id: 0001-notes-created-at-idx
+      author: identity
+      changes:
+        - createIndex:
+            tableName: notes
+            indexName: notes_created_at_idx
+            columns:
+              - column: {name: created_at, descending: true}

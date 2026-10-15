@@ -17,12 +17,17 @@ tasks:
     sources: [pnpm-lock.yaml, package.json, "*/package.json"]
 
   gen:
-    desc: Gate the contract, then regenerate the server (ogen), the queries (sqlc) and the client (hey-api)
+    desc: Gate the contract, then regenerate the server (ogen), the schema and queries (liquibase-runner, sqlc) and the client (hey-api)
     cmds:
       - task: lint:spec
       - go generate ./...
+      - task: gen:schema
       - sqlc generate
       - pnpm --filter @{{.APP}}/web gen
+
+  gen:schema:
+    desc: Migrate a throwaway Postgres with liquibase-runner and write db/schema.sql for sqlc (needs Docker)
+    cmd: go run ./internal/platform/pg/pgtest/genschema db/schema.sql
 
   gen:check:
     desc: Fail if generated code is stale
@@ -41,7 +46,6 @@ tasks:
     cmds:
       - task: lint:go
       - task: lint:spec
-      - task: lint:sql
       - task: lint:web
       - task: lint:actions
 
@@ -58,10 +62,6 @@ tasks:
     cmds:
       - pnpm --filter @{{.APP}}/openapi run lint
       - vacuum lint --details --fail-severity error openapi/v1/openapi.yaml
-
-  lint:sql:
-    desc: Migration safety lint (squawk)
-    cmd: squawk db/migrations/*.sql
 
   lint:web:
     desc: ESLint (type-checked, a11y) and vue-tsc
@@ -99,8 +99,10 @@ tasks:
       - CGO_ENABLED=0 go build -trimpath -o bin/{{.APP}} ./cmd/{{.APP}}
 
   db:
-    desc: Start the compose Postgres
-    cmd: docker compose up -d --wait postgres
+    desc: Start the compose Postgres and migrate it with liquibase-runner
+    cmds:
+      - docker compose up -d --wait postgres
+      - docker compose run --rm migrate
 
   e2e:
     desc: Playwright with axe against the built binary and the compose Postgres

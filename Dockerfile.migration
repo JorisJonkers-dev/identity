@@ -1,0 +1,4 @@
+# The identity-migration image: liquibase-runner plus this repository's changelog, and nothing
+# else (docs/adr/0010). The platform runs it as a Job before a new revision serves.
+FROM ghcr.io/jorisjonkers-dev/liquibase-runner:v0.1.0@sha256:f19a170f0285818c105939da633053b5800a7cc5d1efb4f2d8211e040bb134af
+COPY db/changelog/ /liquibase/changelog/

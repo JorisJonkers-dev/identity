@@ -14,9 +14,10 @@ owner: joris
 
 applications:
   - id: identity
-    # The binary applies its goose migrations at startup (db/migrations), so it holds the owner
-    # role and startupBudget covers the migration.
-    migration: self
+    # liquibase-runner applies the changelog from its own image (Dockerfile.migration, alias
+    # identity-migration) before a new revision starts; the binary never holds the owner role.
+    migration:
+      changelog: db/changelog/changelog.yaml
 
     # No observability block: the template serves no /metrics yet.
     exposure:
@@ -52,7 +53,7 @@ applications:
           readiness: { path: /readyz, port: 8080 } # fails while Postgres does not answer
           liveness: { path: /healthz, port: 8080 }
 
-        startupBudget: 30s # covers the migrations
+        startupBudget: 30s
 
         # No volumes, so a continuous cutover is honourable.
         cutover: continuous

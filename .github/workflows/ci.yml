@@ -65,6 +65,8 @@ jobs:
         include:
           - image: identity
             args: ""
+          - image: identity-migration
+            args: "-f Dockerfile.migration"
     steps:
       - uses: actions/checkout@v7
 

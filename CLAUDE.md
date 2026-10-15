@@ -39,6 +39,8 @@ Contract-first Go + Vue from `template-go-vue`. `task check` and `task e2e` are 
   `internal/platform/oas/`, `internal/platform/pg/queries/` or `web/src/infrastructure/api/`.
 - **The architecture is in `docs/blueprints/`.** Its numbered rules are gates; the README there
   says which ones the template has not wired yet.
-- **Still template state.** The sample `notes` context and goose migrations are the template's;
-  both are replaced as the first features land
-  ([0010](docs/adr/0010-migrations-run-through-liquibase-runner.md)).
+- **The schema moves only through `db/changelog/`.** liquibase-runner applies it from
+  `Dockerfile.migration`; the binary never migrates. Every changeset must roll back
+  ([0010](docs/adr/0010-migrations-run-through-liquibase-runner.md)). After changing it, `task gen`.
+- **Still template state.** The sample `notes` context is the template's; it is replaced as the
+  first features land.

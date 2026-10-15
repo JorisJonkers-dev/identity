@@ -2,9 +2,11 @@ package pg_test
 
 import (
 	"context"
+	"strings"
 	"testing"
-	"testing/fstest"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JorisJonkers-dev/identity/internal/platform/pg"
 	"github.com/JorisJonkers-dev/identity/internal/platform/pg/pgtest"
@@ -14,11 +16,7 @@ const unreachable = "postgres://nobody@127.0.0.1:1/none?sslmode=disable&connect_
 
 func TestStoreAgainstMigratedDatabase(t *testing.T) {
 	t.Parallel()
-	url := pgtest.URL(t)
-	if err := pg.Migrate(t.Context(), url); err != nil {
-		t.Fatalf("migrating an up-to-date database again: %v", err)
-	}
-	store, err := pg.Open(t.Context(), url)
+	store, err := pg.Open(t.Context(), pgtest.URL(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,6 +29,48 @@ func TestStoreAgainstMigratedDatabase(t *testing.T) {
 	}
 }
 
+func TestSchemaIsAppliedByLiquibaseRunner(t *testing.T) {
+	t.Parallel()
+	conn, err := pgx.Connect(t.Context(), pgtest.URL(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = conn.Close(t.Context()) }()
+	var tagged int
+	if err := conn.QueryRow(t.Context(),
+		"SELECT count(*) FROM databasechangelog WHERE author = 'liquibase-runner' AND tag = $1", pgtest.Tag,
+	).Scan(&tagged); err != nil {
+		t.Fatalf("no Liquibase changelog table: %v", err)
+	}
+	if tagged != 1 {
+		t.Fatalf("runner tag rows = %d, want 1", tagged)
+	}
+}
+
+func TestSchemaRefusesNoteTextOutsideTheDomainRule(t *testing.T) {
+	t.Parallel()
+	conn, err := pgx.Connect(t.Context(), pgtest.URL(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = conn.Close(t.Context()) }()
+	for _, text := range []string{"", strings.Repeat("x", 501)} {
+		if _, err := conn.Exec(t.Context(), "INSERT INTO notes (text) VALUES ($1)", text); err == nil {
+			t.Fatalf("a note of %d characters was stored", len(text))
+		}
+	}
+	if _, err := conn.Exec(t.Context(), "INSERT INTO notes (text) VALUES ($1)", strings.Repeat("x", 500)); err != nil {
+		t.Fatalf("a note of 500 characters was refused: %v", err)
+	}
+}
+
+func TestEveryChangesetRollsBack(t *testing.T) {
+	t.Parallel()
+	if err := pgtest.Reversible(t); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestOpenFails(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
@@ -39,28 +79,5 @@ func TestOpenFails(t *testing.T) {
 		if _, err := pg.Open(ctx, url); err == nil {
 			t.Fatalf("Open(%q) succeeded", url)
 		}
-	}
-}
-
-func TestMigrateFailsOnUnreachableDatabase(t *testing.T) {
-	t.Parallel()
-	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
-	defer cancel()
-	if err := pg.Migrate(ctx, unreachable); err == nil {
-		t.Fatal("Migrate against an unreachable database succeeded")
-	}
-}
-
-func TestMigrateRefusesAnEmptyMigrationSet(t *testing.T) {
-	t.Parallel()
-	if err := pg.MigrateFS(t.Context(), pgtest.URL(t), fstest.MapFS{"migrations/.keep": {}}); err == nil {
-		t.Fatal("an empty migration set was accepted")
-	}
-}
-
-func TestMigrateRefusesAMissingMigrationsDir(t *testing.T) {
-	t.Parallel()
-	if err := pg.MigrateFS(t.Context(), unreachable, fstest.MapFS{}); err == nil {
-		t.Fatal("a filesystem without migrations/ was accepted")
 	}
 }

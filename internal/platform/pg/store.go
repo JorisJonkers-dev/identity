@@ -1,17 +1,13 @@
-// Package pg is the Postgres adapter: the connection pool, goose migrations and the sqlc queries.
+// Package pg is the Postgres adapter: the connection pool and the sqlc queries. The schema is
+// migrated by liquibase-runner in its own image, never by this binary (docs/adr/0010).
 package pg
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
-	"io/fs"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	_ "github.com/jackc/pgx/v5/stdlib" // registers the "pgx" database/sql driver goose runs on
-	"github.com/pressly/goose/v3"
 
-	"github.com/JorisJonkers-dev/identity/db"
 	"github.com/JorisJonkers-dev/identity/internal/platform/pg/queries"
 )
 
@@ -41,29 +37,3 @@ func (s *Store) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
 
 // Queries returns the generated queries, for the persistence adapters.
 func (s *Store) Queries() *queries.Queries { return queries.New(s.pool) }
-
-// Migrate applies every pending migration embedded in the binary.
-func Migrate(ctx context.Context, url string) error {
-	return MigrateFS(ctx, url, db.Migrations)
-}
-
-// MigrateFS applies the migrations under fsys/migrations; tests pass synthetic sets.
-func MigrateFS(ctx context.Context, url string, fsys fs.FS) error {
-	sqlDB, err := sql.Open("pgx", url)
-	if err != nil {
-		return fmt.Errorf("pg: open for migrate: %w", err)
-	}
-	defer func() { _ = sqlDB.Close() }()
-	sub, err := fs.Sub(fsys, "migrations")
-	if err != nil {
-		return fmt.Errorf("pg: migrations dir: %w", err)
-	}
-	provider, err := goose.NewProvider(goose.DialectPostgres, sqlDB, sub)
-	if err != nil {
-		return fmt.Errorf("pg: migration provider: %w", err)
-	}
-	if _, err := provider.Up(ctx); err != nil {
-		return fmt.Errorf("pg: migrate up: %w", err)
-	}
-	return nil
-}
