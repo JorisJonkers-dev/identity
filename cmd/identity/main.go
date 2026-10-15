@@ -1,8 +1,7 @@
 // Command identity serves the API and the embedded web app, and drains on SIGTERM. It never
 // migrates its database: the identity-migration image does, before it starts (docs/adr/0010).
 //
-// Environment: DATABASE_URL (required), ADDR (default :8080), and DEV_USER, which stands in for
-// the platform's forward-auth on a local run and must never be set in a deployment.
+// Environment: DATABASE_URL (required) and ADDR (default :8080).
 package main
 
 import (
@@ -14,10 +13,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/JorisJonkers-dev/identity/internal/notes/adapters/persistence"
-	"github.com/JorisJonkers-dev/identity/internal/notes/app"
 	"github.com/JorisJonkers-dev/identity/internal/platform/httpapi"
-	"github.com/JorisJonkers-dev/identity/internal/platform/httpx"
 	"github.com/JorisJonkers-dev/identity/internal/platform/pg"
 	"github.com/JorisJonkers-dev/identity/internal/platform/webui"
 	"github.com/JorisJonkers-dev/identity/internal/server"
@@ -58,13 +54,9 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 	}
 	defer store.Close()
 
-	api, err := httpapi.New(logger, app.New(persistence.New(store.Queries())))
+	api, err := httpapi.New(logger, version)
 	if err != nil {
 		return err
-	}
-	if subject := getenv("DEV_USER"); subject != "" {
-		logger.Warn("DEV_USER is set: every request without an identity runs as it", "subject", subject)
-		api = httpx.DevIdentity(subject, api)
 	}
 
 	addr := getenv("ADDR")

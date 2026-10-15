@@ -5,41 +5,13 @@ export type ClientOptions = {
 };
 
 /**
- * A note to create.
+ * The running build.
  */
-export type NewNote = {
+export type Version = {
     /**
-     * The note's text.
+     * The release version, or `dev` for a local build.
      */
-    text: string;
-};
-
-/**
- * A stored note.
- */
-export type Note = {
-    /**
-     * The note's id.
-     */
-    id: string;
-    /**
-     * The note's text.
-     */
-    text: string;
-    /**
-     * When the note was stored.
-     */
-    createdAt: string;
-};
-
-/**
- * A page of notes, newest first.
- */
-export type NoteList = {
-    /**
-     * The notes.
-     */
-    items: Array<Note>;
+    version: string;
 };
 
 /**
@@ -64,69 +36,31 @@ export type Problem = {
     detail?: string;
 };
 
-export type ListNotesData = {
+export type GetVersionData = {
     body?: never;
     path?: never;
-    query?: {
-        /**
-         * How many notes to return.
-         */
-        limit?: number;
-    };
-    url: '/api/v1/notes';
-};
-
-export type ListNotesErrors = {
-    /**
-     * An RFC 9457 problem.
-     */
-    400: Problem;
-    /**
-     * An RFC 9457 problem.
-     */
-    default: Problem;
-};
-
-export type ListNotesError = ListNotesErrors[keyof ListNotesErrors];
-
-export type ListNotesResponses = {
-    /**
-     * The notes.
-     */
-    200: NoteList;
-};
-
-export type ListNotesResponse = ListNotesResponses[keyof ListNotesResponses];
-
-export type CreateNoteData = {
-    body: NewNote;
-    path?: never;
     query?: never;
-    url: '/api/v1/notes';
+    url: '/api/v1/version';
 };
 
-export type CreateNoteErrors = {
+export type GetVersionErrors = {
     /**
      * An RFC 9457 problem.
      */
-    400: Problem;
-    /**
-     * An RFC 9457 problem.
-     */
-    422: Problem;
+    '4XX': Problem;
     /**
      * An RFC 9457 problem.
      */
     default: Problem;
 };
 
-export type CreateNoteError = CreateNoteErrors[keyof CreateNoteErrors];
+export type GetVersionError = GetVersionErrors[keyof GetVersionErrors];
 
-export type CreateNoteResponses = {
+export type GetVersionResponses = {
     /**
-     * The created note.
+     * The version.
      */
-    201: Note;
+    200: Version;
 };
 
-export type CreateNoteResponse = CreateNoteResponses[keyof CreateNoteResponses];
+export type GetVersionResponse = GetVersionResponses[keyof GetVersionResponses];

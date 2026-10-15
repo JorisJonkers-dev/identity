@@ -10,9 +10,7 @@ import (
 	"time"
 
 	"github.com/go-faster/errors"
-	"github.com/ogen-go/ogen/conv"
 	ht "github.com/ogen-go/ogen/http"
-	"github.com/ogen-go/ogen/ogenerrors"
 	"github.com/ogen-go/ogen/otelogen"
 	"github.com/ogen-go/ogen/uri"
 	"go.opentelemetry.io/otel/attribute"
@@ -29,29 +27,23 @@ func trimTrailingSlashes(u *url.URL) {
 
 // Invoker invokes operations described by OpenAPI v3 specification.
 type Invoker interface {
-	// CreateNote invokes createNote operation.
+	// GetVersion invokes getVersion operation.
 	//
-	// Stores a note and returns it with its id and creation time.
+	// The version of the build that is serving, for the Launcher's footer and for checks after a deploy.
+	// Needs no sign-in.
 	//
-	// POST /api/v1/notes
-	CreateNote(ctx context.Context, request *NewNote) (CreateNoteRes, error)
-	// ListNotes invokes listNotes operation.
-	//
-	// Returns at most `limit` notes, newest first.
-	//
-	// GET /api/v1/notes
-	ListNotes(ctx context.Context, params ListNotesParams) (ListNotesRes, error)
+	// GET /api/v1/version
+	GetVersion(ctx context.Context) (GetVersionRes, error)
 }
 
 // Client implements OAS client.
 type Client struct {
 	serverURL *url.URL
-	sec       SecuritySource
 	baseClient
 }
 
 // NewClient initializes new Client defined by OAS.
-func NewClient(serverURL string, sec SecuritySource, opts ...ClientOption) (*Client, error) {
+func NewClient(serverURL string, opts ...ClientOption) (*Client, error) {
 	u, err := url.Parse(serverURL)
 	if err != nil {
 		return nil, err
@@ -64,7 +56,6 @@ func NewClient(serverURL string, sec SecuritySource, opts ...ClientOption) (*Cli
 	}
 	return &Client{
 		serverURL:  u,
-		sec:        sec,
 		baseClient: c,
 	}, nil
 }
@@ -84,137 +75,22 @@ func (c *Client) requestURL(ctx context.Context) *url.URL {
 	return u
 }
 
-// CreateNote invokes createNote operation.
+// GetVersion invokes getVersion operation.
 //
-// Stores a note and returns it with its id and creation time.
+// The version of the build that is serving, for the Launcher's footer and for checks after a deploy.
+// Needs no sign-in.
 //
-// POST /api/v1/notes
-func (c *Client) CreateNote(ctx context.Context, request *NewNote) (CreateNoteRes, error) {
-	res, err := c.sendCreateNote(ctx, request)
+// GET /api/v1/version
+func (c *Client) GetVersion(ctx context.Context) (GetVersionRes, error) {
+	res, err := c.sendGetVersion(ctx)
 	return res, err
 }
 
-func (c *Client) sendCreateNote(ctx context.Context, request *NewNote) (res CreateNoteRes, err error) {
+func (c *Client) sendGetVersion(ctx context.Context) (res GetVersionRes, err error) {
 	otelAttrs := []attribute.KeyValue{
-		otelogen.OperationID("createNote"),
-		semconv.HTTPRequestMethodKey.String("POST"),
-		semconv.URLTemplateKey.String("/api/v1/notes"),
-	}
-	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
-
-	// Run stopwatch.
-	startTime := time.Now()
-	defer func() {
-		// Use floating point division here for higher precision (instead of Millisecond method).
-		elapsedDuration := time.Since(startTime)
-		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
-	}()
-
-	// Increment request counter.
-	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
-
-	// Start a span for this request.
-	ctx, span := c.cfg.Tracer.Start(ctx, CreateNoteOperation,
-		trace.WithAttributes(otelAttrs...),
-		clientSpanKind,
-	)
-	// Track stage for error reporting.
-	var stage string
-	defer func() {
-		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, stage)
-			c.errors.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
-		}
-		span.End()
-	}()
-
-	stage = "BuildURL"
-	u := uri.Clone(c.requestURL(ctx))
-	var pathParts [1]string
-	pathParts[0] = "/api/v1/notes"
-	uri.AddPathParts(u, pathParts[:]...)
-
-	stage = "EncodeRequest"
-	r, err := ht.NewRequest(ctx, "POST", u)
-	if err != nil {
-		return res, errors.Wrap(err, "create request")
-	}
-	if err := encodeCreateNoteRequest(request, r); err != nil {
-		return res, errors.Wrap(err, "encode request")
-	}
-
-	{
-		type bitset = [1]uint8
-		var satisfied bitset
-		{
-			stage = "Security:ForwardAuth"
-			switch err := c.securityForwardAuth(ctx, CreateNoteOperation, r); {
-			case err == nil: // if NO error
-				satisfied[0] |= 1 << 0
-			case errors.Is(err, ogenerrors.ErrSkipClientSecurity):
-				// Skip this security.
-			default:
-				return res, errors.Wrap(err, "security \"ForwardAuth\"")
-			}
-		}
-
-		if ok := func() bool {
-		nextRequirement:
-			for _, requirement := range []bitset{
-				{0b00000001},
-			} {
-				for i, mask := range requirement {
-					if satisfied[i]&mask != mask {
-						continue nextRequirement
-					}
-				}
-				return true
-			}
-			return false
-		}(); !ok {
-			return res, ogenerrors.ErrSecurityRequirementIsNotSatisfied
-		}
-	}
-
-	stage = "SendRequest"
-	resp, err := c.cfg.Client.Do(r)
-	if err != nil {
-		return res, errors.Wrap(err, "do request")
-	}
-	body := resp.Body
-	defer func() {
-		// Drain the body to EOF before closing, so the underlying
-		// connection can be reused by the Transport regardless of the
-		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
-		_, _ = io.Copy(io.Discard, body)
-		_ = body.Close()
-	}()
-
-	stage = "DecodeResponse"
-	result, err := decodeCreateNoteResponse(resp)
-	if err != nil {
-		return res, errors.Wrap(err, "decode response")
-	}
-
-	return result, nil
-}
-
-// ListNotes invokes listNotes operation.
-//
-// Returns at most `limit` notes, newest first.
-//
-// GET /api/v1/notes
-func (c *Client) ListNotes(ctx context.Context, params ListNotesParams) (ListNotesRes, error) {
-	res, err := c.sendListNotes(ctx, params)
-	return res, err
-}
-
-func (c *Client) sendListNotes(ctx context.Context, params ListNotesParams) (res ListNotesRes, err error) {
-	otelAttrs := []attribute.KeyValue{
-		otelogen.OperationID("listNotes"),
+		otelogen.OperationID("getVersion"),
 		semconv.HTTPRequestMethodKey.String("GET"),
-		semconv.URLTemplateKey.String("/api/v1/notes"),
+		semconv.URLTemplateKey.String("/api/v1/version"),
 	}
 	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
 
@@ -230,7 +106,7 @@ func (c *Client) sendListNotes(ctx context.Context, params ListNotesParams) (res
 	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
 
 	// Start a span for this request.
-	ctx, span := c.cfg.Tracer.Start(ctx, ListNotesOperation,
+	ctx, span := c.cfg.Tracer.Start(ctx, GetVersionOperation,
 		trace.WithAttributes(otelAttrs...),
 		clientSpanKind,
 	)
@@ -248,29 +124,8 @@ func (c *Client) sendListNotes(ctx context.Context, params ListNotesParams) (res
 	stage = "BuildURL"
 	u := uri.Clone(c.requestURL(ctx))
 	var pathParts [1]string
-	pathParts[0] = "/api/v1/notes"
+	pathParts[0] = "/api/v1/version"
 	uri.AddPathParts(u, pathParts[:]...)
-
-	stage = "EncodeQueryParams"
-	q := uri.NewQueryEncoder()
-	{
-		// Encode "limit" parameter.
-		cfg := uri.QueryParameterEncodingConfig{
-			Name:    "limit",
-			Style:   uri.QueryStyleForm,
-			Explode: true,
-		}
-
-		if err := q.EncodeParam(cfg, func(e uri.Encoder) error {
-			if val, ok := params.Limit.Get(); ok {
-				return e.EncodeValue(conv.Int32ToString(val))
-			}
-			return nil
-		}); err != nil {
-			return res, errors.Wrap(err, "encode query")
-		}
-	}
-	u.RawQuery = q.Values().Encode()
 
 	stage = "EncodeRequest"
 	r, err := ht.NewRequest(ctx, "GET", u)
@@ -278,39 +133,6 @@ func (c *Client) sendListNotes(ctx context.Context, params ListNotesParams) (res
 		return res, errors.Wrap(err, "create request")
 	}
 
-	{
-		type bitset = [1]uint8
-		var satisfied bitset
-		{
-			stage = "Security:ForwardAuth"
-			switch err := c.securityForwardAuth(ctx, ListNotesOperation, r); {
-			case err == nil: // if NO error
-				satisfied[0] |= 1 << 0
-			case errors.Is(err, ogenerrors.ErrSkipClientSecurity):
-				// Skip this security.
-			default:
-				return res, errors.Wrap(err, "security \"ForwardAuth\"")
-			}
-		}
-
-		if ok := func() bool {
-		nextRequirement:
-			for _, requirement := range []bitset{
-				{0b00000001},
-			} {
-				for i, mask := range requirement {
-					if satisfied[i]&mask != mask {
-						continue nextRequirement
-					}
-				}
-				return true
-			}
-			return false
-		}(); !ok {
-			return res, ogenerrors.ErrSecurityRequirementIsNotSatisfied
-		}
-	}
-
 	stage = "SendRequest"
 	resp, err := c.cfg.Client.Do(r)
 	if err != nil {
@@ -326,7 +148,7 @@ func (c *Client) sendListNotes(ctx context.Context, params ListNotesParams) (res
 	}()
 
 	stage = "DecodeResponse"
-	result, err := decodeListNotesResponse(resp)
+	result, err := decodeGetVersionResponse(resp)
 	if err != nil {
 		return res, errors.Wrap(err, "decode response")
 	}

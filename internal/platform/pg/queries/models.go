@@ -3,15 +3,3 @@
 //   sqlc v1.31.1
 
 package queries
-
-import (
-	"time"
-
-	"github.com/google/uuid"
-)
-
-type Note struct {
-	ID        uuid.UUID
-	Text      string
-	CreatedAt time.Time
-}

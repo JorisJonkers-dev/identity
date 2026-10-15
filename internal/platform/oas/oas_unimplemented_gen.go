@@ -13,21 +13,13 @@ type UnimplementedHandler struct{}
 
 var _ Handler = UnimplementedHandler{}
 
-// CreateNote implements createNote operation.
+// GetVersion implements getVersion operation.
 //
-// Stores a note and returns it with its id and creation time.
+// The version of the build that is serving, for the Launcher's footer and for checks after a deploy.
+// Needs no sign-in.
 //
-// POST /api/v1/notes
-func (UnimplementedHandler) CreateNote(ctx context.Context, req *NewNote) (r CreateNoteRes, _ error) {
-	return r, ht.ErrNotImplemented
-}
-
-// ListNotes implements listNotes operation.
-//
-// Returns at most `limit` notes, newest first.
-//
-// GET /api/v1/notes
-func (UnimplementedHandler) ListNotes(ctx context.Context, params ListNotesParams) (r ListNotesRes, _ error) {
+// GET /api/v1/version
+func (UnimplementedHandler) GetVersion(ctx context.Context) (r GetVersionRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 

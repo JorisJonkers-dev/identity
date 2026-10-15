@@ -39,20 +39,3 @@ func TestSecurityHeaders(t *testing.T) {
 		}
 	}
 }
-
-func TestDevIdentityFillsOnlyAMissingIdentity(t *testing.T) {
-	var seen string
-	h := httpx.DevIdentity("dev", http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-		seen = r.Header.Get(httpx.IdentityHeader)
-	}))
-	for given, want := range map[string]string{"": "dev", "someone": "someone"} {
-		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
-		if given != "" {
-			req.Header.Set(httpx.IdentityHeader, given)
-		}
-		h.ServeHTTP(httptest.NewRecorder(), req)
-		if seen != want {
-			t.Fatalf("identity %q became %q, want %q", given, seen, want)
-		}
-	}
-}

@@ -3,26 +3,10 @@
 import * as z from 'zod';
 
 /**
- * A note to create.
+ * The running build.
  */
-export const zNewNote = z.object({
-    text: z.string().min(1).max(500)
-});
-
-/**
- * A stored note.
- */
-export const zNote = z.object({
-    id: z.uuid().max(36),
-    text: z.string().min(1).max(500),
-    createdAt: z.iso.datetime({ offset: true }).max(64)
-});
-
-/**
- * A page of notes, newest first.
- */
-export const zNoteList = z.object({
-    items: z.array(zNote).max(100)
+export const zVersion = z.object({
+    version: z.string().max(64)
 });
 
 /**
@@ -35,18 +19,7 @@ export const zProblem = z.object({
     detail: z.string().max(1024).optional()
 });
 
-export const zListNotesQuery = z.object({
-    limit: z.int().gte(1).lte(100).optional().default(50)
-});
-
 /**
- * The notes.
+ * The version.
  */
-export const zListNotesResponse = zNoteList;
-
-export const zCreateNoteBody = zNewNote;
-
-/**
- * The created note.
- */
-export const zCreateNoteResponse = zNote;
+export const zGetVersionResponse = zVersion;

@@ -61,7 +61,7 @@ func TestProbesBeforeServing(t *testing.T) {
 
 func TestRoutesAPIAndWebBehindSecurityHeaders(t *testing.T) {
 	h := newServer(nil).Handler()
-	for path, want := range map[string]string{"/api/v1/notes": "api", "/": "web", "/notes/42": "web", "/apiary": "web"} {
+	for path, want := range map[string]string{"/api/v1/version": "api", "/": "web", "/launcher": "web", "/apiary": "web"} {
 		rec := &recorder{header: http.Header{}}
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
 		if err != nil {

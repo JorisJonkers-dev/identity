@@ -33,7 +33,10 @@ func Open(ctx context.Context, url string) (*Store, error) {
 func (s *Store) Close() { s.pool.Close() }
 
 // Ping reports whether the database answers; readiness hangs off it.
-func (s *Store) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
+func (s *Store) Ping(ctx context.Context) error {
+	_, err := s.Queries().Ping(ctx)
+	return err
+}
 
 // Queries returns the generated queries, for the persistence adapters.
 func (s *Store) Queries() *queries.Queries { return queries.New(s.pool) }
