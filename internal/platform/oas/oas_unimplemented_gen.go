@@ -13,6 +13,33 @@ type UnimplementedHandler struct{}
 
 var _ Handler = UnimplementedHandler{}
 
+// ChangePassword implements changePassword operation.
+//
+// Replaces the password after checking the current one.
+//
+// POST /api/v1/profile/password
+func (UnimplementedHandler) ChangePassword(ctx context.Context, req *PasswordChange) (r ChangePasswordRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// ConfirmEmail implements confirmEmail operation.
+//
+// Uses a confirmation token from the mailed link, once, within 24 hours.
+//
+// POST /api/v1/confirmations
+func (UnimplementedHandler) ConfirmEmail(ctx context.Context, req *Confirmation) (r ConfirmEmailRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// GetProfile implements getProfile operation.
+//
+// Who is signed in.
+//
+// GET /api/v1/profile
+func (UnimplementedHandler) GetProfile(ctx context.Context) (r GetProfileRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // GetVersion implements getVersion operation.
 //
 // The version of the build that is serving, for the Launcher's footer and for checks after a deploy.
@@ -20,6 +47,44 @@ var _ Handler = UnimplementedHandler{}
 //
 // GET /api/v1/version
 func (UnimplementedHandler) GetVersion(ctx context.Context) (r GetVersionRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// SignIn implements signIn operation.
+//
+// Checks an email and a password and starts a Single sign-on session in a host-only cookie. A wrong
+// email and a wrong password get the same 401.
+//
+// POST /api/v1/session
+func (UnimplementedHandler) SignIn(ctx context.Context, req *SignIn) (r SignInRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// SignOut implements signOut operation.
+//
+// Ends this session and clears its cookie.
+//
+// DELETE /api/v1/session
+func (UnimplementedHandler) SignOut(ctx context.Context) (r SignOutRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// SignUp implements signUp operation.
+//
+// Registers an unconfirmed User and mails a confirmation link. Answers 202 whether or not the email is
+// already registered, so the answer never tells who has an account.
+//
+// POST /api/v1/signup
+func (UnimplementedHandler) SignUp(ctx context.Context, req *SignUp) (r SignUpRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// UpdateProfile implements updateProfile operation.
+//
+// Changes what the User is called.
+//
+// PATCH /api/v1/profile
+func (UnimplementedHandler) UpdateProfile(ctx context.Context, req *ProfileUpdate) (r UpdateProfileRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 

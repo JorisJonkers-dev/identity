@@ -6,6 +6,10 @@ export function createAppRouter(history: RouterHistory = createWebHistory()): Ro
     history,
     routes: [
       { path: '/', name: 'home', component: () => import('../features/home/components/HomePage.vue') },
+      { path: '/signup', name: 'signup', component: () => import('../features/account/components/SignUpPage.vue') },
+      { path: '/confirm', name: 'confirm', component: () => import('../features/account/components/ConfirmPage.vue') },
+      { path: '/signin', name: 'signin', component: () => import('../features/account/components/SignInPage.vue') },
+      { path: '/profile', name: 'profile', component: () => import('../features/account/components/ProfilePage.vue') },
       { path: '/:rest(.*)*', redirect: '/' },
     ],
   })

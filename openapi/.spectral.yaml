@@ -8,3 +8,13 @@ rules:
   # The sample service does not rate-limit. A service that does declares the RateLimit headers and
   # a 429 response, and turns this rule back on.
   owasp:api4:2023-rate-limit: off
+overrides:
+  # Signing up, confirming an email and signing in are how a User gets a session at all, so they
+  # cannot require one. Each answers the same whoever calls it, and sign-up says nothing about who
+  # has an account (signUp's description).
+  - files:
+      - "v1/openapi.yaml#/paths/~1api~1v1~1signup/post"
+      - "v1/openapi.yaml#/paths/~1api~1v1~1confirmations/post"
+      - "v1/openapi.yaml#/paths/~1api~1v1~1session/post"
+    rules:
+      owasp:api2:2023-write-restricted: off

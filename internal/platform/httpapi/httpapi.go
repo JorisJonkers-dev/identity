@@ -11,10 +11,12 @@ import (
 
 	"github.com/JorisJonkers-dev/identity/internal/platform/httpx"
 	"github.com/JorisJonkers-dev/identity/internal/platform/oas"
+	usersweb "github.com/JorisJonkers-dev/identity/internal/users/adapters/web"
 )
 
 // api is the oas.Handler: one embedded web adapter per context, plus the shared error mapping.
 type api struct {
+	*usersweb.Handler
 	logger  *slog.Logger
 	version string
 }
@@ -37,9 +39,12 @@ func (a *api) GetVersion(context.Context) (oas.GetVersionRes, error) {
 }
 
 // New returns the API's http.Handler, serving every path the contract declares under /api.
-func New(logger *slog.Logger, version string) (http.Handler, error) {
+// The users adapter is also the session security handler.
+func New(logger *slog.Logger, version string, users usersweb.UseCases) (http.Handler, error) {
+	h := usersweb.New(users)
 	return oas.NewServer(
-		&api{logger: logger, version: version},
+		&api{Handler: h, logger: logger, version: version},
+		h,
 		oas.WithErrorHandler(writeError),
 		oas.WithNotFound(func(w http.ResponseWriter, _ *http.Request) {
 			httpx.WriteProblem(w, http.StatusNotFound, "")
