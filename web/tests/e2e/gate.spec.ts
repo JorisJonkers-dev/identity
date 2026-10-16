@@ -1,6 +1,6 @@
 import { request as httpRequest, createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { expect, test } from '@playwright/test'
-import { enrolTOTP, promote, signedUp } from './helpers'
+import { enrolTOTP, givesRole, promote, signedUp } from './helpers'
 
 const identity = { host: 'localhost', port: 18573 }
 
@@ -77,8 +77,7 @@ test('a gated app signs in through the Gate, and only for a User with a role on 
     const article = page.getByRole('article', { name: group })
     await article.getByLabel('Add a member').selectOption({ label: `Grace Hopper (${email})` })
     await article.getByRole('button', { name: 'Add' }).click()
-    await page.getByRole('checkbox', { name: `${group}: user on ${name}` }).check()
-    await expect(page.getByRole('checkbox', { name: `${group}: user on ${name}` })).toBeChecked()
+    await givesRole(page, page.getByRole('checkbox', { name: `${group}: user on ${name}` }))
   })
 
   await test.step('signing in through the Gate returns to the page asked for', async () => {

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { enrolTOTP, expectAccessible, promote, signedUp } from './helpers'
+import { enrolTOTP, expectAccessible, givesRole, promote, signedUp } from './helpers'
 
 test('a new User is told they have no apps yet', async ({ page }, info) => {
   await signedUp(page, `launcher-empty-${info.project.name}`)
@@ -21,9 +21,7 @@ test('the Launcher shows each app a Group gives the User, with its icon from ide
     await article.getByLabel('Add a member').selectOption({ label: `Grace Hopper (${email})` })
     await article.getByRole('button', { name: 'Add' }).click()
     for (const app of ['Board', 'Notes']) {
-      const role = page.getByRole('checkbox', { name: `${group}: user on ${app}` })
-      await role.check()
-      await expect(role).toBeChecked()
+      await givesRole(page, page.getByRole('checkbox', { name: `${group}: user on ${app}` }))
     }
   })
 
