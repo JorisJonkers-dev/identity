@@ -34,6 +34,13 @@ type Handler interface {
 	//
 	// POST /api/v1/session/second-factor
 	CompleteSignIn(ctx context.Context, req *SecondFactorCode) (CompleteSignInRes, error)
+	// CompleteSignInWithPasskey implements completeSignInWithPasskey operation.
+	//
+	// Checks the browser's passkey answer for the sign-in the challenge cookie names, and starts a session
+	// proved by password and passkey. A refused answer counts as a wrong code.
+	//
+	// POST /api/v1/session/passkey/assertion
+	CompleteSignInWithPasskey(ctx context.Context, req *PasskeyAssertion) (CompleteSignInWithPasskeyRes, error)
 	// ConfirmEmail implements confirmEmail operation.
 	//
 	// Creates the User a sign-up describes, given the token from the mailed link and the password chosen
@@ -41,6 +48,13 @@ type Handler interface {
 	//
 	// POST /api/v1/confirmations
 	ConfirmEmail(ctx context.Context, req *Confirmation) (ConfirmEmailRes, error)
+	// ConfirmPasskey implements confirmPasskey operation.
+	//
+	// Keeps the passkey the browser made, given the User's password. A User who already has a Second
+	// Factor must be in a session that proved one. Every other session of the User's ends.
+	//
+	// POST /api/v1/profile/second-factors/passkey/confirmation
+	ConfirmPasskey(ctx context.Context, req *PasskeyConfirmation) (ConfirmPasskeyRes, error)
 	// ConfirmTOTP implements confirmTOTP operation.
 	//
 	// Keeps the authenticator app startTOTP set up once it gives a right code and the User's password is
@@ -83,10 +97,16 @@ type Handler interface {
 	GetVersion(ctx context.Context) (GetVersionRes, error)
 	// ListSecondFactors implements listSecondFactors operation.
 	//
-	// Every authenticator app the User enrolled.
+	// Every authenticator app and passkey the User added.
 	//
 	// GET /api/v1/profile/second-factors
 	ListSecondFactors(ctx context.Context) (ListSecondFactorsRes, error)
+	// PasskeyOptions implements passkeyOptions operation.
+	//
+	// Returns the WebAuthn options for the sign-in the challenge cookie names.
+	//
+	// POST /api/v1/session/passkey
+	PasskeyOptions(ctx context.Context) (PasskeyOptionsRes, error)
 	// RemoveMember implements removeMember operation.
 	//
 	// The admins Group always keeps one member. Admins only.
@@ -95,8 +115,8 @@ type Handler interface {
 	RemoveMember(ctx context.Context, params RemoveMemberParams) (RemoveMemberRes, error)
 	// RemoveSecondFactor implements removeSecondFactor operation.
 	//
-	// Removes one of the User's authenticator apps once they give their password, from a session that
-	// proved a Second Factor.
+	// Removes one of the User's authenticator apps or passkeys once they give their password, from a
+	// session that proved a Second Factor.
 	//
 	// POST /api/v1/profile/second-factors/{factorId}/removal
 	RemoveSecondFactor(ctx context.Context, req *PasswordCheck, params RemoveSecondFactorParams) (RemoveSecondFactorRes, error)
@@ -126,6 +146,12 @@ type Handler interface {
 	//
 	// POST /api/v1/signup
 	SignUp(ctx context.Context, req *SignUp) (SignUpRes, error)
+	// StartPasskey implements startPasskey operation.
+	//
+	// Returns the WebAuthn options to make a passkey, kept for ten minutes.
+	//
+	// POST /api/v1/profile/second-factors/passkey
+	StartPasskey(ctx context.Context) (StartPasskeyRes, error)
 	// StartTOTP implements startTOTP operation.
 	//
 	// Makes a secret for a new authenticator app. It is kept, sealed by Vault, for ten minutes, until

@@ -15,10 +15,10 @@ watched without a restart; outside a cluster there are none. Admins put Users in
 Groups App Roles on Clients at `/access`; a User with no App Role on a Client gets no code, and the
 ID token and access token carry that Client's App Roles, and nothing else about access, in a
 `roles` claim. `identity admin promote <email>`, run in the pod, makes the first Admin, and the
-access page lists the Users waiting for a Group. Users add authenticator apps (TOTP) on the
-Security page, sealed by Vault transit; sign-in then asks for a code, and Admins manage access
-only from a session that gave one ([0015](docs/adr/0015-a-second-factor-is-proved-not-just-held.md)).
-Passkeys come next. Kept signing keys and Client secrets arrive with
+access page lists the Users waiting for a Group. Users add authenticator apps (TOTP, sealed by Vault
+transit) and passkeys (WebAuthn, on go-webauthn) on the Security page; sign-in then asks for one,
+and Admins manage access only from a session that gave one
+([0015](docs/adr/0015-a-second-factor-is-proved-not-just-held.md)). Kept signing keys and Client secrets arrive with
 the following tickets. The schema moves through
 liquibase-runner, not goose ([0010](docs/adr/0010-migrations-run-through-liquibase-runner.md)).
 

@@ -174,7 +174,7 @@ func TestRefusals(t *testing.T) {
 		detail string
 	}{
 		{app.ErrNotAdmin, http.StatusForbidden, "Only Admins manage access."},
-		{app.ErrSecondFactorNeeded, http.StatusForbidden, "Sign out, then sign in again with an authenticator app to manage access. If you have none, add one on the Security page first."},
+		{app.ErrSecondFactorNeeded, http.StatusForbidden, "Sign out, then sign in again with a passkey or authenticator app to manage access. If you have neither, add one on the Security page first."},
 		{app.ErrNotFound, http.StatusNotFound, "That Group or person no longer exists. Reload the page."},
 		{app.ErrNameTaken, http.StatusConflict, "A Group with that name already exists. Choose another name."},
 		{domain.ErrInvalidGroupName, http.StatusUnprocessableEntity, "Enter a Group name of 1 to 64 characters."},

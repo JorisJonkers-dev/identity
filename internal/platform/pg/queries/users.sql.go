@@ -12,6 +12,52 @@ import (
 	"github.com/google/uuid"
 )
 
+const challengeCeremony = `-- name: ChallengeCeremony :one
+SELECT user_id, passkey_ceremony FROM sign_in_challenges WHERE token_hash = $1 AND expires_at > $2
+`
+
+type ChallengeCeremonyParams struct {
+	TokenHash []byte
+	ExpiresAt time.Time
+}
+
+type ChallengeCeremonyRow struct {
+	UserID          uuid.UUID
+	PasskeyCeremony []byte
+}
+
+func (q *Queries) ChallengeCeremony(ctx context.Context, arg ChallengeCeremonyParams) (ChallengeCeremonyRow, error) {
+	row := q.db.QueryRow(ctx, challengeCeremony, arg.TokenHash, arg.ExpiresAt)
+	var i ChallengeCeremonyRow
+	err := row.Scan(&i.UserID, &i.PasskeyCeremony)
+	return i, err
+}
+
+const createPasskey = `-- name: CreatePasskey :exec
+INSERT INTO passkeys (id, user_id, label, credential_id, credential, created_at) VALUES ($1, $2, $3, $4, $5, $6)
+`
+
+type CreatePasskeyParams struct {
+	ID           uuid.UUID
+	UserID       uuid.UUID
+	Label        string
+	CredentialID []byte
+	Credential   []byte
+	CreatedAt    time.Time
+}
+
+func (q *Queries) CreatePasskey(ctx context.Context, arg CreatePasskeyParams) error {
+	_, err := q.db.Exec(ctx, createPasskey,
+		arg.ID,
+		arg.UserID,
+		arg.Label,
+		arg.CredentialID,
+		arg.Credential,
+		arg.CreatedAt,
+	)
+	return err
+}
+
 const createSession = `-- name: CreateSession :exec
 INSERT INTO sessions (token_hash, id, user_id, created_at, last_seen_at, expires_at, methods) VALUES ($1, $2, $3, $4, $4, $5, $6)
 `
@@ -132,6 +178,32 @@ func (q *Queries) DeleteOtherSessions(ctx context.Context, arg DeleteOtherSessio
 	return err
 }
 
+const deletePasskey = `-- name: DeletePasskey :execrows
+DELETE FROM passkeys WHERE id = $1 AND user_id = $2
+`
+
+type DeletePasskeyParams struct {
+	ID     uuid.UUID
+	UserID uuid.UUID
+}
+
+func (q *Queries) DeletePasskey(ctx context.Context, arg DeletePasskeyParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deletePasskey, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deletePasskeyEnrolment = `-- name: DeletePasskeyEnrolment :exec
+DELETE FROM passkey_enrolments WHERE user_id = $1
+`
+
+func (q *Queries) DeletePasskeyEnrolment(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deletePasskeyEnrolment, userID)
+	return err
+}
+
 const deleteSession = `-- name: DeleteSession :exec
 DELETE FROM sessions WHERE token_hash = $1
 `
@@ -216,6 +288,55 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 	return items, nil
 }
 
+const passkeyEnrolment = `-- name: PasskeyEnrolment :one
+SELECT ceremony, expires_at FROM passkey_enrolments WHERE user_id = $1
+`
+
+type PasskeyEnrolmentRow struct {
+	Ceremony  []byte
+	ExpiresAt time.Time
+}
+
+func (q *Queries) PasskeyEnrolment(ctx context.Context, userID uuid.UUID) (PasskeyEnrolmentRow, error) {
+	row := q.db.QueryRow(ctx, passkeyEnrolment, userID)
+	var i PasskeyEnrolmentRow
+	err := row.Scan(&i.Ceremony, &i.ExpiresAt)
+	return i, err
+}
+
+const passkeysOfUser = `-- name: PasskeysOfUser :many
+SELECT id, user_id, label, credential_id, credential, created_at, last_used_at FROM passkeys
+WHERE user_id = $1 ORDER BY created_at, id
+`
+
+func (q *Queries) PasskeysOfUser(ctx context.Context, userID uuid.UUID) ([]Passkey, error) {
+	rows, err := q.db.Query(ctx, passkeysOfUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Passkey{}
+	for rows.Next() {
+		var i Passkey
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Label,
+			&i.CredentialID,
+			&i.Credential,
+			&i.CreatedAt,
+			&i.LastUsedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const sessionByHash = `-- name: SessionByHash :one
 SELECT token_hash, id, user_id, created_at, last_seen_at, expires_at, methods FROM sessions WHERE token_hash = $1
 `
@@ -243,6 +364,25 @@ func (q *Queries) SessionByHash(ctx context.Context, tokenHash []byte) (SessionB
 		&i.Methods,
 	)
 	return i, err
+}
+
+const setChallengeCeremony = `-- name: SetChallengeCeremony :execrows
+UPDATE sign_in_challenges SET passkey_ceremony = $2 WHERE token_hash = $1 AND expires_at > $3
+`
+
+type SetChallengeCeremonyParams struct {
+	TokenHash       []byte
+	PasskeyCeremony []byte
+	ExpiresAt       time.Time
+}
+
+// The WebAuthn ceremony a sign-in started; only an unexpired challenge takes one.
+func (q *Queries) SetChallengeCeremony(ctx context.Context, arg SetChallengeCeremonyParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setChallengeCeremony, arg.TokenHash, arg.PasskeyCeremony, arg.ExpiresAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const setSessionMethods = `-- name: SetSessionMethods :exec
@@ -352,6 +492,36 @@ func (q *Queries) TOTPFactorsOfUser(ctx context.Context, userID uuid.UUID) ([]To
 	return items, nil
 }
 
+const takeChallengeCeremony = `-- name: TakeChallengeCeremony :one
+WITH taken AS (
+  SELECT t.token_hash AS taken_hash, t.user_id, t.passkey_ceremony FROM sign_in_challenges t
+  WHERE t.token_hash = $1 AND t.expires_at > $2 AND t.passkey_ceremony IS NOT NULL
+  FOR UPDATE
+)
+UPDATE sign_in_challenges c SET passkey_ceremony = NULL
+FROM taken WHERE c.token_hash = taken.taken_hash AND c.passkey_ceremony IS NOT NULL
+RETURNING taken.user_id, taken.passkey_ceremony
+`
+
+type TakeChallengeCeremonyParams struct {
+	TokenHash []byte
+	Now       time.Time
+}
+
+type TakeChallengeCeremonyRow struct {
+	UserID          uuid.UUID
+	PasskeyCeremony []byte
+}
+
+// Takes the ceremony a sign-in started in one statement: a second request waits on the row lock,
+// then finds the ceremony gone, so only one request can use it.
+func (q *Queries) TakeChallengeCeremony(ctx context.Context, arg TakeChallengeCeremonyParams) (TakeChallengeCeremonyRow, error) {
+	row := q.db.QueryRow(ctx, takeChallengeCeremony, arg.TokenHash, arg.Now)
+	var i TakeChallengeCeremonyRow
+	err := row.Scan(&i.UserID, &i.PasskeyCeremony)
+	return i, err
+}
+
 const touchSession = `-- name: TouchSession :exec
 UPDATE sessions SET last_seen_at = $2, expires_at = $3 WHERE token_hash = $1
 `
@@ -399,6 +569,7 @@ const upsertChallenge = `-- name: UpsertChallenge :exec
 INSERT INTO sign_in_challenges (token_hash, user_id, expires_at, window_started_at) VALUES ($1, $2, $3, $4)
 ON CONFLICT (user_id) DO UPDATE SET
   token_hash = EXCLUDED.token_hash,
+  passkey_ceremony = NULL,
   expires_at = EXCLUDED.expires_at,
   attempts = CASE WHEN sign_in_challenges.window_started_at <= $5 THEN 0 ELSE sign_in_challenges.attempts END,
   window_started_at = CASE WHEN sign_in_challenges.window_started_at <= $5 THEN EXCLUDED.window_started_at ELSE sign_in_challenges.window_started_at END
@@ -425,6 +596,22 @@ func (q *Queries) UpsertChallenge(ctx context.Context, arg UpsertChallengeParams
 	return err
 }
 
+const upsertPasskeyEnrolment = `-- name: UpsertPasskeyEnrolment :exec
+INSERT INTO passkey_enrolments (user_id, ceremony, expires_at) VALUES ($1, $2, $3)
+ON CONFLICT (user_id) DO UPDATE SET ceremony = EXCLUDED.ceremony, expires_at = EXCLUDED.expires_at
+`
+
+type UpsertPasskeyEnrolmentParams struct {
+	UserID    uuid.UUID
+	Ceremony  []byte
+	ExpiresAt time.Time
+}
+
+func (q *Queries) UpsertPasskeyEnrolment(ctx context.Context, arg UpsertPasskeyEnrolmentParams) error {
+	_, err := q.db.Exec(ctx, upsertPasskeyEnrolment, arg.UserID, arg.Ceremony, arg.ExpiresAt)
+	return err
+}
+
 const upsertTOTPEnrolment = `-- name: UpsertTOTPEnrolment :exec
 INSERT INTO totp_enrolments (user_id, sealed_secret, expires_at) VALUES ($1, $2, $3)
 ON CONFLICT (user_id) DO UPDATE SET sealed_secret = EXCLUDED.sealed_secret, expires_at = EXCLUDED.expires_at
@@ -439,6 +626,35 @@ type UpsertTOTPEnrolmentParams struct {
 func (q *Queries) UpsertTOTPEnrolment(ctx context.Context, arg UpsertTOTPEnrolmentParams) error {
 	_, err := q.db.Exec(ctx, upsertTOTPEnrolment, arg.UserID, arg.SealedSecret, arg.ExpiresAt)
 	return err
+}
+
+const usePasskey = `-- name: UsePasskey :execrows
+UPDATE passkeys SET credential = $3, last_used_at = $4
+WHERE user_id = $1 AND credential_id = $2 AND credential = $5::jsonb
+`
+
+type UsePasskeyParams struct {
+	UserID       uuid.UUID
+	CredentialID []byte
+	Credential   []byte
+	LastUsedAt   *time.Time
+	Previous     []byte
+}
+
+// Keeps the signature counter and flags WebAuthn returned with the assertion, only if the record is
+// still the one the assertion was checked against: of two sign-ins racing with one key, one wins.
+func (q *Queries) UsePasskey(ctx context.Context, arg UsePasskeyParams) (int64, error) {
+	result, err := q.db.Exec(ctx, usePasskey,
+		arg.UserID,
+		arg.CredentialID,
+		arg.Credential,
+		arg.LastUsedAt,
+		arg.Previous,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const useTOTPStep = `-- name: UseTOTPStep :execrows

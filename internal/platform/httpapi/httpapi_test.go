@@ -39,8 +39,17 @@ func (users) SignedIn(_ context.Context, token string) (domain.User, app.Session
 	return domain.User{ID: uuid.New(), Email: e, Name: n, CreatedAt: time.Unix(0, 0).UTC()}, app.Session{Methods: []string{"pwd"}}, nil
 }
 func (users) CompleteSignIn(context.Context, string, string) (string, error) { return "good", nil }
-func (users) SecondFactors(context.Context, uuid.UUID) ([]app.TOTPFactor, error) {
+func (users) SecondFactors(context.Context, uuid.UUID) ([]app.Factor, error) {
 	return nil, nil
+}
+func (users) ChallengeKinds(context.Context, string) ([]string, error) { return nil, nil }
+func (users) PasskeyOptions(context.Context, string) ([]byte, error)   { return nil, nil }
+func (users) CompleteSignInWithPasskey(context.Context, string, []byte) (string, error) {
+	return "good", nil
+}
+func (users) StartPasskey(context.Context, uuid.UUID) ([]byte, error) { return nil, nil }
+func (users) ConfirmPasskey(context.Context, uuid.UUID, string, string, []byte, string) error {
+	return nil
 }
 
 func (users) StartTOTP(context.Context, uuid.UUID) (app.TOTPSetup, error) {
@@ -50,9 +59,13 @@ func (users) StartTOTP(context.Context, uuid.UUID) (app.TOTPSetup, error) {
 func (users) ConfirmTOTP(context.Context, uuid.UUID, string, string, string, string) error {
 	return nil
 }
-func (users) RemoveTOTP(context.Context, uuid.UUID, uuid.UUID, string, string) error  { return nil }
-func (users) Rename(context.Context, uuid.UUID, string) error                         { return nil }
+
+func (users) RemoveFactor(context.Context, uuid.UUID, uuid.UUID, string, string) error { return nil }
+
+func (users) Rename(context.Context, uuid.UUID, string) error { return nil }
+
 func (users) ChangePassword(context.Context, uuid.UUID, string, string, string) error { return nil }
+
 func (u users) User(ctx context.Context, _ uuid.UUID) (domain.User, error) {
 	user, _, err := u.SignedIn(ctx, "good")
 	return user, err

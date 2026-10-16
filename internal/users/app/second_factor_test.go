@@ -79,8 +79,9 @@ func TestEnrollingAnAuthenticatorKeepsItsSecretSealed(t *testing.T) {
 		t.Fatal(err)
 	}
 	factors, _ := f.SecondFactors(ctx, id)
-	if len(factors) != 1 || factors[0].Label.String() != "Phone" || factors[0].SealedSecret != e.SealedSecret || factors[0].LastStep != t0.Unix()/30 {
-		t.Fatalf("factors = %+v", factors)
+	if len(factors) != 1 || factors[0].Label.String() != "Phone" || factors[0].Kind != app.KindTOTP ||
+		f.store.factors[0].SealedSecret != e.SealedSecret || f.store.factors[0].LastStep != t0.Unix()/30 {
+		t.Fatalf("factors = %+v, stored %+v", factors, f.store.factors)
 	}
 	if _, ok := f.store.enrolments[id]; ok {
 		t.Fatal("the enrolment is still waiting")
@@ -227,23 +228,23 @@ func TestRemovingAnAuthenticatorNeedsThePasswordAndAProvedSession(t *testing.T) 
 	ctx := context.Background()
 	id, _, session := f.enrolled(t, "ada@example.org")
 	factorID := f.store.factors[0].ID
-	if err := f.RemoveTOTP(ctx, id, factorID, session, "wrong password!"); !errors.Is(err, app.ErrInvalidCredentials) {
+	if err := f.RemoveFactor(ctx, id, factorID, session, "wrong password!"); !errors.Is(err, app.ErrInvalidCredentials) {
 		t.Fatalf("a wrong password = %v", err)
 	}
-	if err := f.RemoveTOTP(ctx, uuid.New(), factorID, session, pw); !errors.Is(err, app.ErrNotFound) {
+	if err := f.RemoveFactor(ctx, uuid.New(), factorID, session, pw); !errors.Is(err, app.ErrNotFound) {
 		t.Fatalf("someone else = %v", err)
 	}
 
 	// A session from before the User enrolled, with the password, must not take the factor away.
 	f.store.sessions[sum("old")] = app.Session{TokenHash: []byte(sum("old")), UserID: id, ExpiresAt: f.now.Add(time.Hour), Methods: []string{"pwd"}}
-	if err := f.RemoveTOTP(ctx, id, factorID, "old", pw); !errors.Is(err, app.ErrSecondFactorNeeded) || len(f.store.factors) != 1 {
+	if err := f.RemoveFactor(ctx, id, factorID, "old", pw); !errors.Is(err, app.ErrSecondFactorNeeded) || len(f.store.factors) != 1 {
 		t.Fatalf("removing from a password-only session = %v, %d left", err, len(f.store.factors))
 	}
 
-	if err := f.RemoveTOTP(ctx, id, factorID, session, pw); err != nil || len(f.store.factors) != 0 {
+	if err := f.RemoveFactor(ctx, id, factorID, session, pw); err != nil || len(f.store.factors) != 0 {
 		t.Fatalf("RemoveTOTP = %v, %d left", err, len(f.store.factors))
 	}
-	if err := f.RemoveTOTP(ctx, id, factorID, session, pw); !errors.Is(err, app.ErrNotFound) {
+	if err := f.RemoveFactor(ctx, id, factorID, session, pw); !errors.Is(err, app.ErrNotFound) {
 		t.Fatalf("removing it twice = %v", err)
 	}
 	if _, err := f.SignIn(ctx, "ada@example.org", pw); err != nil {
@@ -306,13 +307,13 @@ func TestSecondFactorFailures(t *testing.T) {
 	boom := errors.New("boom")
 
 	bare := app.New(newStore(), &hasher{}, &mailer{}, time.Now, bytes.NewReader(nil), "")
-	if _, err := bare.StartTOTP(ctx, uuid.New()); !errors.Is(err, app.ErrNoSealer) {
+	if _, err := bare.StartTOTP(ctx, uuid.New()); !errors.Is(err, app.ErrUnavailable) {
 		t.Errorf("StartTOTP without a sealer = %v", err)
 	}
-	if err := bare.ConfirmTOTP(ctx, uuid.New(), "s", "Phone", "123456", pw); !errors.Is(err, app.ErrNoSealer) {
+	if err := bare.ConfirmTOTP(ctx, uuid.New(), "s", "Phone", "123456", pw); !errors.Is(err, app.ErrUnavailable) {
 		t.Errorf("ConfirmTOTP without a sealer = %v", err)
 	}
-	if _, err := bare.CompleteSignIn(ctx, "c", "123456"); !errors.Is(err, app.ErrNoSealer) {
+	if _, err := bare.CompleteSignIn(ctx, "c", "123456"); !errors.Is(err, app.ErrUnavailable) {
 		t.Errorf("CompleteSignIn without a sealer = %v", err)
 	}
 
@@ -397,14 +398,14 @@ func TestSecondFactorFailures(t *testing.T) {
 		f := newFixture()
 		id, _, session := f.enrolled(t, "ada@example.org")
 		f.store.fail[method] = boom
-		if err := f.RemoveTOTP(ctx, id, f.store.factors[0].ID, session, pw); !errors.Is(err, boom) {
+		if err := f.RemoveFactor(ctx, id, f.store.factors[0].ID, session, pw); !errors.Is(err, boom) {
 			t.Errorf("RemoveTOTP when %s fails = %v", method, err)
 		}
 	}
 	f = newFixture()
 	id, _, session = f.enrolled(t, "ada@example.org")
 	f.hasher.fail = boom
-	if err := f.RemoveTOTP(ctx, id, f.store.factors[0].ID, session, pw); !errors.Is(err, boom) {
+	if err := f.RemoveFactor(ctx, id, f.store.factors[0].ID, session, pw); !errors.Is(err, boom) {
 		t.Errorf("RemoveTOTP when the hasher fails = %v", err)
 	}
 

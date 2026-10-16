@@ -15,6 +15,7 @@ type Querier interface {
 	AdminsGroup(ctx context.Context) (AdminsGroupRow, error)
 	Assign(ctx context.Context, arg AssignParams) error
 	AuthRequestByID(ctx context.Context, id uuid.UUID) (AuthRequest, error)
+	ChallengeCeremony(ctx context.Context, arg ChallengeCeremonyParams) (ChallengeCeremonyRow, error)
 	// Records who signed in, once: a request already completed keeps its first User.
 	CompleteAuthRequest(ctx context.Context, arg CompleteAuthRequestParams) (int64, error)
 	CountAdmins(ctx context.Context) (int64, error)
@@ -23,6 +24,7 @@ type Querier interface {
 	CountUnassigned(ctx context.Context) (int64, error)
 	CreateAuthRequest(ctx context.Context, arg CreateAuthRequestParams) error
 	CreateGroup(ctx context.Context, arg CreateGroupParams) error
+	CreatePasskey(ctx context.Context, arg CreatePasskeyParams) error
 	CreateSession(ctx context.Context, arg CreateSessionParams) error
 	CreateSignup(ctx context.Context, arg CreateSignupParams) error
 	CreateTOTPFactor(ctx context.Context, arg CreateTOTPFactorParams) error
@@ -33,6 +35,8 @@ type Querier interface {
 	DeleteGroup(ctx context.Context, id uuid.UUID) error
 	// Ends every session of a User but one, as changing the password does.
 	DeleteOtherSessions(ctx context.Context, arg DeleteOtherSessionsParams) error
+	DeletePasskey(ctx context.Context, arg DeletePasskeyParams) (int64, error)
+	DeletePasskeyEnrolment(ctx context.Context, userID uuid.UUID) error
 	DeleteSession(ctx context.Context, tokenHash []byte) error
 	// Signing out from any Client signs out everywhere (docs/adr/0007).
 	DeleteSessionsOfUser(ctx context.Context, userID uuid.UUID) error
@@ -47,6 +51,8 @@ type Querier interface {
 	ListUsers(ctx context.Context) ([]User, error)
 	// Holds the Group until the transaction ends, so two removals cannot both see the other member.
 	LockGroup(ctx context.Context, id uuid.UUID) (bool, error)
+	PasskeyEnrolment(ctx context.Context, userID uuid.UUID) (PasskeyEnrolmentRow, error)
+	PasskeysOfUser(ctx context.Context, userID uuid.UUID) ([]Passkey, error)
 	// Readiness: the database answers a query, not only a connection.
 	Ping(ctx context.Context) (int32, error)
 	RemoveMember(ctx context.Context, arg RemoveMemberParams) error
@@ -56,6 +62,8 @@ type Querier interface {
 	// A request gets one code; a second is refused.
 	SaveAuthCode(ctx context.Context, arg SaveAuthCodeParams) (int64, error)
 	SessionByHash(ctx context.Context, tokenHash []byte) (SessionByHashRow, error)
+	// The WebAuthn ceremony a sign-in started; only an unexpired challenge takes one.
+	SetChallengeCeremony(ctx context.Context, arg SetChallengeCeremonyParams) (int64, error)
 	// A session that has just proved a Second Factor says so from then on.
 	SetSessionMethods(ctx context.Context, arg SetSessionMethodsParams) error
 	SignupByHash(ctx context.Context, tokenHash []byte) (SignupByHashRow, error)
@@ -66,6 +74,9 @@ type Querier interface {
 	// Redeeming a code removes its request in the same statement, so two exchanges racing with one
 	// code cannot both get tokens.
 	TakeAuthRequestByCodeHash(ctx context.Context, codeHash []byte) (AuthRequest, error)
+	// Takes the ceremony a sign-in started in one statement: a second request waits on the row lock,
+	// then finds the ceremony gone, so only one request can use it.
+	TakeChallengeCeremony(ctx context.Context, arg TakeChallengeCeremonyParams) (TakeChallengeCeremonyRow, error)
 	TouchSession(ctx context.Context, arg TouchSessionParams) error
 	Unassign(ctx context.Context, arg UnassignParams) error
 	UpdateUserName(ctx context.Context, arg UpdateUserNameParams) error
@@ -73,7 +84,11 @@ type Querier interface {
 	// A User has one challenge. A new sign-in replaces its token and expiry; its wrong codes still
 	// count until the window that began with the first of them has passed.
 	UpsertChallenge(ctx context.Context, arg UpsertChallengeParams) error
+	UpsertPasskeyEnrolment(ctx context.Context, arg UpsertPasskeyEnrolmentParams) error
 	UpsertTOTPEnrolment(ctx context.Context, arg UpsertTOTPEnrolmentParams) error
+	// Keeps the signature counter and flags WebAuthn returned with the assertion, only if the record is
+	// still the one the assertion was checked against: of two sign-ins racing with one key, one wins.
+	UsePasskey(ctx context.Context, arg UsePasskeyParams) (int64, error)
 	// Accepts a code's step once: a replayed or older code changes nothing.
 	UseTOTPStep(ctx context.Context, arg UseTOTPStepParams) (int64, error)
 	UserByEmail(ctx context.Context, email string) (User, error)

@@ -29,7 +29,7 @@ var (
 	// token is then a sign-in challenge, which CompleteSignIn turns into a session.
 	ErrSecondFactorNeeded = errors.New("the sign-in needs a Second Factor")
 	ErrInvalidCode        = errors.New("the code is wrong or was already used")
-	ErrNoSealer           = errors.New("no Vault to keep Second Factor secrets in")
+	ErrUnavailable        = errors.New("second factors are not set up on this server")
 )
 
 const (
@@ -101,6 +101,24 @@ type Store interface {
 	// TOTPEnrolment is ErrNotFound when the User has none.
 	TOTPEnrolment(ctx context.Context, userID uuid.UUID) (TOTPEnrolment, error)
 	DeleteTOTPEnrolment(ctx context.Context, userID uuid.UUID) error
+	Passkeys(ctx context.Context, userID uuid.UUID) ([]Passkey, error)
+	CreatePasskey(ctx context.Context, p Passkey) error
+	// UsePasskey keeps the record an assertion moved on, by its credential id, only if the stored
+	// record is still previous; it reports whether it was.
+	UsePasskey(ctx context.Context, userID uuid.UUID, used NewPasskey, previous []byte, at time.Time) (bool, error)
+	// DeletePasskey reports whether the User had the passkey.
+	DeletePasskey(ctx context.Context, id, userID uuid.UUID) (bool, error)
+	SavePasskeyEnrolment(ctx context.Context, e PasskeyEnrolment) error
+	// PasskeyEnrolment is ErrNotFound when the User has none.
+	PasskeyEnrolment(ctx context.Context, userID uuid.UUID) (PasskeyEnrolment, error)
+	DeletePasskeyEnrolment(ctx context.Context, userID uuid.UUID) error
+	// ChallengeCeremony is an unexpired challenge's User and passkey ceremony; ErrNotFound when
+	// there is none.
+	ChallengeCeremony(ctx context.Context, tokenHash []byte, now time.Time) (uuid.UUID, []byte, error)
+	SetChallengeCeremony(ctx context.Context, tokenHash, ceremony []byte, now time.Time) error
+	// TakeChallengeCeremony removes and returns an unexpired challenge's passkey ceremony, so only
+	// one request can use it; ErrNotFound when there is none to take.
+	TakeChallengeCeremony(ctx context.Context, tokenHash []byte, now time.Time) (uuid.UUID, []byte, error)
 }
 
 // Sealer keeps a secret as ciphertext only Vault can open (docs/adr/0013).
@@ -139,6 +157,7 @@ type Service struct {
 	random    io.Reader
 	publicURL string
 	sealer    Sealer
+	webauthn  WebAuthn
 	admins    Admins
 
 	decoy atomic.Pointer[string]
@@ -271,11 +290,11 @@ func (s *Service) SignIn(ctx context.Context, rawEmail, password string) (string
 	if !ok {
 		return "", ErrInvalidCredentials
 	}
-	factors, err := s.store.TOTPFactors(ctx, u.ID)
+	has, err := s.hasSecondFactor(ctx, u.ID)
 	if err != nil {
 		return "", err
 	}
-	if len(factors) > 0 {
+	if has {
 		challenge, err := s.challenge(ctx, u.ID)
 		if err != nil {
 			return "", err

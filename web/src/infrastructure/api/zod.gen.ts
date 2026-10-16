@@ -133,10 +133,38 @@ export const zAccessOverview = z.object({
 });
 
 /**
+ * An authenticator app or a passkey.
+ */
+export const zSecondFactorKind = z.enum(['totp', 'passkey']);
+
+/**
  * The sign-in waits for a Second Factor.
  */
 export const zSecondFactorNeeded = z.object({
-    secondFactor: z.enum(['totp'])
+    methods: z.array(zSecondFactorKind).min(1).max(2)
+});
+
+/**
+ * WebAuthn options, as the JSON that PublicKeyCredential.parseCreationOptionsFromJSON or parseRequestOptionsFromJSON reads from their publicKey member.
+ */
+export const zPasskeyOptions = z.object({
+    options: z.string().max(16384)
+});
+
+/**
+ * The browser's answer to a passkey sign-in, as PublicKeyCredential.toJSON gives it.
+ */
+export const zPasskeyAssertion = z.object({
+    response: z.string().min(1).max(16384)
+});
+
+/**
+ * A name for the new passkey, the browser's answer, and the User's password.
+ */
+export const zPasskeyConfirmation = z.object({
+    label: z.string().min(1).max(256),
+    response: z.string().min(1).max(16384),
+    password: zPassword
 });
 
 /**
@@ -151,7 +179,7 @@ export const zSecondFactorCode = z.object({
  */
 export const zSecondFactor = z.object({
     id: zId,
-    kind: z.enum(['totp']),
+    kind: zSecondFactorKind,
     label: z.string().max(256),
     createdAt: z.iso.datetime({ offset: true }).max(64),
     lastUsedAt: z.iso.datetime({ offset: true }).max(64).optional()
@@ -293,6 +321,30 @@ export const zConfirmTotpBody = zTotpConfirmation;
  * The authenticator app is a Second Factor of the User's.
  */
 export const zConfirmTotpResponse = z.void();
+
+/**
+ * The options for navigator.credentials.get.
+ */
+export const zPasskeyOptionsResponse = zPasskeyOptions;
+
+export const zCompleteSignInWithPasskeyBody = zPasskeyAssertion;
+
+/**
+ * Signed in.
+ */
+export const zCompleteSignInWithPasskeyResponse = z.void();
+
+/**
+ * The options for navigator.credentials.create.
+ */
+export const zStartPasskeyResponse = zPasskeyOptions;
+
+export const zConfirmPasskeyBody = zPasskeyConfirmation;
+
+/**
+ * The passkey is a Second Factor of the User's.
+ */
+export const zConfirmPasskeyResponse = z.void();
 
 export const zRemoveSecondFactorBody = zPasswordCheck;
 

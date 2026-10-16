@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mountAt, problem, settle } from '../../app/testing'
+import { passkeys } from '../../infrastructure/passkeys'
 
 const phone = { id: '00000000-0000-4000-8000-0000000000f1', kind: 'totp', label: 'Phone', createdAt: '2026-10-16T12:00:00Z', lastUsedAt: '2026-10-16T18:00:00Z' }
 const setup = {
@@ -10,6 +11,7 @@ const ok = () => new Response(null, { status: 204 })
 
 afterEach(() => {
   document.body.innerHTML = ''
+  vi.restoreAllMocks()
 })
 
 describe('the Security page', () => {
@@ -19,7 +21,7 @@ describe('the Security page', () => {
     expect(wrapper.text()).toContain('Loading…')
     answer(Response.json({ factors: [] }))
     await settle()
-    expect(wrapper.text()).toContain('You have no authenticator apps yet.')
+    expect(wrapper.text()).toContain('You have no passkeys or authenticator apps yet. Add one below.')
   })
 
   it('offers sign-in when nobody is signed in', async () => {
@@ -104,7 +106,7 @@ describe('the Security page', () => {
     await wrapper.get('li form').trigger('submit')
     await settle()
     expect(requests.find((r) => r.key === `POST /api/v1/profile/second-factors/${phone.id}/removal`)?.body).toEqual({ password: 'correct horse battery' })
-    expect(wrapper.text()).toContain('You have no authenticator apps yet.')
+    expect(wrapper.text()).toContain('You have no passkeys or authenticator apps yet. Add one below.')
   })
 
   it('shows a refused removal', async () => {
@@ -119,6 +121,51 @@ describe('the Security page', () => {
     expect(wrapper.get('[role="alert"]').text()).toBe('Your password is wrong. Enter it again.')
   })
 
+  it('adds a passkey after asking for a name and the password', async () => {
+    vi.spyOn(passkeys, 'supported').mockReturnValue(true)
+    const create = vi.spyOn(passkeys, 'create').mockResolvedValue('{"id":"cred-1"}')
+    let factors: object[] = []
+    const { wrapper, requests } = await mountAt('/security', {
+      'GET /api/v1/profile/second-factors': () => Response.json({ factors }),
+      'POST /api/v1/profile/second-factors/passkey': Response.json({ options: '{"publicKey":{}}' }),
+      'POST /api/v1/profile/second-factors/passkey/confirmation': () => {
+        factors = [{ ...phone, label: 'MacBook', kind: 'passkey' }]
+        return ok()
+      },
+    })
+    await wrapper.get('#passkey-label').setValue('MacBook')
+    await wrapper.get('#passkey-password').setValue('correct horse battery')
+    await wrapper.findAll('form').find((f) => f.find('#passkey-label').exists())?.trigger('submit')
+    await settle()
+    expect(create).toHaveBeenCalledWith('{"publicKey":{}}')
+    expect(requests.find((r) => r.key === 'POST /api/v1/profile/second-factors/passkey/confirmation')?.body).toEqual({
+      label: 'MacBook',
+      response: '{"id":"cred-1"}',
+      password: 'correct horse battery',
+    })
+    expect(wrapper.get('[role="status"]').text()).toBe('Passkey added. Every other device has been signed out. Next time, choose Use your passkey after your password.')
+    expect(wrapper.get('ul').text()).toContain('Passkey · added')
+  })
+
+  it('says when the browser made no passkey, or the server refused it', async () => {
+    vi.spyOn(passkeys, 'supported').mockReturnValue(true)
+    vi.spyOn(passkeys, 'create').mockRejectedValue(new Error('NotAllowedError'))
+    const { wrapper } = await mountAt('/security', {
+      'GET /api/v1/profile/second-factors': Response.json({ factors: [] }),
+      'POST /api/v1/profile/second-factors/passkey': Response.json({ options: '{"publicKey":{}}' }),
+    })
+    await wrapper.findAll('form').find((f) => f.find('#passkey-label').exists())?.trigger('submit')
+    await settle()
+    expect(wrapper.get('[role="alert"]').text()).toBe('No passkey was made. Try again, then follow the prompt your browser shows.')
+  })
+
+  it('says when this browser cannot make passkeys', async () => {
+    vi.spyOn(passkeys, 'supported').mockReturnValue(false)
+    const { wrapper } = await mountAt('/security', { 'GET /api/v1/profile/second-factors': Response.json({ factors: [] }) })
+    expect(wrapper.text()).toContain("This browser can't make passkeys.")
+    expect(wrapper.find('#passkey-label').exists()).toBe(false)
+  })
+
   it('tells an Admin sent here nothing until it knows their apps', async () => {
     const { wrapper } = await mountAt('/security?for=admin', { 'GET /api/v1/profile/second-factors': () => new Promise<Response>(() => undefined) })
     expect(wrapper.find('[role="status"]').exists()).toBe(false)
@@ -126,7 +173,7 @@ describe('the Security page', () => {
 
   it('tells an Admin sent here what to do', async () => {
     const none = await mountAt('/security?for=admin', { 'GET /api/v1/profile/second-factors': Response.json({ factors: [] }) })
-    expect(none.wrapper.get('[role="status"]').text()).toContain('Admins need an authenticator app')
+    expect(none.wrapper.get('[role="status"]').text()).toContain('Admins need a passkey or authenticator app')
     document.body.innerHTML = ''
     const some = await mountAt('/security?for=admin', { 'GET /api/v1/profile/second-factors': Response.json({ factors: [phone] }) })
     expect(some.wrapper.get('[role="status"]').text()).toContain('Sign out, then sign in again')

@@ -21,6 +21,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -48,6 +49,7 @@ import (
 	signinoidc "github.com/JorisJonkers-dev/identity/internal/signin/adapters/oidc"
 	signinpersistence "github.com/JorisJonkers-dev/identity/internal/signin/adapters/persistence"
 	signinapp "github.com/JorisJonkers-dev/identity/internal/signin/app"
+	"github.com/JorisJonkers-dev/identity/internal/users/adapters/passkeys"
 	"github.com/JorisJonkers-dev/identity/internal/users/adapters/persistence"
 	usersweb "github.com/JorisJonkers-dev/identity/internal/users/adapters/web"
 	"github.com/JorisJonkers-dev/identity/internal/users/app"
@@ -105,6 +107,11 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 	var access *accessapp.Service
 	admins := adminsFunc(func(ctx context.Context, id uuid.UUID) (bool, error) { return access.IsAdmin(ctx, id) })
 	opts := []app.Option{app.WithAdmins(admins)}
+	passkeyCeremonies, err := passkeyCeremonies(cfg.publicURL)
+	if err != nil {
+		return err
+	}
+	opts = append(opts, app.WithWebAuthn(passkeyCeremonies))
 	if sealer, ok := cfg.vault.sealer(); ok {
 		opts = append(opts, app.WithSealer(sealer))
 	} else {
@@ -151,6 +158,16 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 }
 
 var errClientsNotListed = errors.New("the Client objects are not listed yet")
+
+// passkeyCeremonies runs WebAuthn for the Identity Provider: its host is the relying party, and
+// the Issuer the one origin a passkey is made or used on.
+func passkeyCeremonies(publicURL string) (*passkeys.Ceremonies, error) {
+	u, err := url.Parse(publicURL)
+	if err != nil {
+		return nil, err
+	}
+	return passkeys.New(u.Hostname(), publicURL)
+}
 
 // adminsFunc is app.Admins as a function.
 type adminsFunc func(ctx context.Context, id uuid.UUID) (bool, error)

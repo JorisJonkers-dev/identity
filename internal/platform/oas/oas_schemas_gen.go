@@ -209,10 +209,32 @@ func (s *CompleteSignInNoContent) SetSetCookie(val string) {
 
 func (*CompleteSignInNoContent) completeSignInRes() {}
 
+// CompleteSignInWithPasskeyNoContent is response for CompleteSignInWithPasskey operation.
+type CompleteSignInWithPasskeyNoContent struct {
+	SetCookie string
+}
+
+// GetSetCookie returns the value of SetCookie.
+func (s *CompleteSignInWithPasskeyNoContent) GetSetCookie() string {
+	return s.SetCookie
+}
+
+// SetSetCookie sets the value of SetCookie.
+func (s *CompleteSignInWithPasskeyNoContent) SetSetCookie(val string) {
+	s.SetCookie = val
+}
+
+func (*CompleteSignInWithPasskeyNoContent) completeSignInWithPasskeyRes() {}
+
 // ConfirmEmailNoContent is response for ConfirmEmail operation.
 type ConfirmEmailNoContent struct{}
 
 func (*ConfirmEmailNoContent) confirmEmailRes() {}
+
+// ConfirmPasskeyNoContent is response for ConfirmPasskey operation.
+type ConfirmPasskeyNoContent struct{}
+
+func (*ConfirmPasskeyNoContent) confirmPasskeyRes() {}
 
 // ConfirmTOTPNoContent is response for ConfirmTOTP operation.
 type ConfirmTOTPNoContent struct{}
@@ -420,6 +442,84 @@ func (o OptString) Or(d string) string {
 	return d
 }
 
+// The browser's answer to a passkey sign-in, as PublicKeyCredential.toJSON gives it.
+// Ref: #/components/schemas/PasskeyAssertion
+type PasskeyAssertion struct {
+	// The credential, as JSON.
+	Response string `json:"response"`
+}
+
+// GetResponse returns the value of Response.
+func (s *PasskeyAssertion) GetResponse() string {
+	return s.Response
+}
+
+// SetResponse sets the value of Response.
+func (s *PasskeyAssertion) SetResponse(val string) {
+	s.Response = val
+}
+
+// A name for the new passkey, the browser's answer, and the User's password.
+// Ref: #/components/schemas/PasskeyConfirmation
+type PasskeyConfirmation struct {
+	// What to call it, 1 to 64 characters.
+	Label string `json:"label"`
+	// The new credential, as PublicKeyCredential.toJSON gives it.
+	Response string   `json:"response"`
+	Password Password `json:"password"`
+}
+
+// GetLabel returns the value of Label.
+func (s *PasskeyConfirmation) GetLabel() string {
+	return s.Label
+}
+
+// GetResponse returns the value of Response.
+func (s *PasskeyConfirmation) GetResponse() string {
+	return s.Response
+}
+
+// GetPassword returns the value of Password.
+func (s *PasskeyConfirmation) GetPassword() Password {
+	return s.Password
+}
+
+// SetLabel sets the value of Label.
+func (s *PasskeyConfirmation) SetLabel(val string) {
+	s.Label = val
+}
+
+// SetResponse sets the value of Response.
+func (s *PasskeyConfirmation) SetResponse(val string) {
+	s.Response = val
+}
+
+// SetPassword sets the value of Password.
+func (s *PasskeyConfirmation) SetPassword(val Password) {
+	s.Password = val
+}
+
+// WebAuthn options, as the JSON that PublicKeyCredential.parseCreationOptionsFromJSON or
+// parseRequestOptionsFromJSON reads from their publicKey member.
+// Ref: #/components/schemas/PasskeyOptions
+type PasskeyOptions struct {
+	// The options, as JSON.
+	Options string `json:"options"`
+}
+
+// GetOptions returns the value of Options.
+func (s *PasskeyOptions) GetOptions() string {
+	return s.Options
+}
+
+// SetOptions sets the value of Options.
+func (s *PasskeyOptions) SetOptions(val string) {
+	s.Options = val
+}
+
+func (*PasskeyOptions) passkeyOptionsRes() {}
+func (*PasskeyOptions) startPasskeyRes()   {}
+
 type Password string
 
 // The current password and the new one.
@@ -583,27 +683,31 @@ func (s *ProblemStatusCode) SetResponse(val Problem) {
 	s.Response = val
 }
 
-func (*ProblemStatusCode) addMemberRes()          {}
-func (*ProblemStatusCode) assignRoleRes()         {}
-func (*ProblemStatusCode) changePasswordRes()     {}
-func (*ProblemStatusCode) completeSignInRes()     {}
-func (*ProblemStatusCode) confirmEmailRes()       {}
-func (*ProblemStatusCode) confirmTOTPRes()        {}
-func (*ProblemStatusCode) createGroupRes()        {}
-func (*ProblemStatusCode) deleteGroupRes()        {}
-func (*ProblemStatusCode) getAccessRes()          {}
-func (*ProblemStatusCode) getProfileRes()         {}
-func (*ProblemStatusCode) getVersionRes()         {}
-func (*ProblemStatusCode) listSecondFactorsRes()  {}
-func (*ProblemStatusCode) removeMemberRes()       {}
-func (*ProblemStatusCode) removeSecondFactorRes() {}
-func (*ProblemStatusCode) renameGroupRes()        {}
-func (*ProblemStatusCode) signInRes()             {}
-func (*ProblemStatusCode) signOutRes()            {}
-func (*ProblemStatusCode) signUpRes()             {}
-func (*ProblemStatusCode) startTOTPRes()          {}
-func (*ProblemStatusCode) unassignRoleRes()       {}
-func (*ProblemStatusCode) updateProfileRes()      {}
+func (*ProblemStatusCode) addMemberRes()                 {}
+func (*ProblemStatusCode) assignRoleRes()                {}
+func (*ProblemStatusCode) changePasswordRes()            {}
+func (*ProblemStatusCode) completeSignInRes()            {}
+func (*ProblemStatusCode) completeSignInWithPasskeyRes() {}
+func (*ProblemStatusCode) confirmEmailRes()              {}
+func (*ProblemStatusCode) confirmPasskeyRes()            {}
+func (*ProblemStatusCode) confirmTOTPRes()               {}
+func (*ProblemStatusCode) createGroupRes()               {}
+func (*ProblemStatusCode) deleteGroupRes()               {}
+func (*ProblemStatusCode) getAccessRes()                 {}
+func (*ProblemStatusCode) getProfileRes()                {}
+func (*ProblemStatusCode) getVersionRes()                {}
+func (*ProblemStatusCode) listSecondFactorsRes()         {}
+func (*ProblemStatusCode) passkeyOptionsRes()            {}
+func (*ProblemStatusCode) removeMemberRes()              {}
+func (*ProblemStatusCode) removeSecondFactorRes()        {}
+func (*ProblemStatusCode) renameGroupRes()               {}
+func (*ProblemStatusCode) signInRes()                    {}
+func (*ProblemStatusCode) signOutRes()                   {}
+func (*ProblemStatusCode) signUpRes()                    {}
+func (*ProblemStatusCode) startPasskeyRes()              {}
+func (*ProblemStatusCode) startTOTPRes()                 {}
+func (*ProblemStatusCode) unassignRoleRes()              {}
+func (*ProblemStatusCode) updateProfileRes()             {}
 
 // The signed-in User.
 // Ref: #/components/schemas/Profile
@@ -707,8 +811,7 @@ func (*RenameGroupNoContent) renameGroupRes() {}
 // One of a User's Second Factors.
 // Ref: #/components/schemas/SecondFactor
 type SecondFactor struct {
-	ID ID `json:"id"`
-	// An authenticator app.
+	ID   ID               `json:"id"`
 	Kind SecondFactorKind `json:"kind"`
 	// What the User called it.
 	Label string `json:"label"`
@@ -785,17 +888,20 @@ func (s *SecondFactorCode) SetCode(val string) {
 	s.Code = val
 }
 
-// An authenticator app.
+// An authenticator app or a passkey.
+// Ref: #/components/schemas/SecondFactorKind
 type SecondFactorKind string
 
 const (
-	SecondFactorKindTotp SecondFactorKind = "totp"
+	SecondFactorKindTotp    SecondFactorKind = "totp"
+	SecondFactorKindPasskey SecondFactorKind = "passkey"
 )
 
 // AllValues returns all SecondFactorKind values.
 func (SecondFactorKind) AllValues() []SecondFactorKind {
 	return []SecondFactorKind{
 		SecondFactorKindTotp,
+		SecondFactorKindPasskey,
 	}
 }
 
@@ -803,6 +909,8 @@ func (SecondFactorKind) AllValues() []SecondFactorKind {
 func (s SecondFactorKind) MarshalText() ([]byte, error) {
 	switch s {
 	case SecondFactorKindTotp:
+		return []byte(s), nil
+	case SecondFactorKindPasskey:
 		return []byte(s), nil
 	default:
 		return nil, errors.Errorf("invalid value: %q", s)
@@ -815,6 +923,9 @@ func (s *SecondFactorKind) UnmarshalText(data []byte) error {
 	case SecondFactorKindTotp:
 		*s = SecondFactorKindTotp
 		return nil
+	case SecondFactorKindPasskey:
+		*s = SecondFactorKindPasskey
+		return nil
 	default:
 		return errors.Errorf("invalid value: %q", data)
 	}
@@ -823,18 +934,18 @@ func (s *SecondFactorKind) UnmarshalText(data []byte) error {
 // The sign-in waits for a Second Factor.
 // Ref: #/components/schemas/SecondFactorNeeded
 type SecondFactorNeeded struct {
-	// Which kind of Second Factor to ask for.
-	SecondFactor SecondFactorNeededSecondFactor `json:"secondFactor"`
+	// The kinds of Second Factor the User has, any of which finishes the sign-in.
+	Methods []SecondFactorKind `json:"methods"`
 }
 
-// GetSecondFactor returns the value of SecondFactor.
-func (s *SecondFactorNeeded) GetSecondFactor() SecondFactorNeededSecondFactor {
-	return s.SecondFactor
+// GetMethods returns the value of Methods.
+func (s *SecondFactorNeeded) GetMethods() []SecondFactorKind {
+	return s.Methods
 }
 
-// SetSecondFactor sets the value of SecondFactor.
-func (s *SecondFactorNeeded) SetSecondFactor(val SecondFactorNeededSecondFactor) {
-	s.SecondFactor = val
+// SetMethods sets the value of Methods.
+func (s *SecondFactorNeeded) SetMethods(val []SecondFactorKind) {
+	s.Methods = val
 }
 
 // SecondFactorNeededHeaders wraps SecondFactorNeeded with response headers.
@@ -864,41 +975,6 @@ func (s *SecondFactorNeededHeaders) SetResponse(val SecondFactorNeeded) {
 }
 
 func (*SecondFactorNeededHeaders) signInRes() {}
-
-// Which kind of Second Factor to ask for.
-type SecondFactorNeededSecondFactor string
-
-const (
-	SecondFactorNeededSecondFactorTotp SecondFactorNeededSecondFactor = "totp"
-)
-
-// AllValues returns all SecondFactorNeededSecondFactor values.
-func (SecondFactorNeededSecondFactor) AllValues() []SecondFactorNeededSecondFactor {
-	return []SecondFactorNeededSecondFactor{
-		SecondFactorNeededSecondFactorTotp,
-	}
-}
-
-// MarshalText implements encoding.TextMarshaler.
-func (s SecondFactorNeededSecondFactor) MarshalText() ([]byte, error) {
-	switch s {
-	case SecondFactorNeededSecondFactorTotp:
-		return []byte(s), nil
-	default:
-		return nil, errors.Errorf("invalid value: %q", s)
-	}
-}
-
-// UnmarshalText implements encoding.TextUnmarshaler.
-func (s *SecondFactorNeededSecondFactor) UnmarshalText(data []byte) error {
-	switch SecondFactorNeededSecondFactor(data) {
-	case SecondFactorNeededSecondFactorTotp:
-		*s = SecondFactorNeededSecondFactorTotp
-		return nil
-	default:
-		return errors.Errorf("invalid value: %q", data)
-	}
-}
 
 // A User's Second Factors.
 // Ref: #/components/schemas/SecondFactors

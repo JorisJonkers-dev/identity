@@ -196,9 +196,49 @@ export type AccessOverview = {
  */
 export type SecondFactorNeeded = {
     /**
-     * Which kind of Second Factor to ask for.
+     * The kinds of Second Factor the User has, any of which finishes the sign-in.
      */
-    secondFactor: 'totp';
+    methods: Array<SecondFactorKind>;
+};
+
+/**
+ * An authenticator app or a passkey.
+ */
+export type SecondFactorKind = 'totp' | 'passkey';
+
+/**
+ * WebAuthn options, as the JSON that PublicKeyCredential.parseCreationOptionsFromJSON or parseRequestOptionsFromJSON reads from their publicKey member.
+ */
+export type PasskeyOptions = {
+    /**
+     * The options, as JSON.
+     */
+    options: string;
+};
+
+/**
+ * The browser's answer to a passkey sign-in, as PublicKeyCredential.toJSON gives it.
+ */
+export type PasskeyAssertion = {
+    /**
+     * The credential, as JSON.
+     */
+    response: string;
+};
+
+/**
+ * A name for the new passkey, the browser's answer, and the User's password.
+ */
+export type PasskeyConfirmation = {
+    /**
+     * What to call it, 1 to 64 characters.
+     */
+    label: string;
+    /**
+     * The new credential, as PublicKeyCredential.toJSON gives it.
+     */
+    response: string;
+    password: Password;
 };
 
 /**
@@ -216,10 +256,7 @@ export type SecondFactorCode = {
  */
 export type SecondFactor = {
     id: Id;
-    /**
-     * An authenticator app.
-     */
-    kind: 'totp';
+    kind: SecondFactorKind;
     /**
      * What the User called it.
      */
@@ -681,6 +718,122 @@ export type ConfirmTotpResponses = {
 };
 
 export type ConfirmTotpResponse = ConfirmTotpResponses[keyof ConfirmTotpResponses];
+
+export type PasskeyOptionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/session/passkey';
+};
+
+export type PasskeyOptionsErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type PasskeyOptionsError = PasskeyOptionsErrors[keyof PasskeyOptionsErrors];
+
+export type PasskeyOptionsResponses = {
+    /**
+     * The options for navigator.credentials.get.
+     */
+    200: PasskeyOptions;
+};
+
+export type PasskeyOptionsResponse = PasskeyOptionsResponses[keyof PasskeyOptionsResponses];
+
+export type CompleteSignInWithPasskeyData = {
+    body: PasskeyAssertion;
+    path?: never;
+    query?: never;
+    url: '/api/v1/session/passkey/assertion';
+};
+
+export type CompleteSignInWithPasskeyErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type CompleteSignInWithPasskeyError = CompleteSignInWithPasskeyErrors[keyof CompleteSignInWithPasskeyErrors];
+
+export type CompleteSignInWithPasskeyResponses = {
+    /**
+     * Signed in.
+     */
+    204: void;
+};
+
+export type CompleteSignInWithPasskeyResponse = CompleteSignInWithPasskeyResponses[keyof CompleteSignInWithPasskeyResponses];
+
+export type StartPasskeyData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/profile/second-factors/passkey';
+};
+
+export type StartPasskeyErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type StartPasskeyError = StartPasskeyErrors[keyof StartPasskeyErrors];
+
+export type StartPasskeyResponses = {
+    /**
+     * The options for navigator.credentials.create.
+     */
+    200: PasskeyOptions;
+};
+
+export type StartPasskeyResponse = StartPasskeyResponses[keyof StartPasskeyResponses];
+
+export type ConfirmPasskeyData = {
+    body: PasskeyConfirmation;
+    path?: never;
+    query?: never;
+    url: '/api/v1/profile/second-factors/passkey/confirmation';
+};
+
+export type ConfirmPasskeyErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type ConfirmPasskeyError = ConfirmPasskeyErrors[keyof ConfirmPasskeyErrors];
+
+export type ConfirmPasskeyResponses = {
+    /**
+     * The passkey is a Second Factor of the User's.
+     */
+    204: void;
+};
+
+export type ConfirmPasskeyResponse = ConfirmPasskeyResponses[keyof ConfirmPasskeyResponses];
 
 export type RemoveSecondFactorData = {
     body: PasswordCheck;

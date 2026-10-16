@@ -5,7 +5,10 @@ import { useSecurity } from '../composables/useSecurity'
 import QrCode from './QrCode.vue'
 
 const route = useRoute()
-const { factors, isLoading, loadError, setup, start, confirm, remove } = useSecurity()
+const { factors, isLoading, loadError, setup, start, confirm, remove, addPasskey, passkeysSupported } = useSecurity()
+const keyLabel = ref('')
+const keyPassword = ref('')
+const keyAdded = ref(false)
 const label = ref('')
 const code = ref('')
 const password = ref('')
@@ -27,6 +30,17 @@ function submitConfirm() {
   })
 }
 
+function submitPasskey() {
+  addPasskey.run(keyLabel.value, keyPassword.value, () => {
+    keyLabel.value = keyPassword.value = ''
+    keyAdded.value = true
+  })
+}
+
+function kindOf(kind: string): string {
+  return kind === 'passkey' ? 'Passkey' : 'Authenticator app'
+}
+
 function submitRemoval(id: string) {
   remove.run(id, removalPasswords[id] ?? '')
 }
@@ -36,22 +50,22 @@ function submitRemoval(id: string) {
   <section aria-labelledby="security-title">
     <h1 id="security-title">Security</h1>
     <p v-if="forAdmin && factors.length > 0 && !isLoading" role="status" class="notice">
-      Admins can manage access only from a session signed in with an authenticator app. Sign out, then sign in again and enter a code from your app.
+      Admins can manage access only from a session signed in with a passkey or authenticator app. Sign out, then sign in again with one.
     </p>
     <p v-else-if="forAdmin && !isLoading" role="status" class="notice">
-      Admins need an authenticator app to manage access. Add one below, then go back to <RouterLink to="/access">Access</RouterLink>.
+      Admins need a passkey or authenticator app to manage access. Add one below, then go back to <RouterLink to="/access">Access</RouterLink>.
     </p>
-    <p>An authenticator app gives you a 6-digit code to enter after your password. Your password alone cannot sign you in.</p>
+    <p>After your password, sign in with a passkey or a code from an authenticator app. A password alone cannot sign you in.</p>
 
     <p v-if="isLoading">Loading…</p>
     <p v-else-if="loadError" role="alert" class="error">{{ loadError }} <RouterLink to="/signin">Sign in</RouterLink></p>
     <template v-else>
-      <h2 id="factors-title">Your authenticator apps</h2>
-      <p v-if="factors.length === 0">You have no authenticator apps yet.</p>
+      <h2 id="factors-title">Your passkeys and authenticator apps</h2>
+      <p v-if="factors.length === 0">You have no passkeys or authenticator apps yet. Add one below.</p>
       <ul v-else aria-labelledby="factors-title">
         <li v-for="f in factors" :key="f.id">
           <b>{{ f.label }}</b>
-          <span>Added {{ dateOf(f.createdAt) }}</span>
+          <span>{{ kindOf(f.kind) }} · added {{ dateOf(f.createdAt) }}</span>
           <span v-if="f.lastUsedAt"> · last used {{ dateOf(f.lastUsedAt) }}</span>
           <form v-if="removing === f.id" class="inline" @submit.prevent="submitRemoval(f.id)">
             <label :for="`remove-${f.id}`">Your password</label>
@@ -65,10 +79,24 @@ function submitRemoval(id: string) {
       <p v-if="remove.error.value" role="alert" class="error">{{ remove.error.value }}</p>
       <p v-if="added" role="status">Authenticator app added. You were signed out on every other device. Next time you sign in, enter a code from it.</p>
 
-      <h2>Add an authenticator app</h2>
+      <p v-if="keyAdded" role="status">Passkey added. Every other device has been signed out. Next time, choose Use your passkey after your password.</p>
+
+      <h2 id="passkey-title">Add a passkey</h2>
+      <p v-if="!passkeysSupported">This browser can't make passkeys. Use an authenticator app instead.</p>
+      <form v-else aria-labelledby="passkey-title" @submit.prevent="submitPasskey">
+        <p>Enter a name and your password. Your browser then asks you to confirm with your fingerprint, face, screen lock or security key. Adding a passkey signs out every other device.</p>
+        <label for="passkey-label">Name for this passkey</label>
+        <input id="passkey-label" v-model="keyLabel" maxlength="64" placeholder="MacBook" required />
+        <label for="passkey-password">Your password</label>
+        <input id="passkey-password" v-model="keyPassword" type="password" autocomplete="current-password" required />
+        <p v-if="addPasskey.error.value" role="alert" class="error">{{ addPasskey.error.value }}</p>
+        <button type="submit" :disabled="addPasskey.isPending.value">Add passkey</button>
+      </form>
+
+      <h2 id="totp-title">Add an authenticator app</h2>
       <button v-if="!setup" type="button" :disabled="start.isPending.value" @click="start.run()">Add an authenticator app</button>
       <p v-if="start.error.value" role="alert" class="error">{{ start.error.value }}</p>
-      <form v-if="setup" @submit.prevent="submitConfirm">
+      <form v-if="setup" aria-labelledby="totp-title" @submit.prevent="submitConfirm">
         <p>Scan this QR code with your authenticator app, or type the key into it.</p>
         <QrCode :value="setup.uri" label="QR code for your authenticator app" />
         <p>Key: <code class="secret">{{ setup.secret }}</code></p>
