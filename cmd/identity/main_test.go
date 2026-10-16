@@ -1,11 +1,8 @@
 package main
 
 import (
-	"context"
 	"strings"
 	"testing"
-
-	"github.com/google/uuid"
 )
 
 func env(vars map[string]string) func(string) string {
@@ -112,13 +109,5 @@ func TestVaultIsOptionalAndSignsInAsConfigured(t *testing.T) {
 		if _, err := sealer.Seal(t.Context(), []byte("x")); err == nil {
 			t.Errorf("sealed against nothing with token %q", token)
 		}
-	}
-}
-
-func TestAdminsFuncIsTheFunction(t *testing.T) {
-	called := false
-	f := adminsFunc(func(context.Context, uuid.UUID) (bool, error) { called = true; return true, nil })
-	if yes, err := f.IsAdmin(t.Context(), uuid.New()); !yes || err != nil || !called {
-		t.Fatalf("IsAdmin = %v, %v, called %v", yes, err, called)
 	}
 }

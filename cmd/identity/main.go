@@ -14,54 +14,27 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 	"time"
 
-	"github.com/google/uuid"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 
-	"github.com/JorisJonkers-dev/identity/internal/access/adapters/catalog"
-	"github.com/JorisJonkers-dev/identity/internal/access/adapters/people"
-	accesspersistence "github.com/JorisJonkers-dev/identity/internal/access/adapters/persistence"
-	accessapp "github.com/JorisJonkers-dev/identity/internal/access/app"
-	gatecontexts "github.com/JorisJonkers-dev/identity/internal/gate/adapters/contexts"
-	gatepersistence "github.com/JorisJonkers-dev/identity/internal/gate/adapters/persistence"
-	gateweb "github.com/JorisJonkers-dev/identity/internal/gate/adapters/web"
-	gateapp "github.com/JorisJonkers-dev/identity/internal/gate/app"
-	launchercontexts "github.com/JorisJonkers-dev/identity/internal/launcher/adapters/contexts"
-	launcherfetch "github.com/JorisJonkers-dev/identity/internal/launcher/adapters/fetch"
-	launcherweb "github.com/JorisJonkers-dev/identity/internal/launcher/adapters/web"
-	launcherapp "github.com/JorisJonkers-dev/identity/internal/launcher/app"
-	"github.com/JorisJonkers-dev/identity/internal/platform/httpapi"
+	"github.com/JorisJonkers-dev/identity/internal/assembly"
 	"github.com/JorisJonkers-dev/identity/internal/platform/mail"
 	"github.com/JorisJonkers-dev/identity/internal/platform/metrics"
-	"github.com/JorisJonkers-dev/identity/internal/platform/passwords"
 	"github.com/JorisJonkers-dev/identity/internal/platform/pg"
 	"github.com/JorisJonkers-dev/identity/internal/platform/vault"
-	"github.com/JorisJonkers-dev/identity/internal/platform/webui"
 	"github.com/JorisJonkers-dev/identity/internal/server"
-	"github.com/JorisJonkers-dev/identity/internal/signin/adapters/accounts"
 	"github.com/JorisJonkers-dev/identity/internal/signin/adapters/clients"
-	signinoidc "github.com/JorisJonkers-dev/identity/internal/signin/adapters/oidc"
-	signinpersistence "github.com/JorisJonkers-dev/identity/internal/signin/adapters/persistence"
-	signinapp "github.com/JorisJonkers-dev/identity/internal/signin/app"
-	"github.com/JorisJonkers-dev/identity/internal/users/adapters/passkeys"
-	"github.com/JorisJonkers-dev/identity/internal/users/adapters/persistence"
-	usersweb "github.com/JorisJonkers-dev/identity/internal/users/adapters/web"
-	"github.com/JorisJonkers-dev/identity/internal/users/app"
-	"github.com/JorisJonkers-dev/identity/web"
 )
 
 // version is set at build time with -ldflags "-X main.version=…".
@@ -91,20 +64,8 @@ func start(parent context.Context, getenv func(string) string) int {
 	return 0
 }
 
-// run is the composition root: it reads the environment and builds the store, the use cases and
-// the server. httpapi assembles the contexts' web adapters into the one generated API.
-// argon2id takes 46 MiB a hash: four at once stays under 200 MiB, and a check that cannot start
-// within hashWait answers 503 rather than queueing.
-const (
-	maxConcurrentHashes = 4
-	hashWait            = 3 * time.Second
-	// A Gate check is answered from memory for this long; a sign-out or a role taken away reaches a
-	// gated host within it (docs/adr/0009).
-	gateCacheTTL = 30 * time.Second
-	// A Client that does not send its icon within this long shows its label's first letter instead.
-	iconTimeout = 5 * time.Second
-)
-
+// run is the composition root: it reads the environment, opens the store and the Clients, and
+// serves what assembly builds from them.
 func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) error {
 	cfg, err := readConfig(getenv)
 	if err != nil {
@@ -115,52 +76,17 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 		return err
 	}
 	defer store.Close()
-
-	// users caps an Admin's session at 12 hours, and access lists users' Users: each needs the other.
-	var access *accessapp.Service
-	admins := adminsFunc(func(ctx context.Context, id uuid.UUID) (bool, error) { return access.IsAdmin(ctx, id) })
-	// Set once the Provider and the Gate exist, before the server serves anything.
-	var signedOut app.SignedOut
-	opts := []app.Option{app.WithAdmins(admins), app.WithSignedOut(func(ctx context.Context, userID uuid.UUID, sessionIDs []uuid.UUID) {
-		signedOut(ctx, userID, sessionIDs)
-	})}
-	passkeyCeremonies, err := passkeyCeremonies(cfg.publicURL)
-	if err != nil {
-		return err
-	}
-	opts = append(opts, app.WithWebAuthn(passkeyCeremonies))
-	if sealer, ok := cfg.vault.sealer(); ok {
-		opts = append(opts, app.WithSealer(sealer))
-	} else {
-		logger.Warn("VAULT_ADDR is not set: no authenticator apps")
-	}
-	users := app.New(persistence.New(store.Queries()), passwords.NewArgon2id(maxConcurrentHashes, hashWait), cfg.mailer, time.Now, rand.Reader, cfg.publicURL, opts...)
 	index, synced, err := watchClients(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
-	access = accessapp.New(accesspersistence.New(store.Queries(), store), catalog.New(index), people.New(users), rand.Reader)
-	launcherContexts := launchercontexts.New(index, access)
-	launcher := launcherapp.New(launcherContexts, launcherContexts, launcherfetch.New(http.DefaultTransport, iconTimeout), time.Now)
-	api, err := httpapi.New(logger, version, users, access, launcher)
-	if err != nil {
-		return err
+	built := assembly.Config{Store: store, PublicURL: cfg.publicURL, Mailer: cfg.mailer, Index: index, Synced: synced, Logger: logger, Version: version}
+	if sealer, ok := cfg.vault.sealer(); ok {
+		built.Sealer = sealer
+	} else {
+		logger.Warn("VAULT_ADDR is not set: no authenticator apps")
 	}
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return err
-	}
-	ring := signinoidc.NewRing(key)
-	logouts := signinoidc.NewLogouts(cfg.publicURL, ring, &http.Client{}, logger, time.Now)
-	signIn := signinapp.New(signinpersistence.New(store.Queries()), index, accounts.New(users), access, logouts, time.Now, rand.Reader)
-	provider, err := oidcProvider(cfg, signIn, ring, logger)
-	if err != nil {
-		return err
-	}
-	others := gatecontexts.New(signIn, users)
-	gate := gateapp.New(gatepersistence.New(store.Queries()), others, others, others, time.Now, rand.Reader, gateCacheTTL)
-	signedOut = endSessions(gate, signIn, logger)
-	gateHandler, err := gateweb.New(gate, gateweb.Config{Issuer: cfg.publicURL, SessionCookie: usersweb.CookieName}, logger)
+	identity, err := assembly.New(built)
 	if err != nil {
 		return err
 	}
@@ -175,39 +101,10 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 		_ = ln.Close()
 		return err
 	}
-	stopMetrics := serveMetrics(mln, metrics.Handler(access.Unassigned, logger), logger)
+	stopMetrics := serveMetrics(mln, metrics.Handler(identity.Unassigned, logger), logger)
 	defer stopMetrics()
-	return server.New(logger, version, server.Routes{
-		API:   api,
-		OIDC:  provider,
-		Gate:  gateHandler,
-		Icons: launcherweb.NewIcons(launcher, logger),
-		Web:   webui.Handler(web.Dist()),
-		Ready: func(ctx context.Context) error {
-			if !synced() {
-				return errClientsNotListed
-			}
-			return store.Ping(ctx)
-		},
-	}).Serve(ctx, ln)
+	return server.New(logger, version, identity.Routes).Serve(ctx, ln)
 }
-
-var errClientsNotListed = errors.New("the Client objects are not listed yet")
-
-// passkeyCeremonies runs WebAuthn for the Identity Provider: its host is the relying party, and
-// the Issuer the one origin a passkey is made or used on.
-func passkeyCeremonies(publicURL string) (*passkeys.Ceremonies, error) {
-	u, err := url.Parse(publicURL)
-	if err != nil {
-		return nil, err
-	}
-	return passkeys.New(u.Hostname(), publicURL)
-}
-
-// adminsFunc is app.Admins as a function.
-type adminsFunc func(ctx context.Context, id uuid.UUID) (bool, error)
-
-func (f adminsFunc) IsAdmin(ctx context.Context, id uuid.UUID) (bool, error) { return f(ctx, id) }
 
 // vaultConfig reaches Vault's transit engine, which seals TOTP secrets (docs/adr/0013).
 type vaultConfig struct {
@@ -261,27 +158,6 @@ func watchClients(ctx context.Context, cfg config, logger *slog.Logger) (*client
 		return nil, nil, err
 	}
 	return index, clients.Watch(ctx, dyn, index, logger), nil
-}
-
-// oidcProvider is the OIDC Provider over the sign-in context. It signs with a key made at start-up
-// until keys are kept (identity#30).
-// endSessions ends what was signed in through ended sessions: the Gate's cached checks on this
-// replica, and native Clients through back-channel logout (docs/adr/0007).
-func endSessions(gate *gateapp.Service, signIn *signinapp.Service, logger *slog.Logger) app.SignedOut {
-	return func(ctx context.Context, userID uuid.UUID, sessionIDs []uuid.UUID) {
-		gate.Forget(sessionIDs)
-		if err := signIn.SignedOut(ctx, userID, sessionIDs); err != nil {
-			logger.ErrorContext(ctx, "back-channel logout", "error", err)
-		}
-	}
-}
-
-func oidcProvider(cfg config, svc *signinapp.Service, ring *signinoidc.Ring, logger *slog.Logger) (http.Handler, error) {
-	return signinoidc.New(signinoidc.Config{
-		Issuer:        cfg.publicURL,
-		Insecure:      strings.HasPrefix(cfg.publicURL, "http://"),
-		SessionCookie: usersweb.CookieName,
-	}, svc, ring, logger, time.Now)
 }
 
 type config struct {

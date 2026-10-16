@@ -54,7 +54,7 @@ linters:
         linters:
           - gocognit
           - gochecknoglobals
-      - path: pgtest/
+      - path: (pgtest|itest)/
         linters:
           - gochecknoglobals
     # ogen and sqlc output is regenerated, never edited, so it is not linted.

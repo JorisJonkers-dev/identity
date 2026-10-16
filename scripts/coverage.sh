@@ -10,11 +10,12 @@ bucket=${1:?usage: coverage.sh unit|integration [out]}
 out=${2:-coverage}
 mkdir -p "$out"
 
-# Generated code is the contract's or sqlc's, pgtest and genschema are test tooling, and the
-# composition root's main() is exercised by the e2e suite.
-generated='/internal/platform/(oas|pg/queries|pg/pgtest)(/|$)'
-# What needs Postgres to run at all: only the integration bucket reaches it.
-needs_db='/(cmd/identity|internal/platform/pg|internal/[a-z]+/adapters/persistence)$'
+# Generated code is the contract's or sqlc's, pgtest, itest and genschema are test tooling, and
+# the composition root's main() is exercised by the e2e suite.
+generated='/internal/platform/(oas|pg/queries|pg/pgtest|itest)(/|$)'
+# What needs Postgres to run at all, including the assembly that wires identity together: only the
+# integration bucket reaches it.
+needs_db='/(cmd/identity|internal/assembly|internal/platform/pg|internal/[a-z]+/adapters/persistence)$'
 
 packages() {
   go list ./... | grep -Ev "$generated"
