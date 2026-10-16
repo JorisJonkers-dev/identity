@@ -35,7 +35,8 @@ jobs:
     # first step ends the job early when that bucket is off. A value that is a lone expression keeps
     # its type, and a boolean never equals 'true', so every gate is turned into that string.
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # The unit gate's gobco passes take most of this: 17 to 19 minutes before Audit Events.
+    timeout-minutes: 35
     strategy:
       # Every failure is reported, not only the first.
       fail-fast: false
