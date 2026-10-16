@@ -3,7 +3,7 @@ import { createHmac } from 'node:crypto'
 import AxeBuilder from '@axe-core/playwright'
 import { expect, type Page } from '@playwright/test'
 
-const mailpit = 'http://localhost:58025'
+const mailpit = 'http://localhost:28025'
 
 export async function expectAccessible(page: Page) {
   const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
@@ -50,7 +50,7 @@ export async function signedUp(page: Page, prefix: string): Promise<string> {
 /** Runs the binary's admin command, as an operator would in the pod. */
 export function promote(email: string): string {
   return execFileSync('../bin/identity', ['admin', 'promote', email, '--force'], {
-    env: { PATH: process.env.PATH ?? '', DATABASE_URL: process.env.DATABASE_URL ?? 'postgres://app:app@localhost:55432/app?sslmode=disable' },
+    env: { PATH: process.env.PATH ?? '', DATABASE_URL: process.env.DATABASE_URL ?? 'postgres://app:app@localhost:25432/app?sslmode=disable' },
     encoding: 'utf8',
   })
 }
