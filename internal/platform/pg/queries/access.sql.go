@@ -25,6 +25,23 @@ func (q *Queries) AddMember(ctx context.Context, arg AddMemberParams) error {
 	return err
 }
 
+const adminsGroup = `-- name: AdminsGroup :one
+SELECT id, name, admins FROM groups WHERE admins
+`
+
+type AdminsGroupRow struct {
+	ID     uuid.UUID
+	Name   string
+	Admins bool
+}
+
+func (q *Queries) AdminsGroup(ctx context.Context) (AdminsGroupRow, error) {
+	row := q.db.QueryRow(ctx, adminsGroup)
+	var i AdminsGroupRow
+	err := row.Scan(&i.ID, &i.Name, &i.Admins)
+	return i, err
+}
+
 const assign = `-- name: Assign :exec
 INSERT INTO assignments (group_id, client_id, role) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING
 `
@@ -40,12 +57,35 @@ func (q *Queries) Assign(ctx context.Context, arg AssignParams) error {
 	return err
 }
 
+const countAdmins = `-- name: CountAdmins :one
+SELECT count(*) FROM memberships m JOIN groups g ON g.id = m.group_id WHERE g.admins
+`
+
+func (q *Queries) CountAdmins(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countAdmins)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countMembers = `-- name: CountMembers :one
 SELECT count(*) FROM memberships WHERE group_id = $1
 `
 
 func (q *Queries) CountMembers(ctx context.Context, groupID uuid.UUID) (int64, error) {
 	row := q.db.QueryRow(ctx, countMembers, groupID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countUnassigned = `-- name: CountUnassigned :one
+SELECT count(*) FROM users u WHERE NOT EXISTS (SELECT 1 FROM memberships m WHERE m.user_id = u.id)
+`
+
+// Confirmed Users in no Group, the admins Group included (docs/adr/0005).
+func (q *Queries) CountUnassigned(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countUnassigned)
 	var count int64
 	err := row.Scan(&count)
 	return count, err

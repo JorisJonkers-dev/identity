@@ -62,9 +62,11 @@ func fromObject(obj any) (domain.Client, error) {
 func Watch(ctx context.Context, client dynamic.Interface, x *Index, logger *slog.Logger) (synced func() bool) {
 	informer := dynamicinformer.NewDynamicSharedInformerFactory(client, 0).ForResource(Resource()).Informer()
 	// Adding a handler fails only once an informer has stopped, and this one has not started.
-	_, _ = informer.AddEventHandler(handlers(ctx, x, logger))
+	reg, _ := informer.AddEventHandler(handlers(ctx, x, logger))
 	go informer.RunWithContext(ctx)
-	return informer.HasSynced
+	// The registration's sync, not the informer's: the informer's cache fills before the handlers
+	// have put the first list into the Index, and readiness must wait for the Index.
+	return reg.HasSynced
 }
 
 func handlers(ctx context.Context, x *Index, logger *slog.Logger) cache.ResourceEventHandlerFuncs {

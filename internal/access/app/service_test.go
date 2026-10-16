@@ -98,6 +98,30 @@ func (s *store) IsAdmin(_ context.Context, userID uuid.UUID) (bool, error) {
 	return false, s.err("IsAdmin")
 }
 
+func (s *store) AdminsGroup(context.Context) (domain.Group, error) {
+	for _, g := range s.groups {
+		if g.Admins {
+			return g, s.err("AdminsGroup")
+		}
+	}
+	return domain.Group{}, app.ErrNotFound
+}
+
+func (s *store) CountAdmins(ctx context.Context) (int, error) {
+	g, _ := s.AdminsGroup(ctx)
+	n := 0
+	for _, m := range s.members {
+		if m.GroupID == g.ID {
+			n++
+		}
+	}
+	return n, s.err("CountAdmins")
+}
+
+func (s *store) CountUnassigned(context.Context) (int, error) {
+	return 7, s.err("CountUnassigned")
+}
+
 func (s *store) Assignments(context.Context) ([]domain.Assignment, error) {
 	return slices.Clone(s.assignments), s.err("Assignments")
 }
@@ -356,5 +380,41 @@ func TestIsAdmin(t *testing.T) {
 	}
 	if yes, _ := f.svc.IsAdmin(ctx, ada); yes {
 		t.Fatal("IsAdmin(ada) = true")
+	}
+}
+
+func TestPromoteMakesTheFirstAdminOnly(t *testing.T) {
+	f := newFixture()
+	f.store.members = nil
+	if err := f.svc.Promote(ctx, ada, false); err != nil {
+		t.Fatal(err)
+	}
+	if yes, _ := f.svc.IsAdmin(ctx, ada); !yes {
+		t.Fatal("the first promote made no Admin")
+	}
+	if err := f.svc.Promote(ctx, admin, false); !errors.Is(err, app.ErrAdminExists) {
+		t.Fatalf("a second promote without force = %v, want ErrAdminExists", err)
+	}
+	if yes, _ := f.svc.IsAdmin(ctx, admin); yes {
+		t.Fatal("a refused promote made an Admin")
+	}
+	if err := f.svc.Promote(ctx, admin, true); err != nil {
+		t.Fatalf("a forced promote = %v", err)
+	}
+	if yes, _ := f.svc.IsAdmin(ctx, admin); !yes {
+		t.Fatal("a forced promote made no Admin")
+	}
+	for _, name := range []string{"CountAdmins", "AdminsGroup", "AddMember"} {
+		f.store.fail = map[string]error{name: errBoom}
+		if err := f.svc.Promote(ctx, uuid.New(), true); !errors.Is(err, errBoom) {
+			t.Errorf("Promote when %s fails = %v", name, err)
+		}
+	}
+}
+
+func TestUnassignedCountsUsersInNoGroup(t *testing.T) {
+	f := newFixture()
+	if n, err := f.svc.Unassigned(ctx); n != 7 || err != nil {
+		t.Fatalf("Unassigned = %d, %v", n, err)
 	}
 }

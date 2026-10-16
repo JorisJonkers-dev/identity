@@ -125,6 +125,24 @@ func (s *Store) IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error) {
 	return s.q.IsAdmin(ctx, userID)
 }
 
+func (s *Store) AdminsGroup(ctx context.Context) (domain.Group, error) {
+	r, err := s.q.AdminsGroup(ctx)
+	if err != nil {
+		return domain.Group{}, err
+	}
+	return domain.Group{ID: r.ID, Name: r.Name, Admins: r.Admins}, nil
+}
+
+func (s *Store) CountAdmins(ctx context.Context) (int, error) {
+	n, err := s.q.CountAdmins(ctx)
+	return int(n), err
+}
+
+func (s *Store) CountUnassigned(ctx context.Context) (int, error) {
+	n, err := s.q.CountUnassigned(ctx)
+	return int(n), err
+}
+
 func (s *Store) Assignments(ctx context.Context) ([]domain.Assignment, error) {
 	rows, err := s.q.ListAssignments(ctx)
 	if err != nil {

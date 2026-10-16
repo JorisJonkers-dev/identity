@@ -48,3 +48,13 @@ DELETE FROM assignments WHERE group_id = $1 AND client_id = $2 AND role = $3;
 -- A User's App Roles on a Client: the union over their Groups (docs/adr/0004).
 SELECT DISTINCT a.role FROM assignments a JOIN memberships m ON m.group_id = a.group_id
 WHERE m.user_id = $1 AND a.client_id = $2 ORDER BY a.role;
+
+-- name: AdminsGroup :one
+SELECT id, name, admins FROM groups WHERE admins;
+
+-- name: CountAdmins :one
+SELECT count(*) FROM memberships m JOIN groups g ON g.id = m.group_id WHERE g.admins;
+
+-- name: CountUnassigned :one
+-- Confirmed Users in no Group, the admins Group included (docs/adr/0005).
+SELECT count(*) FROM users u WHERE NOT EXISTS (SELECT 1 FROM memberships m WHERE m.user_id = u.id);

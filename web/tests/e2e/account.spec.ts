@@ -1,27 +1,5 @@
-import AxeBuilder from '@axe-core/playwright'
-import { expect, type Page, test } from '@playwright/test'
-
-const mailpit = 'http://localhost:58025'
-
-async function expectAccessible(page: Page) {
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
-  expect(violations.map((v) => `${v.id}: ${v.help}`)).toEqual([])
-}
-
-/** The confirmation link Mailpit received for to, waiting for it to arrive. */
-async function confirmationLink(page: Page, to: string): Promise<string> {
-  let link = ''
-  await expect(async () => {
-    const search = await page.request.get(`${mailpit}/api/v1/search?query=${encodeURIComponent(`to:"${to}"`)}`)
-    const { messages } = (await search.json()) as { messages: { ID: string }[] }
-    expect(messages.length).toBeGreaterThan(0)
-    const message = await page.request.get(`${mailpit}/api/v1/message/${messages[0]?.ID ?? ''}`)
-    const { Text } = (await message.json()) as { Text: string }
-    link = /https?:\/\/\S+\/confirm\?token=\S+/.exec(Text)?.[0] ?? ''
-    expect(link).not.toBe('')
-  }).toPass({ timeout: 10_000 })
-  return link
-}
+import { expect, test } from '@playwright/test'
+import { confirmationLink, expectAccessible } from './helpers'
 
 test('a person signs up, confirms by mail, signs in, sees their profile and signs out', async ({ page }, info) => {
   const errors: string[] = []

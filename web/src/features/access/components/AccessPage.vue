@@ -8,6 +8,7 @@ const { overview, isLoading, loadError, actionError } = access
 const newGroup = ref('')
 const names = reactive<Record<string, string>>({})
 const picked = reactive<Record<string, string>>({})
+const placing = reactive<Record<string, string>>({})
 
 function holds(o: AccessOverview, groupId: string, clientId: string, role: string): boolean {
   return o.assignments.some((a) => a.groupId === groupId && a.clientId === clientId && a.role === role)
@@ -20,6 +21,17 @@ function person(o: AccessOverview, id: string): string {
 
 function outsiders(o: AccessOverview, members: string[]) {
   return o.users.filter((u) => !members.includes(u.id))
+}
+
+/** Users in no Group, who can sign in but open no app (docs/adr/0005). */
+function unassigned(o: AccessOverview) {
+  const placed = new Set(o.groups.flatMap((g) => g.members))
+  return o.users.filter((u) => !placed.has(u.id))
+}
+
+function place(userId: string) {
+  const groupId = placing[userId]
+  if (groupId) access.addMember(groupId, userId)
 }
 
 function toggle(groupId: string, clientId: string, role: string, event: Event) {
@@ -47,6 +59,23 @@ function add(groupId: string) {
         admins Group manage this page, and open apps only through their other Groups.
       </p>
       <p v-if="actionError" role="alert" class="error">{{ actionError }}</p>
+
+      <template v-if="unassigned(overview).length > 0">
+        <h2 id="waiting-title">People waiting for a Group</h2>
+        <p>These people confirmed their email. They can't open any app until you add them to a Group.</p>
+        <ul aria-labelledby="waiting-title">
+          <li v-for="u in unassigned(overview)" :key="u.id">
+            <form class="inline" @submit.prevent="place(u.id)">
+              <span>{{ u.name }} ({{ u.email }})</span>
+              <label :for="`place-${u.id}`">Group</label>
+              <select :id="`place-${u.id}`" v-model="placing[u.id]">
+                <option v-for="g in overview.groups" :key="g.id" :value="g.id">{{ g.name }}</option>
+              </select>
+              <button type="submit">Add to Group</button>
+            </form>
+          </li>
+        </ul>
+      </template>
 
       <h2 id="matrix-title">App Roles</h2>
       <p v-if="overview.clients.length === 0">No apps are registered yet.</p>
@@ -136,6 +165,12 @@ td {
   flex-wrap: wrap;
   gap: 0.5rem;
   align-items: center;
+}
+/* An option's text is a person's name and email, which can be wider than a phone. */
+.inline > * {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 article {
   border-top: 1px solid #c8c8c8;

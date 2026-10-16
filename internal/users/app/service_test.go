@@ -816,3 +816,21 @@ func TestUsersListsEveryUser(t *testing.T) {
 		t.Fatalf("a failing store: %v", err)
 	}
 }
+
+func TestUserByEmailFindsAConfirmedUser(t *testing.T) {
+	f := newFixture()
+	ctx := context.Background()
+	e, _ := domain.NewEmail("ada@example.org")
+	n, _ := domain.NewName("Ada")
+	id := uuid.New()
+	f.store.users[id] = domain.User{ID: id, Email: e, Name: n}
+	if u, err := f.UserByEmail(ctx, " Ada@Example.org "); err != nil || u.ID != id {
+		t.Fatalf("UserByEmail = %+v, %v", u, err)
+	}
+	if _, err := f.UserByEmail(ctx, "not an email"); !errors.Is(err, domain.ErrInvalidEmail) {
+		t.Fatalf("an invalid email: %v", err)
+	}
+	if _, err := f.UserByEmail(ctx, "nobody@example.org"); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("an unknown email: %v", err)
+	}
+}

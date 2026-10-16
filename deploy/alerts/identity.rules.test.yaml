@@ -1,0 +1,40 @@
+# promtool's unit test of identity.rules.yaml; the integration suite runs it against the rules'
+# spec in a prom/prometheus container.
+rule_files:
+  - rules.yaml
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      # Two replicas report the same count: one alert, not two.
+      - series: 'identity_unassigned_users{pod="identity-a"}'
+        values: '0 0 1 1 1 2 2 0 0'
+      - series: 'identity_unassigned_users{pod="identity-b"}'
+        values: '0 0 1 1 1 2 2 0 0'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: IdentityUsersWaitingForAGroup
+        exp_alerts: []
+      # Pending for its first minute, so a scrape blip raises nothing.
+      - eval_time: 2m
+        alertname: IdentityUsersWaitingForAGroup
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: IdentityUsersWaitingForAGroup
+        exp_alerts:
+          - exp_labels:
+              severity: info
+            exp_annotations:
+              summary: "1 new User(s) need a Group"
+              description: "New Users confirmed their email and cannot open any app until they are in a Group. Add them at https://auth.jorisjonkers.dev/access."
+      - eval_time: 6m
+        alertname: IdentityUsersWaitingForAGroup
+        exp_alerts:
+          - exp_labels:
+              severity: info
+            exp_annotations:
+              summary: "2 new User(s) need a Group"
+              description: "New Users confirmed their email and cannot open any app until they are in a Group. Add them at https://auth.jorisjonkers.dev/access."
+      - eval_time: 8m
+        alertname: IdentityUsersWaitingForAGroup
+        exp_alerts: []

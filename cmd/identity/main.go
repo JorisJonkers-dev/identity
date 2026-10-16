@@ -1,9 +1,12 @@
 // Command identity serves the API and the embedded web app, and drains on SIGTERM. It never
 // migrates its database: the identity-migration image does, before it starts (docs/adr/0010).
 //
+// With arguments it runs an admin command instead; see command.
+//
 // Environment: DATABASE_URL, PUBLIC_URL (where mailed links point), SMTP_ADDR and MAIL_FROM are
 // required; SMTP_USERNAME and SMTP_PASSWORD sign in to the mail server; SMTP_TLS is "required"
-// (the default) or "none", which only a local run against Mailpit may use; ADDR defaults to :8080.
+// (the default) or "none", which only a local run against Mailpit may use; ADDR defaults to :8080,
+// and METRICS_ADDR, which serves only /metrics, to :9090.
 package main
 
 import (
@@ -30,6 +33,7 @@ import (
 	accessapp "github.com/JorisJonkers-dev/identity/internal/access/app"
 	"github.com/JorisJonkers-dev/identity/internal/platform/httpapi"
 	"github.com/JorisJonkers-dev/identity/internal/platform/mail"
+	"github.com/JorisJonkers-dev/identity/internal/platform/metrics"
 	"github.com/JorisJonkers-dev/identity/internal/platform/passwords"
 	"github.com/JorisJonkers-dev/identity/internal/platform/pg"
 	"github.com/JorisJonkers-dev/identity/internal/platform/webui"
@@ -48,9 +52,15 @@ import (
 // version is set at build time with -ldflags "-X main.version=…".
 var version = "dev"
 
-const defaultAddr = ":8080"
+const (
+	defaultAddr        = ":8080"
+	defaultMetricsAddr = ":9090"
+)
 
 func main() {
+	if len(os.Args) > 1 {
+		os.Exit(command(context.Background(), os.Getenv, os.Args[1:], os.Stdout, os.Stderr))
+	}
 	os.Exit(start(context.Background(), os.Getenv))
 }
 
@@ -106,6 +116,13 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 	if err != nil {
 		return err
 	}
+	mln, err := lc.Listen(ctx, "tcp", cfg.metricsAddr)
+	if err != nil {
+		_ = ln.Close()
+		return err
+	}
+	stopMetrics := serveMetrics(mln, metrics.Handler(access.Unassigned, logger), logger)
+	defer stopMetrics()
 	return server.New(logger, version, server.Routes{
 		API:  api,
 		OIDC: provider,
@@ -120,6 +137,17 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 }
 
 var errClientsNotListed = errors.New("the Client objects are not listed yet")
+
+// serveMetrics serves h on ln until the returned stop is called.
+func serveMetrics(ln net.Listener, h http.Handler, logger *slog.Logger) (stop func()) {
+	srv := &http.Server{Handler: h, ReadHeaderTimeout: 5 * time.Second}
+	go func() {
+		if err := srv.Serve(ln); !errors.Is(err, http.ErrServerClosed) {
+			logger.Error("metrics stopped", "error", err)
+		}
+	}()
+	return func() { _ = srv.Close() }
+}
 
 // watchClients keeps an Index of the cluster's Client objects. Outside a cluster there are none, and
 // the Index stays empty.
@@ -159,6 +187,8 @@ type config struct {
 	databaseURL string
 	publicURL   string
 	addr        string
+	// metricsAddr serves /metrics, on a port the edge never routes.
+	metricsAddr string
 	mailer      mail.SMTP
 	// inCluster is set when running in Kubernetes, the only place Client objects exist.
 	inCluster bool
@@ -178,6 +208,7 @@ func readConfig(getenv func(string) string) (config, error) {
 		databaseURL: need("DATABASE_URL"),
 		publicURL:   strings.TrimRight(need("PUBLIC_URL"), "/"),
 		addr:        getenv("ADDR"),
+		metricsAddr: getenv("METRICS_ADDR"),
 		inCluster:   getenv("KUBERNETES_SERVICE_HOST") != "",
 		mailer: mail.SMTP{
 			Addr: need("SMTP_ADDR"), From: need("MAIL_FROM"),
@@ -189,6 +220,9 @@ func readConfig(getenv func(string) string) (config, error) {
 	}
 	if cfg.addr == "" {
 		cfg.addr = defaultAddr
+	}
+	if cfg.metricsAddr == "" {
+		cfg.metricsAddr = defaultMetricsAddr
 	}
 	switch tlsMode := getenv("SMTP_TLS"); tlsMode {
 	case "", "required":
