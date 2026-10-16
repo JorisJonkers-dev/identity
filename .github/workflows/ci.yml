@@ -102,14 +102,14 @@ jobs:
 
   # A quarantined test must name its issue and run out within 14 days (estate testing standards).
   quarantine:
-    uses: JorisJonkers-dev/github-workflows/.github/workflows/quarantine-check.yml@v0.27.1
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/quarantine-check.yml@v0.27.2
 
   # Mutants that survive on the changed lines, as one pull request comment. A report: it never fails
   # the build, so Pipeline Complete does not wait on it.
   mutation:
     needs: changes
     if: ${{ github.event_name == 'pull_request' }}
-    uses: JorisJonkers-dev/github-workflows/.github/workflows/mutation-report.yml@v0.27.1
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/mutation-report.yml@v0.27.2
     permissions:
       contents: read
       pull-requests: write
