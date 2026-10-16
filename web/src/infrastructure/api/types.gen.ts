@@ -134,6 +134,40 @@ export type Group = {
 };
 
 /**
+ * The apps a User can open.
+ */
+export type Launcher = {
+    apps: Array<LauncherApp>;
+};
+
+/**
+ * A Client the User holds an App Role on.
+ */
+export type LauncherApp = {
+    id: ClientId;
+    /**
+     * What the app is called.
+     */
+    label: string;
+    /**
+     * One line about the app.
+     */
+    description?: string;
+    /**
+     * Where opening the app goes.
+     */
+    launchUrl: string;
+    /**
+     * The app's icon on identity's own origin. Absent when the app has none; the Launcher then shows the label's first letter, as it does when the icon fails to load.
+     */
+    iconUrl?: string;
+    /**
+     * The User's App Roles on the app.
+     */
+    roles: Array<AppRole>;
+};
+
+/**
  * A User, as the access page lists one.
  */
 export type Person = {
@@ -515,6 +549,35 @@ export type SignInResponses = {
 };
 
 export type SignInResponse = SignInResponses[keyof SignInResponses];
+
+export type GetLauncherData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/launcher';
+};
+
+export type GetLauncherErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type GetLauncherError = GetLauncherErrors[keyof GetLauncherErrors];
+
+export type GetLauncherResponses = {
+    /**
+     * The apps.
+     */
+    200: Launcher;
+};
+
+export type GetLauncherResponse = GetLauncherResponses[keyof GetLauncherResponses];
 
 export type GetProfileData = {
     body?: never;

@@ -25,6 +25,8 @@ tags:
     description: Signing up, confirming an email, and signing in and out.
   - name: profile
     description: What a signed-in User may change about themselves.
+  - name: launcher
+    description: The apps a signed-in User can open.
   - name: access
     description: >-
       Groups, their members, and the App Roles each Group holds on each Client. Only Admins may
@@ -151,6 +153,25 @@ paths:
               schema:
                 type: string
                 maxLength: 256
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/launcher:
+    get:
+      operationId: getLauncher
+      summary: The apps the signed-in User can open
+      description: >-
+        One entry per Client the User holds an App Role on, sorted by label. Icons are served from
+        identity's own origin.
+      tags: [launcher]
+      responses:
+        "200":
+          description: The apps.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Launcher"
         "4XX":
           $ref: "#/components/responses/Problem"
         default:
@@ -779,6 +800,55 @@ components:
           description: The Users in the Group.
           items:
             $ref: "#/components/schemas/Id"
+    Launcher:
+      description: The apps a User can open.
+      type: object
+      additionalProperties: false
+      required: [apps]
+      properties:
+        apps:
+          type: array
+          maxItems: 500
+          items:
+            $ref: "#/components/schemas/LauncherApp"
+    LauncherApp:
+      description: A Client the User holds an App Role on.
+      type: object
+      additionalProperties: false
+      required: [id, label, launchUrl, roles]
+      properties:
+        id:
+          $ref: "#/components/schemas/ClientId"
+        label:
+          type: string
+          maxLength: 253
+          description: What the app is called.
+          example: Grafana
+        description:
+          type: string
+          maxLength: 500
+          description: One line about the app.
+          example: Metrics and alerts
+        launchUrl:
+          type: string
+          format: uri
+          maxLength: 2048
+          description: Where opening the app goes.
+          example: https://grafana.jorisjonkers.dev/
+        iconUrl:
+          type: string
+          maxLength: 300
+          pattern: "^/icons/"
+          description: >-
+            The app's icon on identity's own origin. Absent when the app has none; the Launcher then
+            shows the label's first letter, as it does when the icon fails to load.
+          example: /icons/grafana?v=3f2a9c1b7d4e
+        roles:
+          type: array
+          maxItems: 64
+          description: The User's App Roles on the app.
+          items:
+            $ref: "#/components/schemas/AppRole"
     Person:
       description: A User, as the access page lists one.
       type: object

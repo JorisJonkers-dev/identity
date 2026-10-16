@@ -96,6 +96,25 @@ export const zGroup = z.object({
 });
 
 /**
+ * A Client the User holds an App Role on.
+ */
+export const zLauncherApp = z.object({
+    id: zClientId,
+    label: z.string().max(253),
+    description: z.string().max(500).optional(),
+    launchUrl: z.url().max(2048),
+    iconUrl: z.string().max(300).regex(/^\/icons\//).optional(),
+    roles: z.array(zAppRole).max(64)
+});
+
+/**
+ * The apps a User can open.
+ */
+export const zLauncher = z.object({
+    apps: z.array(zLauncherApp).max(500)
+});
+
+/**
  * A User, as the access page lists one.
  */
 export const zPerson = z.object({
@@ -278,6 +297,11 @@ export const zSignInResponse = z.union([
     zSecondFactorNeeded,
     z.void()
 ]);
+
+/**
+ * The apps.
+ */
+export const zGetLauncherResponse = zLauncher;
 
 /**
  * The Profile.

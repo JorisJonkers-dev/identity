@@ -59,6 +59,8 @@ type Querier interface {
 	Ping(ctx context.Context) (int32, error)
 	RemoveMember(ctx context.Context, arg RemoveMemberParams) error
 	RenameGroup(ctx context.Context, arg RenameGroupParams) (int64, error)
+	// Every App Role a User holds, per Client: the union over their Groups (docs/adr/0004).
+	RolesByClient(ctx context.Context, userID uuid.UUID) ([]RolesByClientRow, error)
 	// A User's App Roles on a Client: the union over their Groups (docs/adr/0004).
 	RolesOf(ctx context.Context, arg RolesOfParams) ([]string, error)
 	// A request gets one code; a second is refused.

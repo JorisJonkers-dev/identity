@@ -33,7 +33,7 @@ const gate = typeof route.query.gate === 'string' && route.query.gate.startsWith
 function signedIn() {
   if (authRequestID) navigation.leave(`/oidc/login?authRequestID=${encodeURIComponent(authRequestID)}`)
   else if (gate) navigation.leave(gate)
-  else void router.push('/profile')
+  else void router.push('/')
 }
 
 function submit() {

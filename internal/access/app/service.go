@@ -59,6 +59,8 @@ type Store interface {
 	Unassign(ctx context.Context, a domain.Assignment) error
 	// RolesOf is the App Roles a User's Groups hold on a Client.
 	RolesOf(ctx context.Context, userID uuid.UUID, clientID string) ([]string, error)
+	// RolesByClient is every App Role a User's Groups hold, per Client.
+	RolesByClient(ctx context.Context, userID uuid.UUID) (map[string][]string, error)
 }
 
 // Clients is the Clients the cluster declares now; a Removed Client is not among them.
@@ -128,6 +130,11 @@ func (s *Service) Unassigned(ctx context.Context) (int, error) {
 // adds none.
 func (s *Service) Roles(ctx context.Context, userID uuid.UUID, clientID string) ([]string, error) {
 	return s.store.RolesOf(ctx, userID, clientID)
+}
+
+// RolesByClient is every App Role a User holds, per Client, including Removed ones.
+func (s *Service) RolesByClient(ctx context.Context, userID uuid.UUID) (map[string][]string, error) {
+	return s.store.RolesByClient(ctx, userID)
 }
 
 // admin lets an Admin through, and only from a session that proved a Second Factor (docs/adr/0005).

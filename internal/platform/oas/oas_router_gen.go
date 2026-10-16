@@ -20,7 +20,7 @@ var (
 	rn15AllowedHeaders = map[string]string{
 		"POST": "Content-Type",
 	}
-	rn22AllowedHeaders = map[string]string{
+	rn23AllowedHeaders = map[string]string{
 		"PATCH": "Content-Type",
 	}
 	rn11AllowedHeaders = map[string]string{
@@ -32,10 +32,10 @@ var (
 	rn19AllowedHeaders = map[string]string{
 		"POST": "Content-Type",
 	}
-	rn27AllowedHeaders = map[string]string{
+	rn28AllowedHeaders = map[string]string{
 		"POST": "Content-Type",
 	}
-	rn28AllowedHeaders = map[string]string{
+	rn29AllowedHeaders = map[string]string{
 		"POST": "Content-Type",
 	}
 	rn14AllowedHeaders = map[string]string{
@@ -44,7 +44,7 @@ var (
 	rn12AllowedHeaders = map[string]string{
 		"POST": "Content-Type",
 	}
-	rn34AllowedHeaders = map[string]string{
+	rn35AllowedHeaders = map[string]string{
 		"POST": "Content-Type",
 	}
 )
@@ -405,6 +405,31 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
+			case 'l': // Prefix: "launcher"
+
+				if l := len("launcher"); len(elem) >= l && elem[0:l] == "launcher" {
+					elem = elem[l:]
+				} else {
+					break
+				}
+
+				if len(elem) == 0 {
+					// Leaf node.
+					switch r.Method {
+					case "GET":
+						s.handleGetLauncherRequest([0]string{}, elemIsEscaped, w, r)
+					default:
+						s.notAllowed(w, r, notAllowedParams{
+							allowedMethods: "GET",
+							allowedHeaders: nil,
+							acceptPost:     "",
+							acceptPatch:    "",
+						})
+					}
+
+					return
+				}
+
 			case 'p': // Prefix: "profile"
 
 				if l := len("profile"); len(elem) >= l && elem[0:l] == "profile" {
@@ -422,7 +447,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					default:
 						s.notAllowed(w, r, notAllowedParams{
 							allowedMethods: "GET,PATCH",
-							allowedHeaders: rn22AllowedHeaders,
+							allowedHeaders: rn23AllowedHeaders,
 							acceptPost:     "",
 							acceptPatch:    "application/json",
 						})
@@ -640,7 +665,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 									default:
 										s.notAllowed(w, r, notAllowedParams{
 											allowedMethods: "POST",
-											allowedHeaders: rn27AllowedHeaders,
+											allowedHeaders: rn28AllowedHeaders,
 											acceptPost:     "application/json",
 											acceptPatch:    "",
 										})
@@ -686,7 +711,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 						default:
 							s.notAllowed(w, r, notAllowedParams{
 								allowedMethods: "DELETE,POST",
-								allowedHeaders: rn28AllowedHeaders,
+								allowedHeaders: rn29AllowedHeaders,
 								acceptPost:     "application/json",
 								acceptPatch:    "",
 							})
@@ -803,7 +828,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 						default:
 							s.notAllowed(w, r, notAllowedParams{
 								allowedMethods: "POST",
-								allowedHeaders: rn34AllowedHeaders,
+								allowedHeaders: rn35AllowedHeaders,
 								acceptPost:     "application/json",
 								acceptPatch:    "",
 							})
@@ -1237,6 +1262,31 @@ func (s *Server) FindPath(method string, u *url.URL) (r Route, _ bool) {
 						r.operationID = "confirmEmail"
 						r.operationGroup = ""
 						r.pathPattern = "/api/v1/confirmations"
+						r.args = args
+						r.count = 0
+						return r, true
+					default:
+						return
+					}
+				}
+
+			case 'l': // Prefix: "launcher"
+
+				if l := len("launcher"); len(elem) >= l && elem[0:l] == "launcher" {
+					elem = elem[l:]
+				} else {
+					break
+				}
+
+				if len(elem) == 0 {
+					// Leaf node.
+					switch method {
+					case "GET":
+						r.name = GetLauncherOperation
+						r.summary = "The apps the signed-in User can open"
+						r.operationID = "getLauncher"
+						r.operationGroup = ""
+						r.pathPattern = "/api/v1/launcher"
 						r.args = args
 						r.count = 0
 						return r, true

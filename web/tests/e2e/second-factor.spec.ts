@@ -22,5 +22,5 @@ test('a User adds an authenticator app, and signing in then asks for its code', 
   // The code used to add the app was spent; the next step's code signs in.
   await page.getByLabel('6-digit code').fill(totp(secret, 1))
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page).toHaveURL('/profile')
+  await expect(page).toHaveURL('/')
 })

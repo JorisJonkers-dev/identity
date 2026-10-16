@@ -45,6 +45,10 @@ type GetAccessRes interface {
 	getAccessRes()
 }
 
+type GetLauncherRes interface {
+	getLauncherRes()
+}
+
 type GetProfileRes interface {
 	getProfileRes()
 }

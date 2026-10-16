@@ -74,7 +74,7 @@ describe('signing in', () => {
     await wrapper.get('form').trigger('submit')
     await settle()
     expect(requests.find((r) => r.key === 'POST /api/v1/session')?.body).toEqual({ email: 'ada@example.org', password: 'correct horse battery' })
-    expect(router.currentRoute.value.path).toBe('/profile')
+    expect(router.currentRoute.value.path).toBe('/')
   })
 
   it('hands back to the Provider when an app sent the person here', async () => {
@@ -112,7 +112,7 @@ describe('signing in', () => {
     await wrapper.get('form').trigger('submit')
     await settle()
     expect(leave).not.toHaveBeenCalled()
-    expect(router.currentRoute.value.path).toBe('/profile')
+    expect(router.currentRoute.value.path).toBe('/')
     leave.mockRestore()
   })
 
@@ -133,7 +133,7 @@ describe('signing in', () => {
     await wrapper.get('form').trigger('submit')
     await settle()
     expect(requests.find((r) => r.key === 'POST /api/v1/session/second-factor')?.body).toEqual({ code: '492039' })
-    expect(router.currentRoute.value.path).toBe('/profile')
+    expect(router.currentRoute.value.path).toBe('/')
   })
 
   it('says when the code is wrong', async () => {
@@ -168,7 +168,7 @@ describe('signing in', () => {
     await settle()
     expect(get).toHaveBeenCalledWith('{"publicKey":{}}')
     expect(requests.find((r) => r.key === 'POST /api/v1/session/passkey/assertion')?.body).toEqual({ response: '{"id":"cred-1"}' })
-    expect(router.currentRoute.value.path).toBe('/profile')
+    expect(router.currentRoute.value.path).toBe('/')
     get.mockRestore()
   })
 

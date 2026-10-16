@@ -43,7 +43,7 @@ export async function signedUp(page: Page, prefix: string): Promise<string> {
   await page.getByLabel('Email', { exact: true }).fill(email)
   await page.getByLabel('Password', { exact: true }).fill(password)
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page).toHaveURL('/profile')
+  await expect(page).toHaveURL('/')
   return email
 }
 

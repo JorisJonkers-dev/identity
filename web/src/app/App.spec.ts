@@ -6,9 +6,18 @@ import { configureApi } from '../infrastructure/http'
 import App from './App.vue'
 import { createAppRouter } from './router'
 
-/** Mounts the whole app at path, with the network answered by respond. */
+const signedOut = () =>
+  new Response(JSON.stringify({ type: 'about:blank', title: 'Unauthorized', status: 401 }), {
+    status: 401,
+    headers: { 'Content-Type': 'application/problem+json' },
+  })
+
+/** Mounts the whole app at path, signed out, with the version answered by respond. */
 async function mountApp(respond: () => Response, path = '/') {
-  configureApi({ baseUrl: 'http://app.test', fetch: vi.fn(() => Promise.resolve(respond())) })
+  const fetch = vi.fn((input: RequestInfo | URL) =>
+    Promise.resolve(new Request(input).url.endsWith('/api/v1/launcher') ? signedOut() : respond()),
+  )
+  configureApi({ baseUrl: 'http://app.test', fetch })
   const router = createAppRouter(createMemoryHistory())
   await router.push(path)
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })

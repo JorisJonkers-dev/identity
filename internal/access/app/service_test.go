@@ -151,6 +151,17 @@ func (s *store) RolesOf(_ context.Context, userID uuid.UUID, clientID string) ([
 	return roles, s.err("RolesOf")
 }
 
+func (s *store) RolesByClient(_ context.Context, userID uuid.UUID) (map[string][]string, error) {
+	held := map[string][]string{}
+	for _, a := range s.assignments {
+		roles, _ := s.RolesOf(context.Background(), userID, a.ClientID)
+		if len(roles) > 0 {
+			held[a.ClientID] = roles
+		}
+	}
+	return held, s.err("RolesByClient")
+}
+
 type catalog []domain.Client
 
 func (c catalog) Clients() []domain.Client { return c }
@@ -385,6 +396,19 @@ func TestRolesAddUp(t *testing.T) {
 	}
 	if got, _ := f.svc.Roles(ctx, admin, "grafana"); len(got) != 0 {
 		t.Fatalf("an Admin with no Assignment holds %v", got)
+	}
+}
+
+func TestAUsersRolesAreListedPerClient(t *testing.T) {
+	f := newFixture()
+	f.store.members = append(f.store.members, domain.Membership{GroupID: family.ID, UserID: ada})
+	f.store.assignments = []domain.Assignment{
+		{GroupID: family.ID, ClientID: "grafana", Role: "viewer"},
+		{GroupID: family.ID, ClientID: "jellyfin", Role: "user"},
+	}
+	got, err := f.svc.RolesByClient(ctx, ada)
+	if err != nil || len(got) != 2 || !slices.Equal(got["grafana"], []string{"viewer"}) || !slices.Equal(got["jellyfin"], []string{"user"}) {
+		t.Fatalf("RolesByClient = %v, %v", got, err)
 	}
 }
 
