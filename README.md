@@ -14,8 +14,9 @@ without a password while the session holds. Clients come from the cluster's `Cli
 watched without a restart; outside a cluster there are none. Admins put Users in Groups and give
 Groups App Roles on Clients at `/access`; a User with no App Role on a Client gets no code, and the
 ID token and access token carry that Client's App Roles, and nothing else about access, in a
-`roles` claim. Kept signing keys, Client secrets and the first Admin arrive with the following
-tickets. The schema moves through
+`roles` claim. `identity admin promote <email>`, run in the pod, makes the first Admin, and the
+access page lists the Users waiting for a Group. Kept signing keys and Client secrets arrive with
+the following tickets. The schema moves through
 liquibase-runner, not goose ([0010](docs/adr/0010-migrations-run-through-liquibase-runner.md)).
 
 - [`CONTEXT.md`](CONTEXT.md): the words this repository uses, and the ones it avoids.
@@ -50,6 +51,7 @@ How the repository is laid out and worked on.
 | `Dockerfile` | Builds the web app, embeds it, ships a static binary on `distroless/static:nonroot` |
 | `.github/workflows/ci.yml`, `.github/buckets.yml` | A `changes` job decides from the buckets file which jobs a diff reaches; one job per `task check` task, `task e2e` and each image build; `Pipeline Complete`, the one required check, passes when every job passed or was not reached |
 | `.github/workflows/release.yml`, `release-please-config.json` | release-please, as in the rest of the estate |
+| `deploy/alerts/` | The `PrometheusRule` the observability project carries for identity, and its promtool test. identity serves `/metrics` on `METRICS_ADDR` (`:9090`), which the edge never routes |
 | `deploy/crd/` | The cluster-scoped `Client` kind (`identity.jorisjonkers.dev/v1`) deploy-kit renders, with the CEL rules the API server holds every Client to. identity needs `get`, `list` and `watch` on `clients` |
 | `deploy/identity.project.yml` | The [deploy-kit](https://github.com/JorisJonkers-dev/deploy-kit) Project Intent: one Process on the Issuer's host, a Postgres edge, the changelog. Not published until the cutover |
 

@@ -222,3 +222,26 @@ func TestRolesAddUpAcrossGroups(t *testing.T) {
 		t.Fatalf("RolesOf after Unassign = %v", roles)
 	}
 }
+
+func TestAdminsAndTheUnassigned(t *testing.T) {
+	f := open(t)
+	admins, family := f.admins(t), f.group(t, "Family")
+	if g, err := f.s.AdminsGroup(f.ctx); err != nil || g != admins {
+		t.Fatalf("AdminsGroup = %+v, %v", g, err)
+	}
+	ada, bob, cy := f.user(t, "ada@example.org"), f.user(t, "bob@example.org"), f.user(t, "cy@example.org")
+	if n, err := f.s.CountAdmins(f.ctx); n != 0 || err != nil {
+		t.Fatalf("CountAdmins on a fresh install = %d, %v", n, err)
+	}
+	if n, err := f.s.CountUnassigned(f.ctx); n != 3 || err != nil {
+		t.Fatalf("CountUnassigned = %d, %v; want all three", n, err)
+	}
+	_ = f.s.AddMember(f.ctx, domain.Membership{GroupID: admins.ID, UserID: ada})
+	_ = f.s.AddMember(f.ctx, domain.Membership{GroupID: family.ID, UserID: bob})
+	if n, _ := f.s.CountAdmins(f.ctx); n != 1 {
+		t.Fatalf("CountAdmins = %d, want 1", n)
+	}
+	if n, _ := f.s.CountUnassigned(f.ctx); n != 1 {
+		t.Fatalf("CountUnassigned = %d, want only %v", n, cy)
+	}
+}

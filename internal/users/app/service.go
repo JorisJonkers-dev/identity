@@ -306,6 +306,15 @@ func (s *Service) User(ctx context.Context, id uuid.UUID) (domain.User, error) {
 	return s.store.UserByID(ctx, id)
 }
 
+// UserByEmail returns the User with an email, written in any case.
+func (s *Service) UserByEmail(ctx context.Context, rawEmail string) (domain.User, error) {
+	email, err := domain.NewEmail(rawEmail)
+	if err != nil {
+		return domain.User{}, err
+	}
+	return s.store.UserByEmail(ctx, email)
+}
+
 // Users returns every User, by name.
 func (s *Service) Users(ctx context.Context) ([]domain.User, error) {
 	return s.store.Users(ctx)

@@ -52,7 +52,7 @@ func TestReadConfigDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.addr != ":8080" || cfg.publicURL != "https://auth.test" || !cfg.mailer.RequireTLS {
+	if cfg.addr != ":8080" || cfg.metricsAddr != ":9090" || cfg.publicURL != "https://auth.test" || !cfg.mailer.RequireTLS {
 		t.Fatalf("defaults: %+v", cfg)
 	}
 	local := complete()
@@ -65,5 +65,22 @@ func TestReadConfigDefaults(t *testing.T) {
 	required["SMTP_TLS"] = "required"
 	if cfg, err := readConfig(env(required)); err != nil || !cfg.mailer.RequireTLS {
 		t.Fatalf("SMTP_TLS=required: %+v, %v", cfg, err)
+	}
+}
+
+func TestCommandUsage(t *testing.T) {
+	for _, args := range [][]string{{"admin"}, {"admin", "demote", "a@b.c"}, {"serve", "promote", "a@b.c"}, {"admin", "promote"}} {
+		var out, errs strings.Builder
+		if code := command(t.Context(), env(nil), args, &out, &errs); code != 2 || !strings.Contains(errs.String(), "usage:") {
+			t.Errorf("command(%v) = %d, %q", args, code, errs.String())
+		}
+	}
+	var out, errs strings.Builder
+	if code := command(t.Context(), env(nil), []string{"admin", "promote", "a@b.c"}, &out, &errs); code != 1 || !strings.Contains(errs.String(), "DATABASE_URL is not set") {
+		t.Fatalf("without a database = %d, %q", code, errs.String())
+	}
+	errs.Reset()
+	if code := command(t.Context(), env(map[string]string{"DATABASE_URL": unreachable}), []string{"admin", "promote", "--force", "a@b.c"}, &out, &errs); code != 1 || errs.Len() == 0 {
+		t.Fatalf("an unreachable database = %d, %q", code, errs.String())
 	}
 }

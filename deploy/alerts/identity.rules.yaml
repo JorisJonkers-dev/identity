@@ -1,0 +1,21 @@
+# identity's alert rules, for the observability project to carry as an Asset (workspace ADR-0019):
+# identity raises no alert itself. Without the release label the operator never loads the rules.
+# The alert carries a count and a link, never who signed up (docs/adr/0005).
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: identity
+  labels:
+    release: metrics-stack
+spec:
+  groups:
+    - name: identity
+      rules:
+        - alert: IdentityUsersWaitingForAGroup
+          expr: max(identity_unassigned_users) > 0
+          for: 1m
+          labels:
+            severity: info
+          annotations:
+            summary: "{{ $value }} new User(s) need a Group"
+            description: "New Users confirmed their email and cannot open any app until they are in a Group. Add them at https://auth.jorisjonkers.dev/access."

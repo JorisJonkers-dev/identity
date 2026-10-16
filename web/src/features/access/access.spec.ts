@@ -90,7 +90,7 @@ describe('the access page', () => {
     })
     const name = wrapper.get<HTMLInputElement>('#new-group')
     await name.setValue('Cousins')
-    await wrapper.findAll('form')[0]?.trigger('submit')
+    await wrapper.findAll('form').find((f) => f.find('#new-group').exists())?.trigger('submit')
     await settle()
     expect(requests.find((r) => r.key === 'POST /api/v1/access/groups')?.body).toEqual({ name: 'Cousins' })
     expect(name.element.value).toBe('')
@@ -143,6 +143,29 @@ describe('the access page', () => {
     await wrapper.get('article[aria-label="Family"] > button').trigger('click')
     await settle()
     expect(wrapper.get('[role="alert"]').text()).toBe(`no answer for DELETE /api/v1/access/groups/${family}`)
+  })
+
+  it('lists who waits in no Group, and places them', async () => {
+    const { wrapper, requests } = await mountAt('/access', {
+      'GET /api/v1/access': () => Response.json(overview()),
+      [`PUT /api/v1/access/groups/${family}/members/${ada}`]: ok,
+    })
+    const waiting = wrapper.get('ul[aria-labelledby="waiting-title"]')
+    expect(waiting.findAll('li').map((li) => li.find('span').text())).toEqual(['Ada (ada@example.org)'])
+    await waiting.get('form').trigger('submit')
+    await settle()
+    expect(requests.some((r) => r.key.startsWith('PUT'))).toBe(false)
+    await wrapper.get(`#place-${ada}`).setValue(family)
+    await waiting.get('form').trigger('submit')
+    await settle()
+    expect(requests.map((r) => r.key)).toContain(`PUT /api/v1/access/groups/${family}/members/${ada}`)
+  })
+
+  it('shows no queue when everyone is in a Group', async () => {
+    const o = overview()
+    o.groups[1] = { id: family, name: 'Family', admins: false, members: [ada] }
+    const { wrapper } = await mountAt('/access', { 'GET /api/v1/access': Response.json(o) })
+    expect(wrapper.find('#waiting-title').exists()).toBe(false)
   })
 
   it('names a member it does not know by id', async () => {

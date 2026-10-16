@@ -20,6 +20,7 @@ var (
 	ErrLastAdmin     = errors.New("the last Admin cannot leave the admins Group")
 	ErrUnknownClient = errors.New("no such Client")
 	ErrUnknownRole   = errors.New("the Client declares no such App Role")
+	ErrAdminExists   = errors.New("an Admin exists already")
 )
 
 // Store keeps Groups, memberships and Assignments.
@@ -40,6 +41,10 @@ type Store interface {
 	// removals race.
 	RemoveMember(ctx context.Context, m domain.Membership) error
 	IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error)
+	AdminsGroup(ctx context.Context) (domain.Group, error)
+	CountAdmins(ctx context.Context) (int, error)
+	// CountUnassigned is the confirmed Users in no Group.
+	CountUnassigned(ctx context.Context) (int, error)
 	Assignments(ctx context.Context) ([]domain.Assignment, error)
 	// Assign is ErrNotFound when the Group is not there.
 	Assign(ctx context.Context, a domain.Assignment) error
@@ -85,6 +90,29 @@ func New(store Store, clients Clients, people People, random io.Reader) *Service
 // IsAdmin reports whether a User is in the admins Group.
 func (s *Service) IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error) {
 	return s.store.IsAdmin(ctx, userID)
+}
+
+// Promote makes a User an Admin. It is how a fresh install gets its first Admin, from a command
+// run in the pod, and it refuses with ErrAdminExists when there is one, unless forced
+// (docs/adr/0005).
+func (s *Service) Promote(ctx context.Context, userID uuid.UUID, force bool) error {
+	n, err := s.store.CountAdmins(ctx)
+	if err != nil {
+		return err
+	}
+	if n > 0 && !force {
+		return ErrAdminExists
+	}
+	g, err := s.store.AdminsGroup(ctx)
+	if err != nil {
+		return err
+	}
+	return s.store.AddMember(ctx, domain.Membership{GroupID: g.ID, UserID: userID})
+}
+
+// Unassigned is how many Users wait in no Group, for the signup alert.
+func (s *Service) Unassigned(ctx context.Context) (int, error) {
+	return s.store.CountUnassigned(ctx)
 }
 
 // Roles is the App Roles a User holds on a Client: the union over their Groups. Being an Admin

@@ -19,9 +19,16 @@ func TestStartWithADatabase(t *testing.T) {
 			t.Fatalf("start with an invalid ADDR = %d, want 1", code)
 		}
 	})
+	t.Run("invalid metrics address", func(t *testing.T) {
+		vars := complete()
+		vars["DATABASE_URL"], vars["ADDR"], vars["METRICS_ADDR"] = url, "127.0.0.1:0", "not-an-address"
+		if code := start(t.Context(), env(vars)); code != 1 {
+			t.Fatalf("start with an invalid METRICS_ADDR = %d, want 1", code)
+		}
+	})
 	t.Run("in a cluster it cannot read", func(t *testing.T) {
 		vars := complete()
-		vars["DATABASE_URL"], vars["ADDR"] = url, "127.0.0.1:0"
+		vars["DATABASE_URL"], vars["ADDR"], vars["METRICS_ADDR"] = url, "127.0.0.1:0", "127.0.0.1:0"
 		vars["KUBERNETES_SERVICE_HOST"], vars["KUBERNETES_SERVICE_PORT"] = "10.0.0.1", "443"
 		if code := start(t.Context(), env(vars)); code != 1 {
 			t.Fatalf("start without a service account = %d, want 1", code)
@@ -31,7 +38,7 @@ func TestStartWithADatabase(t *testing.T) {
 		ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 		defer cancel()
 		vars := complete()
-		vars["DATABASE_URL"], vars["ADDR"] = url, "127.0.0.1:0"
+		vars["DATABASE_URL"], vars["ADDR"], vars["METRICS_ADDR"] = url, "127.0.0.1:0", "127.0.0.1:0"
 		if code := start(ctx, env(vars)); code != 0 {
 			t.Fatalf("start after a clean shutdown = %d, want 0", code)
 		}

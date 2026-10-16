@@ -12,11 +12,15 @@ import (
 
 type Querier interface {
 	AddMember(ctx context.Context, arg AddMemberParams) error
+	AdminsGroup(ctx context.Context) (AdminsGroupRow, error)
 	Assign(ctx context.Context, arg AssignParams) error
 	AuthRequestByID(ctx context.Context, id uuid.UUID) (AuthRequest, error)
 	// Records who signed in, once: a request already completed keeps its first User.
 	CompleteAuthRequest(ctx context.Context, arg CompleteAuthRequestParams) (int64, error)
+	CountAdmins(ctx context.Context) (int64, error)
 	CountMembers(ctx context.Context, groupID uuid.UUID) (int64, error)
+	// Confirmed Users in no Group, the admins Group included (docs/adr/0005).
+	CountUnassigned(ctx context.Context) (int64, error)
 	CreateAuthRequest(ctx context.Context, arg CreateAuthRequestParams) error
 	CreateGroup(ctx context.Context, arg CreateGroupParams) error
 	CreateSession(ctx context.Context, arg CreateSessionParams) error

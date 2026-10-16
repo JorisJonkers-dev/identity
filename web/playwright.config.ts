@@ -24,6 +24,8 @@ export default defineConfig({
     timeout: 60_000,
     env: {
       ADDR: new URL(origin).host,
+      // Only /metrics, on a port of its own; tests/e2e/metrics.spec.ts scrapes it.
+      METRICS_ADDR: '127.0.0.1:18574',
       DATABASE_URL: process.env.DATABASE_URL ?? 'postgres://app:app@localhost:55432/app?sslmode=disable',
       PUBLIC_URL: origin,
       // The compose Mailpit, which offers no TLS; only a local run may send in the clear.

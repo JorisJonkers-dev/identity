@@ -12,6 +12,7 @@ buckets:
     - '.golangci.yml'
     - 'scripts/coverage.sh'
     - 'deploy/crd/**' # the integration tests apply it to a real API server
+    - 'deploy/alerts/**' # the integration tests run promtool on it
   # The schema and what migrates it.
   db:
     - 'db/**'
@@ -31,6 +32,7 @@ buckets:
     - '*.md'
     - 'deploy/**'
     - '!deploy/crd/**'
+    - '!deploy/alerts/**'
     - 'LICENSE'
     - 'renovate.json'
     - 'release-please-config.json'
@@ -46,6 +48,7 @@ groups:
   app: [go, db, contract, web]
 
 fixtures:
+  deploy/alerts/identity.rules.yaml: [go]
   cmd/identity/main.go: [go]
   internal/server/server_test.go: [go]
   web/embed.go: [go]
