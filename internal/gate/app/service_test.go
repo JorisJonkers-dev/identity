@@ -285,33 +285,45 @@ func TestTheCacheStartsAgainWhenFull(t *testing.T) {
 	}
 }
 
-func TestStartRefuses(t *testing.T) {
+func TestAGateSignInIsRefused(t *testing.T) {
+	for _, tc := range []struct {
+		name, sso, host, state string
+		noRole                 bool
+		want                   error
+	}{
+		{name: "for a host with no gated Client", sso: "sso", host: "unknown.jorisjonkers.dev", state: "s", want: app.ErrUnknownHost},
+		{name: "without the page's state", sso: "sso", host: stats.Host, want: app.ErrInvalidCode},
+		{name: "without a Single sign-on session", sso: "nobody", host: stats.Host, state: "s", want: app.ErrNoSignIn},
+		{name: "for a User with no role on the app", sso: "sso", host: stats.Host, state: "s", noRole: true, want: app.ErrNoAccess},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFixture()
+			if tc.noRole {
+				f.roles.held["tribelt-stats"] = nil
+			}
+			if _, err := f.Start(context.Background(), tc.sso, tc.host, tc.state, "/"); !errors.Is(err, tc.want) {
+				t.Fatalf("err = %v, want %v", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestAGateSignInFailsWhenTheStoreDoes(t *testing.T) {
 	f := newFixture()
-	ctx := context.Background()
-	if _, err := f.Start(ctx, "sso", "unknown.jorisjonkers.dev", "s", "/"); !errors.Is(err, app.ErrUnknownHost) {
-		t.Errorf("an unknown host = %v", err)
-	}
-	if _, err := f.Start(ctx, "sso", stats.Host, "", "/"); !errors.Is(err, app.ErrInvalidCode) {
-		t.Errorf("no state = %v", err)
-	}
-	if _, err := f.Start(ctx, "nobody", stats.Host, "s", "/"); !errors.Is(err, app.ErrNoSignIn) {
-		t.Errorf("no session = %v", err)
-	}
-	f.roles.held["tribelt-stats"] = nil
-	if _, err := f.Start(ctx, "sso", stats.Host, "s", "/"); !errors.Is(err, app.ErrNoAccess) {
-		t.Errorf("no role = %v", err)
-	}
-	f.roles.held["tribelt-stats"] = []string{"user"}
 	f.store.fail["CreateCode"] = errBoom
-	if _, err := f.Start(ctx, "sso", stats.Host, "s", "/"); !errors.Is(err, errBoom) {
-		t.Errorf("a failing store = %v", err)
+	if _, err := f.Start(context.Background(), "sso", stats.Host, "s", "/"); !errors.Is(err, errBoom) {
+		t.Fatalf("err = %v", err)
 	}
+}
+
+func TestNoGateCodeOrStateIsMadeWithoutRandomness(t *testing.T) {
+	f := newFixture()
 	dry := app.New(f.store, clients{stats.Host: stats}, f.roles, f.accounts, time.Now, bytes.NewReader(nil), time.Minute)
-	if _, err := dry.Start(ctx, "sso", stats.Host, "s", "/"); err == nil {
-		t.Error("a code without randomness")
+	if _, err := dry.Start(context.Background(), "sso", stats.Host, "s", "/"); err == nil {
+		t.Error("a code was made")
 	}
 	if _, err := dry.NewState(); err == nil {
-		t.Error("a state without randomness")
+		t.Error("a state was made")
 	}
 }
 
@@ -328,39 +340,45 @@ func TestACodeWorksOnceInTheBrowserThatStartedIt(t *testing.T) {
 	if _, _, err := f.Finish(ctx, stats.Host, code, "state-1"); !errors.Is(err, app.ErrInvalidCode) {
 		t.Fatalf("a code tried once already = %v", err)
 	}
-	for name, finish := range map[string]func(string) error{
-		"another host": func(c string) error {
-			_, _, err := f.Finish(ctx, "other.jorisjonkers.dev", c, "s")
-			return err
-		},
-		"too late": func(c string) error {
-			f.now = t0.Add(time.Hour + 2*time.Minute)
-			_, _, err := f.Finish(ctx, stats.Host, c, "s")
-			return err
-		},
-	} {
-		f.now = t0.Add(time.Hour)
-		c, _ := f.Start(ctx, "sso", stats.Host, "s", "/")
-		if err := finish(c); !errors.Is(err, app.ErrInvalidCode) {
-			t.Errorf("%s = %v", name, err)
-		}
-	}
+}
 
-	f.now = t0
-	c, _ := f.Start(ctx, "sso", stats.Host, "s", "/")
-	f.store.fail["CreateSession"] = errBoom
-	if _, _, err := f.Finish(ctx, stats.Host, c, "s"); !errors.Is(err, errBoom) {
-		t.Errorf("a failing store = %v", err)
+func TestACodeIsRefusedOnAnotherHost(t *testing.T) {
+	f := newFixture()
+	c, _ := f.Start(context.Background(), "sso", stats.Host, "s", "/")
+	if _, _, err := f.Finish(context.Background(), "other.jorisjonkers.dev", c, "s"); !errors.Is(err, app.ErrInvalidCode) {
+		t.Fatalf("err = %v", err)
 	}
-	f.store.fail = map[string]error{"TakeCode": errBoom}
-	if _, _, err := f.Finish(ctx, stats.Host, c, "s"); !errors.Is(err, errBoom) {
-		t.Errorf("a failing take = %v", err)
+}
+
+func TestACodeIsRefusedOnceItExpired(t *testing.T) {
+	f := newFixture()
+	f.now = t0.Add(time.Hour)
+	c, _ := f.Start(context.Background(), "sso", stats.Host, "s", "/")
+	f.now = t0.Add(time.Hour + 2*time.Minute)
+	if _, _, err := f.Finish(context.Background(), stats.Host, c, "s"); !errors.Is(err, app.ErrInvalidCode) {
+		t.Fatalf("err = %v", err)
 	}
-	dry := newFixture()
-	dc, _ := dry.Start(ctx, "sso", stats.Host, "s", "/")
-	dry.Service = app.New(dry.store, clients{stats.Host: stats}, dry.roles, dry.accounts, func() time.Time { return t0 }, bytes.NewReader(nil), time.Minute)
-	if _, _, err := dry.Finish(ctx, stats.Host, dc, "s"); err == nil {
-		t.Error("a host cookie without randomness")
+}
+
+func TestFinishingAGateSignInFailsWhenTheStoreDoes(t *testing.T) {
+	for _, op := range []string{"CreateSession", "TakeCode"} {
+		t.Run(op, func(t *testing.T) {
+			f := newFixture()
+			c, _ := f.Start(context.Background(), "sso", stats.Host, "s", "/")
+			f.store.fail[op] = errBoom
+			if _, _, err := f.Finish(context.Background(), stats.Host, c, "s"); !errors.Is(err, errBoom) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
+
+func TestNoHostCookieIsMadeWithoutRandomness(t *testing.T) {
+	f := newFixture()
+	c, _ := f.Start(context.Background(), "sso", stats.Host, "s", "/")
+	f.Service = app.New(f.store, clients{stats.Host: stats}, f.roles, f.accounts, func() time.Time { return t0 }, bytes.NewReader(nil), time.Minute)
+	if _, _, err := f.Finish(context.Background(), stats.Host, c, "s"); err == nil {
+		t.Fatal("a host cookie was made")
 	}
 }
 

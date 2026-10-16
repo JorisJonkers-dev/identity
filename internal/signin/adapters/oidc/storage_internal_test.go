@@ -97,35 +97,51 @@ func TestSignOutFailureIsAServerError(t *testing.T) {
 	wantOIDC(t, s.TerminateSession(context.Background(), a.ada.String(), "web"), "server_error")
 }
 
-func TestUserinfo(t *testing.T) {
-	ctx := context.Background()
+func TestUserinfoForAnEmailScopeHasTheEmailAndNoSession(t *testing.T) {
 	s, _, a := newStorage()
-
 	info := new(oidc.UserInfo)
-	if err := s.SetUserinfoFromRequest(ctx, info, tokenRequest{a.ada.String()}, []string{"openid", "email"}); err != nil {
+	if err := s.SetUserinfoFromRequest(context.Background(), info, tokenRequest{a.ada.String()}, []string{"openid", "email"}); err != nil {
 		t.Fatal(err)
 	}
 	if info.Email != "ada@example.org" || info.Name != "" || info.Claims["sid"] != nil {
-		t.Fatalf("an email-only request that is not an authorization request: %+v", info)
+		t.Fatalf("userinfo = %+v", info)
 	}
-	info = new(oidc.UserInfo)
+}
+
+func TestUserinfoForAProfileScopeHasTheNameAndTheSession(t *testing.T) {
+	s, _, a := newStorage()
+	info := new(oidc.UserInfo)
 	pending := authRequest{domain.AuthRequest{ClientID: "spa", SignIn: &domain.SignIn{UserID: a.ada, SessionID: a.sessionID}}}
-	if err := s.SetUserinfoFromRequest(ctx, info, pending, []string{"profile"}); err != nil {
+	if err := s.SetUserinfoFromRequest(context.Background(), info, pending, []string{"profile"}); err != nil {
 		t.Fatal(err)
 	}
 	if info.Email != "" || info.Name != "Ada" || info.Claims["sid"] != a.sessionID.String() {
-		t.Fatalf("a profile request: %+v", info)
+		t.Fatalf("userinfo = %+v", info)
 	}
-	unfinished := authRequest{domain.AuthRequest{}}
-	wantOIDC(t, s.SetUserinfoFromRequest(ctx, new(oidc.UserInfo), unfinished, nil), "invalid_request")
+}
 
+func TestUserinfoForAnUnfinishedSignInIsRefused(t *testing.T) {
+	s, _, _ := newStorage()
+	wantOIDC(t, s.SetUserinfoFromRequest(context.Background(), new(oidc.UserInfo), authRequest{domain.AuthRequest{}}, nil), "invalid_request")
+}
+
+func TestIntrospectionNamesTheUserATokenWasIssuedTo(t *testing.T) {
+	s, _, a := newStorage()
 	resp := new(oidc.IntrospectionResponse)
-	if err := s.SetIntrospectionFromToken(ctx, resp, "t", a.ada.String(), "web"); err != nil || resp.Email != "ada@example.org" || resp.Subject != a.ada.String() {
+	if err := s.SetIntrospectionFromToken(context.Background(), resp, "t", a.ada.String(), "web"); err != nil || resp.Email != "ada@example.org" || resp.Subject != a.ada.String() {
 		t.Fatalf("introspection = %+v, %v", resp, err)
 	}
-	wantOIDC(t, s.SetIntrospectionFromToken(ctx, resp, "t", uuid.NewString(), "web"), "invalid_request")
+}
+
+func TestIntrospectionOfAnUnknownUserIsRefused(t *testing.T) {
+	s, _, _ := newStorage()
+	wantOIDC(t, s.SetIntrospectionFromToken(context.Background(), new(oidc.IntrospectionResponse), "t", uuid.NewString(), "web"), "invalid_request")
+}
+
+func TestUserinfoFailsAsAServerErrorWhenTheClaimsCannotBeRead(t *testing.T) {
+	s, _, a := newStorage()
 	a.failClaims = errBoom
-	wantOIDC(t, s.SetUserinfoFromToken(ctx, new(oidc.UserInfo), "t", a.ada.String(), "web"), "server_error")
+	wantOIDC(t, s.SetUserinfoFromToken(context.Background(), new(oidc.UserInfo), "t", a.ada.String(), "web"), "server_error")
 }
 
 func TestRolesInTokens(t *testing.T) {
@@ -157,7 +173,7 @@ func TestAWrapperBeforeSignInVouchesForNobody(t *testing.T) {
 	}
 }
 
-func TestClientSettings(t *testing.T) {
+func TestAClientRunsWithTheProvidersDefaults(t *testing.T) {
 	c := client{testClients["spa"]}
 	if len(c.PostLogoutRedirectURIs()) != 1 || c.DevMode() || c.IsScopeAllowed("admin") || c.ClockSkew() != 0 {
 		t.Fatalf("client settings = %+v", c)

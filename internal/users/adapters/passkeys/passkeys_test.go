@@ -8,6 +8,7 @@ import (
 	"github.com/descope/virtualwebauthn"
 	"github.com/google/uuid"
 
+	"github.com/JorisJonkers-dev/identity/internal/platform/itest"
 	"github.com/JorisJonkers-dev/identity/internal/users/adapters/passkeys"
 	"github.com/JorisJonkers-dev/identity/internal/users/app"
 )
@@ -50,7 +51,7 @@ func TestAPasskeyIsMadeThenSignsIn(t *testing.T) {
 		t.Fatal(err)
 	}
 	auth := virtualwebauthn.NewAuthenticator()
-	cred := virtualwebauthn.NewCredential(virtualwebauthn.KeyTypeEC2)
+	cred := itest.PasskeyCredential(t)
 	auth.AddCredential(cred)
 	u := app.PasskeyUser{ID: uuid.New(), Email: "ada@example.org", Name: "Ada"}
 
@@ -131,7 +132,7 @@ func TestWhatIsNotAPasskeyIsRefused(t *testing.T) {
 
 	// An attestation answered for another challenge is refused.
 	auth := virtualwebauthn.NewAuthenticator()
-	cred := virtualwebauthn.NewCredential(virtualwebauthn.KeyTypeEC2)
+	cred := itest.PasskeyCredential(t)
 	options, _, _ := c.BeginRegistration(u)
 	attestation, _ := virtualwebauthn.ParseAttestationOptions(publicKey(t, options))
 	_, otherCeremony, _ := c.BeginRegistration(u)

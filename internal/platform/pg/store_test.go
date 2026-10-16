@@ -10,7 +10,7 @@ import (
 
 const unreachable = "postgres://nobody@127.0.0.1:1/none?sslmode=disable&connect_timeout=1"
 
-func TestOpenFails(t *testing.T) {
+func TestOpeningAnUnreachableOrMalformedDatabaseFails(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 	defer cancel()

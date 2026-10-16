@@ -26,7 +26,7 @@ func TestNewGroupName(t *testing.T) {
 	}
 }
 
-func TestClientDeclares(t *testing.T) {
+func TestAClientDeclaresOnlyItsOwnAppRoles(t *testing.T) {
 	c := domain.Client{ID: "grafana", Roles: []string{"user", "editor"}}
 	if !c.Declares("editor") || c.Declares("admin") {
 		t.Fatalf("Declares: editor %v, admin %v", c.Declares("editor"), c.Declares("admin"))

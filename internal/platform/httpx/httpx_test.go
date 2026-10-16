@@ -11,7 +11,7 @@ import (
 	"github.com/JorisJonkers-dev/identity/internal/platform/httpx"
 )
 
-func TestWriteProblem(t *testing.T) {
+func TestAProblemCarriesItsStatusTitleAndDetail(t *testing.T) {
 	rec := httptest.NewRecorder()
 	httpx.WriteProblem(rec, http.StatusTeapot, "Longer")
 	if rec.Code != http.StatusTeapot || rec.Header().Get("Content-Type") != "application/problem+json" {
@@ -32,7 +32,7 @@ func TestProblemOmitsAnEmptyDetail(t *testing.T) {
 	}
 }
 
-func TestSecurityHeaders(t *testing.T) {
+func TestEveryResponseCarriesTheHardeningHeaders(t *testing.T) {
 	rec := httptest.NewRecorder()
 	httpx.SecurityHeaders(http.NotFoundHandler()).ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
 	for _, h := range []string{"Content-Security-Policy", "X-Content-Type-Options", "Referrer-Policy", "X-Frame-Options", "Strict-Transport-Security"} {

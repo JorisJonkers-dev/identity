@@ -256,16 +256,19 @@ func TestStartKeepsTheRequestForTenMinutes(t *testing.T) {
 	}
 }
 
-func TestStartFailures(t *testing.T) {
+func TestNoSignInStartsWithoutRandomness(t *testing.T) {
 	f := newFixture()
 	f.Service = app.New(f.requests, clients{}, f.accounts, f.access, f.logouts, time.Now, broken{})
 	if _, err := f.Start(context.Background(), domain.AuthRequest{}); !errors.Is(err, errBoom) {
-		t.Fatalf("no entropy: %v", err)
+		t.Fatalf("err = %v", err)
 	}
-	f = newFixture()
+}
+
+func TestStartingASignInFailsWhenTheStoreDoes(t *testing.T) {
+	f := newFixture()
 	f.requests.fail["CreateRequest"] = errBoom
 	if _, err := f.Start(context.Background(), domain.AuthRequest{}); !errors.Is(err, errBoom) {
-		t.Fatalf("a failing store: %v", err)
+		t.Fatalf("err = %v", err)
 	}
 }
 
@@ -375,21 +378,36 @@ func TestACodeIsStoredHashedAndIssuedOnce(t *testing.T) {
 	}
 }
 
-func TestAuthorizeSecret(t *testing.T) {
-	f := newFixture()
-	ctx := context.Background()
-	if err := f.AuthorizeSecret(ctx, "web", "s3cret"); err != nil {
-		t.Fatalf("the right secret: %v", err)
+func TestAConfidentialClientIsAuthorizedByItsSecret(t *testing.T) {
+	if err := newFixture().AuthorizeSecret(context.Background(), "web", "s3cret"); err != nil {
+		t.Fatalf("err = %v", err)
 	}
-	for _, c := range [][2]string{{"web", "wrong"}, {"spa", ""}, {"nobody", "s3cret"}, {"unready", ""}, {"gated", ""}} {
-		if err := f.AuthorizeSecret(ctx, c[0], c[1]); !errors.Is(err, app.ErrInvalidClient) {
-			t.Errorf("AuthorizeSecret(%q, %q) = %v", c[0], c[1], err)
-		}
+}
+
+func TestAClientIsRefusedWithoutItsSecret(t *testing.T) {
+	for _, c := range []struct{ name, client, secret string }{
+		{"a wrong secret", "web", "wrong"},
+		{"a public Client", "spa", ""},
+		{"an unknown Client", "nobody", "s3cret"},
+		{"a Client whose secret is not minted yet", "unready", ""},
+		{"a gated Client", "gated", ""},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			if err := newFixture().AuthorizeSecret(context.Background(), c.client, c.secret); !errors.Is(err, app.ErrInvalidClient) {
+				t.Fatalf("err = %v, want ErrInvalidClient", err)
+			}
+		})
 	}
-	if err := f.AuthorizeSecret(ctx, "broken", "x"); !errors.Is(err, errBoom) {
-		t.Fatalf("a failing client source: %v", err)
+}
+
+func TestAuthorizingASecretFailsWhenTheClientsCannotBeRead(t *testing.T) {
+	if err := newFixture().AuthorizeSecret(context.Background(), "broken", "x"); !errors.Is(err, errBoom) {
+		t.Fatalf("err = %v", err)
 	}
-	if c, err := f.Client(ctx, "spa"); err != nil || !c.Public() {
+}
+
+func TestAPKCEClientIsPublic(t *testing.T) {
+	if c, err := newFixture().Client(context.Background(), "spa"); err != nil || !c.Public() {
 		t.Fatalf("Client = %+v, %v", c, err)
 	}
 }
