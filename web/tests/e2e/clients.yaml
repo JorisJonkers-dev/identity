@@ -19,7 +19,7 @@ spec:
   label: Phone stats
   roles: [user]
 ---
-# The Launcher's apps: Board's icon is served by tests/e2e/icon-host.mjs, and Notes' icon is
+# The Launcher's apps: Board's icon is served by tests/e2e/icon-host.ts, and Notes' icon is
 # missing there, so its tile falls back to the label's first letter.
 apiVersion: identity.jorisjonkers.dev/v1
 kind: Client

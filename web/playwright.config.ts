@@ -20,7 +20,7 @@ export default defineConfig({
   webServer: [
     {
       // A Client's own host, serving the icons tests/e2e/clients.yaml names.
-      command: 'node tests/e2e/icon-host.mjs',
+      command: 'node tests/e2e/icon-host.ts',
       url: 'http://localhost:18603/healthz',
       reuseExistingServer: !process.env.CI,
     },
