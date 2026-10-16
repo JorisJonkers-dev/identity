@@ -66,6 +66,18 @@ jobs:
         with:
           cache: true
 
+      # gobco builds every package afresh in a copy of the module, so without a warm build cache the
+      # unit gate spends most of its time compiling the Kubernetes client and zitadel/oidc again.
+      - name: Keep the Go build cache
+        if: ${{ matrix.on == 'true' && contains(fromJSON('["lint:go", "gen:check", "test:go:unit", "test:integration", "build"]'), matrix.task) }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: go-${{ runner.os }}-${{ matrix.task }}-${{ hashFiles('go.sum') }}
+          restore-keys: go-${{ runner.os }}-${{ matrix.task }}-
+
       - name: Run the task
         if: ${{ matrix.on == 'true' }}
         env:
