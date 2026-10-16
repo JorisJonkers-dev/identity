@@ -9,6 +9,7 @@ package itest
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -124,10 +125,13 @@ func (e *Env) Browser() *Browser {
 }
 
 // SignedUp is a Browser of a User who signed up as email, confirmed through the mailed link, and
-// signed in.
+// signed in. The address gets a tag of its own (ada+3f2a@example.org), so tests that run at once
+// never read each other's mail; Browser.Email is the address as signed up.
 func (e *Env) SignedUp(t *testing.T, email string) *Browser {
 	t.Helper()
 	b := e.Browser()
+	local, domain, _ := strings.Cut(email, "@")
+	email = local + "+" + strings.ToLower(rand.Text()[:8]) + "@" + domain
 	b.Email = email
 	b.Call(t, http.MethodPost, "/api/v1/signup", map[string]string{"email": email, "name": "Grace Hopper", "password": Password}, http.StatusAccepted, nil)
 	b.Call(t, http.MethodPost, "/api/v1/confirmations", map[string]string{"token": confirmationToken(t, email), "password": Password}, http.StatusNoContent, nil)
@@ -140,7 +144,7 @@ func (e *Env) SignedUp(t *testing.T, email string) *Browser {
 func (e *Env) Admin(t *testing.T, email string) *Browser {
 	t.Helper()
 	b := e.SignedUp(t, email)
-	e.promote(t, email)
+	e.Promote(t, b.Email)
 	var setup struct{ Secret string }
 	b.Call(t, http.MethodPost, "/api/v1/profile/second-factors/totp", nil, http.StatusOK, &setup)
 	code, err := totp.GenerateCode(setup.Secret, time.Now())
@@ -152,7 +156,7 @@ func (e *Env) Admin(t *testing.T, email string) *Browser {
 	// Signing in again as an Admin is what caps the session at 12 hours; the code that added the app
 	// is spent, so the next step's code proves it.
 	b.Call(t, http.MethodDelete, "/api/v1/session", nil, http.StatusNoContent, nil)
-	b.Call(t, http.MethodPost, "/api/v1/session", map[string]string{"email": email, "password": Password}, http.StatusAccepted, nil)
+	b.Call(t, http.MethodPost, "/api/v1/session", map[string]string{"email": b.Email, "password": Password}, http.StatusAccepted, nil)
 	next, err := totp.GenerateCode(setup.Secret, time.Now().Add(30*time.Second))
 	if err != nil {
 		t.Fatal(err)
@@ -161,8 +165,9 @@ func (e *Env) Admin(t *testing.T, email string) *Browser {
 	return b
 }
 
-// promote puts the User signed up as email in the admins Group, as `identity admin promote` does.
-func (e *Env) promote(t *testing.T, email string) {
+// Promote puts the User signed up as email in the admins Group, as `identity admin promote` does.
+// Their session proves no Second Factor until they add one and sign in again (Admin does both).
+func (e *Env) Promote(t *testing.T, email string) {
 	t.Helper()
 	q := e.db.Queries()
 	u, err := q.UserByEmail(t.Context(), email)
