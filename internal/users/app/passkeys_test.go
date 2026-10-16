@@ -215,116 +215,167 @@ func TestPasskeyOptionsNeedAPasskeyAndALiveChallenge(t *testing.T) {
 	}
 }
 
-func TestPasskeyFailures(t *testing.T) {
+var errBoomPK = errors.New("boom")
+
+func TestWithoutWebAuthnPasskeysAreUnavailable(t *testing.T) {
 	ctx := context.Background()
-	boom := errors.New("boom")
-
 	bare := app.New(newStore(), &hasher{}, &mailer{}, time.Now, bytes.NewReader(nil), "")
-	if _, err := bare.StartPasskey(ctx, uuid.New()); !errors.Is(err, app.ErrUnavailable) {
-		t.Errorf("StartPasskey without WebAuthn = %v", err)
+	for name, call := range map[string]func() error{
+		"starting one":           func() error { _, err := bare.StartPasskey(ctx, uuid.New()); return err },
+		"confirming one":         func() error { return bare.ConfirmPasskey(ctx, uuid.New(), "s", "MacBook", nil, pw) },
+		"asking for its options": func() error { _, err := bare.PasskeyOptions(ctx, "c"); return err },
+		"signing in with one":    func() error { _, err := bare.CompleteSignInWithPasskey(ctx, "c", nil); return err },
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := call(); !errors.Is(err, app.ErrUnavailable) {
+				t.Fatalf("err = %v, want ErrUnavailable", err)
+			}
+		})
 	}
-	if err := bare.ConfirmPasskey(ctx, uuid.New(), "s", "MacBook", nil, pw); !errors.Is(err, app.ErrUnavailable) {
-		t.Errorf("ConfirmPasskey without WebAuthn = %v", err)
-	}
-	if _, err := bare.PasskeyOptions(ctx, "c"); !errors.Is(err, app.ErrUnavailable) {
-		t.Errorf("PasskeyOptions without WebAuthn = %v", err)
-	}
-	if _, err := bare.CompleteSignInWithPasskey(ctx, "c", nil); !errors.Is(err, app.ErrUnavailable) {
-		t.Errorf("CompleteSignInWithPasskey without WebAuthn = %v", err)
-	}
-	if err := bare.ConfirmPasskey(ctx, uuid.New(), "s", " ", nil, pw); err == nil {
-		t.Error("an empty passkey name was accepted")
-	}
+}
 
-	for _, method := range []string{"UserByID", "Passkeys", "SavePasskeyEnrolment"} {
-		f := newFixture()
-		id := f.signedUp(t, "ada@example.org")
-		f.store.fail[method] = boom
-		if _, err := f.StartPasskey(ctx, id); !errors.Is(err, boom) {
-			t.Errorf("StartPasskey when %s fails = %v", method, err)
-		}
+func TestAPasskeyNeedsAName(t *testing.T) {
+	bare := app.New(newStore(), &hasher{}, &mailer{}, time.Now, bytes.NewReader(nil), "")
+	if err := bare.ConfirmPasskey(context.Background(), uuid.New(), "s", " ", nil, pw); err == nil {
+		t.Fatal("an empty passkey name was accepted")
 	}
+}
+
+func TestStartingAPasskeyFailsWhenTheStoreDoes(t *testing.T) {
+	for _, method := range []string{"UserByID", "Passkeys", "SavePasskeyEnrolment"} {
+		t.Run(method, func(t *testing.T) {
+			f := newFixture()
+			id := f.signedUp(t, "ada@example.org")
+			f.store.fail[method] = errBoomPK
+			if _, err := f.StartPasskey(context.Background(), id); !errors.Is(err, errBoomPK) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
+
+func TestStartingAPasskeyFailsWhenWebAuthnDoes(t *testing.T) {
 	f := newFixture()
 	id := f.signedUp(t, "ada@example.org")
-	f.wa.failBegin = boom
-	if _, err := f.StartPasskey(ctx, id); !errors.Is(err, boom) {
-		t.Errorf("StartPasskey when WebAuthn fails = %v", err)
+	f.wa.failBegin = errBoomPK
+	if _, err := f.StartPasskey(context.Background(), id); !errors.Is(err, errBoomPK) {
+		t.Fatalf("err = %v", err)
 	}
+}
 
-	for _, method := range []string{"PasskeyEnrolment", "CreatePasskey", "DeletePasskeyEnrolment", "SetSessionMethods", "Passkeys"} {
-		f := newFixture()
-		id := f.signedUp(t, "ada@example.org")
-		session, _ := f.SignIn(ctx, "ada@example.org", pw)
-		_, _ = f.StartPasskey(ctx, id)
-		f.store.fail[method] = boom
-		if err := f.ConfirmPasskey(ctx, id, session, "MacBook", []byte("made:reg-"+id.String()), pw); !errors.Is(err, boom) {
-			t.Errorf("ConfirmPasskey when %s fails = %v", method, err)
-		}
-	}
-	f = newFixture()
-	id = f.signedUp(t, "ada@example.org")
+// addingPasskey is a fixture where Ada, signed in, has started adding a passkey.
+func addingPasskey(t *testing.T) (*fixture, uuid.UUID, string) {
+	t.Helper()
+	ctx := context.Background()
+	f := newFixture()
+	id := f.signedUp(t, "ada@example.org")
 	session, _ := f.SignIn(ctx, "ada@example.org", pw)
 	_, _ = f.StartPasskey(ctx, id)
+	return f, id, session
+}
+
+func TestConfirmingAPasskeyFailsWhenTheStoreDoes(t *testing.T) {
+	for _, method := range []string{"PasskeyEnrolment", "CreatePasskey", "DeletePasskeyEnrolment", "SetSessionMethods", "Passkeys"} {
+		t.Run(method, func(t *testing.T) {
+			f, id, session := addingPasskey(t)
+			f.store.fail[method] = errBoomPK
+			if err := f.ConfirmPasskey(context.Background(), id, session, "MacBook", []byte("made:reg-"+id.String()), pw); !errors.Is(err, errBoomPK) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
+
+func TestConfirmingAPasskeyFailsWhenThePasskeysCannotBeReadForTheCeremony(t *testing.T) {
+	f, id, session := addingPasskey(t)
 	one := 1
 	f.store.passkeyReads = &one
-	if err := f.ConfirmPasskey(ctx, id, session, "MacBook", []byte("made:reg-"+id.String()), pw); err == nil {
-		t.Error("ConfirmPasskey when the passkeys cannot be read for the ceremony")
+	if err := f.ConfirmPasskey(context.Background(), id, session, "MacBook", []byte("made:reg-"+id.String()), pw); err == nil {
+		t.Fatal("a passkey was kept")
 	}
-	f.store.passkeyReads = nil
+}
+
+func TestNoPasskeyIsKeptWithoutRandomnessForItsID(t *testing.T) {
+	f, id, session := addingPasskey(t)
 	f.dry = true
-	if err := f.ConfirmPasskey(ctx, id, session, "MacBook", []byte("made:reg-"+id.String()), pw); err == nil {
-		t.Error("a passkey id without randomness")
+	if err := f.ConfirmPasskey(context.Background(), id, session, "MacBook", []byte("made:reg-"+id.String()), pw); err == nil {
+		t.Fatal("a passkey was kept without randomness")
 	}
+}
 
-	// The passkey step of a sign-in.
-	signInFixture := func(t *testing.T) (*fixture, uuid.UUID, string) {
-		t.Helper()
-		f := newFixture()
-		id, _ := f.withPasskey(t)
-		f.now = t0.Add(time.Hour)
-		challenge, _ := f.SignIn(ctx, "ada@example.org", pw)
-		return f, id, challenge
-	}
+// passkeyStep is a fixture an hour after Ada added a passkey, mid sign-in.
+func passkeyStep(t *testing.T) (*fixture, uuid.UUID, string) {
+	t.Helper()
+	f := newFixture()
+	id, _ := f.withPasskey(t)
+	f.now = t0.Add(time.Hour)
+	challenge, _ := f.SignIn(context.Background(), "ada@example.org", pw)
+	return f, id, challenge
+}
+
+func TestThePasskeyOptionsFailWhenTheStoreDoes(t *testing.T) {
 	for _, method := range []string{"ChallengeCeremony", "UserByID", "SetChallengeCeremony"} {
-		f, _, challenge := signInFixture(t)
-		f.store.fail[method] = boom
-		if _, err := f.PasskeyOptions(ctx, challenge); !errors.Is(err, boom) {
-			t.Errorf("PasskeyOptions when %s fails = %v", method, err)
-		}
+		t.Run(method, func(t *testing.T) {
+			f, _, challenge := passkeyStep(t)
+			f.store.fail[method] = errBoomPK
+			if _, err := f.PasskeyOptions(context.Background(), challenge); !errors.Is(err, errBoomPK) {
+				t.Fatalf("err = %v", err)
+			}
+		})
 	}
-	f1, _, expiring := signInFixture(t)
-	f1.store.fail["SetChallengeCeremony"] = app.ErrNotFound
-	if _, err := f1.PasskeyOptions(ctx, expiring); !errors.Is(err, app.ErrInvalidToken) {
-		t.Errorf("PasskeyOptions when the challenge expired meanwhile = %v", err)
-	}
-	f2, _, challenge := signInFixture(t)
-	f2.wa.failBegin = boom
-	if _, err := f2.PasskeyOptions(ctx, challenge); !errors.Is(err, boom) {
-		t.Errorf("PasskeyOptions when WebAuthn fails = %v", err)
-	}
+}
 
+func TestThePasskeyOptionsOfAChallengeThatExpiredMeanwhileAreRefused(t *testing.T) {
+	f, _, challenge := passkeyStep(t)
+	f.store.fail["SetChallengeCeremony"] = app.ErrNotFound
+	if _, err := f.PasskeyOptions(context.Background(), challenge); !errors.Is(err, app.ErrInvalidToken) {
+		t.Fatalf("err = %v, want ErrInvalidToken", err)
+	}
+}
+
+func TestThePasskeyOptionsFailWhenWebAuthnDoes(t *testing.T) {
+	f, _, challenge := passkeyStep(t)
+	f.wa.failBegin = errBoomPK
+	if _, err := f.PasskeyOptions(context.Background(), challenge); !errors.Is(err, errBoomPK) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestFinishingASignInWithAPasskeyFailsWhenTheStoreDoes(t *testing.T) {
 	for _, method := range []string{"SpendChallengeAttempt", "TakeChallengeCeremony", "Passkeys", "UsePasskey", "DeleteChallenge", "CreateSession"} {
-		f, id, challenge := signInFixture(t)
-		_, _ = f.PasskeyOptions(ctx, challenge)
-		f.store.fail[method] = boom
-		if _, err := f.CompleteSignInWithPasskey(ctx, challenge, []byte("signed:login-"+id.String()+"|cred-1")); !errors.Is(err, boom) {
-			t.Errorf("CompleteSignInWithPasskey when %s fails = %v", method, err)
-		}
+		t.Run(method, func(t *testing.T) {
+			ctx := context.Background()
+			f, id, challenge := passkeyStep(t)
+			_, _ = f.PasskeyOptions(ctx, challenge)
+			f.store.fail[method] = errBoomPK
+			if _, err := f.CompleteSignInWithPasskey(ctx, challenge, []byte("signed:login-"+id.String()+"|cred-1")); !errors.Is(err, errBoomPK) {
+				t.Fatalf("err = %v", err)
+			}
+		})
 	}
-	f3, _, challenge := signInFixture(t)
-	f3.store.fail["Passkeys"] = boom
-	if _, err := f3.ChallengeKinds(ctx, challenge); !errors.Is(err, boom) {
-		t.Errorf("ChallengeKinds when the factors cannot be read = %v", err)
-	}
-	f3.store.fail = map[string]error{"TOTPFactors": boom}
-	if _, err := f3.SignIn(ctx, "ada@example.org", pw); !errors.Is(err, boom) {
-		t.Errorf("SignIn when the factors cannot be read = %v", err)
-	}
+}
 
-	f4 := newFixture()
-	pid, psession := f4.withPasskey(t)
-	f4.store.fail["DeletePasskey"] = boom
-	if err := f4.RemoveFactor(ctx, pid, f4.store.passkeys[0].ID, psession, pw); !errors.Is(err, boom) {
-		t.Errorf("RemoveFactor when DeletePasskey fails = %v", err)
+func TestTheSecondFactorKindsFailWhenThePasskeysCannotBeRead(t *testing.T) {
+	f, _, challenge := passkeyStep(t)
+	f.store.fail["Passkeys"] = errBoomPK
+	if _, err := f.ChallengeKinds(context.Background(), challenge); !errors.Is(err, errBoomPK) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestSigningInFailsWhenTheAuthenticatorsCannotBeRead(t *testing.T) {
+	f, _, _ := passkeyStep(t)
+	f.store.fail["TOTPFactors"] = errBoomPK
+	if _, err := f.SignIn(context.Background(), "ada@example.org", pw); !errors.Is(err, errBoomPK) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestRemovingAPasskeyFailsWhenTheStoreDoes(t *testing.T) {
+	f := newFixture()
+	id, session := f.withPasskey(t)
+	f.store.fail["DeletePasskey"] = errBoomPK
+	if err := f.RemoveFactor(context.Background(), id, f.store.passkeys[0].ID, session, pw); !errors.Is(err, errBoomPK) {
+		t.Fatalf("err = %v", err)
 	}
 }

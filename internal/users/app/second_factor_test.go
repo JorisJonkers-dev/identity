@@ -302,124 +302,174 @@ func TestAnAdminSessionLastsTwelveHours(t *testing.T) {
 	}
 }
 
-func TestSecondFactorFailures(t *testing.T) {
+var errBoomSF = errors.New("boom")
+
+func TestWithoutVaultAuthenticatorAppsAreUnavailable(t *testing.T) {
 	ctx := context.Background()
-	boom := errors.New("boom")
-
 	bare := app.New(newStore(), &hasher{}, &mailer{}, time.Now, bytes.NewReader(nil), "")
-	if _, err := bare.StartTOTP(ctx, uuid.New()); !errors.Is(err, app.ErrUnavailable) {
-		t.Errorf("StartTOTP without a sealer = %v", err)
+	for name, call := range map[string]func() error{
+		"starting one":         func() error { _, err := bare.StartTOTP(ctx, uuid.New()); return err },
+		"confirming one":       func() error { return bare.ConfirmTOTP(ctx, uuid.New(), "s", "Phone", "123456", pw) },
+		"signing in with code": func() error { _, err := bare.CompleteSignIn(ctx, "c", "123456"); return err },
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := call(); !errors.Is(err, app.ErrUnavailable) {
+				t.Fatalf("err = %v, want ErrUnavailable", err)
+			}
+		})
 	}
-	if err := bare.ConfirmTOTP(ctx, uuid.New(), "s", "Phone", "123456", pw); !errors.Is(err, app.ErrUnavailable) {
-		t.Errorf("ConfirmTOTP without a sealer = %v", err)
-	}
-	if _, err := bare.CompleteSignIn(ctx, "c", "123456"); !errors.Is(err, app.ErrUnavailable) {
-		t.Errorf("CompleteSignIn without a sealer = %v", err)
-	}
+}
 
+func TestSigningInWithASecondFactorFailsWhenTheStoreDoes(t *testing.T) {
 	for _, method := range []string{"TOTPFactors", "SaveChallenge"} {
-		f := newFixture()
-		f.enrolled(t, "ada@example.org")
-		f.store.fail[method] = boom
-		if _, err := f.SignIn(ctx, "ada@example.org", pw); !errors.Is(err, boom) {
-			t.Errorf("SignIn when %s fails = %v", method, err)
-		}
+		t.Run(method, func(t *testing.T) {
+			f := newFixture()
+			f.enrolled(t, "ada@example.org")
+			f.store.fail[method] = errBoomSF
+			if _, err := f.SignIn(context.Background(), "ada@example.org", pw); !errors.Is(err, errBoomSF) {
+				t.Fatalf("err = %v", err)
+			}
+		})
 	}
-	for _, method := range []string{"SpendChallengeAttempt", "TOTPFactors", "UseTOTPStep", "DeleteChallenge", "CreateSession"} {
-		f := newFixture()
-		_, secret, _ := f.enrolled(t, "ada@example.org")
-		f.now = t0.Add(time.Hour)
-		challenge, _ := f.SignIn(ctx, "ada@example.org", pw)
-		f.store.fail[method] = boom
-		if _, err := f.CompleteSignIn(ctx, challenge, code(t, secret, f.now)); !errors.Is(err, boom) {
-			t.Errorf("CompleteSignIn when %s fails = %v", method, err)
-		}
-	}
+}
+
+// codeStep is a fixture an hour after Ada enrolled, mid sign-in, with the code to finish it.
+func codeStep(t *testing.T) (*fixture, string, string) {
+	t.Helper()
 	f := newFixture()
 	_, secret, _ := f.enrolled(t, "ada@example.org")
 	f.now = t0.Add(time.Hour)
-	challenge, _ := f.SignIn(ctx, "ada@example.org", pw)
-	f.sealer.failOpen = boom
-	if _, err := f.CompleteSignIn(ctx, challenge, code(t, secret, f.now)); !errors.Is(err, boom) {
-		t.Errorf("CompleteSignIn when Vault fails = %v", err)
-	}
+	challenge, _ := f.SignIn(context.Background(), "ada@example.org", pw)
+	return f, challenge, code(t, secret, f.now)
+}
 
+func TestFinishingASignInWithACodeFailsWhenTheStoreDoes(t *testing.T) {
+	for _, method := range []string{"SpendChallengeAttempt", "TOTPFactors", "UseTOTPStep", "DeleteChallenge", "CreateSession"} {
+		t.Run(method, func(t *testing.T) {
+			f, challenge, c := codeStep(t)
+			f.store.fail[method] = errBoomSF
+			if _, err := f.CompleteSignIn(context.Background(), challenge, c); !errors.Is(err, errBoomSF) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
+
+func TestFinishingASignInWithACodeFailsWhenVaultCannotOpenTheSecret(t *testing.T) {
+	f, challenge, c := codeStep(t)
+	f.sealer.failOpen = errBoomSF
+	if _, err := f.CompleteSignIn(context.Background(), challenge, c); !errors.Is(err, errBoomSF) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestStartingAnAuthenticatorFailsWhenTheStoreDoes(t *testing.T) {
 	for _, method := range []string{"UserByID", "SaveTOTPEnrolment"} {
-		f := newFixture()
-		id := f.signedUp(t, "ada@example.org")
-		f.store.fail[method] = boom
-		if _, err := f.StartTOTP(ctx, id); !errors.Is(err, boom) {
-			t.Errorf("StartTOTP when %s fails = %v", method, err)
-		}
+		t.Run(method, func(t *testing.T) {
+			f := newFixture()
+			id := f.signedUp(t, "ada@example.org")
+			f.store.fail[method] = errBoomSF
+			if _, err := f.StartTOTP(context.Background(), id); !errors.Is(err, errBoomSF) {
+				t.Fatalf("err = %v", err)
+			}
+		})
 	}
-	f = newFixture()
-	id := f.signedUp(t, "ada@example.org")
-	f.sealer.failSeal = boom
-	if _, err := f.StartTOTP(ctx, id); !errors.Is(err, boom) {
-		t.Errorf("StartTOTP when Vault fails = %v", err)
-	}
-	broken := app.New(newStore(), &hasher{}, &mailer{}, time.Now, bytes.NewReader(nil), "", app.WithSealer(&sealer{}))
-	if _, err := broken.StartTOTP(ctx, uuid.New()); err == nil {
-		t.Error("StartTOTP for nobody succeeded")
-	}
+}
 
-	for _, method := range []string{"TOTPEnrolment", "CreateTOTPFactor", "DeleteTOTPEnrolment", "SetSessionMethods", "TOTPFactors", "DeleteOtherSessions"} {
-		f := newFixture()
-		id := f.signedUp(t, "ada@example.org")
-		setup, _ := f.StartTOTP(ctx, id)
-		f.store.fail[method] = boom
-		if err := f.ConfirmTOTP(ctx, id, "s", "Phone", code(t, setup.Secret, f.now), pw); !errors.Is(err, boom) {
-			t.Errorf("ConfirmTOTP when %s fails = %v", method, err)
-		}
+func TestStartingAnAuthenticatorFailsWhenVaultCannotSealTheSecret(t *testing.T) {
+	f := newFixture()
+	id := f.signedUp(t, "ada@example.org")
+	f.sealer.failSeal = errBoomSF
+	if _, err := f.StartTOTP(context.Background(), id); !errors.Is(err, errBoomSF) {
+		t.Fatalf("err = %v", err)
 	}
-	f = newFixture()
+}
+
+func TestStartingAnAuthenticatorForNobodyFails(t *testing.T) {
+	broken := app.New(newStore(), &hasher{}, &mailer{}, time.Now, bytes.NewReader(nil), "", app.WithSealer(&sealer{}))
+	if _, err := broken.StartTOTP(context.Background(), uuid.New()); err == nil {
+		t.Fatal("an authenticator was started for nobody")
+	}
+}
+
+func TestConfirmingAnAuthenticatorFailsWhenTheStoreDoes(t *testing.T) {
+	for _, method := range []string{"TOTPEnrolment", "CreateTOTPFactor", "DeleteTOTPEnrolment", "SetSessionMethods", "TOTPFactors", "DeleteOtherSessions", "UserByID"} {
+		t.Run(method, func(t *testing.T) {
+			ctx := context.Background()
+			f := newFixture()
+			id := f.signedUp(t, "ada@example.org")
+			setup, _ := f.StartTOTP(ctx, id)
+			f.store.fail[method] = errBoomSF
+			if err := f.ConfirmTOTP(ctx, id, "s", "Phone", code(t, setup.Secret, f.now), pw); !errors.Is(err, errBoomSF) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
+
+func TestConfirmingASecondAuthenticatorFailsWhenTheSessionCannotBeRead(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture()
 	id, _, session := f.enrolled(t, "ada@example.org")
 	another, _ := f.StartTOTP(ctx, id)
-	f.store.fail["SessionByHash"] = boom
-	if err := f.ConfirmTOTP(ctx, id, session, "Tablet", code(t, another.Secret, f.now.Add(time.Minute)), pw); !errors.Is(err, boom) {
-		t.Errorf("ConfirmTOTP when the session cannot be read = %v", err)
+	f.store.fail["SessionByHash"] = errBoomSF
+	if err := f.ConfirmTOTP(ctx, id, session, "Tablet", code(t, another.Secret, f.now.Add(time.Minute)), pw); !errors.Is(err, errBoomSF) {
+		t.Fatalf("err = %v", err)
 	}
-	f = newFixture()
-	id = f.signedUp(t, "ada@example.org")
+}
+
+func TestConfirmingAnAuthenticatorFailsWhenVaultCannotOpenTheSecret(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture()
+	id := f.signedUp(t, "ada@example.org")
 	setup, _ := f.StartTOTP(ctx, id)
-	f.store.fail["UserByID"] = boom
-	if err := f.ConfirmTOTP(ctx, id, "s", "Phone", code(t, setup.Secret, f.now), pw); !errors.Is(err, boom) {
-		t.Errorf("ConfirmTOTP when the User cannot be read = %v", err)
+	f.sealer.failOpen = errBoomSF
+	if err := f.ConfirmTOTP(ctx, id, "s", "Phone", code(t, setup.Secret, f.now), pw); !errors.Is(err, errBoomSF) {
+		t.Fatalf("err = %v", err)
 	}
-	f = newFixture()
-	id = f.signedUp(t, "ada@example.org")
-	setup, _ = f.StartTOTP(ctx, id)
-	f.sealer.failOpen = boom
-	if err := f.ConfirmTOTP(ctx, id, "s", "Phone", code(t, setup.Secret, f.now), pw); !errors.Is(err, boom) {
-		t.Errorf("ConfirmTOTP when Vault fails = %v", err)
-	}
+}
 
+func TestRemovingAnAuthenticatorFailsWhenTheStoreDoes(t *testing.T) {
 	for _, method := range []string{"UserByID", "DeleteTOTPFactor", "SessionByHash"} {
-		f := newFixture()
-		id, _, session := f.enrolled(t, "ada@example.org")
-		f.store.fail[method] = boom
-		if err := f.RemoveFactor(ctx, id, f.store.factors[0].ID, session, pw); !errors.Is(err, boom) {
-			t.Errorf("RemoveTOTP when %s fails = %v", method, err)
-		}
+		t.Run(method, func(t *testing.T) {
+			ctx := context.Background()
+			f := newFixture()
+			id, _, session := f.enrolled(t, "ada@example.org")
+			f.store.fail[method] = errBoomSF
+			if err := f.RemoveFactor(ctx, id, f.store.factors[0].ID, session, pw); !errors.Is(err, errBoomSF) {
+				t.Fatalf("err = %v", err)
+			}
+		})
 	}
-	f = newFixture()
-	id, _, session = f.enrolled(t, "ada@example.org")
-	f.hasher.fail = boom
-	if err := f.RemoveFactor(ctx, id, f.store.factors[0].ID, session, pw); !errors.Is(err, boom) {
-		t.Errorf("RemoveTOTP when the hasher fails = %v", err)
-	}
+}
 
-	f = newFixture()
-	f.signedUp(t, "ada@example.org")
-	f.admins.err = boom
-	if _, err := f.SignIn(ctx, "ada@example.org", pw); !errors.Is(err, boom) {
-		t.Errorf("SignIn when the admin check fails = %v", err)
+func TestRemovingAnAuthenticatorFailsWhenThePasswordCannotBeChecked(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture()
+	id, _, session := f.enrolled(t, "ada@example.org")
+	f.hasher.fail = errBoomSF
+	if err := f.RemoveFactor(ctx, id, f.store.factors[0].ID, session, pw); !errors.Is(err, errBoomSF) {
+		t.Fatalf("err = %v", err)
 	}
-	f.admins.err = nil
+}
+
+func TestSigningInFailsWhenTheAdminCheckCannotBeMade(t *testing.T) {
+	f := newFixture()
+	f.signedUp(t, "ada@example.org")
+	f.admins.err = errBoomSF
+	if _, err := f.SignIn(context.Background(), "ada@example.org", pw); !errors.Is(err, errBoomSF) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestASessionCannotBeTrustedWhenTheAdminCheckCannotBeMade(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture()
+	f.signedUp(t, "ada@example.org")
 	token, _ := f.SignIn(ctx, "ada@example.org", pw)
-	f.admins.err = boom
-	if _, err := f.Authenticate(ctx, token); !errors.Is(err, boom) {
-		t.Errorf("Authenticate when the admin check fails = %v", err)
+	f.admins.err = errBoomSF
+	if _, err := f.Authenticate(ctx, token); !errors.Is(err, errBoomSF) {
+		t.Fatalf("err = %v", err)
 	}
 }
 

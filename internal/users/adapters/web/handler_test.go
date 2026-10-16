@@ -241,41 +241,69 @@ func TestHandleSessionRefusesWhatAuthenticateRefuses(t *testing.T) {
 	}
 }
 
-func TestProfile(t *testing.T) {
+func TestTheProfileShowsTheSignedInUser(t *testing.T) {
 	u := ada(t)
-	uc := &useCases{user: u}
-	h := web.New(uc, admins{})
-	ctx := signedIn(t, h)
-
-	res, err := h.GetProfile(ctx)
+	h := web.New(&useCases{user: u}, admins{})
+	res, err := h.GetProfile(signedIn(t, h))
 	p, ok := res.(*oas.Profile)
 	if err != nil || !ok || p.Email != "ada@example.org" || p.Name != "Ada" || !p.CreatedAt.Equal(u.CreatedAt) || p.Admin {
 		t.Fatalf("GetProfile = %#v, %v", res, err)
 	}
-	if p := principal.From(ctx); p.UserID != u.ID || p.SecondFactor {
-		t.Fatalf("the session handler left %+v as the principal, want %v without a Second Factor", p, u.ID)
+}
+
+func TestTheSessionCheckSetsThePrincipalWithoutASecondFactor(t *testing.T) {
+	u := ada(t)
+	h := web.New(&useCases{user: u}, admins{})
+	if p := principal.From(signedIn(t, h)); p.UserID != u.ID || p.SecondFactor {
+		t.Fatalf("principal = %+v, want %v without a Second Factor", p, u.ID)
 	}
-	admin := web.New(uc, admins{ids: map[uuid.UUID]bool{u.ID: true}})
-	if res, err := admin.GetProfile(ctx); err != nil || !res.(*oas.Profile).Admin {
-		t.Fatalf("an Admin's Profile = %#v, %v", res, err)
+}
+
+func TestAnAdminsProfileSaysSo(t *testing.T) {
+	u := ada(t)
+	uc := &useCases{user: u}
+	ctx := signedIn(t, web.New(uc, admins{}))
+	res, err := web.New(uc, admins{ids: map[uuid.UUID]bool{u.ID: true}}).GetProfile(ctx)
+	if err != nil || !res.(*oas.Profile).Admin {
+		t.Fatalf("GetProfile = %#v, %v", res, err)
 	}
+}
+
+func TestTheProfileFailsWhenTheAdminCheckCannotBeMade(t *testing.T) {
+	uc := &useCases{user: ada(t)}
+	ctx := signedIn(t, web.New(uc, admins{}))
 	boom := errors.New("boom")
 	if _, err := web.New(uc, admins{err: boom}).GetProfile(ctx); !errors.Is(err, boom) {
-		t.Fatalf("a failing admin check: %v", err)
+		t.Fatalf("err = %v", err)
 	}
+}
 
-	if res, err := h.UpdateProfile(ctx, &oas.ProfileUpdate{Name: "Ada King"}); err != nil || uc.renamed != "Ada King" {
+func TestRenamingAnswersTheChangedProfile(t *testing.T) {
+	uc := &useCases{user: ada(t)}
+	h := web.New(uc, admins{})
+	res, err := h.UpdateProfile(signedIn(t, h), &oas.ProfileUpdate{Name: "Ada King"})
+	if _, ok := res.(*oas.Profile); err != nil || !ok || uc.renamed != "Ada King" {
 		t.Fatalf("UpdateProfile = %#v, %v, renamed %q", res, err, uc.renamed)
-	} else if _, ok := res.(*oas.Profile); !ok {
-		t.Fatalf("UpdateProfile = %#v", res)
 	}
+}
+
+func TestRenamingFailsWhenTheUserCannotBeReadBack(t *testing.T) {
+	uc := &useCases{user: ada(t)}
+	h := web.New(uc, admins{})
+	ctx := signedIn(t, h)
 	uc.userErr = errors.New("boom")
 	if _, err := h.UpdateProfile(ctx, &oas.ProfileUpdate{Name: "Ada"}); !errors.Is(err, uc.userErr) {
-		t.Fatalf("re-reading the User failing: %v", err)
+		t.Fatalf("err = %v", err)
 	}
+}
+
+func TestAnEmptyNameIsAProblemSayingWhatToEnter(t *testing.T) {
+	uc := &useCases{user: ada(t)}
+	h := web.New(uc, admins{})
+	ctx := signedIn(t, h)
 	uc.err = domain.ErrInvalidName
-	res2, err := h.UpdateProfile(ctx, &oas.ProfileUpdate{})
-	wantProblem(t, res2, err, http.StatusUnprocessableEntity, "Enter a name of 1 to 100 characters.")
+	res, err := h.UpdateProfile(ctx, &oas.ProfileUpdate{})
+	wantProblem(t, res, err, http.StatusUnprocessableEntity, "Enter a name of 1 to 100 characters.")
 }
 
 func TestConfirmWithTheWrongPasswordSaysSo(t *testing.T) {
@@ -284,25 +312,33 @@ func TestConfirmWithTheWrongPasswordSaysSo(t *testing.T) {
 	wantProblem(t, res, err, http.StatusUnprocessableEntity, "That is not the password you chose when you signed up. Try again.")
 }
 
-func TestChangePassword(t *testing.T) {
+func TestChangingThePasswordSendsTheSessionAndBothPasswords(t *testing.T) {
 	u := ada(t)
 	uc := &useCases{user: u}
 	h := web.New(uc, admins{})
-	ctx := signedIn(t, h)
+	res, err := h.ChangePassword(signedIn(t, h), &oas.PasswordChange{Current: "old", Next: "new"})
+	if _, ok := res.(*oas.ChangePasswordNoContent); err != nil || !ok || uc.changed != [4]string{u.ID.String(), "tok", "old", "new"} {
+		t.Fatalf("ChangePassword = %#v, %v, asked %v", res, err, uc.changed)
+	}
+}
 
-	res, err := h.ChangePassword(ctx, &oas.PasswordChange{Current: "old", Next: "new"})
-	if _, ok := res.(*oas.ChangePasswordNoContent); err != nil || !ok {
-		t.Fatalf("ChangePassword = %#v, %v", res, err)
+func TestAPasswordChangeIsRefusedWithWhatToDo(t *testing.T) {
+	for _, tc := range []struct {
+		err    error
+		detail string
+	}{
+		{app.ErrInvalidCredentials, "Your current password is wrong. Enter it again."},
+		{domain.ErrWeakPassword, "Enter a password of 12 to 128 characters."},
+	} {
+		t.Run(tc.err.Error(), func(t *testing.T) {
+			uc := &useCases{user: ada(t)}
+			h := web.New(uc, admins{})
+			ctx := signedIn(t, h)
+			uc.err = tc.err
+			res, err := h.ChangePassword(ctx, &oas.PasswordChange{})
+			wantProblem(t, res, err, http.StatusUnprocessableEntity, tc.detail)
+		})
 	}
-	if uc.changed != [4]string{u.ID.String(), "tok", "old", "new"} {
-		t.Fatalf("asked to change %v", uc.changed)
-	}
-	uc.err = app.ErrInvalidCredentials
-	res, err = h.ChangePassword(ctx, &oas.PasswordChange{})
-	wantProblem(t, res, err, http.StatusUnprocessableEntity, "Your current password is wrong. Enter it again.")
-	uc.err = domain.ErrWeakPassword
-	res, err = h.ChangePassword(ctx, &oas.PasswordChange{})
-	wantProblem(t, res, err, http.StatusUnprocessableEntity, "Enter a password of 12 to 128 characters.")
 }
 
 func TestABusyServerSaysToTryAgain(t *testing.T) {

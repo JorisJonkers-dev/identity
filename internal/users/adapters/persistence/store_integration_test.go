@@ -43,33 +43,61 @@ func user(t *testing.T) domain.User {
 	return domain.User{ID: uuid.New(), Email: e, Name: n, PasswordHash: "stored-hash-1", CreatedAt: t0}
 }
 
-func TestUsers(t *testing.T) {
-	ctx := context.Background()
-	s, _ := open(t)
+// stored is a store with Ada, as a User, in it.
+func stored(t *testing.T) (*persistence.Store, *pgxpool.Pool, domain.User) {
+	t.Helper()
+	s, pool := open(t)
 	u := user(t)
-	if err := s.CreateUser(ctx, u); err != nil {
+	if err := s.CreateUser(context.Background(), u); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.CreateUser(ctx, user(t)); !errors.Is(err, app.ErrEmailTaken) {
-		t.Fatalf("a second user with the same email: %v", err)
-	}
+	return s, pool, u
+}
 
-	byEmail, err := s.UserByEmail(ctx, u.Email)
-	if err != nil || byEmail.ID != u.ID || !byEmail.CreatedAt.Equal(t0) {
-		t.Fatalf("UserByEmail = %+v, %v", byEmail, err)
+func session(u domain.User, hash string) app.Session {
+	return app.Session{TokenHash: []byte(hash), ID: uuid.New(), UserID: u.ID, CreatedAt: t0, LastSeenAt: t0, ExpiresAt: t0.Add(time.Hour), Methods: []string{"pwd"}}
+}
+
+func TestAUserIsFoundByEmail(t *testing.T) {
+	s, _, u := stored(t)
+	got, err := s.UserByEmail(context.Background(), u.Email)
+	if err != nil || got.ID != u.ID || !got.CreatedAt.Equal(t0) {
+		t.Fatalf("UserByEmail = %+v, %v", got, err)
 	}
+}
+
+func TestTwoUsersCannotShareAnEmail(t *testing.T) {
+	s, _, _ := stored(t)
+	if err := s.CreateUser(context.Background(), user(t)); !errors.Is(err, app.ErrEmailTaken) {
+		t.Fatalf("err = %v, want ErrEmailTaken", err)
+	}
+}
+
+func TestAnUnknownEmailIsNotFound(t *testing.T) {
+	s, _ := open(t)
 	missing, _ := domain.NewEmail("nobody@example.org")
-	if _, err := s.UserByEmail(ctx, missing); !errors.Is(err, app.ErrNotFound) {
-		t.Fatalf("an unknown email: %v", err)
+	if _, err := s.UserByEmail(context.Background(), missing); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("err = %v", err)
 	}
-	if _, err := s.UserByID(ctx, uuid.New()); !errors.Is(err, app.ErrNotFound) {
-		t.Fatalf("an unknown id: %v", err)
-	}
+}
 
-	if all, err := s.Users(ctx); err != nil || len(all) != 1 || all[0].ID != u.ID {
+func TestAnUnknownUserIDIsNotFound(t *testing.T) {
+	s, _ := open(t)
+	if _, err := s.UserByID(context.Background(), uuid.New()); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestEveryUserIsListed(t *testing.T) {
+	s, _, u := stored(t)
+	if all, err := s.Users(context.Background()); err != nil || len(all) != 1 || all[0].ID != u.ID {
 		t.Fatalf("Users = %+v, %v", all, err)
 	}
+}
 
+func TestAUsersNameAndPasswordHashChange(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
 	newName, _ := domain.NewName("Ada King")
 	if err := s.UpdateName(ctx, u.ID, newName); err != nil {
 		t.Fatal(err)
@@ -77,9 +105,8 @@ func TestUsers(t *testing.T) {
 	if err := s.UpdatePasswordHash(ctx, u.ID, "stored-hash-2"); err != nil {
 		t.Fatal(err)
 	}
-	got, err := s.UserByID(ctx, u.ID)
-	if err != nil || got.Name != newName || got.PasswordHash != "stored-hash-2" {
-		t.Fatalf("after the changes: %+v, %v", got, err)
+	if got, err := s.UserByID(ctx, u.ID); err != nil || got.Name != newName || got.PasswordHash != "stored-hash-2" {
+		t.Fatalf("UserByID = %+v, %v", got, err)
 	}
 }
 
@@ -102,9 +129,9 @@ func TestARowTheDomainRefusesIsAnError(t *testing.T) {
 	}
 }
 
-func TestSignups(t *testing.T) {
+func TestASignupIsKeptByItsTokenHash(t *testing.T) {
 	ctx := context.Background()
-	s, pool := open(t)
+	s, _ := open(t)
 	u := user(t)
 	su := app.Signup{TokenHash: []byte("hash-of-a-token"), Email: u.Email, Name: u.Name, PasswordHash: "stored-hash-1", ExpiresAt: t0.Add(24 * time.Hour)}
 	if err := s.CreateSignup(ctx, su); err != nil {
@@ -114,33 +141,43 @@ func TestSignups(t *testing.T) {
 	if err != nil || got.Email != su.Email || got.Name != su.Name || got.PasswordHash != su.PasswordHash || !got.ExpiresAt.Equal(su.ExpiresAt) {
 		t.Fatalf("SignupByHash = %+v, %v", got, err)
 	}
+}
+
+func TestADeletedSignupIsNotFound(t *testing.T) {
+	ctx := context.Background()
+	s, _ := open(t)
+	u := user(t)
+	su := app.Signup{TokenHash: []byte("hash-of-a-token"), Email: u.Email, Name: u.Name, PasswordHash: "h", ExpiresAt: t0}
+	_ = s.CreateSignup(ctx, su)
 	if err := s.DeleteSignup(ctx, su.TokenHash); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.SignupByHash(ctx, su.TokenHash); !errors.Is(err, app.ErrNotFound) {
-		t.Fatalf("after deleting: %v", err)
-	}
-
-	for _, row := range [][2]string{{"not-an-email", "Ada"}, {"ada@example.org", ""}} {
-		hash := []byte("bad-" + row[0] + row[1])
-		if _, err := pool.Exec(ctx, `INSERT INTO signups (token_hash, email, name, password_hash, expires_at) VALUES ($1, $2, $3, 'h', now())`, hash, row[0], row[1]); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := s.SignupByHash(ctx, hash); err == nil {
-			t.Fatalf("a sign-up row %v the domain refuses was read", row)
-		}
+		t.Fatalf("err = %v", err)
 	}
 }
 
-func TestSessions(t *testing.T) {
-	ctx := context.Background()
-	s, pool := open(t)
-	u := user(t)
-	_ = s.CreateUser(ctx, u)
-	sess := app.Session{TokenHash: []byte("hash"), ID: uuid.New(), UserID: u.ID, CreatedAt: t0, LastSeenAt: t0, ExpiresAt: t0.Add(time.Hour), Methods: []string{"pwd"}}
-	if err := s.CreateSession(ctx, sess); err != nil {
-		t.Fatal(err)
+func TestASignupRowTheDomainRefusesIsAnError(t *testing.T) {
+	for name, row := range map[string][2]string{"a bad email": {"not-an-email", "Ada"}, "no name": {"ada@example.org", ""}} {
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+			s, pool := open(t)
+			hash := []byte("bad")
+			if _, err := pool.Exec(ctx, `INSERT INTO signups (token_hash, email, name, password_hash, expires_at) VALUES ($1, $2, $3, 'h', now())`, hash, row[0], row[1]); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.SignupByHash(ctx, hash); err == nil {
+				t.Fatal("the row was read")
+			}
+		})
 	}
+}
+
+func TestATouchedSessionReadsBackWithItsNewTimes(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	sess := session(u, "hash")
+	_ = s.CreateSession(ctx, sess)
 	if err := s.TouchSession(ctx, sess.TokenHash, t0.Add(time.Minute), t0.Add(2*time.Hour)); err != nil {
 		t.Fatal(err)
 	}
@@ -150,68 +187,106 @@ func TestSessions(t *testing.T) {
 		!slices.Equal(got.Methods, []string{"pwd"}) {
 		t.Fatalf("SessionByHash = %+v, %v", got, err)
 	}
+}
+
+func TestASessionRecordsTheSecondFactorItProved(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	sess := session(u, "hash")
+	_ = s.CreateSession(ctx, sess)
 	if err := s.SetSessionMethods(ctx, sess.TokenHash, []string{"pwd", "otp"}); err != nil {
 		t.Fatal(err)
 	}
 	if got, _ := s.SessionByHash(ctx, sess.TokenHash); !slices.Equal(got.Methods, []string{"pwd", "otp"}) {
-		t.Fatalf("methods after a Second Factor = %v", got.Methods)
+		t.Fatalf("methods = %v", got.Methods)
 	}
+}
+
+func TestASessionIsFoundByItsID(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	sess := session(u, "hash")
+	_ = s.CreateSession(ctx, sess)
 	if got, err := s.SessionByID(ctx, sess.ID); err != nil || !bytes.Equal(got.TokenHash, sess.TokenHash) {
 		t.Fatalf("SessionByID = %+v, %v", got, err)
 	}
-	if _, err := s.SessionByID(ctx, uuid.New()); !errors.Is(err, app.ErrNotFound) {
-		t.Fatalf("an unknown session id: %v", err)
-	}
+}
 
-	keep := app.Session{TokenHash: []byte("keep"), ID: uuid.New(), UserID: u.ID, CreatedAt: t0, LastSeenAt: t0, ExpiresAt: t0.Add(time.Hour), Methods: []string{"pwd"}}
-	other := keep
-	other.TokenHash, other.ID = []byte("other"), uuid.New()
-	_ = s.CreateSession(ctx, keep)
-	_ = s.CreateSession(ctx, other)
-	ended, err := s.DeleteOtherSessions(ctx, u.ID, keep.TokenHash)
-	if err != nil || len(ended) != 2 || !slices.Contains(ended, other.ID) || !slices.Contains(ended, sess.ID) {
-		t.Fatalf("DeleteOtherSessions = %v, %v; want the other two", ended, err)
+func TestAnUnknownSessionIDIsNotFound(t *testing.T) {
+	s, _ := open(t)
+	if _, err := s.SessionByID(context.Background(), uuid.New()); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("err = %v", err)
 	}
-	if _, err := s.SessionByHash(ctx, other.TokenHash); !errors.Is(err, app.ErrNotFound) {
-		t.Fatalf("the other session survived: %v", err)
+}
+
+func TestEndingOtherSessionsKeepsTheOneNamedAndSaysWhichEnded(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	keep, other, third := session(u, "keep"), session(u, "other"), session(u, "third")
+	for _, sess := range []app.Session{keep, other, third} {
+		_ = s.CreateSession(ctx, sess)
+	}
+	ended, err := s.DeleteOtherSessions(ctx, u.ID, keep.TokenHash)
+	if err != nil || len(ended) != 2 || !slices.Contains(ended, other.ID) || !slices.Contains(ended, third.ID) {
+		t.Fatalf("ended %v, %v; want the other two", ended, err)
 	}
 	if _, err := s.SessionByHash(ctx, keep.TokenHash); err != nil {
 		t.Fatalf("the kept session ended: %v", err)
 	}
-
-	if ended, err := s.DeleteOtherSessions(ctx, u.ID, nil); err != nil || len(ended) != 1 || ended[0] != keep.ID {
-		t.Fatalf("ending every session = %v, %v", ended, err)
+	if _, err := s.SessionByHash(ctx, other.TokenHash); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("another session survived: %v", err)
 	}
-	if _, err := s.SessionByHash(ctx, keep.TokenHash); !errors.Is(err, app.ErrNotFound) {
-		t.Fatalf("a session survived signing out everywhere: %v", err)
-	}
+}
 
-	// Deleting a User takes their sessions with them.
+func TestEndingEverySessionLeavesNone(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	sess := session(u, "hash")
+	_ = s.CreateSession(ctx, sess)
+	if ended, err := s.DeleteOtherSessions(ctx, u.ID, nil); err != nil || len(ended) != 1 || ended[0] != sess.ID {
+		t.Fatalf("ended %v, %v", ended, err)
+	}
+	if _, err := s.SessionByHash(ctx, sess.TokenHash); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("a session survived: %v", err)
+	}
+}
+
+func TestDeletingAUserTakesTheirSessions(t *testing.T) {
+	ctx := context.Background()
+	s, pool, u := stored(t)
+	sess := session(u, "hash")
 	_ = s.CreateSession(ctx, sess)
 	if _, err := pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, u.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.SessionByHash(ctx, sess.TokenHash); !errors.Is(err, app.ErrNotFound) {
-		t.Fatalf("a deleted User's session: %v", err)
+		t.Fatalf("err = %v", err)
 	}
 }
 
-func TestChallenges(t *testing.T) {
+func TestAChallengeAllowsItsAttempts(t *testing.T) {
 	ctx := context.Background()
-	s, _ := open(t)
-	u := user(t)
-	_ = s.CreateUser(ctx, u)
+	s, _, u := stored(t)
 	c := app.Challenge{TokenHash: []byte("challenge"), UserID: u.ID, ExpiresAt: t0.Add(5 * time.Minute), WindowStartedAt: t0}
-	if err := s.SaveChallenge(ctx, c, t0.Add(-15*time.Minute)); err != nil {
-		t.Fatal(err)
-	}
-	for i := range 3 {
+	_ = s.SaveChallenge(ctx, c, t0.Add(-15*time.Minute))
+	for i := range 5 {
 		if id, err := s.SpendChallengeAttempt(ctx, c.TokenHash, 5, t0); err != nil || id != u.ID {
 			t.Fatalf("attempt %d = %v, %v", i+1, id, err)
 		}
 	}
+	if _, err := s.SpendChallengeAttempt(ctx, c.TokenHash, 5, t0); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("a sixth attempt = %v", err)
+	}
+}
 
-	// A new sign-in inside the window replaces the token and keeps the three spent attempts.
+func TestANewSignInInsideTheWindowReplacesTheTokenAndKeepsTheSpentAttempts(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	c := app.Challenge{TokenHash: []byte("challenge"), UserID: u.ID, ExpiresAt: t0.Add(5 * time.Minute), WindowStartedAt: t0}
+	_ = s.SaveChallenge(ctx, c, t0.Add(-15*time.Minute))
+	for range 3 {
+		_, _ = s.SpendChallengeAttempt(ctx, c.TokenHash, 5, t0)
+	}
 	next := app.Challenge{TokenHash: []byte("next"), UserID: u.ID, ExpiresAt: t0.Add(10 * time.Minute), WindowStartedAt: t0.Add(5 * time.Minute)}
 	if err := s.SaveChallenge(ctx, next, t0.Add(-10*time.Minute)); err != nil {
 		t.Fatal(err)
@@ -219,69 +294,92 @@ func TestChallenges(t *testing.T) {
 	if _, err := s.SpendChallengeAttempt(ctx, c.TokenHash, 5, t0); !errors.Is(err, app.ErrNotFound) {
 		t.Fatalf("the replaced token = %v", err)
 	}
-	for i := range 2 {
+	for range 2 {
 		if _, err := s.SpendChallengeAttempt(ctx, next.TokenHash, 5, t0.Add(5*time.Minute)); err != nil {
-			t.Fatalf("attempt %d of the carried five = %v", i+4, err)
+			t.Fatal(err)
 		}
 	}
 	if _, err := s.SpendChallengeAttempt(ctx, next.TokenHash, 5, t0.Add(5*time.Minute)); !errors.Is(err, app.ErrNotFound) {
 		t.Fatalf("a sixth attempt across two sign-ins = %v", err)
 	}
+}
 
-	// Once the window has passed, a new sign-in starts with every attempt.
-	fresh := app.Challenge{TokenHash: []byte("fresh"), UserID: u.ID, ExpiresAt: t0.Add(25 * time.Minute), WindowStartedAt: t0.Add(20 * time.Minute)}
-	if err := s.SaveChallenge(ctx, fresh, t0.Add(5*time.Minute)); err != nil {
-		t.Fatal(err)
+func TestASignInAfterTheWindowStartsWithEveryAttempt(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	c := app.Challenge{TokenHash: []byte("challenge"), UserID: u.ID, ExpiresAt: t0.Add(5 * time.Minute), WindowStartedAt: t0}
+	_ = s.SaveChallenge(ctx, c, t0.Add(-15*time.Minute))
+	for range 5 {
+		_, _ = s.SpendChallengeAttempt(ctx, c.TokenHash, 5, t0)
 	}
+	fresh := app.Challenge{TokenHash: []byte("fresh"), UserID: u.ID, ExpiresAt: t0.Add(25 * time.Minute), WindowStartedAt: t0.Add(20 * time.Minute)}
+	_ = s.SaveChallenge(ctx, fresh, t0.Add(5*time.Minute))
 	for i := range 5 {
 		if _, err := s.SpendChallengeAttempt(ctx, fresh.TokenHash, 5, t0.Add(20*time.Minute)); err != nil {
-			t.Fatalf("attempt %d after the window = %v", i+1, err)
+			t.Fatalf("attempt %d = %v", i+1, err)
 		}
-	}
-	if _, err := s.SpendChallengeAttempt(ctx, fresh.TokenHash, 10, t0.Add(25*time.Minute)); !errors.Is(err, app.ErrNotFound) {
-		t.Fatalf("an attempt after it expired = %v", err)
-	}
-	if err := s.DeleteChallenge(ctx, fresh.TokenHash); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.SpendChallengeAttempt(ctx, fresh.TokenHash, 10, t0); !errors.Is(err, app.ErrNotFound) {
-		t.Fatalf("a deleted challenge = %v", err)
 	}
 }
 
-func TestTOTPFactorsAndEnrolments(t *testing.T) {
+func TestAnExpiredChallengeTakesNoAttempt(t *testing.T) {
 	ctx := context.Background()
-	s, pool := open(t)
-	u := user(t)
-	_ = s.CreateUser(ctx, u)
+	s, _, u := stored(t)
+	c := app.Challenge{TokenHash: []byte("challenge"), UserID: u.ID, ExpiresAt: t0.Add(5 * time.Minute), WindowStartedAt: t0}
+	_ = s.SaveChallenge(ctx, c, t0.Add(-15*time.Minute))
+	if _, err := s.SpendChallengeAttempt(ctx, c.TokenHash, 10, t0.Add(5*time.Minute)); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("err = %v", err)
+	}
+}
 
+func TestADeletedChallengeTakesNoAttempt(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	c := app.Challenge{TokenHash: []byte("challenge"), UserID: u.ID, ExpiresAt: t0.Add(5 * time.Minute), WindowStartedAt: t0}
+	_ = s.SaveChallenge(ctx, c, t0.Add(-15*time.Minute))
+	if err := s.DeleteChallenge(ctx, c.TokenHash); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SpendChallengeAttempt(ctx, c.TokenHash, 10, t0); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestARestartedAuthenticatorEnrolmentKeepsOnlyTheLatestSecret(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
 	if _, err := s.TOTPEnrolment(ctx, u.ID); !errors.Is(err, app.ErrNotFound) {
-		t.Fatalf("no enrolment = %v", err)
+		t.Fatalf("an enrolment before any = %v", err)
 	}
 	for _, sealed := range []string{"vault:v1:first", "vault:v1:second"} {
-		if err := s.SaveTOTPEnrolment(ctx, app.TOTPEnrolment{UserID: u.ID, SealedSecret: sealed, ExpiresAt: t0}); err != nil {
-			t.Fatal(err)
-		}
+		_ = s.SaveTOTPEnrolment(ctx, app.TOTPEnrolment{UserID: u.ID, SealedSecret: sealed, ExpiresAt: t0})
 	}
 	if e, err := s.TOTPEnrolment(ctx, u.ID); err != nil || e.SealedSecret != "vault:v1:second" || !e.ExpiresAt.Equal(t0) {
-		t.Fatalf("a restarted enrolment = %+v, %v", e, err)
+		t.Fatalf("TOTPEnrolment = %+v, %v", e, err)
 	}
 	if err := s.DeleteTOTPEnrolment(ctx, u.ID); err != nil {
 		t.Fatal(err)
 	}
+}
 
+func phoneFactor(u domain.User) app.TOTPFactor {
 	label, _ := domain.NewFactorLabel("Phone")
-	f := app.TOTPFactor{ID: uuid.New(), UserID: u.ID, Label: label, SealedSecret: "vault:v1:secret", LastStep: 100, CreatedAt: t0}
-	if err := s.CreateTOTPFactor(ctx, f); err != nil {
-		t.Fatal(err)
-	}
-	plain := f
-	plain.ID, plain.SealedSecret = uuid.New(), "JBSWY3DPEHPK3PXP"
-	if err := s.CreateTOTPFactor(ctx, plain); err == nil {
+	return app.TOTPFactor{ID: uuid.New(), UserID: u.ID, Label: label, SealedSecret: "vault:v1:secret", LastStep: 100, CreatedAt: t0}
+}
+
+func TestAnAuthenticatorSecretInClearIsNeverStored(t *testing.T) {
+	s, _, u := stored(t)
+	plain := phoneFactor(u)
+	plain.SealedSecret = "JBSWY3DPEHPK3PXP"
+	if err := s.CreateTOTPFactor(context.Background(), plain); err == nil {
 		t.Fatal("a secret in clear was stored")
 	}
+}
 
-	// Two sign-ins racing to accept step 101: exactly one wins.
+func TestOfTwoSignInsRacingForOneCodeStepExactlyOneWins(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	f := phoneFactor(u)
+	_ = s.CreateTOTPFactor(ctx, f)
 	wins := make(chan bool, 2)
 	for range 2 {
 		go func() {
@@ -292,23 +390,48 @@ func TestTOTPFactorsAndEnrolments(t *testing.T) {
 	if a, b := <-wins, <-wins; a == b {
 		t.Fatalf("racing uses of one step: %v and %v", a, b)
 	}
+}
+
+func TestAnAuthenticatorCodeOlderThanTheLastOneUsedIsRefused(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	f := phoneFactor(u)
+	_ = s.CreateTOTPFactor(ctx, f)
 	if ok, _ := s.UseTOTPStep(ctx, f.ID, 100, t0); ok {
-		t.Fatal("an older step was accepted")
+		t.Fatal("the last step used was accepted again")
 	}
+}
+
+func TestAnAuthenticatorReadsBackWithItsLastUse(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	f := phoneFactor(u)
+	_ = s.CreateTOTPFactor(ctx, f)
+	_, _ = s.UseTOTPStep(ctx, f.ID, 101, t0.Add(time.Minute))
 	got, err := s.TOTPFactors(ctx, u.ID)
-	if err != nil || len(got) != 1 || got[0].LastStep != 101 || got[0].Label != label || got[0].LastUsedAt == nil ||
+	if err != nil || len(got) != 1 || got[0].LastStep != 101 || got[0].Label != f.Label || got[0].LastUsedAt == nil ||
 		!got[0].LastUsedAt.Equal(t0.Add(time.Minute)) || !got[0].CreatedAt.Equal(t0) {
 		t.Fatalf("TOTPFactors = %+v, %v", got, err)
 	}
+}
 
+func TestOnlyItsOwnerRemovesAnAuthenticator(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	f := phoneFactor(u)
+	_ = s.CreateTOTPFactor(ctx, f)
 	if had, err := s.DeleteTOTPFactor(ctx, f.ID, uuid.New()); err != nil || had {
-		t.Fatalf("deleting another User's factor = %v, %v", had, err)
+		t.Fatalf("another User removed it: %v, %v", had, err)
 	}
 	if had, err := s.DeleteTOTPFactor(ctx, f.ID, u.ID); err != nil || !had {
-		t.Fatalf("DeleteTOTPFactor = %v, %v", had, err)
+		t.Fatalf("its owner = %v, %v", had, err)
 	}
+}
 
-	// A label the domain refuses, written behind its back, is an error, not a factor.
+func TestAnAuthenticatorLabelTheDomainRefusesIsAnError(t *testing.T) {
+	ctx := context.Background()
+	s, pool, u := stored(t)
+	f := phoneFactor(u)
 	_ = s.CreateTOTPFactor(ctx, f)
 	if _, err := pool.Exec(ctx, `ALTER TABLE totp_factors DROP CONSTRAINT totp_factors_label_length`); err != nil {
 		t.Fatal(err)
@@ -317,70 +440,110 @@ func TestTOTPFactorsAndEnrolments(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := s.TOTPFactors(ctx, u.ID); !errors.Is(err, domain.ErrInvalidLabel) {
-		t.Fatalf("a bad label = %v", err)
+		t.Fatalf("err = %v", err)
 	}
 }
 
-func TestPasskeys(t *testing.T) {
+func TestARestartedPasskeyEnrolmentKeepsOnlyTheLatestCeremony(t *testing.T) {
 	ctx := context.Background()
-	s, pool := open(t)
-	u := user(t)
-	_ = s.CreateUser(ctx, u)
-
+	s, _, u := stored(t)
 	if _, err := s.PasskeyEnrolment(ctx, u.ID); !errors.Is(err, app.ErrNotFound) {
-		t.Fatalf("no enrolment = %v", err)
+		t.Fatalf("an enrolment before any = %v", err)
 	}
 	for _, c := range []string{"first", "second"} {
-		if err := s.SavePasskeyEnrolment(ctx, app.PasskeyEnrolment{UserID: u.ID, Ceremony: []byte(c), ExpiresAt: t0}); err != nil {
-			t.Fatal(err)
-		}
+		_ = s.SavePasskeyEnrolment(ctx, app.PasskeyEnrolment{UserID: u.ID, Ceremony: []byte(c), ExpiresAt: t0})
 	}
 	if e, err := s.PasskeyEnrolment(ctx, u.ID); err != nil || string(e.Ceremony) != "second" || !e.ExpiresAt.Equal(t0) {
-		t.Fatalf("a restarted enrolment = %+v, %v", e, err)
+		t.Fatalf("PasskeyEnrolment = %+v, %v", e, err)
 	}
 	if err := s.DeletePasskeyEnrolment(ctx, u.ID); err != nil {
 		t.Fatal(err)
 	}
+}
 
+func macBook(u domain.User) app.Passkey {
 	label, _ := domain.NewFactorLabel("MacBook")
-	p := app.Passkey{ID: uuid.New(), UserID: u.ID, Label: label, CredentialID: []byte("cred"), Credential: []byte(`{"count": 0}`), CreatedAt: t0}
-	if err := s.CreatePasskey(ctx, p); err != nil {
-		t.Fatal(err)
-	}
+	return app.Passkey{ID: uuid.New(), UserID: u.ID, Label: label, CredentialID: []byte("cred"), Credential: []byte(`{"count": 0}`), CreatedAt: t0}
+}
+
+func TestOneCredentialIsOnePasskey(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	p := macBook(u)
+	_ = s.CreatePasskey(ctx, p)
 	twin := p
 	twin.ID = uuid.New()
 	if err := s.CreatePasskey(ctx, twin); !errors.Is(err, app.ErrInvalidPasskey) {
-		t.Fatalf("a credential id registered twice = %v", err)
+		t.Fatalf("err = %v", err)
 	}
+}
+
+func TestAUsedPasskeyKeepsItsNewRecordAndWhenItWasUsed(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	p := macBook(u)
+	_ = s.CreatePasskey(ctx, p)
 	if kept, err := s.UsePasskey(ctx, u.ID, app.NewPasskey{CredentialID: []byte("cred"), Credential: []byte(`{"count": 1}`)}, []byte(`{"count": 0}`), t0.Add(time.Minute)); !kept || err != nil {
 		t.Fatalf("UsePasskey = %v, %v", kept, err)
 	}
-	// A second sign-in checked against the old record loses.
-	if kept, err := s.UsePasskey(ctx, u.ID, app.NewPasskey{CredentialID: []byte("cred"), Credential: []byte(`{"count": 1}`)}, []byte(`{"count": 0}`), t0.Add(time.Minute)); kept || err != nil {
-		t.Fatalf("a stale UsePasskey = %v, %v", kept, err)
-	}
 	got, err := s.Passkeys(ctx, u.ID)
-	if err != nil || len(got) != 1 || got[0].Label != label || string(got[0].CredentialID) != "cred" ||
+	if err != nil || len(got) != 1 || got[0].Label != p.Label || string(got[0].CredentialID) != "cred" ||
 		string(got[0].Credential) != `{"count": 1}` || got[0].LastUsedAt == nil || !got[0].LastUsedAt.Equal(t0.Add(time.Minute)) {
 		t.Fatalf("Passkeys = %+v, %v", got, err)
 	}
+}
+
+func TestASignInCheckedAgainstAStalePasskeyRecordLoses(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	_ = s.CreatePasskey(ctx, macBook(u))
+	use := app.NewPasskey{CredentialID: []byte("cred"), Credential: []byte(`{"count": 1}`)}
+	_, _ = s.UsePasskey(ctx, u.ID, use, []byte(`{"count": 0}`), t0.Add(time.Minute))
+	if kept, err := s.UsePasskey(ctx, u.ID, use, []byte(`{"count": 0}`), t0.Add(time.Minute)); kept || err != nil {
+		t.Fatalf("a stale use = %v, %v", kept, err)
+	}
+}
+
+func TestOnlyItsOwnerRemovesAPasskey(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	p := macBook(u)
+	_ = s.CreatePasskey(ctx, p)
 	if had, err := s.DeletePasskey(ctx, p.ID, uuid.New()); err != nil || had {
-		t.Fatalf("deleting another User's passkey = %v, %v", had, err)
+		t.Fatalf("another User removed it: %v, %v", had, err)
 	}
 	if had, err := s.DeletePasskey(ctx, p.ID, u.ID); err != nil || !had {
-		t.Fatalf("DeletePasskey = %v, %v", had, err)
+		t.Fatalf("its owner = %v, %v", had, err)
 	}
+}
 
-	// A sign-in's ceremony lives on its challenge, and a new sign-in clears it.
+func signInChallenge(t *testing.T, s *persistence.Store, u domain.User) app.Challenge {
+	t.Helper()
 	c := app.Challenge{TokenHash: []byte("c1"), UserID: u.ID, ExpiresAt: t0.Add(5 * time.Minute), WindowStartedAt: t0}
-	_ = s.SaveChallenge(ctx, c, t0.Add(-15*time.Minute))
+	if err := s.SaveChallenge(context.Background(), c, t0.Add(-15*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	return c
+}
+
+func TestASignInsPasskeyCeremonyLivesOnItsChallenge(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	c := signInChallenge(t, s, u)
 	if err := s.SetChallengeCeremony(ctx, c.TokenHash, []byte("ceremony"), t0); err != nil {
 		t.Fatal(err)
 	}
 	if id, ceremony, err := s.ChallengeCeremony(ctx, c.TokenHash, t0); err != nil || id != u.ID || string(ceremony) != "ceremony" {
 		t.Fatalf("ChallengeCeremony = %v, %q, %v", id, ceremony, err)
 	}
-	// A second request waits on the first one's lock, then finds the ceremony gone.
+}
+
+// Two requests answering one ceremony: the second waits on the first's lock, then finds it gone.
+func TestAPasskeyCeremonyIsTakenOnceEvenByRacingRequests(t *testing.T) {
+	ctx := context.Background()
+	s, pool, u := stored(t)
+	c := signInChallenge(t, s, u)
+	_ = s.SetChallengeCeremony(ctx, c.TokenHash, []byte("ceremony"), t0)
 	first, err := pool.Begin(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -400,28 +563,51 @@ func TestPasskeys(t *testing.T) {
 	if err := <-second; !errors.Is(err, app.ErrNotFound) {
 		t.Fatalf("the waiting request = %v, want the ceremony gone", err)
 	}
+}
+
+func TestATakenPasskeyCeremonyIsNotFoundAgain(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	c := signInChallenge(t, s, u)
+	_ = s.SetChallengeCeremony(ctx, c.TokenHash, []byte("ceremony"), t0)
+	_, _, _ = s.TakeChallengeCeremony(ctx, c.TokenHash, t0)
 	if _, _, err := s.TakeChallengeCeremony(ctx, c.TokenHash, t0); !errors.Is(err, app.ErrNotFound) {
-		t.Fatalf("a taken ceremony taken again = %v", err)
+		t.Fatalf("err = %v", err)
 	}
 	if _, _, err := s.TakeChallengeCeremony(ctx, []byte("none"), t0); !errors.Is(err, app.ErrNotFound) {
 		t.Fatalf("no challenge = %v", err)
 	}
-	if err := s.SetChallengeCeremony(ctx, c.TokenHash, []byte("ceremony"), t0); err != nil {
-		t.Fatal(err)
-	}
+}
+
+func TestAnExpiredChallengeTakesNoPasskeyCeremony(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	c := signInChallenge(t, s, u)
+	_ = s.SetChallengeCeremony(ctx, c.TokenHash, []byte("ceremony"), t0)
 	if err := s.SetChallengeCeremony(ctx, c.TokenHash, []byte("late"), t0.Add(5*time.Minute)); !errors.Is(err, app.ErrNotFound) {
-		t.Fatalf("a ceremony for an expired challenge = %v", err)
+		t.Fatalf("a late ceremony = %v", err)
 	}
 	if _, _, err := s.ChallengeCeremony(ctx, c.TokenHash, t0.Add(5*time.Minute)); !errors.Is(err, app.ErrNotFound) {
 		t.Fatalf("an expired challenge's ceremony = %v", err)
 	}
+}
+
+func TestANewSignInClearsTheOldPasskeyCeremony(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	c := signInChallenge(t, s, u)
+	_ = s.SetChallengeCeremony(ctx, c.TokenHash, []byte("ceremony"), t0)
 	next := app.Challenge{TokenHash: []byte("c2"), UserID: u.ID, ExpiresAt: t0.Add(10 * time.Minute), WindowStartedAt: t0.Add(5 * time.Minute)}
 	_ = s.SaveChallenge(ctx, next, t0.Add(-10*time.Minute))
 	if _, ceremony, err := s.ChallengeCeremony(ctx, next.TokenHash, t0.Add(5*time.Minute)); err != nil || ceremony != nil {
-		t.Fatalf("a new sign-in kept the old ceremony: %q, %v", ceremony, err)
+		t.Fatalf("the new sign-in's ceremony = %q, %v", ceremony, err)
 	}
+}
 
-	// A label the domain refuses, written behind its back, is an error, not a passkey.
+func TestAPasskeyLabelTheDomainRefusesIsAnError(t *testing.T) {
+	ctx := context.Background()
+	s, pool, u := stored(t)
+	p := macBook(u)
 	_ = s.CreatePasskey(ctx, p)
 	if _, err := pool.Exec(ctx, `ALTER TABLE passkeys DROP CONSTRAINT passkeys_label_length`); err != nil {
 		t.Fatal(err)
@@ -430,7 +616,7 @@ func TestPasskeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := s.Passkeys(ctx, u.ID); !errors.Is(err, domain.ErrInvalidLabel) {
-		t.Fatalf("a bad label = %v", err)
+		t.Fatalf("err = %v", err)
 	}
 }
 
