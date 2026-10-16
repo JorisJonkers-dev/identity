@@ -34,14 +34,14 @@ export default defineConfig({
         // Only /metrics, on a port of its own; tests/e2e/metrics.spec.ts scrapes it.
         METRICS_ADDR: '127.0.0.1:18574',
         CLIENTS_FILE: 'tests/e2e/clients.yaml',
-        DATABASE_URL: process.env.DATABASE_URL ?? 'postgres://app:app@localhost:55432/app?sslmode=disable',
+        DATABASE_URL: process.env.DATABASE_URL ?? 'postgres://app:app@localhost:25432/app?sslmode=disable',
         PUBLIC_URL: origin,
         // The compose Mailpit, which offers no TLS; only a local run may send in the clear.
-        SMTP_ADDR: 'localhost:51025',
+        SMTP_ADDR: 'localhost:21025',
         SMTP_TLS: 'none',
         MAIL_FROM: 'identity@localhost',
         // The compose dev-mode Vault and its fixed root token, which only a local run has.
-        VAULT_ADDR: 'http://localhost:58200',
+        VAULT_ADDR: 'http://localhost:28200',
         VAULT_TOKEN: 'dev-only-root',
       },
     },
