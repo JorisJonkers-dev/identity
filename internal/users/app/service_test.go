@@ -407,6 +407,18 @@ func (s *store) SessionByHash(_ context.Context, hash []byte) (app.Session, erro
 	return sess, nil
 }
 
+func (s *store) SessionByID(_ context.Context, id uuid.UUID) (app.Session, error) {
+	if err := s.fail["SessionByID"]; err != nil {
+		return app.Session{}, err
+	}
+	for _, sess := range s.sessions {
+		if sess.ID == id {
+			return sess, nil
+		}
+	}
+	return app.Session{}, app.ErrNotFound
+}
+
 func (s *store) TouchSession(_ context.Context, hash []byte, lastSeen, expires time.Time) error {
 	if err := s.fail["TouchSession"]; err != nil {
 		return err
@@ -1167,5 +1179,33 @@ func TestUserByEmailFindsAConfirmedUser(t *testing.T) {
 	}
 	if _, err := f.UserByEmail(ctx, "nobody@example.org"); !errors.Is(err, app.ErrNotFound) {
 		t.Fatalf("an unknown email: %v", err)
+	}
+}
+
+func TestVouchChecksASessionByItsID(t *testing.T) {
+	f := newFixture()
+	ctx := context.Background()
+	f.signedUp(t, "ada@example.org")
+	token, _ := f.SignIn(ctx, "ada@example.org", pw)
+	sess := f.store.sessions[sum(token)]
+	u, got, err := f.Vouch(ctx, sess.ID)
+	if err != nil || u.Email.String() != "ada@example.org" || got.ID != sess.ID {
+		t.Fatalf("Vouch = %+v, %+v, %v", u, got, err)
+	}
+	f.now = t0.Add(time.Hour)
+	if _, _, err := f.Vouch(ctx, sess.ID); err != nil || f.store.touches != 1 {
+		t.Fatalf("a vouch an hour on = %v, %d touches", err, f.store.touches)
+	}
+	if _, _, err := f.Vouch(ctx, uuid.New()); !errors.Is(err, app.ErrNoSession) {
+		t.Fatalf("an unknown session = %v", err)
+	}
+	_ = f.SignOut(ctx, token)
+	if _, _, err := f.Vouch(ctx, sess.ID); !errors.Is(err, app.ErrNoSession) {
+		t.Fatalf("a signed-out session = %v", err)
+	}
+	boom := errors.New("boom")
+	f.store.fail["SessionByID"] = boom
+	if _, _, err := f.Vouch(ctx, sess.ID); !errors.Is(err, boom) {
+		t.Fatalf("a failing store = %v", err)
 	}
 }

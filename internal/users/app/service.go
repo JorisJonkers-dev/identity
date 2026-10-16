@@ -79,6 +79,8 @@ type Store interface {
 	DeleteSignup(ctx context.Context, tokenHash []byte) error
 	CreateSession(ctx context.Context, s Session) error
 	SessionByHash(ctx context.Context, tokenHash []byte) (Session, error)
+	// SessionByID is ErrNotFound when there is none.
+	SessionByID(ctx context.Context, id uuid.UUID) (Session, error)
 	TouchSession(ctx context.Context, tokenHash []byte, lastSeen, expires time.Time) error
 	DeleteSession(ctx context.Context, tokenHash []byte) error
 	DeleteOtherSessions(ctx context.Context, userID uuid.UUID, keepTokenHash []byte) error
@@ -386,14 +388,31 @@ func (s *Service) Authenticate(ctx context.Context, token string) (domain.User, 
 // SignedIn is Authenticate that also returns the session, whose CreatedAt is when the password
 // was checked.
 func (s *Service) SignedIn(ctx context.Context, token string) (domain.User, Session, error) {
-	hash := hashOf(token)
-	sess, err := s.store.SessionByHash(ctx, hash)
-	if errors.Is(err, ErrNotFound) {
-		return domain.User{}, Session{}, ErrNoSession
+	return s.alive(ctx)(s.store.SessionByHash(ctx, hashOf(token)))
+}
+
+// Vouch is SignedIn by the session's public id, for the Gate, whose host cookie names the Single
+// sign-on session it was made from (docs/adr/0003).
+func (s *Service) Vouch(ctx context.Context, sessionID uuid.UUID) (domain.User, Session, error) {
+	return s.alive(ctx)(s.store.SessionByID(ctx, sessionID))
+}
+
+// alive checks a session a lookup found: unexpired, an Admin's within 12 hours, and touched at most
+// once a minute.
+func (s *Service) alive(ctx context.Context) func(Session, error) (domain.User, Session, error) {
+	return func(sess Session, err error) (domain.User, Session, error) {
+		if errors.Is(err, ErrNotFound) {
+			return domain.User{}, Session{}, ErrNoSession
+		}
+		if err != nil {
+			return domain.User{}, Session{}, err
+		}
+		return s.check(ctx, sess)
 	}
-	if err != nil {
-		return domain.User{}, Session{}, err
-	}
+}
+
+func (s *Service) check(ctx context.Context, sess Session) (domain.User, Session, error) {
+	hash := sess.TokenHash
 	now := s.now()
 	end, err := s.end(ctx, sess.UserID, sess.CreatedAt)
 	if err != nil {

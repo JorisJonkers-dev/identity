@@ -9,7 +9,7 @@
 // and METRICS_ADDR, which serves only /metrics, to :9090. VAULT_ADDR lets Users add authenticator
 // apps: identity signs in to Vault with VAULT_TOKEN, or as VAULT_ROLE (identity) through the
 // Kubernetes auth method; VAULT_TRANSIT_MOUNT (transit) and VAULT_TOTP_KEY (identity-totp) name the
-// key.
+// key. Outside a cluster, CLIENTS_FILE names a YAML file of Client objects for a local run.
 package main
 
 import (
@@ -36,6 +36,10 @@ import (
 	"github.com/JorisJonkers-dev/identity/internal/access/adapters/people"
 	accesspersistence "github.com/JorisJonkers-dev/identity/internal/access/adapters/persistence"
 	accessapp "github.com/JorisJonkers-dev/identity/internal/access/app"
+	gatecontexts "github.com/JorisJonkers-dev/identity/internal/gate/adapters/contexts"
+	gatepersistence "github.com/JorisJonkers-dev/identity/internal/gate/adapters/persistence"
+	gateweb "github.com/JorisJonkers-dev/identity/internal/gate/adapters/web"
+	gateapp "github.com/JorisJonkers-dev/identity/internal/gate/app"
 	"github.com/JorisJonkers-dev/identity/internal/platform/httpapi"
 	"github.com/JorisJonkers-dev/identity/internal/platform/mail"
 	"github.com/JorisJonkers-dev/identity/internal/platform/metrics"
@@ -90,6 +94,9 @@ func start(parent context.Context, getenv func(string) string) int {
 const (
 	maxConcurrentHashes = 4
 	hashWait            = 3 * time.Second
+	// A Gate check is answered from memory for this long; a sign-out or a role taken away reaches a
+	// gated host within it (docs/adr/0009).
+	gateCacheTTL = 30 * time.Second
 )
 
 func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) error {
@@ -127,7 +134,14 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 	if err != nil {
 		return err
 	}
-	provider, err := oidcProvider(cfg, store, users, access, index, logger)
+	signIn := signinapp.New(signinpersistence.New(store.Queries()), index, accounts.New(users), access, time.Now, rand.Reader)
+	provider, err := oidcProvider(cfg, signIn, logger)
+	if err != nil {
+		return err
+	}
+	others := gatecontexts.New(signIn, users)
+	gate := gateapp.New(gatepersistence.New(store.Queries()), others, others, others, time.Now, rand.Reader, gateCacheTTL)
+	gateHandler, err := gateweb.New(gate, gateweb.Config{Issuer: cfg.publicURL, SessionCookie: usersweb.CookieName}, logger)
 	if err != nil {
 		return err
 	}
@@ -147,6 +161,7 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 	return server.New(logger, version, server.Routes{
 		API:  api,
 		OIDC: provider,
+		Gate: gateHandler,
 		Web:  webui.Handler(web.Dist()),
 		Ready: func(ctx context.Context) error {
 			if !synced() {
@@ -211,8 +226,11 @@ func serveMetrics(ln net.Listener, h http.Handler, logger *slog.Logger) (stop fu
 func watchClients(ctx context.Context, cfg config, logger *slog.Logger) (*clients.Index, func() bool, error) {
 	index := clients.NewIndex()
 	if !cfg.inCluster {
-		logger.Warn("not in a cluster: no Clients")
-		return index, func() bool { return true }, nil
+		if cfg.clientsFile == "" {
+			logger.Warn("not in a cluster and CLIENTS_FILE is not set: no Clients")
+			return index, func() bool { return true }, nil
+		}
+		return index, func() bool { return true }, clients.LoadFile(cfg.clientsFile, index)
 	}
 	rc, err := rest.InClusterConfig()
 	if err != nil {
@@ -227,12 +245,11 @@ func watchClients(ctx context.Context, cfg config, logger *slog.Logger) (*client
 
 // oidcProvider is the OIDC Provider over the sign-in context. It signs with a key made at start-up
 // until keys are kept (identity#30).
-func oidcProvider(cfg config, store *pg.Store, users *app.Service, access *accessapp.Service, index *clients.Index, logger *slog.Logger) (http.Handler, error) {
+func oidcProvider(cfg config, svc *signinapp.Service, logger *slog.Logger) (http.Handler, error) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, err
 	}
-	svc := signinapp.New(signinpersistence.New(store.Queries()), index, accounts.New(users), access, time.Now, rand.Reader)
 	return signinoidc.New(signinoidc.Config{
 		Issuer:        cfg.publicURL,
 		Insecure:      strings.HasPrefix(cfg.publicURL, "http://"),
@@ -247,9 +264,11 @@ type config struct {
 	// metricsAddr serves /metrics, on a port the edge never routes.
 	metricsAddr string
 	mailer      mail.SMTP
-	// inCluster is set when running in Kubernetes, the only place Client objects exist.
+	// inCluster is set when running in Kubernetes, where Client objects are watched.
 	inCluster bool
-	vault     vaultConfig
+	// clientsFile holds Client objects for a run outside a cluster.
+	clientsFile string
+	vault       vaultConfig
 }
 
 // or is value, or fallback when value is empty.
@@ -276,6 +295,7 @@ func readConfig(getenv func(string) string) (config, error) {
 		addr:        getenv("ADDR"),
 		metricsAddr: getenv("METRICS_ADDR"),
 		inCluster:   getenv("KUBERNETES_SERVICE_HOST") != "",
+		clientsFile: getenv("CLIENTS_FILE"),
 		vault: vaultConfig{
 			addr: getenv("VAULT_ADDR"), token: getenv("VAULT_TOKEN"),
 			role: or(getenv("VAULT_ROLE"), "identity"), authMount: or(getenv("VAULT_AUTH_MOUNT"), "kubernetes"),

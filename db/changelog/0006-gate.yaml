@@ -1,0 +1,47 @@
+# The Gate (docs/adr/0003, 0009): a one-time code that carries a sign-in from the Identity
+# Provider's host to a gated host's /.auth/callback, and the per-host session that host's cookie
+# names. Both hang off the Single sign-on session, so signing out everywhere ends them too. Codes
+# and cookies are stored only as SHA-256 hashes.
+databaseChangeLog:
+  - changeSet:
+      id: 0006-create-gate-codes
+      author: identity
+      changes:
+        - createTable:
+            tableName: gate_codes
+            columns:
+              - column: {name: code_hash, type: bytea, constraints: {primaryKey: true, nullable: false}}
+              - column: {name: host, type: text, constraints: {nullable: false}}
+              - column:
+                  name: session_id
+                  type: uuid
+                  constraints: {nullable: false, foreignKeyName: gate_codes_session_fk, references: sessions(id), deleteCascade: true}
+              # The state the host's page set in its own cookie: a code works only in that browser.
+              - column: {name: state_hash, type: bytea, constraints: {nullable: false}}
+              - column: {name: return_path, type: text, constraints: {nullable: false}}
+              - column: {name: expires_at, type: timestamptz, constraints: {nullable: false}}
+        - createIndex:
+            tableName: gate_codes
+            indexName: gate_codes_expires_at_idx
+            columns:
+              - column: {name: expires_at}
+
+  - changeSet:
+      id: 0006-create-gate-sessions
+      author: identity
+      changes:
+        - createTable:
+            tableName: gate_sessions
+            columns:
+              - column: {name: token_hash, type: bytea, constraints: {primaryKey: true, nullable: false}}
+              - column: {name: host, type: text, constraints: {nullable: false}}
+              - column:
+                  name: session_id
+                  type: uuid
+                  constraints: {nullable: false, foreignKeyName: gate_sessions_session_fk, references: sessions(id), deleteCascade: true}
+              - column: {name: created_at, type: timestamptz, constraints: {nullable: false}}
+        - createIndex:
+            tableName: gate_sessions
+            indexName: gate_sessions_session_idx
+            columns:
+              - column: {name: session_id}

@@ -120,6 +120,17 @@ func (s *Store) SessionByHash(ctx context.Context, hash []byte) (app.Session, er
 	}, nil
 }
 
+func (s *Store) SessionByID(ctx context.Context, id uuid.UUID) (app.Session, error) {
+	row, err := s.q.SessionByID(ctx, id)
+	if err != nil {
+		return app.Session{}, notFound(err)
+	}
+	return app.Session{
+		TokenHash: row.TokenHash, ID: row.ID, UserID: row.UserID,
+		CreatedAt: row.CreatedAt, LastSeenAt: row.LastSeenAt, ExpiresAt: row.ExpiresAt, Methods: row.Methods,
+	}, nil
+}
+
 func (s *Store) TouchSession(ctx context.Context, hash []byte, lastSeen, expires time.Time) error {
 	return s.q.TouchSession(ctx, queries.TouchSessionParams{TokenHash: hash, LastSeenAt: lastSeen, ExpiresAt: expires})
 }

@@ -18,7 +18,9 @@ ID token and access token carry that Client's App Roles, and nothing else about 
 access page lists the Users waiting for a Group. Users add authenticator apps (TOTP, sealed by Vault
 transit) and passkeys (WebAuthn, on go-webauthn) on the Security page; sign-in then asks for one,
 and Admins manage access only from a session that gave one
-([0015](docs/adr/0015-a-second-factor-is-proved-not-just-held.md)). Kept signing keys and Client secrets arrive with
+([0015](docs/adr/0015-a-second-factor-is-proved-not-just-held.md)). The Gate signs Users in for
+gated apps one host at a time: Traefik's forwardAuth calls `/gate/check`, and a visitor without the
+host's cookie gets a page with one sign-in button that comes back on the host's `/.auth/callback`. Kept signing keys and Client secrets arrive with
 the following tickets. The schema moves through
 liquibase-runner, not goose ([0010](docs/adr/0010-migrations-run-through-liquibase-runner.md)).
 
@@ -47,6 +49,7 @@ How the repository is laid out and worked on.
 | `internal/users/` | The users context: sign-up, confirmation, sign-in, sessions and the Profile |
 | `internal/platform/vault/` | Seals and opens TOTP secrets with Vault's transit engine, signing in with a token or the pod's service account |
 | `internal/access/` | The access context: Groups, members and Assignments, managed by Admins, and the App Roles sign-in puts in tokens |
+| `internal/gate/` | The Gate: the forwardAuth check, answered from a short-lived cache, the sign-in page, and the `/.auth/callback` that sets a host's own cookie |
 | `internal/signin/` | The sign-in context: the OIDC Provider on zitadel/oidc, authorization requests, and the Single sign-on check at `/oidc/login` |
 | `compose.yaml` | Postgres, the migration runner and Mailpit for `task dev` and `task e2e` |
 | `web/` | The Vue 3 SPA, and `embed.go`, which embeds its build (`web/dist`) in the binary |

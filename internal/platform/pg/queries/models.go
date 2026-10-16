@@ -36,6 +36,22 @@ type AuthRequest struct {
 	Methods             []string
 }
 
+type GateCode struct {
+	CodeHash   []byte
+	Host       string
+	SessionID  uuid.UUID
+	StateHash  []byte
+	ReturnPath string
+	ExpiresAt  time.Time
+}
+
+type GateSession struct {
+	TokenHash []byte
+	Host      string
+	SessionID uuid.UUID
+	CreatedAt time.Time
+}
+
 type Group struct {
 	ID        uuid.UUID
 	Name      string

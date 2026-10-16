@@ -21,6 +21,7 @@ func newServer(ready error) *server.Server {
 	return server.New(slog.New(slog.DiscardHandler), "test", server.Routes{
 		API:   named("api"),
 		OIDC:  named("oidc"),
+		Gate:  named("gate"),
 		Web:   named("web"),
 		Ready: func(context.Context) error { return ready },
 	})
@@ -65,6 +66,7 @@ func TestRoutesAPIAndWebBehindSecurityHeaders(t *testing.T) {
 	for path, want := range map[string]string{
 		"/api/v1/version": "api", "/": "web", "/launcher": "web", "/apiary": "web",
 		"/.well-known/openid-configuration": "oidc", "/oidc/authorize": "oidc", "/oidcx": "web",
+		"/gate/check": "gate", "/.auth/callback": "gate", "/gatex": "web",
 	} {
 		rec := &recorder{header: http.Header{}}
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
@@ -127,7 +129,7 @@ func TestServeReportsADrainThatOutlastsTheGrace(t *testing.T) {
 		<-release
 	})
 	s := server.New(slog.New(slog.DiscardHandler), "test",
-		server.Routes{API: slow, OIDC: named("oidc"), Web: named("web"), Ready: func(context.Context) error { return nil }},
+		server.Routes{API: slow, OIDC: named("oidc"), Gate: named("gate"), Web: named("web"), Ready: func(context.Context) error { return nil }},
 		server.WithShutdownGrace(50*time.Millisecond))
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)

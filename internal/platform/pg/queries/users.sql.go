@@ -366,6 +366,35 @@ func (q *Queries) SessionByHash(ctx context.Context, tokenHash []byte) (SessionB
 	return i, err
 }
 
+const sessionByID = `-- name: SessionByID :one
+SELECT token_hash, id, user_id, created_at, last_seen_at, expires_at, methods FROM sessions WHERE id = $1
+`
+
+type SessionByIDRow struct {
+	TokenHash  []byte
+	ID         uuid.UUID
+	UserID     uuid.UUID
+	CreatedAt  time.Time
+	LastSeenAt time.Time
+	ExpiresAt  time.Time
+	Methods    []string
+}
+
+func (q *Queries) SessionByID(ctx context.Context, id uuid.UUID) (SessionByIDRow, error) {
+	row := q.db.QueryRow(ctx, sessionByID, id)
+	var i SessionByIDRow
+	err := row.Scan(
+		&i.TokenHash,
+		&i.ID,
+		&i.UserID,
+		&i.CreatedAt,
+		&i.LastSeenAt,
+		&i.ExpiresAt,
+		&i.Methods,
+	)
+	return i, err
+}
+
 const setChallengeCeremony = `-- name: SetChallengeCeremony :execrows
 UPDATE sign_in_challenges SET passkey_ceremony = $2 WHERE token_hash = $1 AND expires_at > $3
 `
