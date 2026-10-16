@@ -40,6 +40,10 @@ import (
 	gatepersistence "github.com/JorisJonkers-dev/identity/internal/gate/adapters/persistence"
 	gateweb "github.com/JorisJonkers-dev/identity/internal/gate/adapters/web"
 	gateapp "github.com/JorisJonkers-dev/identity/internal/gate/app"
+	launchercontexts "github.com/JorisJonkers-dev/identity/internal/launcher/adapters/contexts"
+	launcherfetch "github.com/JorisJonkers-dev/identity/internal/launcher/adapters/fetch"
+	launcherweb "github.com/JorisJonkers-dev/identity/internal/launcher/adapters/web"
+	launcherapp "github.com/JorisJonkers-dev/identity/internal/launcher/app"
 	"github.com/JorisJonkers-dev/identity/internal/platform/httpapi"
 	"github.com/JorisJonkers-dev/identity/internal/platform/mail"
 	"github.com/JorisJonkers-dev/identity/internal/platform/metrics"
@@ -97,6 +101,8 @@ const (
 	// A Gate check is answered from memory for this long; a sign-out or a role taken away reaches a
 	// gated host within it (docs/adr/0009).
 	gateCacheTTL = 30 * time.Second
+	// A Client that does not send its icon within this long shows its label's first letter instead.
+	iconTimeout = 5 * time.Second
 )
 
 func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) error {
@@ -134,7 +140,9 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 		return err
 	}
 	access = accessapp.New(accesspersistence.New(store.Queries(), store), catalog.New(index), people.New(users), rand.Reader)
-	api, err := httpapi.New(logger, version, users, access)
+	launcherContexts := launchercontexts.New(index, access)
+	launcher := launcherapp.New(launcherContexts, launcherContexts, launcherfetch.New(http.DefaultTransport, iconTimeout), time.Now)
+	api, err := httpapi.New(logger, version, users, access, launcher)
 	if err != nil {
 		return err
 	}
@@ -170,10 +178,11 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 	stopMetrics := serveMetrics(mln, metrics.Handler(access.Unassigned, logger), logger)
 	defer stopMetrics()
 	return server.New(logger, version, server.Routes{
-		API:  api,
-		OIDC: provider,
-		Gate: gateHandler,
-		Web:  webui.Handler(web.Dist()),
+		API:   api,
+		OIDC:  provider,
+		Gate:  gateHandler,
+		Icons: launcherweb.NewIcons(launcher, logger),
+		Web:   webui.Handler(web.Dist()),
 		Ready: func(ctx context.Context) error {
 			if !synced() {
 				return errClientsNotListed

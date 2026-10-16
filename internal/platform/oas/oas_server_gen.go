@@ -82,6 +82,13 @@ type Handler interface {
 	//
 	// GET /api/v1/access
 	GetAccess(ctx context.Context) (GetAccessRes, error)
+	// GetLauncher implements getLauncher operation.
+	//
+	// One entry per Client the User holds an App Role on, sorted by label. Icons are served from
+	// identity's own origin.
+	//
+	// GET /api/v1/launcher
+	GetLauncher(ctx context.Context) (GetLauncherRes, error)
 	// GetProfile implements getProfile operation.
 	//
 	// Who is signed in.

@@ -167,6 +167,18 @@ func (s *Store) RolesOf(ctx context.Context, userID uuid.UUID, clientID string) 
 	return s.q.RolesOf(ctx, queries.RolesOfParams{UserID: userID, ClientID: clientID})
 }
 
+func (s *Store) RolesByClient(ctx context.Context, userID uuid.UUID) (map[string][]string, error) {
+	rows, err := s.q.RolesByClient(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	held := map[string][]string{}
+	for _, r := range rows {
+		held[r.ClientID] = append(held[r.ClientID], r.Role)
+	}
+	return held, nil
+}
+
 func taken(err error) error {
 	if code(err) == uniqueViolation {
 		return app.ErrNameTaken

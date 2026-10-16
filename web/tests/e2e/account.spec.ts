@@ -27,7 +27,8 @@ test('a person signs up, confirms by mail, signs in, sees their profile and sign
   await page.getByLabel('Email', { exact: true }).fill(email)
   await page.getByLabel('Password', { exact: true }).fill(password)
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page).toHaveURL('/profile')
+  await expect(page).toHaveURL('/')
+  await page.getByRole('link', { name: 'Your profile' }).click()
   await expect(page.getByRole('definition').filter({ hasText: email })).toBeVisible()
   await expectAccessible(page)
 

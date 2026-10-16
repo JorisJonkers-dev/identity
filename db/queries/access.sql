@@ -49,6 +49,11 @@ DELETE FROM assignments WHERE group_id = $1 AND client_id = $2 AND role = $3;
 SELECT DISTINCT a.role FROM assignments a JOIN memberships m ON m.group_id = a.group_id
 WHERE m.user_id = $1 AND a.client_id = $2 ORDER BY a.role;
 
+-- name: RolesByClient :many
+-- Every App Role a User holds, per Client: the union over their Groups (docs/adr/0004).
+SELECT DISTINCT a.client_id, a.role FROM assignments a JOIN memberships m ON m.group_id = a.group_id
+WHERE m.user_id = $1 ORDER BY a.client_id, a.role;
+
 -- name: AdminsGroup :one
 SELECT id, name, admins FROM groups WHERE admins;
 

@@ -16,6 +16,7 @@ import (
 
 	accessweb "github.com/JorisJonkers-dev/identity/internal/access/adapters/web"
 	accessapp "github.com/JorisJonkers-dev/identity/internal/access/app"
+	launcherdomain "github.com/JorisJonkers-dev/identity/internal/launcher/domain"
 	"github.com/JorisJonkers-dev/identity/internal/platform/httpapi"
 	"github.com/JorisJonkers-dev/identity/internal/users/app"
 	"github.com/JorisJonkers-dev/identity/internal/users/domain"
@@ -83,9 +84,20 @@ func (access) Overview(_ context.Context, actor accessapp.Actor) (accessapp.Over
 	return accessapp.Overview{}, accessapp.ErrNotAdmin
 }
 
+// launcher opens Grafana for whoever is signed in.
+type launcher struct{}
+
+func (launcher) Apps(context.Context, uuid.UUID) ([]launcherdomain.App, error) {
+	return []launcherdomain.App{{Client: launcherdomain.Client{ID: "grafana", Label: "Grafana", Host: "grafana.test"}, Roles: []string{"user"}}}, nil
+}
+
+func (launcher) Icon(context.Context, string) (launcherdomain.Icon, error) {
+	return launcherdomain.Icon{}, nil
+}
+
 func serve(t *testing.T) *httptest.Server {
 	t.Helper()
-	h, err := httpapi.New(slog.New(slog.DiscardHandler), "1.2.3", users{}, access{})
+	h, err := httpapi.New(slog.New(slog.DiscardHandler), "1.2.3", users{}, access{}, launcher{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -180,6 +192,20 @@ func TestOnlyAnAdminReadsAccess(t *testing.T) {
 	code, _, body := send(t, srv, http.MethodGet, "/api/v1/access", "", "", "good")
 	if code != http.StatusForbidden || body["detail"] != "Only Admins manage access." {
 		t.Fatalf("a signed-in non-Admin: GET /api/v1/access = %d %v, want a 403 problem", code, body)
+	}
+}
+
+func TestTheLauncherNeedsASignIn(t *testing.T) {
+	if code, _, _ := send(t, serve(t), http.MethodGet, "/api/v1/launcher", "", "", ""); code != http.StatusUnauthorized {
+		t.Fatalf("signed out: GET /api/v1/launcher = %d, want 401", code)
+	}
+}
+
+func TestTheLauncherListsTheSignedInUsersApps(t *testing.T) {
+	code, _, body := send(t, serve(t), http.MethodGet, "/api/v1/launcher", "", "", "good")
+	apps, _ := body["apps"].([]any)
+	if code != http.StatusOK || len(apps) != 1 {
+		t.Fatalf("GET /api/v1/launcher = %d %v", code, body)
 	}
 }
 

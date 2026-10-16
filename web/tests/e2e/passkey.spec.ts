@@ -27,5 +27,5 @@ test('a User adds a passkey, and signing in then uses it', async ({ page }, info
   await expect(page.getByRole('heading', { level: 1 })).toHaveText("Confirm it's you")
   await expectAccessible(page)
   await page.getByRole('button', { name: 'Use your passkey' }).click()
-  await expect(page).toHaveURL('/profile')
+  await expect(page).toHaveURL('/')
 })

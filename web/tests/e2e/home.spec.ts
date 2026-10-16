@@ -8,10 +8,11 @@ async function expectAccessible(page: Page) {
 }
 
 test('the home page names the service and shows the running version', async ({ page }) => {
-  // A Content-Security-Policy violation surfaces only as a console error, so any error fails.
+  // A Content-Security-Policy violation surfaces only as a console error. The signed-out
+  // Launcher's 401 is one too, and is expected.
   const errors: string[] = []
   page.on('console', (message) => {
-    if (message.type() === 'error') errors.push(message.text())
+    if (message.type() === 'error' && !message.text().includes('401 (Unauthorized)')) errors.push(message.text())
   })
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'jorisjonkers.dev' })).toBeVisible()

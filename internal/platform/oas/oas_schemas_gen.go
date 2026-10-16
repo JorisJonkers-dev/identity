@@ -4,6 +4,7 @@ package oas
 
 import (
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/go-faster/errors"
@@ -350,6 +351,101 @@ func (s *GroupDraft) SetName(val string) {
 
 type ID uuid.UUID
 
+// The apps a User can open.
+// Ref: #/components/schemas/Launcher
+type Launcher struct {
+	Apps []LauncherApp `json:"apps"`
+}
+
+// GetApps returns the value of Apps.
+func (s *Launcher) GetApps() []LauncherApp {
+	return s.Apps
+}
+
+// SetApps sets the value of Apps.
+func (s *Launcher) SetApps(val []LauncherApp) {
+	s.Apps = val
+}
+
+func (*Launcher) getLauncherRes() {}
+
+// A Client the User holds an App Role on.
+// Ref: #/components/schemas/LauncherApp
+type LauncherApp struct {
+	ID ClientId `json:"id"`
+	// What the app is called.
+	Label string `json:"label"`
+	// One line about the app.
+	Description OptString `json:"description"`
+	// Where opening the app goes.
+	LaunchUrl url.URL `json:"launchUrl"`
+	// The app's icon on identity's own origin. Absent when the app has none; the Launcher then shows the
+	// label's first letter, as it does when the icon fails to load.
+	IconUrl OptString `json:"iconUrl"`
+	// The User's App Roles on the app.
+	Roles []AppRole `json:"roles"`
+}
+
+// GetID returns the value of ID.
+func (s *LauncherApp) GetID() ClientId {
+	return s.ID
+}
+
+// GetLabel returns the value of Label.
+func (s *LauncherApp) GetLabel() string {
+	return s.Label
+}
+
+// GetDescription returns the value of Description.
+func (s *LauncherApp) GetDescription() OptString {
+	return s.Description
+}
+
+// GetLaunchUrl returns the value of LaunchUrl.
+func (s *LauncherApp) GetLaunchUrl() url.URL {
+	return s.LaunchUrl
+}
+
+// GetIconUrl returns the value of IconUrl.
+func (s *LauncherApp) GetIconUrl() OptString {
+	return s.IconUrl
+}
+
+// GetRoles returns the value of Roles.
+func (s *LauncherApp) GetRoles() []AppRole {
+	return s.Roles
+}
+
+// SetID sets the value of ID.
+func (s *LauncherApp) SetID(val ClientId) {
+	s.ID = val
+}
+
+// SetLabel sets the value of Label.
+func (s *LauncherApp) SetLabel(val string) {
+	s.Label = val
+}
+
+// SetDescription sets the value of Description.
+func (s *LauncherApp) SetDescription(val OptString) {
+	s.Description = val
+}
+
+// SetLaunchUrl sets the value of LaunchUrl.
+func (s *LauncherApp) SetLaunchUrl(val url.URL) {
+	s.LaunchUrl = val
+}
+
+// SetIconUrl sets the value of IconUrl.
+func (s *LauncherApp) SetIconUrl(val OptString) {
+	s.IconUrl = val
+}
+
+// SetRoles sets the value of Roles.
+func (s *LauncherApp) SetRoles(val []AppRole) {
+	s.Roles = val
+}
+
 // NewOptDateTime returns new OptDateTime with value set to v.
 func NewOptDateTime(v time.Time) OptDateTime {
 	return OptDateTime{
@@ -694,6 +790,7 @@ func (*ProblemStatusCode) confirmTOTPRes()               {}
 func (*ProblemStatusCode) createGroupRes()               {}
 func (*ProblemStatusCode) deleteGroupRes()               {}
 func (*ProblemStatusCode) getAccessRes()                 {}
+func (*ProblemStatusCode) getLauncherRes()               {}
 func (*ProblemStatusCode) getProfileRes()                {}
 func (*ProblemStatusCode) getVersionRes()                {}
 func (*ProblemStatusCode) listSecondFactorsRes()         {}

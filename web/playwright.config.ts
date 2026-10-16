@@ -17,25 +17,33 @@ export default defineConfig({
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
     { name: 'phone', use: { ...devices['Pixel 7'] } },
   ],
-  webServer: {
-    command: '../bin/identity',
-    url: `${origin}/readyz`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 60_000,
-    env: {
-      ADDR: new URL(origin).host,
-      // Only /metrics, on a port of its own; tests/e2e/metrics.spec.ts scrapes it.
-      METRICS_ADDR: '127.0.0.1:18574',
-      CLIENTS_FILE: 'tests/e2e/clients.yaml',
-      DATABASE_URL: process.env.DATABASE_URL ?? 'postgres://app:app@localhost:55432/app?sslmode=disable',
-      PUBLIC_URL: origin,
-      // The compose Mailpit, which offers no TLS; only a local run may send in the clear.
-      SMTP_ADDR: 'localhost:51025',
-      SMTP_TLS: 'none',
-      MAIL_FROM: 'identity@localhost',
-      // The compose dev-mode Vault and its fixed root token, which only a local run has.
-      VAULT_ADDR: 'http://localhost:58200',
-      VAULT_TOKEN: 'dev-only-root',
+  webServer: [
+    {
+      // A Client's own host, serving the icons tests/e2e/clients.yaml names.
+      command: 'node tests/e2e/icon-host.ts',
+      url: 'http://localhost:18603/healthz',
+      reuseExistingServer: !process.env.CI,
     },
-  },
+    {
+      command: '../bin/identity',
+      url: `${origin}/readyz`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+      env: {
+        ADDR: new URL(origin).host,
+        // Only /metrics, on a port of its own; tests/e2e/metrics.spec.ts scrapes it.
+        METRICS_ADDR: '127.0.0.1:18574',
+        CLIENTS_FILE: 'tests/e2e/clients.yaml',
+        DATABASE_URL: process.env.DATABASE_URL ?? 'postgres://app:app@localhost:55432/app?sslmode=disable',
+        PUBLIC_URL: origin,
+        // The compose Mailpit, which offers no TLS; only a local run may send in the clear.
+        SMTP_ADDR: 'localhost:51025',
+        SMTP_TLS: 'none',
+        MAIL_FROM: 'identity@localhost',
+        // The compose dev-mode Vault and its fixed root token, which only a local run has.
+        VAULT_ADDR: 'http://localhost:58200',
+        VAULT_TOKEN: 'dev-only-root',
+      },
+    },
+  ],
 })

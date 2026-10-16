@@ -266,6 +266,37 @@ func (q *Queries) RenameGroup(ctx context.Context, arg RenameGroupParams) (int64
 	return result.RowsAffected(), nil
 }
 
+const rolesByClient = `-- name: RolesByClient :many
+SELECT DISTINCT a.client_id, a.role FROM assignments a JOIN memberships m ON m.group_id = a.group_id
+WHERE m.user_id = $1 ORDER BY a.client_id, a.role
+`
+
+type RolesByClientRow struct {
+	ClientID string
+	Role     string
+}
+
+// Every App Role a User holds, per Client: the union over their Groups (docs/adr/0004).
+func (q *Queries) RolesByClient(ctx context.Context, userID uuid.UUID) ([]RolesByClientRow, error) {
+	rows, err := q.db.Query(ctx, rolesByClient, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []RolesByClientRow{}
+	for rows.Next() {
+		var i RolesByClientRow
+		if err := rows.Scan(&i.ClientID, &i.Role); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const rolesOf = `-- name: RolesOf :many
 SELECT DISTINCT a.role FROM assignments a JOIN memberships m ON m.group_id = a.group_id
 WHERE m.user_id = $1 AND a.client_id = $2 ORDER BY a.role

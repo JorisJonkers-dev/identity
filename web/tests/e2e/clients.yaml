@@ -18,3 +18,27 @@ spec:
   host: stats.localhost:18601
   label: Phone stats
   roles: [user]
+---
+# The Launcher's apps: Board's icon is served by tests/e2e/icon-host.ts, and Notes' icon is
+# missing there, so its tile falls back to the label's first letter.
+apiVersion: identity.jorisjonkers.dev/v1
+kind: Client
+metadata: {name: board}
+spec:
+  signIn: gated
+  host: board.localhost:18604
+  label: Board
+  description: The family board
+  launchUrl: http://board.localhost:18604/today
+  iconUrl: http://localhost:18603/board.png
+  roles: [user]
+---
+apiVersion: identity.jorisjonkers.dev/v1
+kind: Client
+metadata: {name: notes}
+spec:
+  signIn: gated
+  host: notes.localhost:18605
+  label: Notes
+  iconUrl: http://localhost:18603/missing.png
+  roles: [user]

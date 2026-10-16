@@ -223,6 +223,30 @@ func TestRolesAddUpAcrossGroups(t *testing.T) {
 	}
 }
 
+func TestAUsersRolesAreListedPerClientAcrossGroups(t *testing.T) {
+	f := open(t)
+	viewers, editors := f.group(t, "Viewers"), f.group(t, "Editors")
+	ada, grace := f.user(t, "ada@example.org"), f.user(t, "grace@example.org")
+	for _, g := range []domain.Group{viewers, editors} {
+		_ = f.s.AddMember(f.ctx, domain.Membership{GroupID: g.ID, UserID: ada})
+	}
+	for _, a := range []domain.Assignment{
+		{GroupID: viewers.ID, ClientID: "grafana", Role: "viewer"},
+		{GroupID: editors.ID, ClientID: "grafana", Role: "viewer"},
+		{GroupID: editors.ID, ClientID: "grafana", Role: "editor"},
+		{GroupID: editors.ID, ClientID: "jellyfin", Role: "user"},
+	} {
+		_ = f.s.Assign(f.ctx, a)
+	}
+	held, err := f.s.RolesByClient(f.ctx, ada)
+	if err != nil || len(held) != 2 || !slices.Equal(held["grafana"], []string{"editor", "viewer"}) || !slices.Equal(held["jellyfin"], []string{"user"}) {
+		t.Fatalf("RolesByClient(ada) = %v, %v", held, err)
+	}
+	if none, err := f.s.RolesByClient(f.ctx, grace); err != nil || len(none) != 0 {
+		t.Fatalf("RolesByClient(grace) = %v, %v", none, err)
+	}
+}
+
 func TestAdminsAndTheUnassigned(t *testing.T) {
 	f := open(t)
 	admins, family := f.admins(t), f.group(t, "Family")

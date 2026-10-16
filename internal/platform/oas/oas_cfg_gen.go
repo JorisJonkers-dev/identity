@@ -18,6 +18,7 @@ import (
 )
 
 var regexMap = map[string]ogenregex.Regexp{
+	"^/icons/":                         ogenregex.MustCompile("^/icons/"),
 	"^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$": ogenregex.MustCompile("^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"),
 	"^[a-z][a-z0-9-]*$":                ogenregex.MustCompile("^[a-z][a-z0-9-]*$"),
 }

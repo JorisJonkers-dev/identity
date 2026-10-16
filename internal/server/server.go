@@ -28,6 +28,8 @@ type Routes struct {
 	OIDC http.Handler
 	// Gate serves the Gate: /gate/ on the Issuer's host, and /.auth/ on every gated host.
 	Gate http.Handler
+	// Icons serves the Launcher's icons under /icons/.
+	Icons http.Handler
 	// Web serves every other path: the single-page app.
 	Web http.Handler
 	// Ready reports whether the service's dependencies answer; /readyz fails while it errors.
@@ -86,6 +88,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("/oidc/", s.routes.OIDC)
 	mux.Handle("/gate/", s.routes.Gate)
 	mux.Handle("/.auth/", s.routes.Gate)
+	mux.Handle("/icons/", s.routes.Icons)
 	mux.Handle("/", s.routes.Web)
 	return httpx.SecurityHeaders(mux)
 }

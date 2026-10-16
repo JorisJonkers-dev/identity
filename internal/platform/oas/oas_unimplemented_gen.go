@@ -120,6 +120,16 @@ func (UnimplementedHandler) GetAccess(ctx context.Context) (r GetAccessRes, _ er
 	return r, ht.ErrNotImplemented
 }
 
+// GetLauncher implements getLauncher operation.
+//
+// One entry per Client the User holds an App Role on, sorted by label. Icons are served from
+// identity's own origin.
+//
+// GET /api/v1/launcher
+func (UnimplementedHandler) GetLauncher(ctx context.Context) (r GetLauncherRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // GetProfile implements getProfile operation.
 //
 // Who is signed in.

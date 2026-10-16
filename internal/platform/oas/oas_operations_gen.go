@@ -17,6 +17,7 @@ const (
 	CreateGroupOperation               OperationName = "CreateGroup"
 	DeleteGroupOperation               OperationName = "DeleteGroup"
 	GetAccessOperation                 OperationName = "GetAccess"
+	GetLauncherOperation               OperationName = "GetLauncher"
 	GetProfileOperation                OperationName = "GetProfile"
 	GetVersionOperation                OperationName = "GetVersion"
 	ListSecondFactorsOperation         OperationName = "ListSecondFactors"
