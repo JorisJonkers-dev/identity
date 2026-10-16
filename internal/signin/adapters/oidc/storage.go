@@ -165,12 +165,18 @@ func (s *storage) SetUserinfoFromScopes(context.Context, *oidc.UserInfo, string,
 	return nil
 }
 
-// SetUserinfoFromRequest fills the ID token: email and name as the scopes ask, and the session's sid.
+// SetUserinfoFromRequest fills the ID token: email and name as the scopes ask, the User's App Roles
+// on this Client, and the session's sid.
 func (s *storage) SetUserinfoFromRequest(ctx context.Context, info *oidc.UserInfo, req op.IDTokenRequest, scopes []string) error {
 	claims, err := s.claims(ctx, req.GetSubject())
 	if err != nil {
 		return err
 	}
+	roles, err := s.roles(ctx, req.GetSubject(), req.GetClientID())
+	if err != nil {
+		return err
+	}
+	info.AppendClaims("roles", roles)
 	info.Subject = req.GetSubject()
 	for _, scope := range scopes {
 		switch scope {
@@ -219,9 +225,26 @@ func (s *storage) claims(ctx context.Context, subject string) (app.Claims, error
 	return c, nil
 }
 
-// GetPrivateClaimsFromScopes adds nothing yet; App Roles arrive with identity#14.
-func (s *storage) GetPrivateClaimsFromScopes(context.Context, string, string, []string) (map[string]any, error) {
-	return nil, nil //nolint:nilnil // no private claims is not an error
+// GetPrivateClaimsFromScopes puts the User's App Roles on this Client in the access token, and
+// nothing about Groups (docs/adr/0004).
+func (s *storage) GetPrivateClaimsFromScopes(ctx context.Context, subject, clientID string, _ []string) (map[string]any, error) {
+	roles, err := s.roles(ctx, subject, clientID)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"roles": roles}, nil
+}
+
+func (s *storage) roles(ctx context.Context, subject, clientID string) ([]string, error) {
+	id, err := uuid.Parse(subject)
+	if err != nil {
+		return nil, s.fail(ctx, app.ErrNotFound)
+	}
+	roles, err := s.svc.Roles(ctx, id, clientID)
+	if err != nil {
+		return nil, s.fail(ctx, err)
+	}
+	return roles, nil
 }
 
 var errNoJWTProfile = oidc.ErrUnauthorizedClient().WithDescription("The JWT profile grant is not offered.")

@@ -36,9 +36,17 @@ func findAuthorization(h http.Header, prefix string) (string, bool) {
 
 // operationRolesSession is a private map storing roles per operation.
 var operationRolesSession = map[string][]string{
+	AddMemberOperation:      []string{},
+	AssignRoleOperation:     []string{},
 	ChangePasswordOperation: []string{},
+	CreateGroupOperation:    []string{},
+	DeleteGroupOperation:    []string{},
+	GetAccessOperation:      []string{},
 	GetProfileOperation:     []string{},
+	RemoveMemberOperation:   []string{},
+	RenameGroupOperation:    []string{},
 	SignOutOperation:        []string{},
+	UnassignRoleOperation:   []string{},
 	UpdateProfileOperation:  []string{},
 }
 

@@ -71,6 +71,17 @@ func (s *store) UserByID(_ context.Context, id uuid.UUID) (domain.User, error) {
 	return u, nil
 }
 
+func (s *store) Users(context.Context) ([]domain.User, error) {
+	if err := s.fail["Users"]; err != nil {
+		return nil, err
+	}
+	users := make([]domain.User, 0, len(s.users))
+	for _, u := range s.users {
+		users = append(users, u)
+	}
+	return users, nil
+}
+
 func (s *store) UpdateName(_ context.Context, id uuid.UUID, n domain.Name) error {
 	if err := s.fail["UpdateName"]; err != nil {
 		return err
@@ -786,5 +797,22 @@ func TestMakingTheDecoyHoldsNoLockThatOutlastsTheHashBound(t *testing.T) {
 		if err := <-done; !errors.Is(err, app.ErrBusy) {
 			t.Fatalf("SignIn = %v", err)
 		}
+	}
+}
+
+func TestUsersListsEveryUser(t *testing.T) {
+	f := newFixture()
+	ctx := context.Background()
+	e, _ := domain.NewEmail("ada@example.org")
+	n, _ := domain.NewName("Ada")
+	f.store.users[uuid.Nil] = domain.User{Email: e, Name: n}
+	got, err := f.Users(ctx)
+	if err != nil || len(got) != 1 || got[0].Email != e {
+		t.Fatalf("Users = %+v, %v", got, err)
+	}
+	boom := errors.New("boom")
+	f.store.fail["Users"] = boom
+	if _, err := f.Users(ctx); !errors.Is(err, boom) {
+		t.Fatalf("a failing store: %v", err)
 	}
 }

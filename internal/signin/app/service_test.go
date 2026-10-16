@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -132,10 +133,25 @@ func (a *accounts) SignOutEverywhere(_ context.Context, id uuid.UUID) error {
 	return nil
 }
 
+// access gives Ada the listed App Roles on each Client, and no one else any.
+type access struct {
+	ada   uuid.UUID
+	roles map[string][]string
+	fail  error
+}
+
+func (a *access) Roles(_ context.Context, userID uuid.UUID, clientID string) ([]string, error) {
+	if userID != a.ada {
+		return nil, a.fail
+	}
+	return a.roles[clientID], a.fail
+}
+
 type fixture struct {
 	*app.Service
 	requests *requests
 	accounts *accounts
+	access   *access
 	now      time.Time
 }
 
@@ -164,13 +180,14 @@ func newFixture() *fixture {
 		accounts: &accounts{ada: uuid.New(), sessionID: uuid.New()},
 		now:      t0,
 	}
+	f.access = &access{ada: f.accounts.ada, roles: map[string][]string{"spa": {"editor", "viewer", "retired"}}}
 	cs := clients{
-		"spa":     {ID: "spa", SignIn: domain.Native, Host: "spa.test", Credential: domain.PKCE},
-		"web":     {ID: "web", SignIn: domain.Native, Host: "web.test", Credential: domain.Secret, SecretHash: secretHash("s3cret")},
+		"spa":     {ID: "spa", SignIn: domain.Native, Host: "spa.test", Credential: domain.PKCE, Roles: []string{"user", "viewer", "editor"}},
+		"web":     {ID: "web", SignIn: domain.Native, Host: "web.test", Credential: domain.Secret, SecretHash: secretHash("s3cret"), Roles: []string{"user"}},
 		"unready": {ID: "unready", SignIn: domain.Native, Host: "unready.test", Credential: domain.Secret},
 		"gated":   {ID: "gated", SignIn: domain.Gated, Host: "gated.test"},
 	}
-	f.Service = app.New(f.requests, cs, f.accounts, func() time.Time { return f.now }, &counter{})
+	f.Service = app.New(f.requests, cs, f.accounts, f.access, func() time.Time { return f.now }, &counter{})
 	return f
 }
 
@@ -204,7 +221,7 @@ func TestStartKeepsTheRequestForTenMinutes(t *testing.T) {
 
 func TestStartFailures(t *testing.T) {
 	f := newFixture()
-	f.Service = app.New(f.requests, clients{}, f.accounts, time.Now, broken{})
+	f.Service = app.New(f.requests, clients{}, f.accounts, f.access, time.Now, broken{})
 	if _, err := f.Start(context.Background(), domain.AuthRequest{}); !errors.Is(err, errBoom) {
 		t.Fatalf("no entropy: %v", err)
 	}
@@ -334,5 +351,42 @@ func TestAccountsPassThrough(t *testing.T) {
 	}
 	if err := f.SignOutEverywhere(ctx, f.accounts.ada); err != nil || f.accounts.signedOut != f.accounts.ada {
 		t.Fatalf("SignOutEverywhere = %v", err)
+	}
+}
+
+func TestRolesAreTheOnesTheClientStillDeclares(t *testing.T) {
+	f := newFixture()
+	ctx := context.Background()
+	got, err := f.Roles(ctx, f.accounts.ada, "spa")
+	if err != nil || !slices.Equal(got, []string{"viewer", "editor"}) {
+		t.Fatalf("Roles = %v, %v; want the declared ones in the Client's order", got, err)
+	}
+	if _, err := f.Roles(ctx, f.accounts.ada, "nobody"); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("Roles on a Removed Client: %v", err)
+	}
+	f.access.fail = errBoom
+	if _, err := f.Roles(ctx, f.accounts.ada, "spa"); !errors.Is(err, errBoom) {
+		t.Fatalf("a failing access context: %v", err)
+	}
+}
+
+func TestAUserWithNoAppRoleOnTheClientCannotComplete(t *testing.T) {
+	f := newFixture()
+	ctx := context.Background()
+	r, _ := f.Start(ctx, domain.AuthRequest{ClientID: "web"})
+	if err := f.Complete(ctx, r.ID, "tok"); !errors.Is(err, app.ErrNoAccess) {
+		t.Fatalf("Complete without a role = %v, want ErrNoAccess", err)
+	}
+	if got, _ := f.Request(ctx, r.ID); got.SignIn != nil {
+		t.Fatal("a refused request was completed")
+	}
+	f.access.roles["web"] = []string{"user"}
+	if err := f.Complete(ctx, r.ID, "tok"); err != nil {
+		t.Fatalf("Complete once assigned = %v", err)
+	}
+	r = f.started(t)
+	f.access.fail = errBoom
+	if err := f.Complete(ctx, r.ID, "tok"); !errors.Is(err, errBoom) {
+		t.Fatalf("a failing access context: %v", err)
 	}
 }

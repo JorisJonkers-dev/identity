@@ -3,7 +3,10 @@
 package clients
 
 import (
+	"cmp"
 	"context"
+	"slices"
+	"strings"
 	"sync"
 
 	"github.com/JorisJonkers-dev/identity/internal/signin/app"
@@ -71,4 +74,18 @@ func (x *Index) ClientForHost(ctx context.Context, host string) (domain.Client, 
 		return domain.Client{}, app.ErrNotFound
 	}
 	return x.Client(ctx, id)
+}
+
+// All returns every present Client, by label and then id; a token Client has no label.
+func (x *Index) All() []domain.Client {
+	x.mu.RLock()
+	defer x.mu.RUnlock()
+	all := make([]domain.Client, 0, len(x.byID))
+	for _, c := range x.byID {
+		all = append(all, c)
+	}
+	slices.SortFunc(all, func(a, b domain.Client) int {
+		return cmp.Or(strings.Compare(strings.ToLower(a.Label), strings.ToLower(b.Label)), strings.Compare(a.ID, b.ID))
+	})
+	return all
 }

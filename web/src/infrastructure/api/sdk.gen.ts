@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, ConfirmEmailData, ConfirmEmailErrors, ConfirmEmailResponses, GetProfileData, GetProfileErrors, GetProfileResponses, GetVersionData, GetVersionErrors, GetVersionResponses, SignInData, SignInErrors, SignInResponses, SignOutData, SignOutErrors, SignOutResponses, SignUpData, SignUpErrors, SignUpResponses, UpdateProfileData, UpdateProfileErrors, UpdateProfileResponses } from './types.gen';
-import { zChangePasswordBody, zChangePasswordResponse, zConfirmEmailBody, zConfirmEmailResponse, zGetProfileResponse, zGetVersionResponse, zSignInBody, zSignInResponse, zSignOutResponse, zSignUpBody, zUpdateProfileBody, zUpdateProfileResponse } from './zod.gen';
+import type { AddMemberData, AddMemberErrors, AddMemberResponses, AssignRoleData, AssignRoleErrors, AssignRoleResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, ConfirmEmailData, ConfirmEmailErrors, ConfirmEmailResponses, CreateGroupData, CreateGroupErrors, CreateGroupResponses, DeleteGroupData, DeleteGroupErrors, DeleteGroupResponses, GetAccessData, GetAccessErrors, GetAccessResponses, GetProfileData, GetProfileErrors, GetProfileResponses, GetVersionData, GetVersionErrors, GetVersionResponses, RemoveMemberData, RemoveMemberErrors, RemoveMemberResponses, RenameGroupData, RenameGroupErrors, RenameGroupResponses, SignInData, SignInErrors, SignInResponses, SignOutData, SignOutErrors, SignOutResponses, SignUpData, SignUpErrors, SignUpResponses, UnassignRoleData, UnassignRoleErrors, UnassignRoleResponses, UpdateProfileData, UpdateProfileErrors, UpdateProfileResponses } from './types.gen';
+import { zAddMemberPath, zAddMemberResponse, zAssignRolePath, zAssignRoleResponse, zChangePasswordBody, zChangePasswordResponse, zConfirmEmailBody, zConfirmEmailResponse, zCreateGroupBody, zCreateGroupResponse, zDeleteGroupPath, zDeleteGroupResponse, zGetAccessResponse, zGetProfileResponse, zGetVersionResponse, zRemoveMemberPath, zRemoveMemberResponse, zRenameGroupBody, zRenameGroupPath, zRenameGroupResponse, zSignInBody, zSignInResponse, zSignOutResponse, zSignUpBody, zUnassignRolePath, zUnassignRoleResponse, zUpdateProfileBody, zUpdateProfileResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -186,4 +186,180 @@ export const changePassword = <ThrowOnError extends boolean = false>(options: Op
         'Content-Type': 'application/json',
         ...options.headers
     }
+});
+
+/**
+ * Groups, Users, Clients and Assignments
+ *
+ * Everything the access page shows, in one read. Admins only.
+ */
+export const getAccess = <ThrowOnError extends boolean = false>(options?: Options<GetAccessData, ThrowOnError>): RequestResult<GetAccessResponses, GetAccessErrors, ThrowOnError> => (options?.client ?? client).get<GetAccessResponses, GetAccessErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zGetAccessResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/access',
+    ...options
+});
+
+/**
+ * Make a Group
+ *
+ * Makes an empty Group. Names are unique whatever their case. Admins only.
+ */
+export const createGroup = <ThrowOnError extends boolean = false>(options: Options<CreateGroupData, ThrowOnError>): RequestResult<CreateGroupResponses, CreateGroupErrors, ThrowOnError> => (options.client ?? client).post<CreateGroupResponses, CreateGroupErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zCreateGroupBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zCreateGroupResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/access/groups',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete a Group
+ *
+ * Deletes a Group with its memberships and Assignments. The admins Group cannot be deleted. Admins only.
+ */
+export const deleteGroup = <ThrowOnError extends boolean = false>(options: Options<DeleteGroupData, ThrowOnError>): RequestResult<DeleteGroupResponses, DeleteGroupErrors, ThrowOnError> => (options.client ?? client).delete<DeleteGroupResponses, DeleteGroupErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zDeleteGroupPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zDeleteGroupResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/access/groups/{groupId}',
+    ...options
+});
+
+/**
+ * Rename a Group
+ *
+ * No token carries a Group's name, so renaming one changes nothing for any app. Admins only.
+ */
+export const renameGroup = <ThrowOnError extends boolean = false>(options: Options<RenameGroupData, ThrowOnError>): RequestResult<RenameGroupResponses, RenameGroupErrors, ThrowOnError> => (options.client ?? client).patch<RenameGroupResponses, RenameGroupErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zRenameGroupBody,
+        path: zRenameGroupPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zRenameGroupResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/access/groups/{groupId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Take a User out of a Group
+ *
+ * The admins Group always keeps one member. Admins only.
+ */
+export const removeMember = <ThrowOnError extends boolean = false>(options: Options<RemoveMemberData, ThrowOnError>): RequestResult<RemoveMemberResponses, RemoveMemberErrors, ThrowOnError> => (options.client ?? client).delete<RemoveMemberResponses, RemoveMemberErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zRemoveMemberPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zRemoveMemberResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/access/groups/{groupId}/members/{userId}',
+    ...options
+});
+
+/**
+ * Put a User in a Group
+ *
+ * Adding a member twice changes nothing. Admins only.
+ */
+export const addMember = <ThrowOnError extends boolean = false>(options: Options<AddMemberData, ThrowOnError>): RequestResult<AddMemberResponses, AddMemberErrors, ThrowOnError> => (options.client ?? client).put<AddMemberResponses, AddMemberErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zAddMemberPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zAddMemberResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/access/groups/{groupId}/members/{userId}',
+    ...options
+});
+
+/**
+ * Take an App Role from a Group
+ *
+ * Removes an Assignment, also one on a Removed Client. Admins only.
+ */
+export const unassignRole = <ThrowOnError extends boolean = false>(options: Options<UnassignRoleData, ThrowOnError>): RequestResult<UnassignRoleResponses, UnassignRoleErrors, ThrowOnError> => (options.client ?? client).delete<UnassignRoleResponses, UnassignRoleErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zUnassignRolePath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zUnassignRoleResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/access/groups/{groupId}/roles/{clientId}/{role}',
+    ...options
+});
+
+/**
+ * Give a Group an App Role on a Client
+ *
+ * Makes an Assignment. The Client must be in the cluster and declare the App Role, and the admins Group holds none. Assigning twice changes nothing. Admins only.
+ */
+export const assignRole = <ThrowOnError extends boolean = false>(options: Options<AssignRoleData, ThrowOnError>): RequestResult<AssignRoleResponses, AssignRoleErrors, ThrowOnError> => (options.client ?? client).put<AssignRoleResponses, AssignRoleErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zAssignRolePath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zAssignRoleResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/access/groups/{groupId}/roles/{clientId}/{role}',
+    ...options
 });

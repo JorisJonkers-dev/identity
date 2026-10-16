@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -34,6 +35,7 @@ type env struct {
 	cookies  map[string]string // what the server set in this browser
 	requests *requests
 	accounts *accounts
+	access   *access
 	browser  *http.Client
 }
 
@@ -46,19 +48,19 @@ func (e *env) elsewhere() *env {
 
 func newEnv(t *testing.T) *env {
 	t.Helper()
-	r, a := newRequests(), &accounts{ada: uuid.New(), sessionID: uuid.New()}
-	e := serve(t, r, a, "tok")
-	e.requests, e.accounts = r, a
+	r, a, x := newRequests(), &accounts{ada: uuid.New(), sessionID: uuid.New()}, newAccess()
+	e := serve(t, r, a, x, "tok")
+	e.requests, e.accounts, e.access = r, a, x
 	return e
 }
 
-// serve runs a Provider over requests and accounts; session is the browser's session cookie.
-func serve(t *testing.T, requests app.Requests, accounts app.Accounts, session string) *env {
+// serve runs a Provider over requests, accounts and access; session is the browser's session cookie.
+func serve(t *testing.T, requests app.Requests, accounts app.Accounts, access app.Access, session string) *env {
 	t.Helper()
 	var h http.Handler
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { h.ServeHTTP(w, r) }))
 	t.Cleanup(srv.Close)
-	svc := app.New(requests, testClients, accounts, time.Now, rand.Reader)
+	svc := app.New(requests, testClients, accounts, access, time.Now, rand.Reader)
 	var err error
 	h, err = New(Config{Issuer: srv.URL, Insecure: true, SessionCookie: cookieName}, svc, NewRing(testKey()), slog.New(slog.DiscardHandler), time.Now)
 	if err != nil {
@@ -187,6 +189,62 @@ func (e *env) verify(t *testing.T, clientID, idToken string) *oidc.IDTokenClaims
 		t.Fatalf("the ID token does not verify: %v", err)
 	}
 	return claims
+}
+
+// accessClaims reads an access token's claims; the token endpoint signed it, so no check is needed.
+func accessClaims(t *testing.T, token string) map[string]any {
+	t.Helper()
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		t.Fatalf("the access token is not a JWT: %q", token)
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var claims map[string]any
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		t.Fatal(err)
+	}
+	return claims
+}
+
+func roles(claim any) []string {
+	list, _ := claim.([]any)
+	out := []string{}
+	for _, r := range list {
+		s, _ := r.(string)
+		out = append(out, s)
+	}
+	return out
+}
+
+func TestTokensCarryOnlyTheClientsOwnRoles(t *testing.T) {
+	e := newEnv(t)
+	verifier := "a-verifier-of-at-least-forty-three-characters-long"
+	code := e.code(t, authorizeQuery("spa", "https://spa.test/cb", verifier))
+	_, tok := e.exchange(t, url.Values{
+		"code": {code}, "redirect_uri": {"https://spa.test/cb"}, "client_id": {"spa"}, "code_verifier": {verifier},
+	}, "", "")
+	want := []string{"viewer", "editor"}
+	if got := roles(e.verify(t, "spa", tok.IDToken).Claims["roles"]); !slices.Equal(got, want) {
+		t.Fatalf("ID token roles = %v, want %v", got, want)
+	}
+	if got := roles(accessClaims(t, tok.AccessToken)["roles"]); !slices.Equal(got, want) {
+		t.Fatalf("access token roles = %v, want %v", got, want)
+	}
+}
+
+func TestAUserWithNoAppRoleGetsNoCode(t *testing.T) {
+	e := newEnv(t)
+	e.access.roles["web"] = nil
+	login := e.loginURL(t, authorizeQuery("web", "https://web.test/cb", ""))
+	redirect(t, e.get(t, login, true), http.StatusSeeOther, "/no-access")
+	id := strings.TrimPrefix(login, loginPath+"?authRequestID=")
+	res := e.get(t, "/oidc/authorize/callback?id="+id, false)
+	if strings.Contains(res.header.Get("Location"), "code=") {
+		t.Fatalf("the Client got a code: %s", res.header.Get("Location"))
+	}
 }
 
 func TestDiscoveryAndJWKSAreServedAtTheIssuer(t *testing.T) {

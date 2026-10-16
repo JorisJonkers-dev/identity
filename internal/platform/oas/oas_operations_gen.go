@@ -6,12 +6,20 @@ package oas
 type OperationName = string
 
 const (
+	AddMemberOperation      OperationName = "AddMember"
+	AssignRoleOperation     OperationName = "AssignRole"
 	ChangePasswordOperation OperationName = "ChangePassword"
 	ConfirmEmailOperation   OperationName = "ConfirmEmail"
+	CreateGroupOperation    OperationName = "CreateGroup"
+	DeleteGroupOperation    OperationName = "DeleteGroup"
+	GetAccessOperation      OperationName = "GetAccess"
 	GetProfileOperation     OperationName = "GetProfile"
 	GetVersionOperation     OperationName = "GetVersion"
+	RemoveMemberOperation   OperationName = "RemoveMember"
+	RenameGroupOperation    OperationName = "RenameGroup"
 	SignInOperation         OperationName = "SignIn"
 	SignOutOperation        OperationName = "SignOut"
 	SignUpOperation         OperationName = "SignUp"
+	UnassignRoleOperation   OperationName = "UnassignRole"
 	UpdateProfileOperation  OperationName = "UpdateProfile"
 )

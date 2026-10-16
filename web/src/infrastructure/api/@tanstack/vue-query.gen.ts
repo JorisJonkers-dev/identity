@@ -3,8 +3,8 @@
 import { queryOptions, type UseMutationOptions } from '@tanstack/vue-query';
 
 import { client } from '../client.gen';
-import { changePassword, confirmEmail, getProfile, getVersion, type Options, signIn, signOut, signUp, updateProfile } from '../sdk.gen';
-import type { ChangePasswordData, ChangePasswordError, ChangePasswordResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, GetProfileData, GetProfileError, GetProfileResponse, GetVersionData, GetVersionError, GetVersionResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutError, SignOutResponse, SignUpData, SignUpError, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
+import { addMember, assignRole, changePassword, confirmEmail, createGroup, deleteGroup, getAccess, getProfile, getVersion, type Options, removeMember, renameGroup, signIn, signOut, signUp, unassignRole, updateProfile } from '../sdk.gen';
+import type { AddMemberData, AddMemberError, AddMemberResponse, AssignRoleData, AssignRoleError, AssignRoleResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, CreateGroupData, CreateGroupError, CreateGroupResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, GetAccessData, GetAccessError, GetAccessResponse, GetProfileData, GetProfileError, GetProfileResponse, GetVersionData, GetVersionError, GetVersionResponse, RemoveMemberData, RemoveMemberError, RemoveMemberResponse, RenameGroupData, RenameGroupError, RenameGroupResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutError, SignOutResponse, SignUpData, SignUpError, UnassignRoleData, UnassignRoleError, UnassignRoleResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -183,6 +183,159 @@ export const changePasswordMutation = (options?: Partial<Options<ChangePasswordD
     const mutationOptions: UseMutationOptions<ChangePasswordResponse, ChangePasswordError, Options<ChangePasswordData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await changePassword({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getAccessQueryKey = (options?: Options<GetAccessData>) => createQueryKey('getAccess', options);
+
+/**
+ * Groups, Users, Clients and Assignments
+ *
+ * Everything the access page shows, in one read. Admins only.
+ */
+export const getAccessOptions = (options?: Options<GetAccessData>) => queryOptions<GetAccessResponse, GetAccessError, GetAccessResponse, ReturnType<typeof getAccessQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getAccess({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getAccessQueryKey(options)
+});
+
+/**
+ * Make a Group
+ *
+ * Makes an empty Group. Names are unique whatever their case. Admins only.
+ */
+export const createGroupMutation = (options?: Partial<Options<CreateGroupData>>): UseMutationOptions<CreateGroupResponse, CreateGroupError, Options<CreateGroupData>> => {
+    const mutationOptions: UseMutationOptions<CreateGroupResponse, CreateGroupError, Options<CreateGroupData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createGroup({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete a Group
+ *
+ * Deletes a Group with its memberships and Assignments. The admins Group cannot be deleted. Admins only.
+ */
+export const deleteGroupMutation = (options?: Partial<Options<DeleteGroupData>>): UseMutationOptions<DeleteGroupResponse, DeleteGroupError, Options<DeleteGroupData>> => {
+    const mutationOptions: UseMutationOptions<DeleteGroupResponse, DeleteGroupError, Options<DeleteGroupData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteGroup({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Rename a Group
+ *
+ * No token carries a Group's name, so renaming one changes nothing for any app. Admins only.
+ */
+export const renameGroupMutation = (options?: Partial<Options<RenameGroupData>>): UseMutationOptions<RenameGroupResponse, RenameGroupError, Options<RenameGroupData>> => {
+    const mutationOptions: UseMutationOptions<RenameGroupResponse, RenameGroupError, Options<RenameGroupData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await renameGroup({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Take a User out of a Group
+ *
+ * The admins Group always keeps one member. Admins only.
+ */
+export const removeMemberMutation = (options?: Partial<Options<RemoveMemberData>>): UseMutationOptions<RemoveMemberResponse, RemoveMemberError, Options<RemoveMemberData>> => {
+    const mutationOptions: UseMutationOptions<RemoveMemberResponse, RemoveMemberError, Options<RemoveMemberData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await removeMember({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Put a User in a Group
+ *
+ * Adding a member twice changes nothing. Admins only.
+ */
+export const addMemberMutation = (options?: Partial<Options<AddMemberData>>): UseMutationOptions<AddMemberResponse, AddMemberError, Options<AddMemberData>> => {
+    const mutationOptions: UseMutationOptions<AddMemberResponse, AddMemberError, Options<AddMemberData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await addMember({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Take an App Role from a Group
+ *
+ * Removes an Assignment, also one on a Removed Client. Admins only.
+ */
+export const unassignRoleMutation = (options?: Partial<Options<UnassignRoleData>>): UseMutationOptions<UnassignRoleResponse, UnassignRoleError, Options<UnassignRoleData>> => {
+    const mutationOptions: UseMutationOptions<UnassignRoleResponse, UnassignRoleError, Options<UnassignRoleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await unassignRole({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Give a Group an App Role on a Client
+ *
+ * Makes an Assignment. The Client must be in the cluster and declare the App Role, and the admins Group holds none. Assigning twice changes nothing. Admins only.
+ */
+export const assignRoleMutation = (options?: Partial<Options<AssignRoleData>>): UseMutationOptions<AssignRoleResponse, AssignRoleError, Options<AssignRoleData>> => {
+    const mutationOptions: UseMutationOptions<AssignRoleResponse, AssignRoleError, Options<AssignRoleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await assignRole({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

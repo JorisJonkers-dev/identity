@@ -52,6 +52,22 @@ func (s *Store) UserByID(ctx context.Context, id uuid.UUID) (domain.User, error)
 	return toUser(row.ID, row.Email, row.Name, row.PasswordHash, row.CreatedAt)
 }
 
+func (s *Store) Users(ctx context.Context) ([]domain.User, error) {
+	rows, err := s.q.ListUsers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	users := make([]domain.User, 0, len(rows))
+	for _, r := range rows {
+		u, err := toUser(r.ID, r.Email, r.Name, r.PasswordHash, r.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, nil
+}
+
 func (s *Store) UpdateName(ctx context.Context, id uuid.UUID, n domain.Name) error {
 	return s.q.UpdateUserName(ctx, queries.UpdateUserNameParams{ID: id, Name: n.String()})
 }

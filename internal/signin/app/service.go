@@ -9,6 +9,7 @@ import (
 	"crypto/subtle"
 	"errors"
 	"io"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,6 +24,7 @@ var (
 	ErrNotFound      = errors.New("not found")
 	ErrNoSession     = errors.New("not signed in")
 	ErrInvalidClient = errors.New("unknown client or wrong secret")
+	ErrNoAccess      = errors.New("no App Role on this Client")
 )
 
 // Requests stores authorization requests.
@@ -58,18 +60,25 @@ type Accounts interface {
 	SignOutEverywhere(ctx context.Context, userID uuid.UUID) error
 }
 
+// Access is the access context as sign-in needs it (docs/adr/0004).
+type Access interface {
+	// Roles is the App Roles a User's Groups hold on a Client.
+	Roles(ctx context.Context, userID uuid.UUID, clientID string) ([]string, error)
+}
+
 // Service is the sign-in use cases.
 type Service struct {
 	requests Requests
 	clients  Clients
 	accounts Accounts
+	access   Access
 	now      func() time.Time
 	random   io.Reader
 }
 
 // New returns a Service. random is where request ids come from.
-func New(requests Requests, clients Clients, accounts Accounts, now func() time.Time, random io.Reader) *Service {
-	return &Service{requests: requests, clients: clients, accounts: accounts, now: now, random: random}
+func New(requests Requests, clients Clients, accounts Accounts, access Access, now func() time.Time, random io.Reader) *Service {
+	return &Service{requests: requests, clients: clients, accounts: accounts, access: access, now: now, random: random}
 }
 
 // Start keeps r, as /authorize received it, for requestLifetime, and returns it with its id.
@@ -109,14 +118,23 @@ func (s *Service) live(r domain.AuthRequest, err error) (domain.AuthRequest, err
 }
 
 // Complete lets the Single sign-on session behind sessionToken vouch for request id. It fails with
-// ErrNoSession when there is no live session, so the caller asks the person to sign in.
+// ErrNoSession when there is no live session, so the caller asks the person to sign in, and with
+// ErrNoAccess when the User holds no App Role on the Client, so no code is issued.
 func (s *Service) Complete(ctx context.Context, id uuid.UUID, sessionToken string) error {
-	if _, err := s.Request(ctx, id); err != nil {
+	r, err := s.Request(ctx, id)
+	if err != nil {
 		return err
 	}
 	signIn, err := s.accounts.SignedIn(ctx, sessionToken)
 	if err != nil {
 		return err
+	}
+	roles, err := s.Roles(ctx, signIn.UserID, r.ClientID)
+	if err != nil {
+		return err
+	}
+	if len(roles) == 0 {
+		return ErrNoAccess
 	}
 	done, err := s.requests.CompleteRequest(ctx, id, signIn)
 	if err != nil {
@@ -178,6 +196,26 @@ func (s *Service) AuthorizeSecret(ctx context.Context, clientID, secret string) 
 		return ErrInvalidClient
 	}
 	return nil
+}
+
+// Roles is the App Roles a User holds on a Client that the Client still declares, in the Client's
+// order. A token carries these and nothing about Groups. A Removed Client is ErrNotFound.
+func (s *Service) Roles(ctx context.Context, userID uuid.UUID, clientID string) ([]string, error) {
+	c, err := s.clients.Client(ctx, clientID)
+	if err != nil {
+		return nil, err
+	}
+	held, err := s.access.Roles(ctx, userID, clientID)
+	if err != nil {
+		return nil, err
+	}
+	roles := []string{}
+	for _, role := range c.Roles {
+		if slices.Contains(held, role) {
+			roles = append(roles, role)
+		}
+	}
+	return roles, nil
 }
 
 // Claims returns what tokens say about a User.

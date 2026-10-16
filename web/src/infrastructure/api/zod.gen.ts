@@ -41,6 +41,7 @@ export const zSignIn = z.object({
  * The signed-in User.
  */
 export const zProfile = z.object({
+    admin: z.boolean(),
     email: zEmail,
     name: z.string().max(400),
     createdAt: z.iso.datetime({ offset: true }).max(64)
@@ -62,6 +63,75 @@ export const zPasswordChange = z.object({
 });
 
 /**
+ * An id.
+ */
+export const zId = z.uuid().max(36);
+
+/**
+ * A Client's id, the name of its Client object.
+ */
+export const zClientId = z.string().min(1).max(253).regex(/^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$/);
+
+/**
+ * An App Role a Client declares.
+ */
+export const zAppRole = z.string().min(1).max(63).regex(/^[a-z][a-z0-9-]*$/);
+
+/**
+ * What a Group is called.
+ */
+export const zGroupDraft = z.object({
+    name: z.string().min(1).max(256)
+});
+
+/**
+ * A named set of Users.
+ */
+export const zGroup = z.object({
+    id: zId,
+    name: z.string().max(256),
+    admins: z.boolean(),
+    members: z.array(zId).max(100000)
+});
+
+/**
+ * A User, as the access page lists one.
+ */
+export const zPerson = z.object({
+    id: zId,
+    email: zEmail,
+    name: z.string().max(400)
+});
+
+/**
+ * A Client in the cluster, with the App Roles it declares.
+ */
+export const zAccessClient = z.object({
+    id: zClientId,
+    label: z.string().max(253),
+    roles: z.array(zAppRole).max(64)
+});
+
+/**
+ * A Group holding one App Role on one Client.
+ */
+export const zAssignment = z.object({
+    groupId: zId,
+    clientId: zClientId,
+    role: zAppRole
+});
+
+/**
+ * Every Group with its members, every User, every Client in the cluster, and every Assignment, including those on Removed Clients, which give no access while it is away.
+ */
+export const zAccessOverview = z.object({
+    groups: z.array(zGroup).max(10000),
+    users: z.array(zPerson).max(100000),
+    clients: z.array(zAccessClient).max(10000),
+    assignments: z.array(zAssignment).max(1000000)
+});
+
+/**
  * The running build.
  */
 export const zVersion = z.object({
@@ -77,6 +147,26 @@ export const zProblem = z.object({
     status: z.int().gte(100).lte(599),
     detail: z.string().max(1024).optional()
 });
+
+/**
+ * The Group.
+ */
+export const zGroupId = zId;
+
+/**
+ * The User.
+ */
+export const zUserId = zId;
+
+/**
+ * The Client, by its id.
+ */
+export const zClientId2 = zClientId;
+
+/**
+ * The App Role.
+ */
+export const zRole = zAppRole;
 
 /**
  * The version.
@@ -122,3 +212,77 @@ export const zChangePasswordBody = zPasswordChange;
  * The password is changed.
  */
 export const zChangePasswordResponse = z.void();
+
+/**
+ * The access overview.
+ */
+export const zGetAccessResponse = zAccessOverview;
+
+export const zCreateGroupBody = zGroupDraft;
+
+/**
+ * The new Group.
+ */
+export const zCreateGroupResponse = zGroup;
+
+export const zDeleteGroupPath = z.object({
+    groupId: zId
+});
+
+/**
+ * Deleted.
+ */
+export const zDeleteGroupResponse = z.void();
+
+export const zRenameGroupBody = zGroupDraft;
+
+export const zRenameGroupPath = z.object({
+    groupId: zId
+});
+
+/**
+ * Renamed.
+ */
+export const zRenameGroupResponse = z.void();
+
+export const zRemoveMemberPath = z.object({
+    groupId: zId,
+    userId: zId
+});
+
+/**
+ * The User is not a member.
+ */
+export const zRemoveMemberResponse = z.void();
+
+export const zAddMemberPath = z.object({
+    groupId: zId,
+    userId: zId
+});
+
+/**
+ * The User is a member.
+ */
+export const zAddMemberResponse = z.void();
+
+export const zUnassignRolePath = z.object({
+    groupId: zId,
+    clientId: zClientId,
+    role: zAppRole
+});
+
+/**
+ * The Group does not hold the App Role.
+ */
+export const zUnassignRoleResponse = z.void();
+
+export const zAssignRolePath = z.object({
+    groupId: zId,
+    clientId: zClientId,
+    role: zAppRole
+});
+
+/**
+ * The Group holds the App Role.
+ */
+export const zAssignRoleResponse = z.void();

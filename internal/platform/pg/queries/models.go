@@ -10,6 +10,12 @@ import (
 	"github.com/google/uuid"
 )
 
+type Assignment struct {
+	GroupID  uuid.UUID
+	ClientID string
+	Role     string
+}
+
 type AuthRequest struct {
 	ID                  uuid.UUID
 	ClientID            string
@@ -27,6 +33,18 @@ type AuthRequest struct {
 	SessionID           *uuid.UUID
 	AuthTime            *time.Time
 	CodeHash            []byte
+}
+
+type Group struct {
+	ID        uuid.UUID
+	Name      string
+	Admins    bool
+	CreatedAt time.Time
+}
+
+type Membership struct {
+	GroupID uuid.UUID
+	UserID  uuid.UUID
 }
 
 type Session struct {

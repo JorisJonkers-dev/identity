@@ -11,22 +11,40 @@ import (
 )
 
 type Querier interface {
+	AddMember(ctx context.Context, arg AddMemberParams) error
+	Assign(ctx context.Context, arg AssignParams) error
 	AuthRequestByID(ctx context.Context, id uuid.UUID) (AuthRequest, error)
 	// Records who signed in, once: a request already completed keeps its first User.
 	CompleteAuthRequest(ctx context.Context, arg CompleteAuthRequestParams) (int64, error)
+	CountMembers(ctx context.Context, groupID uuid.UUID) (int64, error)
 	CreateAuthRequest(ctx context.Context, arg CreateAuthRequestParams) error
+	CreateGroup(ctx context.Context, arg CreateGroupParams) error
 	CreateSession(ctx context.Context, arg CreateSessionParams) error
 	CreateSignup(ctx context.Context, arg CreateSignupParams) error
 	CreateUser(ctx context.Context, arg CreateUserParams) error
 	DeleteAuthRequest(ctx context.Context, id uuid.UUID) error
+	// The admins Group stays, whatever the caller checked.
+	DeleteGroup(ctx context.Context, id uuid.UUID) error
 	// Ends every session of a User but one, as changing the password does.
 	DeleteOtherSessions(ctx context.Context, arg DeleteOtherSessionsParams) error
 	DeleteSession(ctx context.Context, tokenHash []byte) error
 	// Signing out from any Client signs out everywhere (docs/adr/0007).
 	DeleteSessionsOfUser(ctx context.Context, userID uuid.UUID) error
 	DeleteSignup(ctx context.Context, tokenHash []byte) error
+	GroupByID(ctx context.Context, id uuid.UUID) (GroupByIDRow, error)
+	IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error)
+	ListAssignments(ctx context.Context) ([]Assignment, error)
+	ListGroups(ctx context.Context) ([]ListGroupsRow, error)
+	ListMemberships(ctx context.Context) ([]Membership, error)
+	ListUsers(ctx context.Context) ([]User, error)
+	// Holds the Group until the transaction ends, so two removals cannot both see the other member.
+	LockGroup(ctx context.Context, id uuid.UUID) (bool, error)
 	// Readiness: the database answers a query, not only a connection.
 	Ping(ctx context.Context) (int32, error)
+	RemoveMember(ctx context.Context, arg RemoveMemberParams) error
+	RenameGroup(ctx context.Context, arg RenameGroupParams) (int64, error)
+	// A User's App Roles on a Client: the union over their Groups (docs/adr/0004).
+	RolesOf(ctx context.Context, arg RolesOfParams) ([]string, error)
 	// A request gets one code; a second is refused.
 	SaveAuthCode(ctx context.Context, arg SaveAuthCodeParams) (int64, error)
 	SessionByHash(ctx context.Context, tokenHash []byte) (SessionByHashRow, error)
@@ -35,6 +53,7 @@ type Querier interface {
 	// code cannot both get tokens.
 	TakeAuthRequestByCodeHash(ctx context.Context, codeHash []byte) (AuthRequest, error)
 	TouchSession(ctx context.Context, arg TouchSessionParams) error
+	Unassign(ctx context.Context, arg UnassignParams) error
 	UpdateUserName(ctx context.Context, arg UpdateUserNameParams) error
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
 	UserByEmail(ctx context.Context, email string) (User, error)

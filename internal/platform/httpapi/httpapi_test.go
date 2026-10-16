@@ -3,6 +3,7 @@ package httpapi_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -13,6 +14,8 @@ import (
 
 	"github.com/google/uuid"
 
+	accessweb "github.com/JorisJonkers-dev/identity/internal/access/adapters/web"
+	accessapp "github.com/JorisJonkers-dev/identity/internal/access/app"
 	"github.com/JorisJonkers-dev/identity/internal/platform/httpapi"
 	"github.com/JorisJonkers-dev/identity/internal/users/app"
 	"github.com/JorisJonkers-dev/identity/internal/users/domain"
@@ -41,9 +44,21 @@ func (u users) User(ctx context.Context, _ uuid.UUID) (domain.User, error) {
 	return u.Authenticate(ctx, "good")
 }
 
+// access knows no Admin; only the operations the tests reach are answered.
+type access struct{ accessweb.UseCases }
+
+func (access) IsAdmin(context.Context, uuid.UUID) (bool, error) { return false, nil }
+
+func (access) Overview(_ context.Context, actor uuid.UUID) (accessapp.Overview, error) {
+	if actor == uuid.Nil {
+		return accessapp.Overview{}, errors.New("no principal reached the access adapter")
+	}
+	return accessapp.Overview{}, accessapp.ErrNotAdmin
+}
+
 func serve(t *testing.T) *httptest.Server {
 	t.Helper()
-	h, err := httpapi.New(slog.New(slog.DiscardHandler), "1.2.3", users{})
+	h, err := httpapi.New(slog.New(slog.DiscardHandler), "1.2.3", users{}, access{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,8 +140,19 @@ func TestTheSessionCookieGuardsTheProfile(t *testing.T) {
 		}
 	}
 	code, _, body := send(t, srv, http.MethodGet, "/api/v1/profile", "", "", "good")
-	if code != http.StatusOK || body["email"] != "ada@example.org" {
+	if code != http.StatusOK || body["email"] != "ada@example.org" || body["admin"] != false {
 		t.Fatalf("signed in: GET /api/v1/profile = %d %v", code, body)
+	}
+}
+
+func TestOnlyAnAdminReadsAccess(t *testing.T) {
+	srv := serve(t)
+	if code, _, _ := send(t, srv, http.MethodGet, "/api/v1/access", "", "", ""); code != http.StatusUnauthorized {
+		t.Fatalf("signed out: GET /api/v1/access = %d, want 401", code)
+	}
+	code, _, body := send(t, srv, http.MethodGet, "/api/v1/access", "", "", "good")
+	if code != http.StatusForbidden || body["detail"] != "Only Admins manage access." {
+		t.Fatalf("a signed-in non-Admin: GET /api/v1/access = %d %v, want a 403 problem", code, body)
 	}
 }
 

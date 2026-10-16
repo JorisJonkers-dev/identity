@@ -32,7 +32,8 @@ jobs:
     name: Check (${{ matrix.task }})
     needs: changes
     # A matrix entry cannot carry its own `if`, so each entry names the gate it needs and the
-    # first step ends the job early when that bucket is off.
+    # first step ends the job early when that bucket is off. A value that is a lone expression keeps
+    # its type, and a boolean never equals 'true', so every gate is turned into that string.
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -40,15 +41,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {task: "lint:go", on: "${{ fromJSON(needs.changes.outputs.run).go || fromJSON(needs.changes.outputs.run).db }}"}
-          - {task: "lint:spec", on: "${{ fromJSON(needs.changes.outputs.run).contract }}"}
-          - {task: "lint:web", on: "${{ fromJSON(needs.changes.outputs.run).web || fromJSON(needs.changes.outputs.run).contract }}"}
+          - {task: "lint:go", on: "${{ (fromJSON(needs.changes.outputs.run).go || fromJSON(needs.changes.outputs.run).db) && 'true' || 'false' }}"}
+          - {task: "lint:spec", on: "${{ (fromJSON(needs.changes.outputs.run).contract) && 'true' || 'false' }}"}
+          - {task: "lint:web", on: "${{ (fromJSON(needs.changes.outputs.run).web || fromJSON(needs.changes.outputs.run).contract) && 'true' || 'false' }}"}
           - {task: "lint:actions", on: "true"}
-          - {task: "gen:check", on: "${{ fromJSON(needs.changes.outputs.run).app }}"}
-          - {task: "test:go:unit", on: "${{ fromJSON(needs.changes.outputs.run).go }}"}
-          - {task: "test:web", on: "${{ fromJSON(needs.changes.outputs.run).web }}"}
-          - {task: "test:integration", on: "${{ fromJSON(needs.changes.outputs.run).go || fromJSON(needs.changes.outputs.run).db }}"}
-          - {task: build, on: "${{ fromJSON(needs.changes.outputs.run).app }}"}
+          - {task: "gen:check", on: "${{ (fromJSON(needs.changes.outputs.run).app) && 'true' || 'false' }}"}
+          - {task: "test:go:unit", on: "${{ (fromJSON(needs.changes.outputs.run).go) && 'true' || 'false' }}"}
+          - {task: "test:web", on: "${{ (fromJSON(needs.changes.outputs.run).web) && 'true' || 'false' }}"}
+          - {task: "test:integration", on: "${{ (fromJSON(needs.changes.outputs.run).go || fromJSON(needs.changes.outputs.run).db) && 'true' || 'false' }}"}
+          - {task: build, on: "${{ (fromJSON(needs.changes.outputs.run).app) && 'true' || 'false' }}"}
           - {task: secrets, on: "true"}
     steps:
       - name: Skip when this diff does not reach it

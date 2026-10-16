@@ -125,11 +125,11 @@ func secretHash(s string) []byte {
 
 var testClients = clients{
 	"spa": {
-		ID: "spa", SignIn: domain.Native, Credential: domain.PKCE,
+		ID: "spa", SignIn: domain.Native, Credential: domain.PKCE, Roles: []string{"user", "viewer", "editor"},
 		RedirectURIs: []string{"https://spa.test/cb"}, PostLogoutRedirectURIs: []string{"https://spa.test/bye"},
 	},
 	"web": {
-		ID: "web", SignIn: domain.Native, Credential: domain.Secret,
+		ID: "web", SignIn: domain.Native, Credential: domain.Secret, Roles: []string{"user", "viewer", "editor"},
 		RedirectURIs: []string{"https://web.test/cb"}, SecretHash: secretHash("s3cret"),
 	},
 }
@@ -163,4 +163,21 @@ func (a *accounts) SignOutEverywhere(_ context.Context, id uuid.UUID) error {
 	defer a.mu.Unlock()
 	a.signedOut = append(a.signedOut, id)
 	return a.failOut
+}
+
+// access gives anyone the listed App Roles on each Client.
+type access struct {
+	mu    sync.Mutex
+	roles map[string][]string
+	fail  error
+}
+
+func newAccess() *access {
+	return &access{roles: map[string][]string{"spa": {"editor", "viewer", "retired"}, "web": {"user"}}}
+}
+
+func (a *access) Roles(_ context.Context, _ uuid.UUID, clientID string) ([]string, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.roles[clientID], a.fail
 }
