@@ -12,6 +12,20 @@ import (
 	"github.com/google/uuid"
 )
 
+const addSessionClient = `-- name: AddSessionClient :exec
+INSERT INTO session_clients (session_id, client_id) VALUES ($1, $2) ON CONFLICT DO NOTHING
+`
+
+type AddSessionClientParams struct {
+	SessionID uuid.UUID
+	ClientID  string
+}
+
+func (q *Queries) AddSessionClient(ctx context.Context, arg AddSessionClientParams) error {
+	_, err := q.db.Exec(ctx, addSessionClient, arg.SessionID, arg.ClientID)
+	return err
+}
+
 const authRequestByID = `-- name: AuthRequestByID :one
 SELECT id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode, code_challenge, code_challenge_method, created_at, expires_at, user_id, session_id, auth_time, code_hash, methods FROM auth_requests WHERE id = $1
 `
@@ -163,4 +177,29 @@ func (q *Queries) TakeAuthRequestByCodeHash(ctx context.Context, codeHash []byte
 		&i.Methods,
 	)
 	return i, err
+}
+
+const takeSessionClients = `-- name: TakeSessionClients :many
+DELETE FROM session_clients WHERE session_id = ANY($1::uuid[]) RETURNING session_id, client_id
+`
+
+// The Clients the ended sessions signed into, removed as they are read.
+func (q *Queries) TakeSessionClients(ctx context.Context, sessionIds []uuid.UUID) ([]SessionClient, error) {
+	rows, err := q.db.Query(ctx, takeSessionClients, sessionIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SessionClient{}
+	for rows.Next() {
+		var i SessionClient
+		if err := rows.Scan(&i.SessionID, &i.ClientID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

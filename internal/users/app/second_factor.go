@@ -258,7 +258,7 @@ func (s *Service) proved(ctx context.Context, userID uuid.UUID, sessionToken, me
 	if err := s.store.SetSessionMethods(ctx, hash, []string{methodPassword, method}); err != nil {
 		return err
 	}
-	return s.store.DeleteOtherSessions(ctx, userID, hash)
+	return s.endSessions(ctx, userID, hash)
 }
 
 // mayEnrol is nil when the password is the User's and, if they already have an authenticator, the

@@ -703,6 +703,7 @@ func (*ProblemStatusCode) removeSecondFactorRes()        {}
 func (*ProblemStatusCode) renameGroupRes()               {}
 func (*ProblemStatusCode) signInRes()                    {}
 func (*ProblemStatusCode) signOutRes()                   {}
+func (*ProblemStatusCode) signOutUserRes()               {}
 func (*ProblemStatusCode) signUpRes()                    {}
 func (*ProblemStatusCode) startPasskeyRes()              {}
 func (*ProblemStatusCode) startTOTPRes()                 {}
@@ -1081,6 +1082,11 @@ func (s *SignOutNoContent) SetSetCookie(val string) {
 }
 
 func (*SignOutNoContent) signOutRes() {}
+
+// SignOutUserNoContent is response for SignOutUser operation.
+type SignOutUserNoContent struct{}
+
+func (*SignOutUserNoContent) signOutUserRes() {}
 
 // Who is signing up.
 // Ref: #/components/schemas/SignUp

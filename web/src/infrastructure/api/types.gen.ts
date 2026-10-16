@@ -1071,6 +1071,40 @@ export type AddMemberResponses = {
 
 export type AddMemberResponse = AddMemberResponses[keyof AddMemberResponses];
 
+export type SignOutUserData = {
+    body?: never;
+    path: {
+        /**
+         * The User.
+         */
+        userId: Id;
+    };
+    query?: never;
+    url: '/api/v1/access/users/{userId}/sign-out';
+};
+
+export type SignOutUserErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type SignOutUserError = SignOutUserErrors[keyof SignOutUserErrors];
+
+export type SignOutUserResponses = {
+    /**
+     * The User has no session.
+     */
+    204: void;
+};
+
+export type SignOutUserResponse = SignOutUserResponses[keyof SignOutUserResponses];
+
 export type UnassignRoleData = {
     body?: never;
     path: {

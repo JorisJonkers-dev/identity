@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -102,6 +103,7 @@ type cached struct {
 	verdict Verdict
 	err     error
 	until   time.Time
+	session uuid.UUID
 }
 
 // Service is the Gate's use cases.
@@ -147,35 +149,49 @@ func (s *Service) Check(ctx context.Context, host, cookie string) (Verdict, erro
 	if ok && now.Before(c.until) {
 		return c.verdict, c.err
 	}
-	v, err := s.check(ctx, host, hash)
+	v, session, err := s.check(ctx, host, hash)
 	if err == nil || errors.Is(err, ErrNoAccess) || errors.Is(err, ErrNoSignIn) {
 		s.mu.Lock()
 		if len(s.cache) >= maxCached {
 			s.cache = map[string]cached{}
 		}
-		s.cache[key] = cached{verdict: v, err: err, until: now.Add(s.ttl)}
+		s.cache[key] = cached{verdict: v, err: err, until: now.Add(s.ttl), session: session}
 		s.mu.Unlock()
 	}
 	return v, err
 }
 
-func (s *Service) check(ctx context.Context, host string, hash []byte) (Verdict, error) {
+func (s *Service) check(ctx context.Context, host string, hash []byte) (Verdict, uuid.UUID, error) {
 	client, err := s.clients.GatedClient(ctx, host)
 	if err != nil {
-		return Verdict{}, err
+		return Verdict{}, uuid.Nil, err
 	}
 	gs, err := s.store.SessionByHash(ctx, hash)
 	if errors.Is(err, ErrNotFound) || err == nil && gs.Host != host {
-		return Verdict{}, ErrNoSignIn
+		return Verdict{}, uuid.Nil, ErrNoSignIn
 	}
 	if err != nil {
-		return Verdict{}, err
+		return Verdict{}, uuid.Nil, err
 	}
 	p, err := s.accounts.Vouch(ctx, gs.SessionID)
 	if err != nil {
-		return Verdict{}, err
+		return Verdict{}, gs.SessionID, err
 	}
-	return s.verdict(ctx, client, p)
+	v, err := s.verdict(ctx, client, p)
+	return v, gs.SessionID, err
+}
+
+// Forget drops the cached checks of ended Single sign-on sessions, so a sign-out reaches every
+// gated host at once rather than when the cache runs out. On other replicas the cache's ttl still
+// bounds it.
+func (s *Service) Forget(sessionIDs []uuid.UUID) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for key, c := range s.cache {
+		if slices.Contains(sessionIDs, c.session) {
+			delete(s.cache, key)
+		}
+	}
 }
 
 func (s *Service) verdict(ctx context.Context, client Client, p Person) (Verdict, error) {

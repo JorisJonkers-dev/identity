@@ -189,6 +189,26 @@ func TestASignInCarriesToTheHostAndIsCheckedFromMemory(t *testing.T) {
 	}
 }
 
+func TestASignOutReachesTheCacheAtOnce(t *testing.T) {
+	f := newFixture()
+	ctx := context.Background()
+	cookie := f.signedIn(t)
+	other := f.signedIn(t)
+	f.store.sessions[hashOf(other)] = app.Session{Host: stats.Host, SessionID: uuid.New()}
+	_, _ = f.Check(ctx, stats.Host, cookie)
+	_, _ = f.Check(ctx, stats.Host, other)
+	f.accounts.signedOut = true
+	f.Forget([]uuid.UUID{ada.SessionID})
+	if _, err := f.Check(ctx, stats.Host, cookie); !errors.Is(err, app.ErrNoSignIn) {
+		t.Fatalf("a check after the session was forgotten = %v", err)
+	}
+	reads := f.store.reads
+	_, _ = f.Check(ctx, stats.Host, other)
+	if f.store.reads != reads {
+		t.Fatal("another session's cached check was dropped too")
+	}
+}
+
 func TestACheckRefuses(t *testing.T) {
 	f := newFixture()
 	ctx := context.Background()

@@ -164,11 +164,17 @@ func (c catalog) Client(_ context.Context, id string) (domain.Client, bool) {
 }
 
 type people struct {
-	list []domain.Person
-	err  error
+	list      []domain.Person
+	err       error
+	signedOut []uuid.UUID
 }
 
 func (p *people) People(context.Context) ([]domain.Person, error) { return p.list, p.err }
+
+func (p *people) SignOut(_ context.Context, userID uuid.UUID) error {
+	p.signedOut = append(p.signedOut, userID)
+	return p.err
+}
 
 var (
 	admin   = uuid.MustParse("00000000-0000-4000-8000-0000000000a1")
@@ -211,13 +217,18 @@ func TestOnlyAnAdminManagesAccess(t *testing.T) {
 		"RemoveMember": func(u app.Actor) error { return f.svc.RemoveMember(ctx, u, m) },
 		"Assign":       func(u app.Actor) error { return f.svc.Assign(ctx, u, a) },
 		"Unassign":     func(u app.Actor) error { return f.svc.Unassign(ctx, u, a) },
+		"SignOutUser":  func(u app.Actor) error { return f.svc.SignOutUser(ctx, u, ada) },
 	} {
 		before := *f.store
+		signedOut := len(f.people.signedOut)
 		if err := call(app.Actor{ID: ada, SecondFactor: true}); !errors.Is(err, app.ErrNotAdmin) {
 			t.Errorf("%s by a non-Admin = %v, want ErrNotAdmin", name, err)
 		}
 		if len(f.store.groups) != len(before.groups) || len(f.store.members) != len(before.members) || len(f.store.assignments) != len(before.assignments) {
 			t.Errorf("%s by a non-Admin changed the store", name)
+		}
+		if len(f.people.signedOut) != signedOut {
+			t.Errorf("%s by a non-Admin signed someone out", name)
 		}
 		if err := call(asAdmin); errors.Is(err, app.ErrNotAdmin) || errors.Is(err, app.ErrSecondFactorNeeded) {
 			t.Errorf("%s by an Admin = ErrNotAdmin", name)
@@ -420,5 +431,16 @@ func TestUnassignedCountsUsersInNoGroup(t *testing.T) {
 	f := newFixture()
 	if n, err := f.svc.Unassigned(ctx); n != 7 || err != nil {
 		t.Fatalf("Unassigned = %d, %v", n, err)
+	}
+}
+
+func TestAnAdminSignsAUserOutEverywhere(t *testing.T) {
+	f := newFixture()
+	if err := f.svc.SignOutUser(ctx, asAdmin, ada); err != nil || len(f.people.signedOut) != 1 || f.people.signedOut[0] != ada {
+		t.Fatalf("SignOutUser = %v, signed out %v", err, f.people.signedOut)
+	}
+	f.people.err = errBoom
+	if err := f.svc.SignOutUser(ctx, asAdmin, ada); !errors.Is(err, errBoom) {
+		t.Fatalf("a failing users context: %v", err)
 	}
 }

@@ -66,6 +66,11 @@ func (u *useCases) Unassign(_ context.Context, actor app.Actor, a domain.Assignm
 	return u.err
 }
 
+func (u *useCases) SignOutUser(_ context.Context, actor app.Actor, userID uuid.UUID) error {
+	u.actor, u.asked = actor, append(u.asked, userID)
+	return u.err
+}
+
 var (
 	admin  = uuid.MustParse("00000000-0000-4000-8000-0000000000a1")
 	ada    = uuid.MustParse("00000000-0000-4000-8000-0000000000a2")
@@ -158,6 +163,11 @@ func TestMembersAndRoles(t *testing.T) {
 			_, ok := res.(*oas.UnassignRoleNoContent)
 			return ok, a, err
 		},
+		"SignOutUser": func() (any, any, error) {
+			res, err := h.SignOutUser(signedIn(), oas.SignOutUserParams{UserId: oas.ID(ada)})
+			_, ok := res.(*oas.SignOutUserNoContent)
+			return ok, ada, err
+		},
 	} {
 		uc.asked, uc.actor = nil, app.Actor{}
 		ok, want, err := call()
@@ -197,6 +207,7 @@ func TestRefusals(t *testing.T) {
 			"RemoveMember": func() (any, error) { return h.RemoveMember(ctx, oas.RemoveMemberParams{GroupId: gid}) },
 			"AssignRole":   func() (any, error) { return h.AssignRole(ctx, oas.AssignRoleParams{GroupId: gid}) },
 			"UnassignRole": func() (any, error) { return h.UnassignRole(ctx, oas.UnassignRoleParams{GroupId: gid}) },
+			"SignOutUser":  func() (any, error) { return h.SignOutUser(ctx, oas.SignOutUserParams{}) },
 		}
 		for name, call := range calls {
 			t.Run(name, func(t *testing.T) {

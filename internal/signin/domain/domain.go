@@ -42,7 +42,9 @@ type Client struct {
 	IconURL                string
 	RedirectURIs           []string
 	PostLogoutRedirectURIs []string
-	Credential             Credential
+	// BackChannelLogoutURI takes a logout token when a session that signed into the Client ends.
+	BackChannelLogoutURI string
+	Credential           Credential
 	// SecretPath is where a Secret Client's secret is kept (identity#32).
 	SecretPath string
 	// SecretHash is the SHA-256 of a Secret Client's secret; empty until identity has one.

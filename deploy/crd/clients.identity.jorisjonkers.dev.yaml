@@ -58,6 +58,10 @@ spec:
                   items:
                     type: string
                     maxLength: 2048
+                backChannelLogoutUri:
+                  description: Where a native Client takes OIDC back-channel logout tokens when a session it signed into ends.
+                  type: string
+                  maxLength: 2048
                 credential:
                   type: string
                   enum: [secret, pkce]
@@ -82,6 +86,8 @@ spec:
                   message: the launch URL is https on the Client's own host
                 - rule: "!has(self.iconUrl) || self.iconUrl.startsWith('https://' + self.host + '/')"
                   message: the icon URL is https on the Client's own host
+                - rule: "!has(self.backChannelLogoutUri) || (self.signIn == 'native' && self.backChannelLogoutUri.startsWith('https://' + self.host + '/'))"
+                  message: only a native Client has a back-channel logout URI, https on its own host
                 - rule: "self.signIn != 'native' || (has(self.redirectUris) && has(self.credential))"
                   message: a native Client has redirect URIs and a credential
                 - rule: "self.signIn == 'native' || (!has(self.redirectUris) && !has(self.credential) && !has(self.secretPath))"

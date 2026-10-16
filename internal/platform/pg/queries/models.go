@@ -90,6 +90,11 @@ type Session struct {
 	Methods    []string
 }
 
+type SessionClient struct {
+	SessionID uuid.UUID
+	ClientID  string
+}
+
 type SignInChallenge struct {
 	TokenHash       []byte
 	UserID          uuid.UUID

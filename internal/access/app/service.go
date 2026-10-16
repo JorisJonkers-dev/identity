@@ -67,9 +67,10 @@ type Clients interface {
 	Client(ctx context.Context, id string) (domain.Client, bool)
 }
 
-// People lists Users.
+// People lists Users, and signs one out everywhere.
 type People interface {
 	People(ctx context.Context) ([]domain.Person, error)
+	SignOut(ctx context.Context, userID uuid.UUID) error
 }
 
 // Overview is everything the access page shows.
@@ -223,6 +224,14 @@ func (s *Service) AddMember(ctx context.Context, actor Actor, m domain.Membershi
 		return err
 	}
 	return s.store.AddMember(ctx, m)
+}
+
+// SignOutUser ends every session a User has (docs/adr/0007).
+func (s *Service) SignOutUser(ctx context.Context, actor Actor, userID uuid.UUID) error {
+	if err := s.admin(ctx, actor); err != nil {
+		return err
+	}
+	return s.people.SignOut(ctx, userID)
 }
 
 // RemoveMember takes a User out of a Group; the admins Group keeps at least one.

@@ -3,8 +3,8 @@
 import { queryOptions, type UseMutationOptions } from '@tanstack/vue-query';
 
 import { client } from '../client.gen';
-import { addMember, assignRole, changePassword, completeSignIn, completeSignInWithPasskey, confirmEmail, confirmPasskey, confirmTotp, createGroup, deleteGroup, getAccess, getProfile, getVersion, listSecondFactors, type Options, passkeyOptions, removeMember, removeSecondFactor, renameGroup, signIn, signOut, signUp, startPasskey, startTotp, unassignRole, updateProfile } from '../sdk.gen';
-import type { AddMemberData, AddMemberError, AddMemberResponse, AssignRoleData, AssignRoleError, AssignRoleResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CompleteSignInData, CompleteSignInError, CompleteSignInResponse, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyError, CompleteSignInWithPasskeyResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, ConfirmPasskeyData, ConfirmPasskeyError, ConfirmPasskeyResponse, ConfirmTotpData, ConfirmTotpError, ConfirmTotpResponse, CreateGroupData, CreateGroupError, CreateGroupResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, GetAccessData, GetAccessError, GetAccessResponse, GetProfileData, GetProfileError, GetProfileResponse, GetVersionData, GetVersionError, GetVersionResponse, ListSecondFactorsData, ListSecondFactorsError, ListSecondFactorsResponse, PasskeyOptionsData, PasskeyOptionsError, PasskeyOptionsResponse, RemoveMemberData, RemoveMemberError, RemoveMemberResponse, RemoveSecondFactorData, RemoveSecondFactorError, RemoveSecondFactorResponse, RenameGroupData, RenameGroupError, RenameGroupResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutError, SignOutResponse, SignUpData, SignUpError, StartPasskeyData, StartPasskeyError, StartPasskeyResponse, StartTotpData, StartTotpError, StartTotpResponse, UnassignRoleData, UnassignRoleError, UnassignRoleResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
+import { addMember, assignRole, changePassword, completeSignIn, completeSignInWithPasskey, confirmEmail, confirmPasskey, confirmTotp, createGroup, deleteGroup, getAccess, getProfile, getVersion, listSecondFactors, type Options, passkeyOptions, removeMember, removeSecondFactor, renameGroup, signIn, signOut, signOutUser, signUp, startPasskey, startTotp, unassignRole, updateProfile } from '../sdk.gen';
+import type { AddMemberData, AddMemberError, AddMemberResponse, AssignRoleData, AssignRoleError, AssignRoleResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CompleteSignInData, CompleteSignInError, CompleteSignInResponse, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyError, CompleteSignInWithPasskeyResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, ConfirmPasskeyData, ConfirmPasskeyError, ConfirmPasskeyResponse, ConfirmTotpData, ConfirmTotpError, ConfirmTotpResponse, CreateGroupData, CreateGroupError, CreateGroupResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, GetAccessData, GetAccessError, GetAccessResponse, GetProfileData, GetProfileError, GetProfileResponse, GetVersionData, GetVersionError, GetVersionResponse, ListSecondFactorsData, ListSecondFactorsError, ListSecondFactorsResponse, PasskeyOptionsData, PasskeyOptionsError, PasskeyOptionsResponse, RemoveMemberData, RemoveMemberError, RemoveMemberResponse, RemoveSecondFactorData, RemoveSecondFactorError, RemoveSecondFactorResponse, RenameGroupData, RenameGroupError, RenameGroupResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutError, SignOutResponse, SignOutUserData, SignOutUserError, SignOutUserResponse, SignUpData, SignUpError, StartPasskeyData, StartPasskeyError, StartPasskeyResponse, StartTotpData, StartTotpError, StartTotpResponse, UnassignRoleData, UnassignRoleError, UnassignRoleResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -470,6 +470,25 @@ export const addMemberMutation = (options?: Partial<Options<AddMemberData>>): Us
     const mutationOptions: UseMutationOptions<AddMemberResponse, AddMemberError, Options<AddMemberData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await addMember({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Sign a User out on every device
+ *
+ * Ends all of the User's sessions. Apps that support back-channel logout are told, and apps behind the Gate ask the User to sign in again. Signing out a User with no session does nothing. Admins only.
+ */
+export const signOutUserMutation = (options?: Partial<Options<SignOutUserData>>): UseMutationOptions<SignOutUserResponse, SignOutUserError, Options<SignOutUserData>> => {
+    const mutationOptions: UseMutationOptions<SignOutUserResponse, SignOutUserError, Options<SignOutUserData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await signOutUser({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

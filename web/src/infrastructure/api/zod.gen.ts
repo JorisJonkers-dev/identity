@@ -409,6 +409,15 @@ export const zAddMemberPath = z.object({
  */
 export const zAddMemberResponse = z.void();
 
+export const zSignOutUserPath = z.object({
+    userId: zId
+});
+
+/**
+ * The User has no session.
+ */
+export const zSignOutUserResponse = z.void();
+
 export const zUnassignRolePath = z.object({
     groupId: zId,
     clientId: zClientId,

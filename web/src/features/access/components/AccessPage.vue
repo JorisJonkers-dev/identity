@@ -23,6 +23,8 @@ const newGroup = ref('')
 const names = reactive<Record<string, string>>({})
 const picked = reactive<Record<string, string>>({})
 const placing = reactive<Record<string, string>>({})
+const asking = ref<string | null>(null)
+const signedOut = reactive(new Set<string>())
 
 function holds(o: AccessOverview, groupId: string, clientId: string, role: string): boolean {
   return o.assignments.some((a) => a.groupId === groupId && a.clientId === clientId && a.role === role)
@@ -46,6 +48,11 @@ function unassigned(o: AccessOverview) {
 function place(userId: string) {
   const groupId = placing[userId]
   if (groupId) access.addMember(groupId, userId)
+}
+
+function signOut(userId: string) {
+  asking.value = null
+  access.signOutUser(userId, () => signedOut.add(userId))
 }
 
 function toggle(groupId: string, clientId: string, role: string, event: Event) {
@@ -90,6 +97,21 @@ function add(groupId: string) {
           </li>
         </ul>
       </template>
+
+      <h2 id="people-title">People</h2>
+      <p>Sign someone out on every device they use, for example after they lose a phone. They can sign straight back in.</p>
+      <ul aria-labelledby="people-title">
+        <li v-for="u in overview.users" :key="u.id" :aria-label="`${u.name} (${u.email})`" class="inline">
+          <span>{{ u.name }} ({{ u.email }})</span>
+          <template v-if="asking === u.id">
+            <span>Sign {{ u.name }} out on every device?</span>
+            <button type="button" class="confirm" @click="signOut(u.id)">Yes, sign out</button>
+            <button type="button" class="cancel" @click="asking = null">Cancel</button>
+          </template>
+          <button v-else type="button" @click="asking = u.id">Sign out on every device</button>
+          <span v-if="signedOut.has(u.id)" role="status">{{ u.name }} is signed out on every device.</span>
+        </li>
+      </ul>
 
       <h2 id="matrix-title">App Roles</h2>
       <p v-if="overview.clients.length === 0">No apps are registered yet.</p>

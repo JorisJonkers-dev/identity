@@ -113,7 +113,11 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 	// users caps an Admin's session at 12 hours, and access lists users' Users: each needs the other.
 	var access *accessapp.Service
 	admins := adminsFunc(func(ctx context.Context, id uuid.UUID) (bool, error) { return access.IsAdmin(ctx, id) })
-	opts := []app.Option{app.WithAdmins(admins)}
+	// Set once the Provider and the Gate exist, before the server serves anything.
+	var signedOut app.SignedOut
+	opts := []app.Option{app.WithAdmins(admins), app.WithSignedOut(func(ctx context.Context, userID uuid.UUID, sessionIDs []uuid.UUID) {
+		signedOut(ctx, userID, sessionIDs)
+	})}
 	passkeyCeremonies, err := passkeyCeremonies(cfg.publicURL)
 	if err != nil {
 		return err
@@ -134,13 +138,20 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 	if err != nil {
 		return err
 	}
-	signIn := signinapp.New(signinpersistence.New(store.Queries()), index, accounts.New(users), access, time.Now, rand.Reader)
-	provider, err := oidcProvider(cfg, signIn, logger)
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return err
+	}
+	ring := signinoidc.NewRing(key)
+	logouts := signinoidc.NewLogouts(cfg.publicURL, ring, &http.Client{}, logger, time.Now)
+	signIn := signinapp.New(signinpersistence.New(store.Queries()), index, accounts.New(users), access, logouts, time.Now, rand.Reader)
+	provider, err := oidcProvider(cfg, signIn, ring, logger)
 	if err != nil {
 		return err
 	}
 	others := gatecontexts.New(signIn, users)
 	gate := gateapp.New(gatepersistence.New(store.Queries()), others, others, others, time.Now, rand.Reader, gateCacheTTL)
+	signedOut = endSessions(gate, signIn, logger)
 	gateHandler, err := gateweb.New(gate, gateweb.Config{Issuer: cfg.publicURL, SessionCookie: usersweb.CookieName}, logger)
 	if err != nil {
 		return err
@@ -245,16 +256,23 @@ func watchClients(ctx context.Context, cfg config, logger *slog.Logger) (*client
 
 // oidcProvider is the OIDC Provider over the sign-in context. It signs with a key made at start-up
 // until keys are kept (identity#30).
-func oidcProvider(cfg config, svc *signinapp.Service, logger *slog.Logger) (http.Handler, error) {
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return nil, err
+// endSessions ends what was signed in through ended sessions: the Gate's cached checks on this
+// replica, and native Clients through back-channel logout (docs/adr/0007).
+func endSessions(gate *gateapp.Service, signIn *signinapp.Service, logger *slog.Logger) app.SignedOut {
+	return func(ctx context.Context, userID uuid.UUID, sessionIDs []uuid.UUID) {
+		gate.Forget(sessionIDs)
+		if err := signIn.SignedOut(ctx, userID, sessionIDs); err != nil {
+			logger.ErrorContext(ctx, "back-channel logout", "error", err)
+		}
 	}
+}
+
+func oidcProvider(cfg config, svc *signinapp.Service, ring *signinoidc.Ring, logger *slog.Logger) (http.Handler, error) {
 	return signinoidc.New(signinoidc.Config{
 		Issuer:        cfg.publicURL,
 		Insecure:      strings.HasPrefix(cfg.publicURL, "http://"),
 		SessionCookie: usersweb.CookieName,
-	}, svc, signinoidc.NewRing(key), logger, time.Now)
+	}, svc, ring, logger, time.Now)
 }
 
 type config struct {

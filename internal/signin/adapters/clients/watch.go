@@ -31,6 +31,7 @@ type object struct {
 		LaunchURL    string   `json:"launchUrl"`
 		IconURL      string   `json:"iconUrl"`
 		RedirectURIs []string `json:"redirectUris"`
+		BackChannel  string   `json:"backChannelLogoutUri"`
 		Credential   string   `json:"credential"`
 		SecretPath   string   `json:"secretPath"`
 		Roles        []string `json:"roles"`
@@ -52,7 +53,7 @@ func fromObject(obj any) (domain.Client, error) {
 	s := o.Spec
 	return domain.Client{
 		ID: u.GetName(), SignIn: domain.SignInMode(s.SignIn), Host: s.Host, Label: s.Label, Description: s.Description,
-		LaunchURL: s.LaunchURL, IconURL: s.IconURL, RedirectURIs: slices.Clone(s.RedirectURIs),
+		LaunchURL: s.LaunchURL, IconURL: s.IconURL, RedirectURIs: slices.Clone(s.RedirectURIs), BackChannelLogoutURI: s.BackChannel,
 		Credential: domain.Credential(s.Credential), SecretPath: s.SecretPath, Roles: slices.Clone(s.Roles),
 	}, nil
 }

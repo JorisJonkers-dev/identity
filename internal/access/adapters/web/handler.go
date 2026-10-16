@@ -26,6 +26,7 @@ type UseCases interface {
 	RemoveMember(ctx context.Context, actor app.Actor, m domain.Membership) error
 	Assign(ctx context.Context, actor app.Actor, a domain.Assignment) error
 	Unassign(ctx context.Context, actor app.Actor, a domain.Assignment) error
+	SignOutUser(ctx context.Context, actor app.Actor, userID uuid.UUID) error
 }
 
 // Access implements the access operations.
@@ -112,6 +113,14 @@ func (h *Access) RemoveMember(ctx context.Context, p oas.RemoveMemberParams) (oa
 		return refusal(err)
 	}
 	return &oas.RemoveMemberNoContent{}, nil
+}
+
+// SignOutUser implements signOutUser.
+func (h *Access) SignOutUser(ctx context.Context, p oas.SignOutUserParams) (oas.SignOutUserRes, error) {
+	if err := h.uc.SignOutUser(ctx, actor(ctx), uuid.UUID(p.UserId)); err != nil {
+		return refusal(err)
+	}
+	return &oas.SignOutUserNoContent{}, nil
 }
 
 // AssignRole implements assignRole.

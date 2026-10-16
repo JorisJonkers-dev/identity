@@ -82,9 +82,9 @@ type Store interface {
 	// SessionByID is ErrNotFound when there is none.
 	SessionByID(ctx context.Context, id uuid.UUID) (Session, error)
 	TouchSession(ctx context.Context, tokenHash []byte, lastSeen, expires time.Time) error
-	DeleteSession(ctx context.Context, tokenHash []byte) error
-	DeleteOtherSessions(ctx context.Context, userID uuid.UUID, keepTokenHash []byte) error
-	DeleteSessionsOfUser(ctx context.Context, userID uuid.UUID) error
+	// DeleteOtherSessions ends every session of a User but the one keepTokenHash names, or every
+	// one when it is nil, and returns the ids of those it ended.
+	DeleteOtherSessions(ctx context.Context, userID uuid.UUID, keepTokenHash []byte) ([]uuid.UUID, error)
 	SetSessionMethods(ctx context.Context, tokenHash []byte, methods []string) error
 	// SaveChallenge makes or replaces the User's one challenge. Its spent attempts carry over unless
 	// the window that holds them began at or before windowSince.
@@ -161,6 +161,7 @@ type Service struct {
 	sealer    Sealer
 	webauthn  WebAuthn
 	admins    Admins
+	signedOut SignedOut
 
 	decoy atomic.Pointer[string]
 }
@@ -170,6 +171,13 @@ type Option func(*Service)
 
 // WithSealer lets Users enrol a TOTP Second Factor, its secret sealed by sealer.
 func WithSealer(sealer Sealer) Option { return func(s *Service) { s.sealer = sealer } }
+
+// SignedOut is told which sessions of a User ended, so what was signed in through them can end too:
+// back-channel logout to native Clients, and the Gate's host sessions (docs/adr/0007).
+type SignedOut func(ctx context.Context, userID uuid.UUID, sessionIDs []uuid.UUID)
+
+// WithSignedOut tells f about every session that ends.
+func WithSignedOut(f SignedOut) Option { return func(s *Service) { s.signedOut = f } }
 
 // WithAdmins caps an Admin's session at 12 hours.
 func WithAdmins(admins Admins) Option { return func(s *Service) { s.admins = admins } }
@@ -433,12 +441,32 @@ func (s *Service) check(ctx context.Context, sess Session) (domain.User, Session
 
 // SignOutEverywhere ends every session of a User (docs/adr/0007).
 func (s *Service) SignOutEverywhere(ctx context.Context, userID uuid.UUID) error {
-	return s.store.DeleteSessionsOfUser(ctx, userID)
+	return s.endSessions(ctx, userID, nil)
 }
 
-// SignOut ends the session a token belongs to; ending one that does not exist is not an error.
+// SignOut signs the User a token belongs to out everywhere (docs/adr/0007); signing out a session
+// that does not exist is not an error.
 func (s *Service) SignOut(ctx context.Context, token string) error {
-	return s.store.DeleteSession(ctx, hashOf(token))
+	sess, err := s.store.SessionByHash(ctx, hashOf(token))
+	if errors.Is(err, ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return s.endSessions(ctx, sess.UserID, nil)
+}
+
+// endSessions ends every session of a User but the one keep names, and says which ended.
+func (s *Service) endSessions(ctx context.Context, userID uuid.UUID, keep []byte) error {
+	ended, err := s.store.DeleteOtherSessions(ctx, userID, keep)
+	if err != nil {
+		return err
+	}
+	if len(ended) > 0 && s.signedOut != nil {
+		s.signedOut(ctx, userID, ended)
+	}
+	return nil
 }
 
 // User returns a User by id.
@@ -494,7 +522,7 @@ func (s *Service) ChangePassword(ctx context.Context, id uuid.UUID, sessionToken
 	if err := s.store.UpdatePasswordHash(ctx, id, hash); err != nil {
 		return err
 	}
-	return s.store.DeleteOtherSessions(ctx, id, hashOf(sessionToken))
+	return s.endSessions(ctx, id, hashOf(sessionToken))
 }
 
 // token returns a fresh random token and the hash it is stored under.

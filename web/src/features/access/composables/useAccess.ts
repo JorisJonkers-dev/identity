@@ -9,6 +9,7 @@ import {
   getAccessQueryKey,
   removeMemberMutation,
   renameGroupMutation,
+  signOutUserMutation,
   unassignRoleMutation,
 } from '../../../infrastructure/api/@tanstack/vue-query.gen'
 import type { AccessOverview } from '../../../infrastructure/api/types.gen'
@@ -28,7 +29,8 @@ export function useAccess() {
   const leave = useAction(removeMemberMutation())
   const assign = useAction(assignRoleMutation())
   const unassign = useAction(unassignRoleMutation())
-  const actions = [create, rename, remove, join, leave, assign, unassign]
+  const signOut = useAction(signOutUserMutation())
+  const actions = [create, rename, remove, join, leave, assign, unassign, signOut]
 
   const overview = computed<AccessOverview | undefined>(() => query.data.value)
   return {
@@ -53,6 +55,9 @@ export function useAccess() {
     },
     removeMember: (groupId: string, userId: string) => {
       leave.run({ path: { groupId, userId } }, refresh)
+    },
+    signOutUser: (userId: string, done: () => void) => {
+      signOut.run({ path: { userId } }, done)
     },
     setRole: (groupId: string, clientId: string, role: string, held: boolean) => {
       const path = { groupId, clientId, role }

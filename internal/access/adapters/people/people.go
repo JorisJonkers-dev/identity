@@ -5,6 +5,8 @@ package people
 import (
 	"context"
 
+	"github.com/google/uuid"
+
 	"github.com/JorisJonkers-dev/identity/internal/access/app"
 	"github.com/JorisJonkers-dev/identity/internal/access/domain"
 	usersdomain "github.com/JorisJonkers-dev/identity/internal/users/domain"
@@ -13,6 +15,7 @@ import (
 // Users is what People needs from the users context.
 type Users interface {
 	Users(ctx context.Context) ([]usersdomain.User, error)
+	SignOutEverywhere(ctx context.Context, userID uuid.UUID) error
 }
 
 // People is the app.People.
@@ -33,4 +36,9 @@ func (p *People) People(ctx context.Context) ([]domain.Person, error) {
 		out = append(out, domain.Person{ID: u.ID, Email: u.Email.String(), Name: u.Name.String()})
 	}
 	return out, nil
+}
+
+// SignOut signs the User out everywhere.
+func (p *People) SignOut(ctx context.Context, userID uuid.UUID) error {
+	return p.users.SignOutEverywhere(ctx, userID)
 }

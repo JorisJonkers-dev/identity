@@ -21,9 +21,10 @@ var errBoom = errors.New("boom")
 
 // requests is an in-memory app.Requests; fail makes the named method return its error.
 type requests struct {
-	byID map[uuid.UUID]domain.AuthRequest
-	code map[string]uuid.UUID
-	fail map[string]error
+	byID   map[uuid.UUID]domain.AuthRequest
+	code   map[string]uuid.UUID
+	fail   map[string]error
+	signed []app.SessionClient
 }
 
 func (r *requests) CreateRequest(_ context.Context, req domain.AuthRequest) error {
@@ -85,6 +86,37 @@ func (r *requests) SaveCode(_ context.Context, id uuid.UUID, h []byte) (bool, er
 func (r *requests) DeleteRequest(_ context.Context, id uuid.UUID) error {
 	delete(r.byID, id)
 	return nil
+}
+
+func (r *requests) AddSessionClient(_ context.Context, sessionID uuid.UUID, clientID string) error {
+	if err := r.fail["AddSessionClient"]; err != nil {
+		return err
+	}
+	r.signed = append(r.signed, app.SessionClient{SessionID: sessionID, ClientID: clientID})
+	return nil
+}
+
+func (r *requests) TakeSessionClients(_ context.Context, sessionIDs []uuid.UUID) ([]app.SessionClient, error) {
+	if err := r.fail["TakeSessionClients"]; err != nil {
+		return nil, err
+	}
+	var taken, kept []app.SessionClient
+	for _, sc := range r.signed {
+		if slices.Contains(sessionIDs, sc.SessionID) {
+			taken = append(taken, sc)
+		} else {
+			kept = append(kept, sc)
+		}
+	}
+	r.signed = kept
+	return taken, nil
+}
+
+// logouts records the logout tokens the Service asked for, as "client session".
+type logouts struct{ sent []string }
+
+func (l *logouts) Send(_ context.Context, c domain.Client, userID, sessionID uuid.UUID) {
+	l.sent = append(l.sent, c.ID+" "+userID.String()+" "+sessionID.String())
 }
 
 type clients map[string]domain.Client
@@ -152,6 +184,7 @@ type fixture struct {
 	requests *requests
 	accounts *accounts
 	access   *access
+	logouts  *logouts
 	now      time.Time
 }
 
@@ -178,16 +211,20 @@ func newFixture() *fixture {
 	f := &fixture{
 		requests: &requests{byID: map[uuid.UUID]domain.AuthRequest{}, code: map[string]uuid.UUID{}, fail: map[string]error{}},
 		accounts: &accounts{ada: uuid.New(), sessionID: uuid.New()},
+		logouts:  &logouts{},
 		now:      t0,
 	}
 	f.access = &access{ada: f.accounts.ada, roles: map[string][]string{"spa": {"editor", "viewer", "retired"}}}
 	cs := clients{
-		"spa":     {ID: "spa", SignIn: domain.Native, Host: "spa.test", Credential: domain.PKCE, Roles: []string{"user", "viewer", "editor"}},
+		"spa": {
+			ID: "spa", SignIn: domain.Native, Host: "spa.test", Credential: domain.PKCE, Roles: []string{"user", "viewer", "editor"},
+			BackChannelLogoutURI: "https://spa.test/logout",
+		},
 		"web":     {ID: "web", SignIn: domain.Native, Host: "web.test", Credential: domain.Secret, SecretHash: secretHash("s3cret"), Roles: []string{"user"}},
 		"unready": {ID: "unready", SignIn: domain.Native, Host: "unready.test", Credential: domain.Secret},
 		"gated":   {ID: "gated", SignIn: domain.Gated, Host: "gated.test"},
 	}
-	f.Service = app.New(f.requests, cs, f.accounts, f.access, func() time.Time { return f.now }, &counter{})
+	f.Service = app.New(f.requests, cs, f.accounts, f.access, f.logouts, func() time.Time { return f.now }, &counter{})
 	return f
 }
 
@@ -221,7 +258,7 @@ func TestStartKeepsTheRequestForTenMinutes(t *testing.T) {
 
 func TestStartFailures(t *testing.T) {
 	f := newFixture()
-	f.Service = app.New(f.requests, clients{}, f.accounts, f.access, time.Now, broken{})
+	f.Service = app.New(f.requests, clients{}, f.accounts, f.access, f.logouts, time.Now, broken{})
 	if _, err := f.Start(context.Background(), domain.AuthRequest{}); !errors.Is(err, errBoom) {
 		t.Fatalf("no entropy: %v", err)
 	}
@@ -246,6 +283,9 @@ func TestASessionCompletesARequestOnce(t *testing.T) {
 	if got.SignIn == nil || got.SignIn.UserID != f.accounts.ada || got.SignIn.SessionID != f.accounts.sessionID || !got.SignIn.At.Equal(t0) {
 		t.Fatalf("completed request = %+v", got.SignIn)
 	}
+	if want := []app.SessionClient{{SessionID: f.accounts.sessionID, ClientID: "spa"}}; !slices.Equal(f.requests.signed, want) {
+		t.Fatalf("the session's Clients = %v", f.requests.signed)
+	}
 	if err := f.Complete(ctx, r.ID, "tok"); !errors.Is(err, app.ErrNotFound) {
 		t.Fatalf("completing twice: %v", err)
 	}
@@ -253,8 +293,41 @@ func TestASessionCompletesARequestOnce(t *testing.T) {
 		t.Fatalf("an unknown request: %v", err)
 	}
 	r = f.started(t)
+	f.requests.fail["AddSessionClient"] = errBoom
+	if err := f.Complete(ctx, r.ID, "tok"); !errors.Is(err, errBoom) {
+		t.Fatalf("a failing record of the Client: %v", err)
+	}
+	r = f.started(t)
 	f.requests.fail["CompleteRequest"] = errBoom
 	if err := f.Complete(ctx, r.ID, "tok"); !errors.Is(err, errBoom) {
+		t.Fatalf("a failing store: %v", err)
+	}
+}
+
+func TestASignOutSendsALogoutTokenToEachClientTheSessionsSignedInto(t *testing.T) {
+	f := newFixture()
+	ctx := context.Background()
+	ended, kept := uuid.New(), uuid.New()
+	for _, sc := range []app.SessionClient{
+		{SessionID: ended, ClientID: "spa"},
+		{SessionID: ended, ClientID: "web"},
+		{SessionID: ended, ClientID: "gone"},
+		{SessionID: ended, ClientID: "broken"},
+		{SessionID: kept, ClientID: "spa"},
+	} {
+		_ = f.requests.AddSessionClient(ctx, sc.SessionID, sc.ClientID)
+	}
+	if err := f.SignedOut(ctx, f.accounts.ada, []uuid.UUID{ended}); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"spa " + f.accounts.ada.String() + " " + ended.String()}; !slices.Equal(f.logouts.sent, want) {
+		t.Fatalf("sent %v, want %v", f.logouts.sent, want)
+	}
+	if want := []app.SessionClient{{SessionID: kept, ClientID: "spa"}}; !slices.Equal(f.requests.signed, want) {
+		t.Fatalf("left %v", f.requests.signed)
+	}
+	f.requests.fail["TakeSessionClients"] = errBoom
+	if err := f.SignedOut(ctx, f.accounts.ada, []uuid.UUID{kept}); !errors.Is(err, errBoom) {
 		t.Fatalf("a failing store: %v", err)
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -430,36 +431,18 @@ func (s *store) TouchSession(_ context.Context, hash []byte, lastSeen, expires t
 	return nil
 }
 
-func (s *store) DeleteSession(_ context.Context, hash []byte) error {
-	if err := s.fail["DeleteSession"]; err != nil {
-		return err
-	}
-	delete(s.sessions, string(hash))
-	return nil
-}
-
-func (s *store) DeleteOtherSessions(_ context.Context, userID uuid.UUID, keep []byte) error {
+func (s *store) DeleteOtherSessions(_ context.Context, userID uuid.UUID, keep []byte) ([]uuid.UUID, error) {
 	if err := s.fail["DeleteOtherSessions"]; err != nil {
-		return err
+		return nil, err
 	}
+	var ended []uuid.UUID
 	for k, sess := range s.sessions {
-		if sess.UserID == userID && k != string(keep) {
+		if sess.UserID == userID && (keep == nil || k != string(keep)) {
+			ended = append(ended, sess.ID)
 			delete(s.sessions, k)
 		}
 	}
-	return nil
-}
-
-func (s *store) DeleteSessionsOfUser(_ context.Context, userID uuid.UUID) error {
-	if err := s.fail["DeleteSessionsOfUser"]; err != nil {
-		return err
-	}
-	for k, sess := range s.sessions {
-		if sess.UserID == userID {
-			delete(s.sessions, k)
-		}
-	}
-	return nil
+	return ended, nil
 }
 
 // hasher "hashes" by prefixing, so a test can read what was stored.
@@ -936,15 +919,39 @@ func TestAuthenticateReportsStoreFailures(t *testing.T) {
 	}
 }
 
-func TestSignOutEndsTheSession(t *testing.T) {
+func TestSignOutEndsEverySessionAndSaysWhich(t *testing.T) {
 	f := newFixture()
+	ctx := context.Background()
+	var told []uuid.UUID
+	f.Service = app.New(f.store, f.hasher, f.mailer, func() time.Time { return f.now }, readerFunc(func(p []byte) (int, error) {
+		_, err := rand.Read(p)
+		return len(p), err
+	}), "https://auth.test", app.WithSignedOut(func(_ context.Context, _ uuid.UUID, ids []uuid.UUID) { told = append(told, ids...) }))
 	f.signedUp(t, "ada@example.org")
-	token, _ := f.SignIn(context.Background(), "ada@example.org", pw)
-	if err := f.SignOut(context.Background(), token); err != nil {
+	here, _ := f.SignIn(ctx, "ada@example.org", pw)
+	elsewhere, _ := f.SignIn(ctx, "ada@example.org", pw)
+	ids := []uuid.UUID{f.store.sessions[sum(here)].ID, f.store.sessions[sum(elsewhere)].ID}
+	if err := f.SignOut(ctx, here); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.Authenticate(context.Background(), token); !errors.Is(err, app.ErrNoSession) {
-		t.Fatalf("after sign-out err = %v", err)
+	for _, tok := range []string{here, elsewhere} {
+		if _, err := f.Authenticate(ctx, tok); !errors.Is(err, app.ErrNoSession) {
+			t.Fatalf("a session survived signing out: %v", err)
+		}
+	}
+	slices.SortFunc(told, func(a, b uuid.UUID) int { return strings.Compare(a.String(), b.String()) })
+	slices.SortFunc(ids, func(a, b uuid.UUID) int { return strings.Compare(a.String(), b.String()) })
+	if !slices.Equal(told, ids) {
+		t.Fatalf("told %v, want %v", told, ids)
+	}
+	told = nil
+	if err := f.SignOut(ctx, here); err != nil || told != nil {
+		t.Fatalf("signing out a gone session = %v, told %v", err, told)
+	}
+	boom := errors.New("boom")
+	f.store.fail["SessionByHash"] = boom
+	if err := f.SignOut(ctx, here); !errors.Is(err, boom) {
+		t.Fatalf("a failing lookup = %v", err)
 	}
 }
 
@@ -1086,7 +1093,7 @@ func TestSignOutEverywhereEndsEverySessionOfThatUser(t *testing.T) {
 		t.Fatalf("another User's session ended: %v", err)
 	}
 	boom := errors.New("boom")
-	f.store.fail["DeleteSessionsOfUser"] = boom
+	f.store.fail["DeleteOtherSessions"] = boom
 	if err := f.SignOutEverywhere(ctx, ada); !errors.Is(err, boom) {
 		t.Fatalf("a failing store: %v", err)
 	}

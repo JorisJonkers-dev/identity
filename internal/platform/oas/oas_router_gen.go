@@ -44,7 +44,7 @@ var (
 	rn12AllowedHeaders = map[string]string{
 		"POST": "Content-Type",
 	}
-	rn30AllowedHeaders = map[string]string{
+	rn34AllowedHeaders = map[string]string{
 		"POST": "Content-Type",
 	}
 )
@@ -124,63 +124,36 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				switch elem[0] {
-				case '/': // Prefix: "/groups"
+				case '/': // Prefix: "/"
 
-					if l := len("/groups"); len(elem) >= l && elem[0:l] == "/groups" {
+					if l := len("/"); len(elem) >= l && elem[0:l] == "/" {
 						elem = elem[l:]
 					} else {
 						break
 					}
 
 					if len(elem) == 0 {
-						switch r.Method {
-						case "POST":
-							s.handleCreateGroupRequest([0]string{}, elemIsEscaped, w, r)
-						default:
-							s.notAllowed(w, r, notAllowedParams{
-								allowedMethods: "POST",
-								allowedHeaders: rn20AllowedHeaders,
-								acceptPost:     "application/json",
-								acceptPatch:    "",
-							})
-						}
-
-						return
+						break
 					}
 					switch elem[0] {
-					case '/': // Prefix: "/"
+					case 'g': // Prefix: "groups"
 
-						if l := len("/"); len(elem) >= l && elem[0:l] == "/" {
+						if l := len("groups"); len(elem) >= l && elem[0:l] == "groups" {
 							elem = elem[l:]
 						} else {
 							break
 						}
 
-						// Param: "groupId"
-						// Match until "/"
-						idx := strings.IndexByte(elem, '/')
-						if idx < 0 {
-							idx = len(elem)
-						}
-						args[0] = elem[:idx]
-						elem = elem[idx:]
-
 						if len(elem) == 0 {
 							switch r.Method {
-							case "DELETE":
-								s.handleDeleteGroupRequest([1]string{
-									args[0],
-								}, elemIsEscaped, w, r)
-							case "PATCH":
-								s.handleRenameGroupRequest([1]string{
-									args[0],
-								}, elemIsEscaped, w, r)
+							case "POST":
+								s.handleCreateGroupRequest([0]string{}, elemIsEscaped, w, r)
 							default:
 								s.notAllowed(w, r, notAllowedParams{
-									allowedMethods: "DELETE,PATCH",
-									allowedHeaders: rn2AllowedHeaders,
-									acceptPost:     "",
-									acceptPatch:    "application/json",
+									allowedMethods: "POST",
+									allowedHeaders: rn20AllowedHeaders,
+									acceptPost:     "application/json",
+									acceptPatch:    "",
 								})
 							}
 
@@ -195,104 +168,78 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 								break
 							}
 
+							// Param: "groupId"
+							// Match until "/"
+							idx := strings.IndexByte(elem, '/')
+							if idx < 0 {
+								idx = len(elem)
+							}
+							args[0] = elem[:idx]
+							elem = elem[idx:]
+
 							if len(elem) == 0 {
-								break
+								switch r.Method {
+								case "DELETE":
+									s.handleDeleteGroupRequest([1]string{
+										args[0],
+									}, elemIsEscaped, w, r)
+								case "PATCH":
+									s.handleRenameGroupRequest([1]string{
+										args[0],
+									}, elemIsEscaped, w, r)
+								default:
+									s.notAllowed(w, r, notAllowedParams{
+										allowedMethods: "DELETE,PATCH",
+										allowedHeaders: rn2AllowedHeaders,
+										acceptPost:     "",
+										acceptPatch:    "application/json",
+									})
+								}
+
+								return
 							}
 							switch elem[0] {
-							case 'm': // Prefix: "members/"
+							case '/': // Prefix: "/"
 
-								if l := len("members/"); len(elem) >= l && elem[0:l] == "members/" {
+								if l := len("/"); len(elem) >= l && elem[0:l] == "/" {
 									elem = elem[l:]
 								} else {
 									break
 								}
-
-								// Param: "userId"
-								// Leaf parameter, slashes are prohibited
-								idx := strings.IndexByte(elem, '/')
-								if idx >= 0 {
-									break
-								}
-								args[1] = elem
-								elem = ""
-
-								if len(elem) == 0 {
-									// Leaf node.
-									switch r.Method {
-									case "DELETE":
-										s.handleRemoveMemberRequest([2]string{
-											args[0],
-											args[1],
-										}, elemIsEscaped, w, r)
-									case "PUT":
-										s.handleAddMemberRequest([2]string{
-											args[0],
-											args[1],
-										}, elemIsEscaped, w, r)
-									default:
-										s.notAllowed(w, r, notAllowedParams{
-											allowedMethods: "DELETE,PUT",
-											allowedHeaders: nil,
-											acceptPost:     "",
-											acceptPatch:    "",
-										})
-									}
-
-									return
-								}
-
-							case 'r': // Prefix: "roles/"
-
-								if l := len("roles/"); len(elem) >= l && elem[0:l] == "roles/" {
-									elem = elem[l:]
-								} else {
-									break
-								}
-
-								// Param: "clientId"
-								// Match until "/"
-								idx := strings.IndexByte(elem, '/')
-								if idx < 0 {
-									idx = len(elem)
-								}
-								args[1] = elem[:idx]
-								elem = elem[idx:]
 
 								if len(elem) == 0 {
 									break
 								}
 								switch elem[0] {
-								case '/': // Prefix: "/"
+								case 'm': // Prefix: "members/"
 
-									if l := len("/"); len(elem) >= l && elem[0:l] == "/" {
+									if l := len("members/"); len(elem) >= l && elem[0:l] == "members/" {
 										elem = elem[l:]
 									} else {
 										break
 									}
 
-									// Param: "role"
+									// Param: "userId"
 									// Leaf parameter, slashes are prohibited
 									idx := strings.IndexByte(elem, '/')
 									if idx >= 0 {
 										break
 									}
-									args[2] = elem
+									args[1] = elem
 									elem = ""
 
 									if len(elem) == 0 {
 										// Leaf node.
 										switch r.Method {
 										case "DELETE":
-											s.handleUnassignRoleRequest([3]string{
+											s.handleRemoveMemberRequest([2]string{
 												args[0],
 												args[1],
-												args[2],
 											}, elemIsEscaped, w, r)
 										case "PUT":
-											s.handleAssignRoleRequest([3]string{
+											s.handleAddMemberRequest([2]string{
 												args[0],
 												args[1],
-												args[2],
 											}, elemIsEscaped, w, r)
 										default:
 											s.notAllowed(w, r, notAllowedParams{
@@ -306,8 +253,125 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 										return
 									}
 
+								case 'r': // Prefix: "roles/"
+
+									if l := len("roles/"); len(elem) >= l && elem[0:l] == "roles/" {
+										elem = elem[l:]
+									} else {
+										break
+									}
+
+									// Param: "clientId"
+									// Match until "/"
+									idx := strings.IndexByte(elem, '/')
+									if idx < 0 {
+										idx = len(elem)
+									}
+									args[1] = elem[:idx]
+									elem = elem[idx:]
+
+									if len(elem) == 0 {
+										break
+									}
+									switch elem[0] {
+									case '/': // Prefix: "/"
+
+										if l := len("/"); len(elem) >= l && elem[0:l] == "/" {
+											elem = elem[l:]
+										} else {
+											break
+										}
+
+										// Param: "role"
+										// Leaf parameter, slashes are prohibited
+										idx := strings.IndexByte(elem, '/')
+										if idx >= 0 {
+											break
+										}
+										args[2] = elem
+										elem = ""
+
+										if len(elem) == 0 {
+											// Leaf node.
+											switch r.Method {
+											case "DELETE":
+												s.handleUnassignRoleRequest([3]string{
+													args[0],
+													args[1],
+													args[2],
+												}, elemIsEscaped, w, r)
+											case "PUT":
+												s.handleAssignRoleRequest([3]string{
+													args[0],
+													args[1],
+													args[2],
+												}, elemIsEscaped, w, r)
+											default:
+												s.notAllowed(w, r, notAllowedParams{
+													allowedMethods: "DELETE,PUT",
+													allowedHeaders: nil,
+													acceptPost:     "",
+													acceptPatch:    "",
+												})
+											}
+
+											return
+										}
+
+									}
+
 								}
 
+							}
+
+						}
+
+					case 'u': // Prefix: "users/"
+
+						if l := len("users/"); len(elem) >= l && elem[0:l] == "users/" {
+							elem = elem[l:]
+						} else {
+							break
+						}
+
+						// Param: "userId"
+						// Match until "/"
+						idx := strings.IndexByte(elem, '/')
+						if idx < 0 {
+							idx = len(elem)
+						}
+						args[0] = elem[:idx]
+						elem = elem[idx:]
+
+						if len(elem) == 0 {
+							break
+						}
+						switch elem[0] {
+						case '/': // Prefix: "/sign-out"
+
+							if l := len("/sign-out"); len(elem) >= l && elem[0:l] == "/sign-out" {
+								elem = elem[l:]
+							} else {
+								break
+							}
+
+							if len(elem) == 0 {
+								// Leaf node.
+								switch r.Method {
+								case "POST":
+									s.handleSignOutUserRequest([1]string{
+										args[0],
+									}, elemIsEscaped, w, r)
+								default:
+									s.notAllowed(w, r, notAllowedParams{
+										allowedMethods: "POST",
+										allowedHeaders: nil,
+										acceptPost:     "",
+										acceptPatch:    "",
+									})
+								}
+
+								return
 							}
 
 						}
@@ -739,7 +803,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 						default:
 							s.notAllowed(w, r, notAllowedParams{
 								allowedMethods: "POST",
-								allowedHeaders: rn30AllowedHeaders,
+								allowedHeaders: rn34AllowedHeaders,
 								acceptPost:     "application/json",
 								acceptPatch:    "",
 							})
@@ -899,66 +963,36 @@ func (s *Server) FindPath(method string, u *url.URL) (r Route, _ bool) {
 					}
 				}
 				switch elem[0] {
-				case '/': // Prefix: "/groups"
+				case '/': // Prefix: "/"
 
-					if l := len("/groups"); len(elem) >= l && elem[0:l] == "/groups" {
+					if l := len("/"); len(elem) >= l && elem[0:l] == "/" {
 						elem = elem[l:]
 					} else {
 						break
 					}
 
 					if len(elem) == 0 {
-						switch method {
-						case "POST":
-							r.name = CreateGroupOperation
-							r.summary = "Make a Group"
-							r.operationID = "createGroup"
-							r.operationGroup = ""
-							r.pathPattern = "/api/v1/access/groups"
-							r.args = args
-							r.count = 0
-							return r, true
-						default:
-							return
-						}
+						break
 					}
 					switch elem[0] {
-					case '/': // Prefix: "/"
+					case 'g': // Prefix: "groups"
 
-						if l := len("/"); len(elem) >= l && elem[0:l] == "/" {
+						if l := len("groups"); len(elem) >= l && elem[0:l] == "groups" {
 							elem = elem[l:]
 						} else {
 							break
 						}
 
-						// Param: "groupId"
-						// Match until "/"
-						idx := strings.IndexByte(elem, '/')
-						if idx < 0 {
-							idx = len(elem)
-						}
-						args[0] = elem[:idx]
-						elem = elem[idx:]
-
 						if len(elem) == 0 {
 							switch method {
-							case "DELETE":
-								r.name = DeleteGroupOperation
-								r.summary = "Delete a Group"
-								r.operationID = "deleteGroup"
+							case "POST":
+								r.name = CreateGroupOperation
+								r.summary = "Make a Group"
+								r.operationID = "createGroup"
 								r.operationGroup = ""
-								r.pathPattern = "/api/v1/access/groups/{groupId}"
+								r.pathPattern = "/api/v1/access/groups"
 								r.args = args
-								r.count = 1
-								return r, true
-							case "PATCH":
-								r.name = RenameGroupOperation
-								r.summary = "Rename a Group"
-								r.operationID = "renameGroup"
-								r.operationGroup = ""
-								r.pathPattern = "/api/v1/access/groups/{groupId}"
-								r.args = args
-								r.count = 1
+								r.count = 0
 								return r, true
 							default:
 								return
@@ -973,119 +1007,211 @@ func (s *Server) FindPath(method string, u *url.URL) (r Route, _ bool) {
 								break
 							}
 
+							// Param: "groupId"
+							// Match until "/"
+							idx := strings.IndexByte(elem, '/')
+							if idx < 0 {
+								idx = len(elem)
+							}
+							args[0] = elem[:idx]
+							elem = elem[idx:]
+
 							if len(elem) == 0 {
-								break
+								switch method {
+								case "DELETE":
+									r.name = DeleteGroupOperation
+									r.summary = "Delete a Group"
+									r.operationID = "deleteGroup"
+									r.operationGroup = ""
+									r.pathPattern = "/api/v1/access/groups/{groupId}"
+									r.args = args
+									r.count = 1
+									return r, true
+								case "PATCH":
+									r.name = RenameGroupOperation
+									r.summary = "Rename a Group"
+									r.operationID = "renameGroup"
+									r.operationGroup = ""
+									r.pathPattern = "/api/v1/access/groups/{groupId}"
+									r.args = args
+									r.count = 1
+									return r, true
+								default:
+									return
+								}
 							}
 							switch elem[0] {
-							case 'm': // Prefix: "members/"
+							case '/': // Prefix: "/"
 
-								if l := len("members/"); len(elem) >= l && elem[0:l] == "members/" {
+								if l := len("/"); len(elem) >= l && elem[0:l] == "/" {
 									elem = elem[l:]
 								} else {
 									break
 								}
-
-								// Param: "userId"
-								// Leaf parameter, slashes are prohibited
-								idx := strings.IndexByte(elem, '/')
-								if idx >= 0 {
-									break
-								}
-								args[1] = elem
-								elem = ""
-
-								if len(elem) == 0 {
-									// Leaf node.
-									switch method {
-									case "DELETE":
-										r.name = RemoveMemberOperation
-										r.summary = "Take a User out of a Group"
-										r.operationID = "removeMember"
-										r.operationGroup = ""
-										r.pathPattern = "/api/v1/access/groups/{groupId}/members/{userId}"
-										r.args = args
-										r.count = 2
-										return r, true
-									case "PUT":
-										r.name = AddMemberOperation
-										r.summary = "Put a User in a Group"
-										r.operationID = "addMember"
-										r.operationGroup = ""
-										r.pathPattern = "/api/v1/access/groups/{groupId}/members/{userId}"
-										r.args = args
-										r.count = 2
-										return r, true
-									default:
-										return
-									}
-								}
-
-							case 'r': // Prefix: "roles/"
-
-								if l := len("roles/"); len(elem) >= l && elem[0:l] == "roles/" {
-									elem = elem[l:]
-								} else {
-									break
-								}
-
-								// Param: "clientId"
-								// Match until "/"
-								idx := strings.IndexByte(elem, '/')
-								if idx < 0 {
-									idx = len(elem)
-								}
-								args[1] = elem[:idx]
-								elem = elem[idx:]
 
 								if len(elem) == 0 {
 									break
 								}
 								switch elem[0] {
-								case '/': // Prefix: "/"
+								case 'm': // Prefix: "members/"
 
-									if l := len("/"); len(elem) >= l && elem[0:l] == "/" {
+									if l := len("members/"); len(elem) >= l && elem[0:l] == "members/" {
 										elem = elem[l:]
 									} else {
 										break
 									}
 
-									// Param: "role"
+									// Param: "userId"
 									// Leaf parameter, slashes are prohibited
 									idx := strings.IndexByte(elem, '/')
 									if idx >= 0 {
 										break
 									}
-									args[2] = elem
+									args[1] = elem
 									elem = ""
 
 									if len(elem) == 0 {
 										// Leaf node.
 										switch method {
 										case "DELETE":
-											r.name = UnassignRoleOperation
-											r.summary = "Take an App Role from a Group"
-											r.operationID = "unassignRole"
+											r.name = RemoveMemberOperation
+											r.summary = "Take a User out of a Group"
+											r.operationID = "removeMember"
 											r.operationGroup = ""
-											r.pathPattern = "/api/v1/access/groups/{groupId}/roles/{clientId}/{role}"
+											r.pathPattern = "/api/v1/access/groups/{groupId}/members/{userId}"
 											r.args = args
-											r.count = 3
+											r.count = 2
 											return r, true
 										case "PUT":
-											r.name = AssignRoleOperation
-											r.summary = "Give a Group an App Role on a Client"
-											r.operationID = "assignRole"
+											r.name = AddMemberOperation
+											r.summary = "Put a User in a Group"
+											r.operationID = "addMember"
 											r.operationGroup = ""
-											r.pathPattern = "/api/v1/access/groups/{groupId}/roles/{clientId}/{role}"
+											r.pathPattern = "/api/v1/access/groups/{groupId}/members/{userId}"
 											r.args = args
-											r.count = 3
+											r.count = 2
 											return r, true
 										default:
 											return
 										}
 									}
 
+								case 'r': // Prefix: "roles/"
+
+									if l := len("roles/"); len(elem) >= l && elem[0:l] == "roles/" {
+										elem = elem[l:]
+									} else {
+										break
+									}
+
+									// Param: "clientId"
+									// Match until "/"
+									idx := strings.IndexByte(elem, '/')
+									if idx < 0 {
+										idx = len(elem)
+									}
+									args[1] = elem[:idx]
+									elem = elem[idx:]
+
+									if len(elem) == 0 {
+										break
+									}
+									switch elem[0] {
+									case '/': // Prefix: "/"
+
+										if l := len("/"); len(elem) >= l && elem[0:l] == "/" {
+											elem = elem[l:]
+										} else {
+											break
+										}
+
+										// Param: "role"
+										// Leaf parameter, slashes are prohibited
+										idx := strings.IndexByte(elem, '/')
+										if idx >= 0 {
+											break
+										}
+										args[2] = elem
+										elem = ""
+
+										if len(elem) == 0 {
+											// Leaf node.
+											switch method {
+											case "DELETE":
+												r.name = UnassignRoleOperation
+												r.summary = "Take an App Role from a Group"
+												r.operationID = "unassignRole"
+												r.operationGroup = ""
+												r.pathPattern = "/api/v1/access/groups/{groupId}/roles/{clientId}/{role}"
+												r.args = args
+												r.count = 3
+												return r, true
+											case "PUT":
+												r.name = AssignRoleOperation
+												r.summary = "Give a Group an App Role on a Client"
+												r.operationID = "assignRole"
+												r.operationGroup = ""
+												r.pathPattern = "/api/v1/access/groups/{groupId}/roles/{clientId}/{role}"
+												r.args = args
+												r.count = 3
+												return r, true
+											default:
+												return
+											}
+										}
+
+									}
+
 								}
 
+							}
+
+						}
+
+					case 'u': // Prefix: "users/"
+
+						if l := len("users/"); len(elem) >= l && elem[0:l] == "users/" {
+							elem = elem[l:]
+						} else {
+							break
+						}
+
+						// Param: "userId"
+						// Match until "/"
+						idx := strings.IndexByte(elem, '/')
+						if idx < 0 {
+							idx = len(elem)
+						}
+						args[0] = elem[:idx]
+						elem = elem[idx:]
+
+						if len(elem) == 0 {
+							break
+						}
+						switch elem[0] {
+						case '/': // Prefix: "/sign-out"
+
+							if l := len("/sign-out"); len(elem) >= l && elem[0:l] == "/sign-out" {
+								elem = elem[l:]
+							} else {
+								break
+							}
+
+							if len(elem) == 0 {
+								// Leaf node.
+								switch method {
+								case "POST":
+									r.name = SignOutUserOperation
+									r.summary = "Sign a User out on every device"
+									r.operationID = "signOutUser"
+									r.operationGroup = ""
+									r.pathPattern = "/api/v1/access/users/{userId}/sign-out"
+									r.args = args
+									r.count = 1
+									return r, true
+								default:
+									return
+								}
 							}
 
 						}

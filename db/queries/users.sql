@@ -31,16 +31,10 @@ SELECT token_hash, id, user_id, created_at, last_seen_at, expires_at, methods FR
 -- name: TouchSession :exec
 UPDATE sessions SET last_seen_at = $2, expires_at = $3 WHERE token_hash = $1;
 
--- name: DeleteSession :exec
-DELETE FROM sessions WHERE token_hash = $1;
-
--- name: DeleteOtherSessions :exec
--- Ends every session of a User but one, as changing the password does.
-DELETE FROM sessions WHERE user_id = $1 AND token_hash <> $2;
-
--- name: DeleteSessionsOfUser :exec
--- Signing out from any Client signs out everywhere (docs/adr/0007).
-DELETE FROM sessions WHERE user_id = $1;
+-- name: DeleteOtherSessions :many
+-- Ends every session of a User but the one keep names (or every one, when keep is null), and says
+-- which ended, so exactly those are announced (docs/adr/0007).
+DELETE FROM sessions WHERE user_id = $1 AND token_hash IS DISTINCT FROM sqlc.narg(keep)::bytea RETURNING id;
 
 -- name: ListUsers :many
 SELECT id, email, name, password_hash, created_at FROM users ORDER BY lower(name), email;

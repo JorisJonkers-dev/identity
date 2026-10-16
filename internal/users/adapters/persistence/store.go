@@ -135,16 +135,8 @@ func (s *Store) TouchSession(ctx context.Context, hash []byte, lastSeen, expires
 	return s.q.TouchSession(ctx, queries.TouchSessionParams{TokenHash: hash, LastSeenAt: lastSeen, ExpiresAt: expires})
 }
 
-func (s *Store) DeleteSession(ctx context.Context, hash []byte) error {
-	return s.q.DeleteSession(ctx, hash)
-}
-
-func (s *Store) DeleteSessionsOfUser(ctx context.Context, userID uuid.UUID) error {
-	return s.q.DeleteSessionsOfUser(ctx, userID)
-}
-
-func (s *Store) DeleteOtherSessions(ctx context.Context, userID uuid.UUID, keep []byte) error {
-	return s.q.DeleteOtherSessions(ctx, queries.DeleteOtherSessionsParams{UserID: userID, TokenHash: keep})
+func (s *Store) DeleteOtherSessions(ctx context.Context, userID uuid.UUID, keep []byte) ([]uuid.UUID, error) {
+	return s.q.DeleteOtherSessions(ctx, queries.DeleteOtherSessionsParams{UserID: userID, Keep: keep})
 }
 
 func (s *Store) SetSessionMethods(ctx context.Context, hash []byte, methods []string) error {

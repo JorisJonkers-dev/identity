@@ -204,6 +204,16 @@ func (UnimplementedHandler) SignOut(ctx context.Context) (r SignOutRes, _ error)
 	return r, ht.ErrNotImplemented
 }
 
+// SignOutUser implements signOutUser operation.
+//
+// Ends all of the User's sessions. Apps that support back-channel logout are told, and apps behind the
+// Gate ask the User to sign in again. Signing out a User with no session does nothing. Admins only.
+//
+// POST /api/v1/access/users/{userId}/sign-out
+func (UnimplementedHandler) SignOutUser(ctx context.Context, params SignOutUserParams) (r SignOutUserRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // SignUp implements signUp operation.
 //
 // Registers an unconfirmed User and mails a confirmation link. Answers 202 whether or not the email is
