@@ -6,12 +6,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"slices"
+	"time"
 
 	"github.com/JorisJonkers-dev/identity/internal/access/adapters/catalog"
 	"github.com/JorisJonkers-dev/identity/internal/access/adapters/people"
 	accesspersistence "github.com/JorisJonkers-dev/identity/internal/access/adapters/persistence"
 	accessapp "github.com/JorisJonkers-dev/identity/internal/access/app"
+	auditpersistence "github.com/JorisJonkers-dev/identity/internal/audit/adapters/persistence"
+	auditapp "github.com/JorisJonkers-dev/identity/internal/audit/app"
 	"github.com/JorisJonkers-dev/identity/internal/platform/pg"
 	"github.com/JorisJonkers-dev/identity/internal/signin/adapters/clients"
 	"github.com/JorisJonkers-dev/identity/internal/users/adapters/persistence"
@@ -30,7 +34,7 @@ func command(ctx context.Context, getenv func(string) string, args []string, std
 		_, _ = fmt.Fprintln(stderr, usage)
 		return 2
 	}
-	if err := promote(ctx, getenv("DATABASE_URL"), args[2], force); err != nil {
+	if err := promote(ctx, getenv("DATABASE_URL"), args[2], force, slog.New(slog.NewJSONHandler(stderr, nil))); err != nil {
 		_, _ = fmt.Fprintln(stderr, "identity:", err)
 		return 1
 	}
@@ -43,7 +47,8 @@ type refusal string
 
 func (r refusal) Error() string { return string(r) }
 
-func promote(ctx context.Context, databaseURL, email string, force bool) error {
+// promote records the promotion as an Audit Event, logged to logger as the server logs its own.
+func promote(ctx context.Context, databaseURL, email string, force bool, logger *slog.Logger) error {
 	if databaseURL == "" {
 		return refusal("DATABASE_URL is not set. Set it to the identity database URL and run again.")
 	}
@@ -60,7 +65,8 @@ func promote(ctx context.Context, databaseURL, email string, force bool) error {
 	if err != nil {
 		return err
 	}
-	access := accessapp.New(accesspersistence.New(store.Queries(), store), catalog.New(clients.NewIndex()), people.New(users), rand.Reader)
+	audit := auditapp.New(auditpersistence.New(store.Queries()), nil, nil, logger, time.Now, rand.Reader)
+	access := accessapp.New(accesspersistence.New(store.Queries(), store), catalog.New(clients.NewIndex()), people.New(users), audit, rand.Reader)
 	err = access.Promote(ctx, u.ID, force)
 	if errors.Is(err, accessapp.ErrAdminExists) {
 		return refusal("an Admin already exists. To add another, run again with --force.")

@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const addMember = `-- name: AddMember :exec
+const addMember = `-- name: AddMember :execrows
 INSERT INTO memberships (group_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING
 `
 
@@ -20,9 +20,12 @@ type AddMemberParams struct {
 	UserID  uuid.UUID
 }
 
-func (q *Queries) AddMember(ctx context.Context, arg AddMemberParams) error {
-	_, err := q.db.Exec(ctx, addMember, arg.GroupID, arg.UserID)
-	return err
+func (q *Queries) AddMember(ctx context.Context, arg AddMemberParams) (int64, error) {
+	result, err := q.db.Exec(ctx, addMember, arg.GroupID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const adminsGroup = `-- name: AdminsGroup :one
@@ -42,7 +45,7 @@ func (q *Queries) AdminsGroup(ctx context.Context) (AdminsGroupRow, error) {
 	return i, err
 }
 
-const assign = `-- name: Assign :exec
+const assign = `-- name: Assign :execrows
 INSERT INTO assignments (group_id, client_id, role) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING
 `
 
@@ -52,9 +55,12 @@ type AssignParams struct {
 	Role     string
 }
 
-func (q *Queries) Assign(ctx context.Context, arg AssignParams) error {
-	_, err := q.db.Exec(ctx, assign, arg.GroupID, arg.ClientID, arg.Role)
-	return err
+func (q *Queries) Assign(ctx context.Context, arg AssignParams) (int64, error) {
+	result, err := q.db.Exec(ctx, assign, arg.GroupID, arg.ClientID, arg.Role)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const countAdmins = `-- name: CountAdmins :one
@@ -235,7 +241,7 @@ func (q *Queries) LockGroup(ctx context.Context, id uuid.UUID) (bool, error) {
 	return admins, err
 }
 
-const removeMember = `-- name: RemoveMember :exec
+const removeMember = `-- name: RemoveMember :execrows
 DELETE FROM memberships WHERE group_id = $1 AND user_id = $2
 `
 
@@ -244,9 +250,12 @@ type RemoveMemberParams struct {
 	UserID  uuid.UUID
 }
 
-func (q *Queries) RemoveMember(ctx context.Context, arg RemoveMemberParams) error {
-	_, err := q.db.Exec(ctx, removeMember, arg.GroupID, arg.UserID)
-	return err
+func (q *Queries) RemoveMember(ctx context.Context, arg RemoveMemberParams) (int64, error) {
+	result, err := q.db.Exec(ctx, removeMember, arg.GroupID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const renameGroup = `-- name: RenameGroup :execrows
@@ -328,7 +337,7 @@ func (q *Queries) RolesOf(ctx context.Context, arg RolesOfParams) ([]string, err
 	return items, nil
 }
 
-const unassign = `-- name: Unassign :exec
+const unassign = `-- name: Unassign :execrows
 DELETE FROM assignments WHERE group_id = $1 AND client_id = $2 AND role = $3
 `
 
@@ -338,7 +347,10 @@ type UnassignParams struct {
 	Role     string
 }
 
-func (q *Queries) Unassign(ctx context.Context, arg UnassignParams) error {
-	_, err := q.db.Exec(ctx, unassign, arg.GroupID, arg.ClientID, arg.Role)
-	return err
+func (q *Queries) Unassign(ctx context.Context, arg UnassignParams) (int64, error) {
+	result, err := q.db.Exec(ctx, unassign, arg.GroupID, arg.ClientID, arg.Role)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

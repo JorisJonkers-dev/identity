@@ -19,6 +19,10 @@ import (
 	"github.com/JorisJonkers-dev/identity/internal/access/adapters/people"
 	accesspersistence "github.com/JorisJonkers-dev/identity/internal/access/adapters/persistence"
 	accessapp "github.com/JorisJonkers-dev/identity/internal/access/app"
+	"github.com/JorisJonkers-dev/identity/internal/audit/adapters/directory"
+	auditpersistence "github.com/JorisJonkers-dev/identity/internal/audit/adapters/persistence"
+	auditapp "github.com/JorisJonkers-dev/identity/internal/audit/app"
+	auditdomain "github.com/JorisJonkers-dev/identity/internal/audit/domain"
 	gatecontexts "github.com/JorisJonkers-dev/identity/internal/gate/adapters/contexts"
 	gatepersistence "github.com/JorisJonkers-dev/identity/internal/gate/adapters/persistence"
 	gateweb "github.com/JorisJonkers-dev/identity/internal/gate/adapters/web"
@@ -73,11 +77,12 @@ type Config struct {
 	Version       string
 }
 
-// Identity is identity built: its routes, and the count of Users waiting for a Group, which
-// /metrics reports.
+// Identity is identity built: its routes, the count of Users waiting for a Group, which /metrics
+// reports, and Prune, which removes Audit Events older than a year and runs on a schedule.
 type Identity struct {
 	Routes     server.Routes
 	Unassigned func(ctx context.Context) (int, error)
+	Prune      func(ctx context.Context) (int64, error)
 }
 
 // New builds identity.
@@ -87,7 +92,10 @@ func New(cfg Config) (*Identity, error) {
 	admins := adminsFunc(func(ctx context.Context, id uuid.UUID) (bool, error) { return access.IsAdmin(ctx, id) })
 	// Set once the Provider and the Gate exist, before the server serves anything.
 	var signedOut app.SignedOut
-	opts := []app.Option{app.WithAdmins(admins), app.WithSignedOut(func(ctx context.Context, userID uuid.UUID, sessionIDs []uuid.UUID) {
+	// Audit names Users, so it is made after users, which records through it.
+	var audit *auditapp.Service
+	recorder := recorderFunc(func(ctx context.Context, e auditdomain.Event) { audit.Record(ctx, e) })
+	opts := []app.Option{app.WithAdmins(admins), app.WithAudit(recorder), app.WithSignedOut(func(ctx context.Context, userID uuid.UUID, sessionIDs []uuid.UUID) {
 		signedOut(ctx, userID, sessionIDs)
 	})}
 	ceremonies, err := passkeyCeremonies(cfg.PublicURL)
@@ -100,14 +108,15 @@ func New(cfg Config) (*Identity, error) {
 	}
 	q := cfg.Store.Queries()
 	users := app.New(persistence.New(q), passwords.NewArgon2id(maxConcurrentHashes, hashWait), cfg.Mailer, time.Now, rand.Reader, cfg.PublicURL, opts...)
-	access = accessapp.New(accesspersistence.New(q, cfg.Store), catalog.New(cfg.Index), people.New(users), rand.Reader)
+	audit = auditapp.New(auditpersistence.New(q), admins, directory.New(users, cfg.Index), cfg.Logger, time.Now, rand.Reader)
+	access = accessapp.New(accesspersistence.New(q, cfg.Store), catalog.New(cfg.Index), people.New(users), recorder, rand.Reader)
 	launcherContexts := launchercontexts.New(cfg.Index, access)
 	transport := cfg.IconTransport
 	if transport == nil {
 		transport = http.DefaultTransport
 	}
 	launcher := launcherapp.New(launcherContexts, launcherContexts, launcherfetch.New(transport, iconTimeout), time.Now)
-	api, err := httpapi.New(cfg.Logger, cfg.Version, users, access, launcher)
+	api, err := httpapi.New(cfg.Logger, cfg.Version, users, access, audit, launcher)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +126,7 @@ func New(cfg Config) (*Identity, error) {
 	}
 	ring := signinoidc.NewRing(key)
 	logouts := signinoidc.NewLogouts(cfg.PublicURL, ring, &http.Client{}, cfg.Logger, time.Now)
-	signIn := signinapp.New(signinpersistence.New(q), cfg.Index, accounts.New(users), access, logouts, time.Now, rand.Reader)
+	signIn := signinapp.New(signinpersistence.New(q), cfg.Index, accounts.New(users), access, logouts, recorder, time.Now, rand.Reader)
 	provider, err := signinoidc.New(signinoidc.Config{
 		Issuer:        cfg.PublicURL,
 		Insecure:      strings.HasPrefix(cfg.PublicURL, "http://"),
@@ -127,7 +136,7 @@ func New(cfg Config) (*Identity, error) {
 		return nil, err
 	}
 	others := gatecontexts.New(signIn, users)
-	gate := gateapp.New(gatepersistence.New(q), others, others, others, time.Now, rand.Reader, gateCacheTTL)
+	gate := gateapp.New(gatepersistence.New(q), others, others, others, recorder, time.Now, rand.Reader, gateCacheTTL)
 	signedOut = endSessions(gate, signIn, cfg.Logger)
 	gateHandler, err := gateweb.New(gate, gateweb.Config{Issuer: cfg.PublicURL, SessionCookie: usersweb.CookieName}, cfg.Logger)
 	if err != nil {
@@ -148,6 +157,7 @@ func New(cfg Config) (*Identity, error) {
 			},
 		},
 		Unassigned: access.Unassigned,
+		Prune:      audit.Prune,
 	}, nil
 }
 
@@ -162,6 +172,11 @@ func passkeyCeremonies(publicURL string) (*passkeys.Ceremonies, error) {
 	}
 	return passkeys.New(u.Hostname(), publicURL)
 }
+
+// recorderFunc records Audit Events through a function.
+type recorderFunc func(ctx context.Context, e auditdomain.Event)
+
+func (f recorderFunc) Record(ctx context.Context, e auditdomain.Event) { f(ctx, e) }
 
 // adminsFunc is app.Admins as a function.
 type adminsFunc func(ctx context.Context, id uuid.UUID) (bool, error)

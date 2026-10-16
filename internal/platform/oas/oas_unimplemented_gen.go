@@ -149,6 +149,16 @@ func (UnimplementedHandler) GetVersion(ctx context.Context) (r GetVersionRes, _ 
 	return r, ht.ErrNotImplemented
 }
 
+// ListAuditEvents implements listAuditEvents operation.
+//
+// One page of Audit Events, newest first, narrowed by any of the filters. Pass a page's next as before
+// to read the page after it. Admins only, from a session that proved a Second Factor.
+//
+// GET /api/v1/audit
+func (UnimplementedHandler) ListAuditEvents(ctx context.Context, params ListAuditEventsParams) (r ListAuditEventsRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // ListSecondFactors implements listSecondFactors operation.
 //
 // Every authenticator app and passkey the User added.

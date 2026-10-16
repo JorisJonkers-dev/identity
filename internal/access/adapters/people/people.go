@@ -15,7 +15,7 @@ import (
 // Users is what People needs from the users context.
 type Users interface {
 	Users(ctx context.Context) ([]usersdomain.User, error)
-	SignOutEverywhere(ctx context.Context, userID uuid.UUID) error
+	SignOutEverywhere(ctx context.Context, actor, userID uuid.UUID) error
 }
 
 // People is the app.People.
@@ -38,7 +38,7 @@ func (p *People) People(ctx context.Context) ([]domain.Person, error) {
 	return out, nil
 }
 
-// SignOut signs the User out everywhere.
-func (p *People) SignOut(ctx context.Context, userID uuid.UUID) error {
-	return p.users.SignOutEverywhere(ctx, userID)
+// SignOut signs the User out everywhere, at the actor's asking.
+func (p *People) SignOut(ctx context.Context, actor, userID uuid.UUID) error {
+	return p.users.SignOutEverywhere(ctx, actor, userID)
 }

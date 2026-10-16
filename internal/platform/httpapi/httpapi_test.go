@@ -16,6 +16,7 @@ import (
 
 	accessweb "github.com/JorisJonkers-dev/identity/internal/access/adapters/web"
 	accessapp "github.com/JorisJonkers-dev/identity/internal/access/app"
+	auditweb "github.com/JorisJonkers-dev/identity/internal/audit/adapters/web"
 	launcherdomain "github.com/JorisJonkers-dev/identity/internal/launcher/domain"
 	"github.com/JorisJonkers-dev/identity/internal/platform/httpapi"
 	"github.com/JorisJonkers-dev/identity/internal/users/app"
@@ -75,6 +76,9 @@ func (u users) User(ctx context.Context, _ uuid.UUID) (domain.User, error) {
 // access knows no Admin; only the operations the tests reach are answered.
 type access struct{ accessweb.UseCases }
 
+// audit lists nothing; no test here reaches it.
+type audit struct{ auditweb.UseCases }
+
 func (access) IsAdmin(context.Context, uuid.UUID) (bool, error) { return false, nil }
 
 func (access) Overview(_ context.Context, actor accessapp.Actor) (accessapp.Overview, error) {
@@ -97,7 +101,7 @@ func (launcher) Icon(context.Context, string) (launcherdomain.Icon, error) {
 
 func serve(t *testing.T) *httptest.Server {
 	t.Helper()
-	h, err := httpapi.New(slog.New(slog.DiscardHandler), "1.2.3", users{}, access{}, launcher{})
+	h, err := httpapi.New(slog.New(slog.DiscardHandler), "1.2.3", users{}, access{}, audit{}, launcher{})
 	if err != nil {
 		t.Fatal(err)
 	}

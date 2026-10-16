@@ -433,6 +433,293 @@ func decodeDeleteGroupParams(args [1]string, argsEscaped bool, r *http.Request) 
 	return params, nil
 }
 
+// ListAuditEventsParams is parameters of listAuditEvents operation.
+type ListAuditEventsParams struct {
+	// Only events by or about this User.
+	User OptID `json:",omitempty,omitzero"`
+	// Only events about this Client.
+	Client OptClientId `json:",omitempty,omitzero"`
+	// Only events of this kind.
+	Kind OptAuditKind `json:",omitempty,omitzero"`
+	// A page's next, to read the page after it.
+	Before OptAuditCursor `json:",omitempty,omitzero"`
+}
+
+func unpackListAuditEventsParams(packed middleware.Parameters) (params ListAuditEventsParams) {
+	{
+		key := middleware.ParameterKey{
+			Name: "user",
+			In:   "query",
+		}
+		if v, ok := packed[key]; ok {
+			params.User = v.(OptID)
+		}
+	}
+	{
+		key := middleware.ParameterKey{
+			Name: "client",
+			In:   "query",
+		}
+		if v, ok := packed[key]; ok {
+			params.Client = v.(OptClientId)
+		}
+	}
+	{
+		key := middleware.ParameterKey{
+			Name: "kind",
+			In:   "query",
+		}
+		if v, ok := packed[key]; ok {
+			params.Kind = v.(OptAuditKind)
+		}
+	}
+	{
+		key := middleware.ParameterKey{
+			Name: "before",
+			In:   "query",
+		}
+		if v, ok := packed[key]; ok {
+			params.Before = v.(OptAuditCursor)
+		}
+	}
+	return params
+}
+
+func decodeListAuditEventsParams(args [0]string, argsEscaped bool, r *http.Request) (params ListAuditEventsParams, _ error) {
+	q := uri.NewQueryDecoder(r.URL.Query())
+	// Decode query: user.
+	if err := func() error {
+		cfg := uri.QueryParameterDecodingConfig{
+			Name:    "user",
+			Style:   uri.QueryStyleForm,
+			Explode: true,
+		}
+
+		if err := q.HasParam(cfg); err == nil {
+			if err := q.DecodeParam(cfg, func(d uri.Decoder) error {
+				var paramsDotUserVal ID
+				if err := func() error {
+					var paramsDotUserValVal uuid.UUID
+					if err := func() error {
+						val, err := d.DecodeValue()
+						if err != nil {
+							return err
+						}
+
+						c, err := conv.ToUUID(val)
+						if err != nil {
+							return err
+						}
+
+						paramsDotUserValVal = c
+						return nil
+					}(); err != nil {
+						return err
+					}
+					paramsDotUserVal = ID(paramsDotUserValVal)
+					return nil
+				}(); err != nil {
+					return err
+				}
+				params.User.SetTo(paramsDotUserVal)
+				return nil
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}(); err != nil {
+		return params, &ogenerrors.DecodeParamError{
+			Name: "user",
+			In:   "query",
+			Err:  err,
+		}
+	}
+	// Decode query: client.
+	if err := func() error {
+		cfg := uri.QueryParameterDecodingConfig{
+			Name:    "client",
+			Style:   uri.QueryStyleForm,
+			Explode: true,
+		}
+
+		if err := q.HasParam(cfg); err == nil {
+			if err := q.DecodeParam(cfg, func(d uri.Decoder) error {
+				var paramsDotClientVal ClientId
+				if err := func() error {
+					var paramsDotClientValVal string
+					if err := func() error {
+						val, err := d.DecodeValue()
+						if err != nil {
+							return err
+						}
+
+						c, err := conv.ToString(val)
+						if err != nil {
+							return err
+						}
+
+						paramsDotClientValVal = c
+						return nil
+					}(); err != nil {
+						return err
+					}
+					paramsDotClientVal = ClientId(paramsDotClientValVal)
+					return nil
+				}(); err != nil {
+					return err
+				}
+				params.Client.SetTo(paramsDotClientVal)
+				return nil
+			}); err != nil {
+				return err
+			}
+			if err := func() error {
+				if value, ok := params.Client.Get(); ok {
+					if err := func() error {
+						if err := value.Validate(); err != nil {
+							return err
+						}
+						return nil
+					}(); err != nil {
+						return err
+					}
+				}
+				return nil
+			}(); err != nil {
+				return err
+			}
+		}
+		return nil
+	}(); err != nil {
+		return params, &ogenerrors.DecodeParamError{
+			Name: "client",
+			In:   "query",
+			Err:  err,
+		}
+	}
+	// Decode query: kind.
+	if err := func() error {
+		cfg := uri.QueryParameterDecodingConfig{
+			Name:    "kind",
+			Style:   uri.QueryStyleForm,
+			Explode: true,
+		}
+
+		if err := q.HasParam(cfg); err == nil {
+			if err := q.DecodeParam(cfg, func(d uri.Decoder) error {
+				var paramsDotKindVal AuditKind
+				if err := func() error {
+					val, err := d.DecodeValue()
+					if err != nil {
+						return err
+					}
+
+					c, err := conv.ToString(val)
+					if err != nil {
+						return err
+					}
+
+					paramsDotKindVal = AuditKind(c)
+					return nil
+				}(); err != nil {
+					return err
+				}
+				params.Kind.SetTo(paramsDotKindVal)
+				return nil
+			}); err != nil {
+				return err
+			}
+			if err := func() error {
+				if value, ok := params.Kind.Get(); ok {
+					if err := func() error {
+						if err := value.Validate(); err != nil {
+							return err
+						}
+						return nil
+					}(); err != nil {
+						return err
+					}
+				}
+				return nil
+			}(); err != nil {
+				return err
+			}
+		}
+		return nil
+	}(); err != nil {
+		return params, &ogenerrors.DecodeParamError{
+			Name: "kind",
+			In:   "query",
+			Err:  err,
+		}
+	}
+	// Decode query: before.
+	if err := func() error {
+		cfg := uri.QueryParameterDecodingConfig{
+			Name:    "before",
+			Style:   uri.QueryStyleForm,
+			Explode: true,
+		}
+
+		if err := q.HasParam(cfg); err == nil {
+			if err := q.DecodeParam(cfg, func(d uri.Decoder) error {
+				var paramsDotBeforeVal AuditCursor
+				if err := func() error {
+					var paramsDotBeforeValVal string
+					if err := func() error {
+						val, err := d.DecodeValue()
+						if err != nil {
+							return err
+						}
+
+						c, err := conv.ToString(val)
+						if err != nil {
+							return err
+						}
+
+						paramsDotBeforeValVal = c
+						return nil
+					}(); err != nil {
+						return err
+					}
+					paramsDotBeforeVal = AuditCursor(paramsDotBeforeValVal)
+					return nil
+				}(); err != nil {
+					return err
+				}
+				params.Before.SetTo(paramsDotBeforeVal)
+				return nil
+			}); err != nil {
+				return err
+			}
+			if err := func() error {
+				if value, ok := params.Before.Get(); ok {
+					if err := func() error {
+						if err := value.Validate(); err != nil {
+							return err
+						}
+						return nil
+					}(); err != nil {
+						return err
+					}
+				}
+				return nil
+			}(); err != nil {
+				return err
+			}
+		}
+		return nil
+	}(); err != nil {
+		return params, &ogenerrors.DecodeParamError{
+			Name: "before",
+			In:   "query",
+			Err:  err,
+		}
+	}
+	return params, nil
+}
+
 // RemoveMemberParams is parameters of removeMember operation.
 type RemoveMemberParams struct {
 	// The Group.

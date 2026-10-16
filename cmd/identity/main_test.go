@@ -1,6 +1,10 @@
 package main
 
 import (
+	"bytes"
+	"context"
+	"errors"
+	"log/slog"
 	"strings"
 	"testing"
 )
@@ -117,5 +121,27 @@ func TestVaultIsOptionalAndSignsInAsConfigured(t *testing.T) {
 		if _, err := sealer.Seal(t.Context(), []byte("x")); err == nil {
 			t.Errorf("sealed against nothing with token %q", token)
 		}
+	}
+}
+
+func TestPruningLogsHowManyAuditEventsItRemoved(t *testing.T) {
+	var logs bytes.Buffer
+	job := prune(func(context.Context) (int64, error) { return 4, nil }, slog.New(slog.NewJSONHandler(&logs, nil)))
+	if err := job(context.Background()); err != nil || !strings.Contains(logs.String(), `"msg":"audit events pruned","count":4`) {
+		t.Fatalf("prune = %v, logged %s", err, logs.String())
+	}
+}
+
+func TestPruningNothingLogsNothing(t *testing.T) {
+	var logs bytes.Buffer
+	if err := prune(func(context.Context) (int64, error) { return 0, nil }, slog.New(slog.NewJSONHandler(&logs, nil)))(context.Background()); err != nil || logs.Len() != 0 {
+		t.Fatalf("prune = %v, logged %s", err, logs.String())
+	}
+}
+
+func TestAFailedPruneIsPassedOn(t *testing.T) {
+	boom := errors.New("boom")
+	if err := prune(func(context.Context) (int64, error) { return 0, boom }, slog.New(slog.DiscardHandler))(context.Background()); !errors.Is(err, boom) {
+		t.Fatalf("prune = %v", err)
 	}
 }

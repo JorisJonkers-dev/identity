@@ -31,6 +31,10 @@ tags:
     description: >-
       Groups, their members, and the App Roles each Group holds on each Client. Only Admins may
       read or change any of it, and being an Admin gives no App Role (docs/adr/0004).
+  - name: audit
+    description: >-
+      Audit Events: sign-ins, failed sign-ins, and changes to Users, Groups and Assignments, kept
+      for one year. Only Admins may read them.
 paths:
   /api/v1/version:
     get:
@@ -587,6 +591,46 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/audit:
+    get:
+      operationId: listAuditEvents
+      summary: Audit Events, newest first
+      description: >-
+        One page of Audit Events, newest first, narrowed by any of the filters. Pass a page's next
+        as before to read the page after it. Admins only, from a session that proved a Second Factor.
+      tags: [audit]
+      parameters:
+        - name: user
+          in: query
+          description: Only events by or about this User.
+          schema:
+            $ref: "#/components/schemas/Id"
+        - name: client
+          in: query
+          description: Only events about this Client.
+          schema:
+            $ref: "#/components/schemas/ClientId"
+        - name: kind
+          in: query
+          description: Only events of this kind.
+          schema:
+            $ref: "#/components/schemas/AuditKind"
+        - name: before
+          in: query
+          description: A page's next, to read the page after it.
+          schema:
+            $ref: "#/components/schemas/AuditCursor"
+      responses:
+        "200":
+          description: One page of Audit Events.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditPage"
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
   securitySchemes:
     challenge:
@@ -640,6 +684,109 @@ components:
           schema:
             $ref: "#/components/schemas/Problem"
   schemas:
+    AuditKind:
+      description: The family of an Audit Event.
+      type: string
+      enum: [sign-in, people, access, tokens]
+    AuditAction:
+      description: What an Audit Event records.
+      type: string
+      enum:
+        - signed-in
+        - sign-in-failed
+        - signed-out
+        - user-created
+        - user-renamed
+        - password-changed
+        - second-factor-added
+        - second-factor-removed
+        - admin-promoted
+        - group-created
+        - group-renamed
+        - group-deleted
+        - member-added
+        - member-removed
+        - role-assigned
+        - role-removed
+        - token-minted
+        - token-revoked
+    AuditCursor:
+      description: Where a page of Audit Events ends; opaque.
+      type: string
+      minLength: 1
+      maxLength: 100
+    AuditPerson:
+      description: A User an Audit Event names. A User who is gone has only an id.
+      type: object
+      additionalProperties: false
+      required: [id]
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        email:
+          $ref: "#/components/schemas/Email"
+        name:
+          type: string
+          maxLength: 400
+    AuditClient:
+      description: A Client an Audit Event names. A Client that is gone is labelled with its id.
+      type: object
+      additionalProperties: false
+      required: [id, label]
+      properties:
+        id:
+          $ref: "#/components/schemas/ClientId"
+        label:
+          type: string
+          maxLength: 200
+    AuditEvent:
+      description: One Audit Event.
+      type: object
+      additionalProperties: false
+      required: [id, at, kind, action]
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        at:
+          type: string
+          format: date-time
+          maxLength: 64
+        kind:
+          $ref: "#/components/schemas/AuditKind"
+        action:
+          $ref: "#/components/schemas/AuditAction"
+        actor:
+          $ref: "#/components/schemas/AuditPerson"
+        user:
+          $ref: "#/components/schemas/AuditPerson"
+        client:
+          $ref: "#/components/schemas/AuditClient"
+        groupName:
+          type: string
+          maxLength: 64
+        role:
+          $ref: "#/components/schemas/AppRole"
+        email:
+          type: string
+          maxLength: 320
+          description: The address a failed sign-in gave; it may belong to no User.
+        reason:
+          type: string
+          enum: [password, second-factor, no-access]
+          description: Why a sign-in failed.
+    AuditPage:
+      description: One page of Audit Events, newest first.
+      type: object
+      additionalProperties: false
+      required: [events]
+      properties:
+        events:
+          type: array
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/AuditEvent"
+        next:
+          $ref: "#/components/schemas/AuditCursor"
     Email:
       description: An email address.
       type: string

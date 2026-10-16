@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	auditdomain "github.com/JorisJonkers-dev/identity/internal/audit/domain"
 	"github.com/JorisJonkers-dev/identity/internal/signin/app"
 	"github.com/JorisJonkers-dev/identity/internal/signin/domain"
 )
@@ -192,3 +193,8 @@ func (a *access) Roles(_ context.Context, _ uuid.UUID, clientID string) ([]strin
 	defer a.mu.Unlock()
 	return a.roles[clientID], a.fail
 }
+
+// discard records no Audit Events.
+type discard struct{}
+
+func (discard) Record(context.Context, auditdomain.Event) {}

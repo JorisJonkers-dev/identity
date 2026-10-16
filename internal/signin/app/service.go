@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
+	audit "github.com/JorisJonkers-dev/identity/internal/audit/domain"
 	"github.com/JorisJonkers-dev/identity/internal/signin/domain"
 )
 
@@ -88,13 +89,19 @@ type Service struct {
 	accounts Accounts
 	access   Access
 	logouts  Logouts
+	audit    Audit
 	now      func() time.Time
 	random   io.Reader
 }
 
+// Audit records each sign-in to a Client, and each refused for want of an App Role.
+type Audit interface {
+	Record(ctx context.Context, e audit.Event)
+}
+
 // New returns a Service. random is where request ids come from.
-func New(requests Requests, clients Clients, accounts Accounts, access Access, logouts Logouts, now func() time.Time, random io.Reader) *Service {
-	return &Service{requests: requests, clients: clients, accounts: accounts, access: access, logouts: logouts, now: now, random: random}
+func New(requests Requests, clients Clients, accounts Accounts, access Access, logouts Logouts, audit Audit, now func() time.Time, random io.Reader) *Service {
+	return &Service{requests: requests, clients: clients, accounts: accounts, access: access, logouts: logouts, audit: audit, now: now, random: random}
 }
 
 // Start keeps r, as /authorize received it, for requestLifetime, and returns it with its id.
@@ -150,6 +157,7 @@ func (s *Service) Complete(ctx context.Context, id uuid.UUID, sessionToken strin
 		return err
 	}
 	if len(roles) == 0 {
+		s.audit.Record(ctx, audit.Event{Action: audit.SignInFailed, User: signIn.UserID, Client: r.ClientID, Reason: audit.ReasonNoAccess})
 		return ErrNoAccess
 	}
 	done, err := s.requests.CompleteRequest(ctx, id, signIn)
@@ -159,7 +167,11 @@ func (s *Service) Complete(ctx context.Context, id uuid.UUID, sessionToken strin
 	if !done {
 		return ErrNotFound
 	}
-	return s.requests.AddSessionClient(ctx, signIn.SessionID, r.ClientID)
+	if err := s.requests.AddSessionClient(ctx, signIn.SessionID, r.ClientID); err != nil {
+		return err
+	}
+	s.audit.Record(ctx, audit.Event{Action: audit.SignedIn, User: signIn.UserID, Client: r.ClientID})
+	return nil
 }
 
 // SignedOut sends a logout token to every native Client the ended sessions signed into that takes

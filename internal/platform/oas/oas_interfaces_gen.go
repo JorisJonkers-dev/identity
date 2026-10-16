@@ -57,6 +57,10 @@ type GetVersionRes interface {
 	getVersionRes()
 }
 
+type ListAuditEventsRes interface {
+	listAuditEventsRes()
+}
+
 type ListSecondFactorsRes interface {
 	listSecondFactorsRes()
 }

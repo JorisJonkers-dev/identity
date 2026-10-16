@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	audit "github.com/JorisJonkers-dev/identity/internal/audit/domain"
 )
 
 var (
@@ -112,6 +114,7 @@ type Service struct {
 	clients  Clients
 	roles    Roles
 	accounts Accounts
+	audit    Audit
 	now      func() time.Time
 	random   io.Reader
 	ttl      time.Duration
@@ -120,10 +123,15 @@ type Service struct {
 	cache map[string]cached
 }
 
+// Audit records each sign-in to a gated Client, and each refused for want of an App Role.
+type Audit interface {
+	Record(ctx context.Context, e audit.Event)
+}
+
 // New returns a Service whose checks are cached for ttl: a role taken away or a sign-out reaches a
 // host within ttl.
-func New(store Store, clients Clients, roles Roles, accounts Accounts, now func() time.Time, random io.Reader, ttl time.Duration) *Service {
-	return &Service{store: store, clients: clients, roles: roles, accounts: accounts, now: now, random: random, ttl: ttl, cache: map[string]cached{}}
+func New(store Store, clients Clients, roles Roles, accounts Accounts, audit Audit, now func() time.Time, random io.Reader, ttl time.Duration) *Service {
+	return &Service{store: store, clients: clients, roles: roles, accounts: accounts, audit: audit, now: now, random: random, ttl: ttl, cache: map[string]cached{}}
 }
 
 // Client is the gated Client a host belongs to.
@@ -221,6 +229,9 @@ func (s *Service) Start(ctx context.Context, ssoToken, host, state, returnPath s
 		return "", err
 	}
 	if _, err := s.verdict(ctx, client, p); err != nil {
+		if errors.Is(err, ErrNoAccess) {
+			s.audit.Record(ctx, audit.Event{Action: audit.SignInFailed, User: p.UserID, Client: client.ID, Reason: audit.ReasonNoAccess})
+		}
 		return "", err
 	}
 	code, err := s.token()
@@ -234,6 +245,7 @@ func (s *Service) Start(ctx context.Context, ssoToken, host, state, returnPath s
 	if err := s.store.CreateCode(ctx, c); err != nil {
 		return "", err
 	}
+	s.audit.Record(ctx, audit.Event{Action: audit.SignedIn, User: p.UserID, Client: client.ID})
 	return code, nil
 }
 

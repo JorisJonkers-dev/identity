@@ -20,6 +20,7 @@ const (
 	GetLauncherOperation               OperationName = "GetLauncher"
 	GetProfileOperation                OperationName = "GetProfile"
 	GetVersionOperation                OperationName = "GetVersion"
+	ListAuditEventsOperation           OperationName = "ListAuditEvents"
 	ListSecondFactorsOperation         OperationName = "ListSecondFactors"
 	PasskeyOptionsOperation            OperationName = "PasskeyOptions"
 	RemoveMemberOperation              OperationName = "RemoveMember"

@@ -161,6 +161,491 @@ func (s *Assignment) SetRole(val AppRole) {
 	s.Role = val
 }
 
+// What an Audit Event records.
+// Ref: #/components/schemas/AuditAction
+type AuditAction string
+
+const (
+	AuditActionSignedIn            AuditAction = "signed-in"
+	AuditActionSignInFailed        AuditAction = "sign-in-failed"
+	AuditActionSignedOut           AuditAction = "signed-out"
+	AuditActionUserCreated         AuditAction = "user-created"
+	AuditActionUserRenamed         AuditAction = "user-renamed"
+	AuditActionPasswordChanged     AuditAction = "password-changed"
+	AuditActionSecondFactorAdded   AuditAction = "second-factor-added"
+	AuditActionSecondFactorRemoved AuditAction = "second-factor-removed"
+	AuditActionAdminPromoted       AuditAction = "admin-promoted"
+	AuditActionGroupCreated        AuditAction = "group-created"
+	AuditActionGroupRenamed        AuditAction = "group-renamed"
+	AuditActionGroupDeleted        AuditAction = "group-deleted"
+	AuditActionMemberAdded         AuditAction = "member-added"
+	AuditActionMemberRemoved       AuditAction = "member-removed"
+	AuditActionRoleAssigned        AuditAction = "role-assigned"
+	AuditActionRoleRemoved         AuditAction = "role-removed"
+	AuditActionTokenMinted         AuditAction = "token-minted"
+	AuditActionTokenRevoked        AuditAction = "token-revoked"
+)
+
+// AllValues returns all AuditAction values.
+func (AuditAction) AllValues() []AuditAction {
+	return []AuditAction{
+		AuditActionSignedIn,
+		AuditActionSignInFailed,
+		AuditActionSignedOut,
+		AuditActionUserCreated,
+		AuditActionUserRenamed,
+		AuditActionPasswordChanged,
+		AuditActionSecondFactorAdded,
+		AuditActionSecondFactorRemoved,
+		AuditActionAdminPromoted,
+		AuditActionGroupCreated,
+		AuditActionGroupRenamed,
+		AuditActionGroupDeleted,
+		AuditActionMemberAdded,
+		AuditActionMemberRemoved,
+		AuditActionRoleAssigned,
+		AuditActionRoleRemoved,
+		AuditActionTokenMinted,
+		AuditActionTokenRevoked,
+	}
+}
+
+// MarshalText implements encoding.TextMarshaler.
+func (s AuditAction) MarshalText() ([]byte, error) {
+	switch s {
+	case AuditActionSignedIn:
+		return []byte(s), nil
+	case AuditActionSignInFailed:
+		return []byte(s), nil
+	case AuditActionSignedOut:
+		return []byte(s), nil
+	case AuditActionUserCreated:
+		return []byte(s), nil
+	case AuditActionUserRenamed:
+		return []byte(s), nil
+	case AuditActionPasswordChanged:
+		return []byte(s), nil
+	case AuditActionSecondFactorAdded:
+		return []byte(s), nil
+	case AuditActionSecondFactorRemoved:
+		return []byte(s), nil
+	case AuditActionAdminPromoted:
+		return []byte(s), nil
+	case AuditActionGroupCreated:
+		return []byte(s), nil
+	case AuditActionGroupRenamed:
+		return []byte(s), nil
+	case AuditActionGroupDeleted:
+		return []byte(s), nil
+	case AuditActionMemberAdded:
+		return []byte(s), nil
+	case AuditActionMemberRemoved:
+		return []byte(s), nil
+	case AuditActionRoleAssigned:
+		return []byte(s), nil
+	case AuditActionRoleRemoved:
+		return []byte(s), nil
+	case AuditActionTokenMinted:
+		return []byte(s), nil
+	case AuditActionTokenRevoked:
+		return []byte(s), nil
+	default:
+		return nil, errors.Errorf("invalid value: %q", s)
+	}
+}
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (s *AuditAction) UnmarshalText(data []byte) error {
+	switch AuditAction(data) {
+	case AuditActionSignedIn:
+		*s = AuditActionSignedIn
+		return nil
+	case AuditActionSignInFailed:
+		*s = AuditActionSignInFailed
+		return nil
+	case AuditActionSignedOut:
+		*s = AuditActionSignedOut
+		return nil
+	case AuditActionUserCreated:
+		*s = AuditActionUserCreated
+		return nil
+	case AuditActionUserRenamed:
+		*s = AuditActionUserRenamed
+		return nil
+	case AuditActionPasswordChanged:
+		*s = AuditActionPasswordChanged
+		return nil
+	case AuditActionSecondFactorAdded:
+		*s = AuditActionSecondFactorAdded
+		return nil
+	case AuditActionSecondFactorRemoved:
+		*s = AuditActionSecondFactorRemoved
+		return nil
+	case AuditActionAdminPromoted:
+		*s = AuditActionAdminPromoted
+		return nil
+	case AuditActionGroupCreated:
+		*s = AuditActionGroupCreated
+		return nil
+	case AuditActionGroupRenamed:
+		*s = AuditActionGroupRenamed
+		return nil
+	case AuditActionGroupDeleted:
+		*s = AuditActionGroupDeleted
+		return nil
+	case AuditActionMemberAdded:
+		*s = AuditActionMemberAdded
+		return nil
+	case AuditActionMemberRemoved:
+		*s = AuditActionMemberRemoved
+		return nil
+	case AuditActionRoleAssigned:
+		*s = AuditActionRoleAssigned
+		return nil
+	case AuditActionRoleRemoved:
+		*s = AuditActionRoleRemoved
+		return nil
+	case AuditActionTokenMinted:
+		*s = AuditActionTokenMinted
+		return nil
+	case AuditActionTokenRevoked:
+		*s = AuditActionTokenRevoked
+		return nil
+	default:
+		return errors.Errorf("invalid value: %q", data)
+	}
+}
+
+// A Client an Audit Event names. A Client that is gone is labelled with its id.
+// Ref: #/components/schemas/AuditClient
+type AuditClient struct {
+	ID    ClientId `json:"id"`
+	Label string   `json:"label"`
+}
+
+// GetID returns the value of ID.
+func (s *AuditClient) GetID() ClientId {
+	return s.ID
+}
+
+// GetLabel returns the value of Label.
+func (s *AuditClient) GetLabel() string {
+	return s.Label
+}
+
+// SetID sets the value of ID.
+func (s *AuditClient) SetID(val ClientId) {
+	s.ID = val
+}
+
+// SetLabel sets the value of Label.
+func (s *AuditClient) SetLabel(val string) {
+	s.Label = val
+}
+
+type AuditCursor string
+
+// One Audit Event.
+// Ref: #/components/schemas/AuditEvent
+type AuditEvent struct {
+	ID        ID             `json:"id"`
+	At        time.Time      `json:"at"`
+	Kind      AuditKind      `json:"kind"`
+	Action    AuditAction    `json:"action"`
+	Actor     OptAuditPerson `json:"actor"`
+	User      OptAuditPerson `json:"user"`
+	Client    OptAuditClient `json:"client"`
+	GroupName OptString      `json:"groupName"`
+	Role      OptAppRole     `json:"role"`
+	// The address a failed sign-in gave; it may belong to no User.
+	Email OptString `json:"email"`
+	// Why a sign-in failed.
+	Reason OptAuditEventReason `json:"reason"`
+}
+
+// GetID returns the value of ID.
+func (s *AuditEvent) GetID() ID {
+	return s.ID
+}
+
+// GetAt returns the value of At.
+func (s *AuditEvent) GetAt() time.Time {
+	return s.At
+}
+
+// GetKind returns the value of Kind.
+func (s *AuditEvent) GetKind() AuditKind {
+	return s.Kind
+}
+
+// GetAction returns the value of Action.
+func (s *AuditEvent) GetAction() AuditAction {
+	return s.Action
+}
+
+// GetActor returns the value of Actor.
+func (s *AuditEvent) GetActor() OptAuditPerson {
+	return s.Actor
+}
+
+// GetUser returns the value of User.
+func (s *AuditEvent) GetUser() OptAuditPerson {
+	return s.User
+}
+
+// GetClient returns the value of Client.
+func (s *AuditEvent) GetClient() OptAuditClient {
+	return s.Client
+}
+
+// GetGroupName returns the value of GroupName.
+func (s *AuditEvent) GetGroupName() OptString {
+	return s.GroupName
+}
+
+// GetRole returns the value of Role.
+func (s *AuditEvent) GetRole() OptAppRole {
+	return s.Role
+}
+
+// GetEmail returns the value of Email.
+func (s *AuditEvent) GetEmail() OptString {
+	return s.Email
+}
+
+// GetReason returns the value of Reason.
+func (s *AuditEvent) GetReason() OptAuditEventReason {
+	return s.Reason
+}
+
+// SetID sets the value of ID.
+func (s *AuditEvent) SetID(val ID) {
+	s.ID = val
+}
+
+// SetAt sets the value of At.
+func (s *AuditEvent) SetAt(val time.Time) {
+	s.At = val
+}
+
+// SetKind sets the value of Kind.
+func (s *AuditEvent) SetKind(val AuditKind) {
+	s.Kind = val
+}
+
+// SetAction sets the value of Action.
+func (s *AuditEvent) SetAction(val AuditAction) {
+	s.Action = val
+}
+
+// SetActor sets the value of Actor.
+func (s *AuditEvent) SetActor(val OptAuditPerson) {
+	s.Actor = val
+}
+
+// SetUser sets the value of User.
+func (s *AuditEvent) SetUser(val OptAuditPerson) {
+	s.User = val
+}
+
+// SetClient sets the value of Client.
+func (s *AuditEvent) SetClient(val OptAuditClient) {
+	s.Client = val
+}
+
+// SetGroupName sets the value of GroupName.
+func (s *AuditEvent) SetGroupName(val OptString) {
+	s.GroupName = val
+}
+
+// SetRole sets the value of Role.
+func (s *AuditEvent) SetRole(val OptAppRole) {
+	s.Role = val
+}
+
+// SetEmail sets the value of Email.
+func (s *AuditEvent) SetEmail(val OptString) {
+	s.Email = val
+}
+
+// SetReason sets the value of Reason.
+func (s *AuditEvent) SetReason(val OptAuditEventReason) {
+	s.Reason = val
+}
+
+// Why a sign-in failed.
+type AuditEventReason string
+
+const (
+	AuditEventReasonPassword     AuditEventReason = "password"
+	AuditEventReasonSecondFactor AuditEventReason = "second-factor"
+	AuditEventReasonNoAccess     AuditEventReason = "no-access"
+)
+
+// AllValues returns all AuditEventReason values.
+func (AuditEventReason) AllValues() []AuditEventReason {
+	return []AuditEventReason{
+		AuditEventReasonPassword,
+		AuditEventReasonSecondFactor,
+		AuditEventReasonNoAccess,
+	}
+}
+
+// MarshalText implements encoding.TextMarshaler.
+func (s AuditEventReason) MarshalText() ([]byte, error) {
+	switch s {
+	case AuditEventReasonPassword:
+		return []byte(s), nil
+	case AuditEventReasonSecondFactor:
+		return []byte(s), nil
+	case AuditEventReasonNoAccess:
+		return []byte(s), nil
+	default:
+		return nil, errors.Errorf("invalid value: %q", s)
+	}
+}
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (s *AuditEventReason) UnmarshalText(data []byte) error {
+	switch AuditEventReason(data) {
+	case AuditEventReasonPassword:
+		*s = AuditEventReasonPassword
+		return nil
+	case AuditEventReasonSecondFactor:
+		*s = AuditEventReasonSecondFactor
+		return nil
+	case AuditEventReasonNoAccess:
+		*s = AuditEventReasonNoAccess
+		return nil
+	default:
+		return errors.Errorf("invalid value: %q", data)
+	}
+}
+
+// The family of an Audit Event.
+// Ref: #/components/schemas/AuditKind
+type AuditKind string
+
+const (
+	AuditKindSignIn AuditKind = "sign-in"
+	AuditKindPeople AuditKind = "people"
+	AuditKindAccess AuditKind = "access"
+	AuditKindTokens AuditKind = "tokens"
+)
+
+// AllValues returns all AuditKind values.
+func (AuditKind) AllValues() []AuditKind {
+	return []AuditKind{
+		AuditKindSignIn,
+		AuditKindPeople,
+		AuditKindAccess,
+		AuditKindTokens,
+	}
+}
+
+// MarshalText implements encoding.TextMarshaler.
+func (s AuditKind) MarshalText() ([]byte, error) {
+	switch s {
+	case AuditKindSignIn:
+		return []byte(s), nil
+	case AuditKindPeople:
+		return []byte(s), nil
+	case AuditKindAccess:
+		return []byte(s), nil
+	case AuditKindTokens:
+		return []byte(s), nil
+	default:
+		return nil, errors.Errorf("invalid value: %q", s)
+	}
+}
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (s *AuditKind) UnmarshalText(data []byte) error {
+	switch AuditKind(data) {
+	case AuditKindSignIn:
+		*s = AuditKindSignIn
+		return nil
+	case AuditKindPeople:
+		*s = AuditKindPeople
+		return nil
+	case AuditKindAccess:
+		*s = AuditKindAccess
+		return nil
+	case AuditKindTokens:
+		*s = AuditKindTokens
+		return nil
+	default:
+		return errors.Errorf("invalid value: %q", data)
+	}
+}
+
+// One page of Audit Events, newest first.
+// Ref: #/components/schemas/AuditPage
+type AuditPage struct {
+	Events []AuditEvent   `json:"events"`
+	Next   OptAuditCursor `json:"next"`
+}
+
+// GetEvents returns the value of Events.
+func (s *AuditPage) GetEvents() []AuditEvent {
+	return s.Events
+}
+
+// GetNext returns the value of Next.
+func (s *AuditPage) GetNext() OptAuditCursor {
+	return s.Next
+}
+
+// SetEvents sets the value of Events.
+func (s *AuditPage) SetEvents(val []AuditEvent) {
+	s.Events = val
+}
+
+// SetNext sets the value of Next.
+func (s *AuditPage) SetNext(val OptAuditCursor) {
+	s.Next = val
+}
+
+func (*AuditPage) listAuditEventsRes() {}
+
+// A User an Audit Event names. A User who is gone has only an id.
+// Ref: #/components/schemas/AuditPerson
+type AuditPerson struct {
+	ID    ID        `json:"id"`
+	Email OptEmail  `json:"email"`
+	Name  OptString `json:"name"`
+}
+
+// GetID returns the value of ID.
+func (s *AuditPerson) GetID() ID {
+	return s.ID
+}
+
+// GetEmail returns the value of Email.
+func (s *AuditPerson) GetEmail() OptEmail {
+	return s.Email
+}
+
+// GetName returns the value of Name.
+func (s *AuditPerson) GetName() OptString {
+	return s.Name
+}
+
+// SetID sets the value of ID.
+func (s *AuditPerson) SetID(val ID) {
+	s.ID = val
+}
+
+// SetEmail sets the value of Email.
+func (s *AuditPerson) SetEmail(val OptEmail) {
+	s.Email = val
+}
+
+// SetName sets the value of Name.
+func (s *AuditPerson) SetName(val OptString) {
+	s.Name = val
+}
+
 type Challenge struct {
 	APIKey string
 	Roles  []string
@@ -446,6 +931,328 @@ func (s *LauncherApp) SetRoles(val []AppRole) {
 	s.Roles = val
 }
 
+// NewOptAppRole returns new OptAppRole with value set to v.
+func NewOptAppRole(v AppRole) OptAppRole {
+	return OptAppRole{
+		Value: v,
+		Set:   true,
+	}
+}
+
+// OptAppRole is optional AppRole.
+type OptAppRole struct {
+	Value AppRole
+	Set   bool
+}
+
+// IsSet returns true if OptAppRole was set.
+func (o OptAppRole) IsSet() bool { return o.Set }
+
+// Reset unsets value.
+func (o *OptAppRole) Reset() {
+	var v AppRole
+	o.Value = v
+	o.Set = false
+}
+
+// SetTo sets value to v.
+func (o *OptAppRole) SetTo(v AppRole) {
+	o.Set = true
+	o.Value = v
+}
+
+// Get returns value and boolean that denotes whether value was set.
+func (o OptAppRole) Get() (v AppRole, ok bool) {
+	if !o.Set {
+		return v, false
+	}
+	return o.Value, true
+}
+
+// Or returns value if set, or given parameter if does not.
+func (o OptAppRole) Or(d AppRole) AppRole {
+	if v, ok := o.Get(); ok {
+		return v
+	}
+	return d
+}
+
+// NewOptAuditClient returns new OptAuditClient with value set to v.
+func NewOptAuditClient(v AuditClient) OptAuditClient {
+	return OptAuditClient{
+		Value: v,
+		Set:   true,
+	}
+}
+
+// OptAuditClient is optional AuditClient.
+type OptAuditClient struct {
+	Value AuditClient
+	Set   bool
+}
+
+// IsSet returns true if OptAuditClient was set.
+func (o OptAuditClient) IsSet() bool { return o.Set }
+
+// Reset unsets value.
+func (o *OptAuditClient) Reset() {
+	var v AuditClient
+	o.Value = v
+	o.Set = false
+}
+
+// SetTo sets value to v.
+func (o *OptAuditClient) SetTo(v AuditClient) {
+	o.Set = true
+	o.Value = v
+}
+
+// Get returns value and boolean that denotes whether value was set.
+func (o OptAuditClient) Get() (v AuditClient, ok bool) {
+	if !o.Set {
+		return v, false
+	}
+	return o.Value, true
+}
+
+// Or returns value if set, or given parameter if does not.
+func (o OptAuditClient) Or(d AuditClient) AuditClient {
+	if v, ok := o.Get(); ok {
+		return v
+	}
+	return d
+}
+
+// NewOptAuditCursor returns new OptAuditCursor with value set to v.
+func NewOptAuditCursor(v AuditCursor) OptAuditCursor {
+	return OptAuditCursor{
+		Value: v,
+		Set:   true,
+	}
+}
+
+// OptAuditCursor is optional AuditCursor.
+type OptAuditCursor struct {
+	Value AuditCursor
+	Set   bool
+}
+
+// IsSet returns true if OptAuditCursor was set.
+func (o OptAuditCursor) IsSet() bool { return o.Set }
+
+// Reset unsets value.
+func (o *OptAuditCursor) Reset() {
+	var v AuditCursor
+	o.Value = v
+	o.Set = false
+}
+
+// SetTo sets value to v.
+func (o *OptAuditCursor) SetTo(v AuditCursor) {
+	o.Set = true
+	o.Value = v
+}
+
+// Get returns value and boolean that denotes whether value was set.
+func (o OptAuditCursor) Get() (v AuditCursor, ok bool) {
+	if !o.Set {
+		return v, false
+	}
+	return o.Value, true
+}
+
+// Or returns value if set, or given parameter if does not.
+func (o OptAuditCursor) Or(d AuditCursor) AuditCursor {
+	if v, ok := o.Get(); ok {
+		return v
+	}
+	return d
+}
+
+// NewOptAuditEventReason returns new OptAuditEventReason with value set to v.
+func NewOptAuditEventReason(v AuditEventReason) OptAuditEventReason {
+	return OptAuditEventReason{
+		Value: v,
+		Set:   true,
+	}
+}
+
+// OptAuditEventReason is optional AuditEventReason.
+type OptAuditEventReason struct {
+	Value AuditEventReason
+	Set   bool
+}
+
+// IsSet returns true if OptAuditEventReason was set.
+func (o OptAuditEventReason) IsSet() bool { return o.Set }
+
+// Reset unsets value.
+func (o *OptAuditEventReason) Reset() {
+	var v AuditEventReason
+	o.Value = v
+	o.Set = false
+}
+
+// SetTo sets value to v.
+func (o *OptAuditEventReason) SetTo(v AuditEventReason) {
+	o.Set = true
+	o.Value = v
+}
+
+// Get returns value and boolean that denotes whether value was set.
+func (o OptAuditEventReason) Get() (v AuditEventReason, ok bool) {
+	if !o.Set {
+		return v, false
+	}
+	return o.Value, true
+}
+
+// Or returns value if set, or given parameter if does not.
+func (o OptAuditEventReason) Or(d AuditEventReason) AuditEventReason {
+	if v, ok := o.Get(); ok {
+		return v
+	}
+	return d
+}
+
+// NewOptAuditKind returns new OptAuditKind with value set to v.
+func NewOptAuditKind(v AuditKind) OptAuditKind {
+	return OptAuditKind{
+		Value: v,
+		Set:   true,
+	}
+}
+
+// OptAuditKind is optional AuditKind.
+type OptAuditKind struct {
+	Value AuditKind
+	Set   bool
+}
+
+// IsSet returns true if OptAuditKind was set.
+func (o OptAuditKind) IsSet() bool { return o.Set }
+
+// Reset unsets value.
+func (o *OptAuditKind) Reset() {
+	var v AuditKind
+	o.Value = v
+	o.Set = false
+}
+
+// SetTo sets value to v.
+func (o *OptAuditKind) SetTo(v AuditKind) {
+	o.Set = true
+	o.Value = v
+}
+
+// Get returns value and boolean that denotes whether value was set.
+func (o OptAuditKind) Get() (v AuditKind, ok bool) {
+	if !o.Set {
+		return v, false
+	}
+	return o.Value, true
+}
+
+// Or returns value if set, or given parameter if does not.
+func (o OptAuditKind) Or(d AuditKind) AuditKind {
+	if v, ok := o.Get(); ok {
+		return v
+	}
+	return d
+}
+
+// NewOptAuditPerson returns new OptAuditPerson with value set to v.
+func NewOptAuditPerson(v AuditPerson) OptAuditPerson {
+	return OptAuditPerson{
+		Value: v,
+		Set:   true,
+	}
+}
+
+// OptAuditPerson is optional AuditPerson.
+type OptAuditPerson struct {
+	Value AuditPerson
+	Set   bool
+}
+
+// IsSet returns true if OptAuditPerson was set.
+func (o OptAuditPerson) IsSet() bool { return o.Set }
+
+// Reset unsets value.
+func (o *OptAuditPerson) Reset() {
+	var v AuditPerson
+	o.Value = v
+	o.Set = false
+}
+
+// SetTo sets value to v.
+func (o *OptAuditPerson) SetTo(v AuditPerson) {
+	o.Set = true
+	o.Value = v
+}
+
+// Get returns value and boolean that denotes whether value was set.
+func (o OptAuditPerson) Get() (v AuditPerson, ok bool) {
+	if !o.Set {
+		return v, false
+	}
+	return o.Value, true
+}
+
+// Or returns value if set, or given parameter if does not.
+func (o OptAuditPerson) Or(d AuditPerson) AuditPerson {
+	if v, ok := o.Get(); ok {
+		return v
+	}
+	return d
+}
+
+// NewOptClientId returns new OptClientId with value set to v.
+func NewOptClientId(v ClientId) OptClientId {
+	return OptClientId{
+		Value: v,
+		Set:   true,
+	}
+}
+
+// OptClientId is optional ClientId.
+type OptClientId struct {
+	Value ClientId
+	Set   bool
+}
+
+// IsSet returns true if OptClientId was set.
+func (o OptClientId) IsSet() bool { return o.Set }
+
+// Reset unsets value.
+func (o *OptClientId) Reset() {
+	var v ClientId
+	o.Value = v
+	o.Set = false
+}
+
+// SetTo sets value to v.
+func (o *OptClientId) SetTo(v ClientId) {
+	o.Set = true
+	o.Value = v
+}
+
+// Get returns value and boolean that denotes whether value was set.
+func (o OptClientId) Get() (v ClientId, ok bool) {
+	if !o.Set {
+		return v, false
+	}
+	return o.Value, true
+}
+
+// Or returns value if set, or given parameter if does not.
+func (o OptClientId) Or(d ClientId) ClientId {
+	if v, ok := o.Get(); ok {
+		return v
+	}
+	return d
+}
+
 // NewOptDateTime returns new OptDateTime with value set to v.
 func NewOptDateTime(v time.Time) OptDateTime {
 	return OptDateTime{
@@ -486,6 +1293,98 @@ func (o OptDateTime) Get() (v time.Time, ok bool) {
 
 // Or returns value if set, or given parameter if does not.
 func (o OptDateTime) Or(d time.Time) time.Time {
+	if v, ok := o.Get(); ok {
+		return v
+	}
+	return d
+}
+
+// NewOptEmail returns new OptEmail with value set to v.
+func NewOptEmail(v Email) OptEmail {
+	return OptEmail{
+		Value: v,
+		Set:   true,
+	}
+}
+
+// OptEmail is optional Email.
+type OptEmail struct {
+	Value Email
+	Set   bool
+}
+
+// IsSet returns true if OptEmail was set.
+func (o OptEmail) IsSet() bool { return o.Set }
+
+// Reset unsets value.
+func (o *OptEmail) Reset() {
+	var v Email
+	o.Value = v
+	o.Set = false
+}
+
+// SetTo sets value to v.
+func (o *OptEmail) SetTo(v Email) {
+	o.Set = true
+	o.Value = v
+}
+
+// Get returns value and boolean that denotes whether value was set.
+func (o OptEmail) Get() (v Email, ok bool) {
+	if !o.Set {
+		return v, false
+	}
+	return o.Value, true
+}
+
+// Or returns value if set, or given parameter if does not.
+func (o OptEmail) Or(d Email) Email {
+	if v, ok := o.Get(); ok {
+		return v
+	}
+	return d
+}
+
+// NewOptID returns new OptID with value set to v.
+func NewOptID(v ID) OptID {
+	return OptID{
+		Value: v,
+		Set:   true,
+	}
+}
+
+// OptID is optional ID.
+type OptID struct {
+	Value ID
+	Set   bool
+}
+
+// IsSet returns true if OptID was set.
+func (o OptID) IsSet() bool { return o.Set }
+
+// Reset unsets value.
+func (o *OptID) Reset() {
+	var v ID
+	o.Value = v
+	o.Set = false
+}
+
+// SetTo sets value to v.
+func (o *OptID) SetTo(v ID) {
+	o.Set = true
+	o.Value = v
+}
+
+// Get returns value and boolean that denotes whether value was set.
+func (o OptID) Get() (v ID, ok bool) {
+	if !o.Set {
+		return v, false
+	}
+	return o.Value, true
+}
+
+// Or returns value if set, or given parameter if does not.
+func (o OptID) Or(d ID) ID {
 	if v, ok := o.Get(); ok {
 		return v
 	}
@@ -793,6 +1692,7 @@ func (*ProblemStatusCode) getAccessRes()                 {}
 func (*ProblemStatusCode) getLauncherRes()               {}
 func (*ProblemStatusCode) getProfileRes()                {}
 func (*ProblemStatusCode) getVersionRes()                {}
+func (*ProblemStatusCode) listAuditEventsRes()           {}
 func (*ProblemStatusCode) listSecondFactorsRes()         {}
 func (*ProblemStatusCode) passkeyOptionsRes()            {}
 func (*ProblemStatusCode) removeMemberRes()              {}

@@ -8,12 +8,28 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Assignment struct {
 	GroupID  uuid.UUID
 	ClientID string
 	Role     string
+}
+
+type AuditEvent struct {
+	ID        uuid.UUID
+	At        time.Time
+	Kind      string
+	Action    string
+	ActorID   *uuid.UUID
+	UserID    *uuid.UUID
+	ClientID  pgtype.Text
+	GroupID   *uuid.UUID
+	GroupName pgtype.Text
+	Role      pgtype.Text
+	Email     pgtype.Text
+	Reason    pgtype.Text
 }
 
 type AuthRequest struct {

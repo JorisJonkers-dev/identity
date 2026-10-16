@@ -8,6 +8,21 @@ CREATE TABLE public.assignments (
     CONSTRAINT assignments_role_shape CHECK ((role ~ '^[a-z][a-z0-9-]{0,62}$'::text))
 );
 
+CREATE TABLE public.audit_events (
+    id uuid NOT NULL,
+    at timestamp with time zone NOT NULL,
+    kind text NOT NULL,
+    action text NOT NULL,
+    actor_id uuid,
+    user_id uuid,
+    client_id text,
+    group_id uuid,
+    group_name text,
+    role text,
+    email text,
+    reason text
+);
+
 CREATE TABLE public.auth_requests (
     id uuid NOT NULL,
     client_id text NOT NULL,
@@ -137,6 +152,9 @@ CREATE TABLE public.users (
 ALTER TABLE ONLY public.assignments
     ADD CONSTRAINT assignments_pkey PRIMARY KEY (group_id, client_id, role);
 
+ALTER TABLE ONLY public.audit_events
+    ADD CONSTRAINT audit_events_pkey PRIMARY KEY (id);
+
 ALTER TABLE ONLY public.auth_requests
     ADD CONSTRAINT auth_requests_code_hash_key UNIQUE (code_hash);
 
@@ -195,6 +213,14 @@ ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_pkey PRIMARY KEY (id);
 
 CREATE INDEX assignments_client_idx ON public.assignments USING btree (client_id);
+
+CREATE INDEX audit_events_actor_idx ON public.audit_events USING btree (actor_id, at);
+
+CREATE INDEX audit_events_at_idx ON public.audit_events USING btree (at, id);
+
+CREATE INDEX audit_events_client_idx ON public.audit_events USING btree (client_id, at);
+
+CREATE INDEX audit_events_user_idx ON public.audit_events USING btree (user_id, at);
 
 CREATE INDEX auth_requests_expires_at_idx ON public.auth_requests USING btree (expires_at);
 

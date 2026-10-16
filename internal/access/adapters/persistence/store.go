@@ -89,14 +89,16 @@ func (s *Store) Memberships(ctx context.Context) ([]domain.Membership, error) {
 	return ms, nil
 }
 
-func (s *Store) AddMember(ctx context.Context, m domain.Membership) error {
-	return missing(s.q.AddMember(ctx, queries.AddMemberParams{GroupID: m.GroupID, UserID: m.UserID}))
+func (s *Store) AddMember(ctx context.Context, m domain.Membership) (bool, error) {
+	n, err := s.q.AddMember(ctx, queries.AddMemberParams{GroupID: m.GroupID, UserID: m.UserID})
+	return n > 0, missing(err)
 }
 
 // RemoveMember locks the Group first, so of two removals racing for the last two Admins, the
 // second sees the first's.
-func (s *Store) RemoveMember(ctx context.Context, m domain.Membership) error {
-	return s.tx.InTx(ctx, func(q *queries.Queries) error {
+func (s *Store) RemoveMember(ctx context.Context, m domain.Membership) (bool, error) {
+	var removed int64
+	err := s.tx.InTx(ctx, func(q *queries.Queries) error {
 		admins, err := q.LockGroup(ctx, m.GroupID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
@@ -104,7 +106,8 @@ func (s *Store) RemoveMember(ctx context.Context, m domain.Membership) error {
 		if err != nil {
 			return err
 		}
-		if err := q.RemoveMember(ctx, queries.RemoveMemberParams{GroupID: m.GroupID, UserID: m.UserID}); err != nil {
+		removed, err = q.RemoveMember(ctx, queries.RemoveMemberParams{GroupID: m.GroupID, UserID: m.UserID})
+		if err != nil {
 			return err
 		}
 		if !admins {
@@ -119,6 +122,7 @@ func (s *Store) RemoveMember(ctx context.Context, m domain.Membership) error {
 		}
 		return nil
 	})
+	return err == nil && removed > 0, err
 }
 
 func (s *Store) IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error) {
@@ -155,12 +159,14 @@ func (s *Store) Assignments(ctx context.Context) ([]domain.Assignment, error) {
 	return as, nil
 }
 
-func (s *Store) Assign(ctx context.Context, a domain.Assignment) error {
-	return missing(s.q.Assign(ctx, queries.AssignParams{GroupID: a.GroupID, ClientID: a.ClientID, Role: a.Role}))
+func (s *Store) Assign(ctx context.Context, a domain.Assignment) (bool, error) {
+	n, err := s.q.Assign(ctx, queries.AssignParams{GroupID: a.GroupID, ClientID: a.ClientID, Role: a.Role})
+	return n > 0, missing(err)
 }
 
-func (s *Store) Unassign(ctx context.Context, a domain.Assignment) error {
-	return s.q.Unassign(ctx, queries.UnassignParams{GroupID: a.GroupID, ClientID: a.ClientID, Role: a.Role})
+func (s *Store) Unassign(ctx context.Context, a domain.Assignment) (bool, error) {
+	n, err := s.q.Unassign(ctx, queries.UnassignParams{GroupID: a.GroupID, ClientID: a.ClientID, Role: a.Role})
+	return n > 0, err
 }
 
 func (s *Store) RolesOf(ctx context.Context, userID uuid.UUID, clientID string) ([]string, error) {
