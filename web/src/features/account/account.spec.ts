@@ -89,6 +89,33 @@ describe('signing in', () => {
     leave.mockRestore()
   })
 
+  it('goes back to the Gate when a gated app sent the person here', async () => {
+    const leave = vi.spyOn(navigation, 'leave').mockImplementation(() => undefined)
+    const gate = '/gate/start?host=stats.jorisjonkers.dev&state=s&rd=%2F'
+    const { wrapper } = await mountAt(`/signin?gate=${encodeURIComponent(gate)}`, { 'POST /api/v1/session': new Response(null, { status: 204 }) })
+    await wrapper.get('#signin-email').setValue('ada@example.org')
+    await wrapper.get('#signin-password').setValue('correct horse battery')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(leave).toHaveBeenCalledWith(gate)
+    leave.mockRestore()
+  })
+
+  it('ignores a gate address that is not the Gate', async () => {
+    const leave = vi.spyOn(navigation, 'leave').mockImplementation(() => undefined)
+    const { wrapper, router } = await mountAt(`/signin?gate=${encodeURIComponent('https://evil.test/')}`, {
+      'POST /api/v1/session': new Response(null, { status: 204 }),
+      'GET /api/v1/profile': Response.json(profile),
+    })
+    await wrapper.get('#signin-email').setValue('ada@example.org')
+    await wrapper.get('#signin-password').setValue('correct horse battery')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(leave).not.toHaveBeenCalled()
+    expect(router.currentRoute.value.path).toBe('/profile')
+    leave.mockRestore()
+  })
+
   it('asks for the code when the User has an authenticator app, then signs in', async () => {
     const { wrapper, router, requests } = await mountAt('/signin', {
       'POST /api/v1/session': Response.json({ methods: ['totp'] }, { status: 202 }),

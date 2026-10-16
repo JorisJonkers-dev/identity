@@ -1,0 +1,20 @@
+# The Clients the e2e suite runs with, outside a cluster (CLIENTS_FILE). stats.localhost is gated:
+# tests/e2e/gate.spec.ts puts a stand-in for Traefik's forwardAuth in front of it.
+apiVersion: identity.jorisjonkers.dev/v1
+kind: Client
+metadata: {name: stats}
+spec:
+  signIn: gated
+  host: stats.localhost:18600
+  label: Stats
+  roles: [user]
+---
+# The phone project runs beside the desktop one, so it has a port of its own.
+apiVersion: identity.jorisjonkers.dev/v1
+kind: Client
+metadata: {name: stats-phone}
+spec:
+  signIn: gated
+  host: stats.localhost:18601
+  label: Phone stats
+  roles: [user]

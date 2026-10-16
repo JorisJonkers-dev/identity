@@ -27,9 +27,12 @@ const keyError = computed(() => browserRefused.value ?? keyOptions.error.value ?
 
 // Set when an app sent the person here to sign in; once signed in, the Provider finishes for it.
 const authRequestID = typeof route.query.authRequestID === 'string' ? route.query.authRequestID : ''
+// Set when the Gate sent the person here for a gated app; only the Gate's own start path is kept.
+const gate = typeof route.query.gate === 'string' && route.query.gate.startsWith('/gate/start?') ? route.query.gate : ''
 
 function signedIn() {
   if (authRequestID) navigation.leave(`/oidc/login?authRequestID=${encodeURIComponent(authRequestID)}`)
+  else if (gate) navigation.leave(gate)
   else void router.push('/profile')
 }
 

@@ -28,6 +28,22 @@ CREATE TABLE public.auth_requests (
     methods text[]
 );
 
+CREATE TABLE public.gate_codes (
+    code_hash bytea NOT NULL,
+    host text NOT NULL,
+    session_id uuid NOT NULL,
+    state_hash bytea NOT NULL,
+    return_path text NOT NULL,
+    expires_at timestamp with time zone NOT NULL
+);
+
+CREATE TABLE public.gate_sessions (
+    token_hash bytea NOT NULL,
+    host text NOT NULL,
+    session_id uuid NOT NULL,
+    created_at timestamp with time zone NOT NULL
+);
+
 CREATE TABLE public.groups (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     name text NOT NULL,
@@ -122,6 +138,12 @@ ALTER TABLE ONLY public.auth_requests
 ALTER TABLE ONLY public.auth_requests
     ADD CONSTRAINT auth_requests_pkey PRIMARY KEY (id);
 
+ALTER TABLE ONLY public.gate_codes
+    ADD CONSTRAINT gate_codes_pkey PRIMARY KEY (code_hash);
+
+ALTER TABLE ONLY public.gate_sessions
+    ADD CONSTRAINT gate_sessions_pkey PRIMARY KEY (token_hash);
+
 ALTER TABLE ONLY public.groups
     ADD CONSTRAINT groups_pkey PRIMARY KEY (id);
 
@@ -168,6 +190,10 @@ CREATE INDEX assignments_client_idx ON public.assignments USING btree (client_id
 
 CREATE INDEX auth_requests_expires_at_idx ON public.auth_requests USING btree (expires_at);
 
+CREATE INDEX gate_codes_expires_at_idx ON public.gate_codes USING btree (expires_at);
+
+CREATE INDEX gate_sessions_session_idx ON public.gate_sessions USING btree (session_id);
+
 CREATE UNIQUE INDEX groups_name_key ON public.groups USING btree (lower(name));
 
 CREATE UNIQUE INDEX groups_one_admins ON public.groups USING btree (admins) WHERE admins;
@@ -192,6 +218,12 @@ ALTER TABLE ONLY public.auth_requests
 
 ALTER TABLE ONLY public.auth_requests
     ADD CONSTRAINT auth_requests_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.gate_codes
+    ADD CONSTRAINT gate_codes_session_fk FOREIGN KEY (session_id) REFERENCES public.sessions(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.gate_sessions
+    ADD CONSTRAINT gate_sessions_session_fk FOREIGN KEY (session_id) REFERENCES public.sessions(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.memberships
     ADD CONSTRAINT memberships_group_fk FOREIGN KEY (group_id) REFERENCES public.groups(id) ON DELETE CASCADE;

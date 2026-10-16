@@ -137,3 +137,6 @@ WITH taken AS (
 UPDATE sign_in_challenges c SET passkey_ceremony = NULL
 FROM taken WHERE c.token_hash = taken.taken_hash AND c.passkey_ceremony IS NOT NULL
 RETURNING taken.user_id, taken.passkey_ceremony;
+
+-- name: SessionByID :one
+SELECT token_hash, id, user_id, created_at, last_seen_at, expires_at, methods FROM sessions WHERE id = $1;

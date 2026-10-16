@@ -23,6 +23,8 @@ type Querier interface {
 	// Confirmed Users in no Group, the admins Group included (docs/adr/0005).
 	CountUnassigned(ctx context.Context) (int64, error)
 	CreateAuthRequest(ctx context.Context, arg CreateAuthRequestParams) error
+	CreateGateCode(ctx context.Context, arg CreateGateCodeParams) error
+	CreateGateSession(ctx context.Context, arg CreateGateSessionParams) error
 	CreateGroup(ctx context.Context, arg CreateGroupParams) error
 	CreatePasskey(ctx context.Context, arg CreatePasskeyParams) error
 	CreateSession(ctx context.Context, arg CreateSessionParams) error
@@ -43,6 +45,7 @@ type Querier interface {
 	DeleteSignup(ctx context.Context, tokenHash []byte) error
 	DeleteTOTPEnrolment(ctx context.Context, userID uuid.UUID) error
 	DeleteTOTPFactor(ctx context.Context, arg DeleteTOTPFactorParams) (int64, error)
+	GateSessionByHash(ctx context.Context, tokenHash []byte) (GateSessionByHashRow, error)
 	GroupByID(ctx context.Context, id uuid.UUID) (GroupByIDRow, error)
 	IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error)
 	ListAssignments(ctx context.Context) ([]Assignment, error)
@@ -62,6 +65,7 @@ type Querier interface {
 	// A request gets one code; a second is refused.
 	SaveAuthCode(ctx context.Context, arg SaveAuthCodeParams) (int64, error)
 	SessionByHash(ctx context.Context, tokenHash []byte) (SessionByHashRow, error)
+	SessionByID(ctx context.Context, id uuid.UUID) (SessionByIDRow, error)
 	// The WebAuthn ceremony a sign-in started; only an unexpired challenge takes one.
 	SetChallengeCeremony(ctx context.Context, arg SetChallengeCeremonyParams) (int64, error)
 	// A session that has just proved a Second Factor says so from then on.
@@ -77,6 +81,8 @@ type Querier interface {
 	// Takes the ceremony a sign-in started in one statement: a second request waits on the row lock,
 	// then finds the ceremony gone, so only one request can use it.
 	TakeChallengeCeremony(ctx context.Context, arg TakeChallengeCeremonyParams) (TakeChallengeCeremonyRow, error)
+	// Redeeming a code removes it in the same statement, so a code works once.
+	TakeGateCode(ctx context.Context, codeHash []byte) (TakeGateCodeRow, error)
 	TouchSession(ctx context.Context, arg TouchSessionParams) error
 	Unassign(ctx context.Context, arg UnassignParams) error
 	UpdateUserName(ctx context.Context, arg UpdateUserNameParams) error

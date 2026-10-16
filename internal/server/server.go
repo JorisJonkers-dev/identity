@@ -1,5 +1,5 @@
 // Package server is the HTTP surface of the service: the probes, the API under /api, the OIDC
-// Provider, the web app everywhere else, and a graceful drain when its context is cancelled.
+// Provider, the Gate, the web app everywhere else, and a graceful drain when its context is cancelled.
 package server
 
 import (
@@ -26,6 +26,8 @@ type Routes struct {
 	API http.Handler
 	// OIDC serves the Provider: discovery and every path under /oidc/.
 	OIDC http.Handler
+	// Gate serves the Gate: /gate/ on the Issuer's host, and /.auth/ on every gated host.
+	Gate http.Handler
 	// Web serves every other path: the single-page app.
 	Web http.Handler
 	// Ready reports whether the service's dependencies answer; /readyz fails while it errors.
@@ -82,6 +84,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("/api/", s.routes.API)
 	mux.Handle("/.well-known/openid-configuration", s.routes.OIDC)
 	mux.Handle("/oidc/", s.routes.OIDC)
+	mux.Handle("/gate/", s.routes.Gate)
+	mux.Handle("/.auth/", s.routes.Gate)
 	mux.Handle("/", s.routes.Web)
 	return httpx.SecurityHeaders(mux)
 }

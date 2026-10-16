@@ -26,6 +26,13 @@ func TestStartWithADatabase(t *testing.T) {
 			t.Fatalf("start with an invalid METRICS_ADDR = %d, want 1", code)
 		}
 	})
+	t.Run("a Clients file it cannot read", func(t *testing.T) {
+		vars := complete()
+		vars["DATABASE_URL"], vars["ADDR"], vars["METRICS_ADDR"], vars["CLIENTS_FILE"] = url, "127.0.0.1:0", "127.0.0.1:0", "/no/such/clients.yaml"
+		if code := start(t.Context(), env(vars)); code != 1 {
+			t.Fatalf("start with a missing CLIENTS_FILE = %d, want 1", code)
+		}
+	})
 	t.Run("in a cluster it cannot read", func(t *testing.T) {
 		vars := complete()
 		vars["DATABASE_URL"], vars["ADDR"], vars["METRICS_ADDR"] = url, "127.0.0.1:0", "127.0.0.1:0"
