@@ -115,8 +115,8 @@ func TestEveryRefusalIsAProblemSayingWhatToFix(t *testing.T) {
 		detail string
 	}{
 		domain.ErrInvalidEmail:    {http.StatusUnprocessableEntity, "Enter a valid email address."},
-		domain.ErrInvalidName:     {http.StatusUnprocessableEntity, "A name is 1 to 100 characters."},
-		domain.ErrWeakPassword:    {http.StatusUnprocessableEntity, "A password is 12 to 128 characters."},
+		domain.ErrInvalidName:     {http.StatusUnprocessableEntity, "Enter a name of 1 to 100 characters."},
+		domain.ErrWeakPassword:    {http.StatusUnprocessableEntity, "Enter a password of 12 to 128 characters."},
 		app.ErrInvalidToken:       {http.StatusUnprocessableEntity, "This link has expired or was already used. Sign up again for a new one."},
 		app.ErrInvalidCredentials: {http.StatusUnauthorized, "The email or the password is wrong."},
 	}
@@ -224,13 +224,13 @@ func TestProfile(t *testing.T) {
 	}
 	uc.err = domain.ErrInvalidName
 	res2, err := h.UpdateProfile(ctx, &oas.ProfileUpdate{})
-	wantProblem(t, res2, err, http.StatusUnprocessableEntity, "A name is 1 to 100 characters.")
+	wantProblem(t, res2, err, http.StatusUnprocessableEntity, "Enter a name of 1 to 100 characters.")
 }
 
 func TestConfirmWithTheWrongPasswordSaysSo(t *testing.T) {
 	h := web.New(&useCases{err: app.ErrInvalidCredentials}, admins{})
 	res, err := h.ConfirmEmail(context.Background(), &oas.Confirmation{Token: "t", Password: "wrong"})
-	wantProblem(t, res, err, http.StatusUnprocessableEntity, "That is not the password you signed up with.")
+	wantProblem(t, res, err, http.StatusUnprocessableEntity, "That is not the password you chose when you signed up. Try again.")
 }
 
 func TestChangePassword(t *testing.T) {
@@ -248,14 +248,14 @@ func TestChangePassword(t *testing.T) {
 	}
 	uc.err = app.ErrInvalidCredentials
 	res, err = h.ChangePassword(ctx, &oas.PasswordChange{})
-	wantProblem(t, res, err, http.StatusUnprocessableEntity, "The current password is wrong.")
+	wantProblem(t, res, err, http.StatusUnprocessableEntity, "Your current password is wrong. Enter it again.")
 	uc.err = domain.ErrWeakPassword
 	res, err = h.ChangePassword(ctx, &oas.PasswordChange{})
-	wantProblem(t, res, err, http.StatusUnprocessableEntity, "A password is 12 to 128 characters.")
+	wantProblem(t, res, err, http.StatusUnprocessableEntity, "Enter a password of 12 to 128 characters.")
 }
 
 func TestABusyServerSaysToTryAgain(t *testing.T) {
 	h := web.New(&useCases{err: app.ErrBusy}, admins{})
 	res, err := h.SignIn(context.Background(), &oas.SignIn{})
-	wantProblem(t, res, err, http.StatusServiceUnavailable, "Too many sign-ins at once. Try again in a moment.")
+	wantProblem(t, res, err, http.StatusServiceUnavailable, "Too many people are signing in right now. Try again in a moment.")
 }

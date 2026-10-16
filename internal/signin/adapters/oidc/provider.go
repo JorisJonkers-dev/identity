@@ -105,7 +105,7 @@ func bound(next http.Handler) http.Handler {
 // bindingLifetime outlasts the sign-in context's ten minutes for a request.
 const bindingLifetime = 15 * time.Minute
 
-const startedElsewhere = "This sign-in was started in another browser. Start again from the app."
+const startedElsewhere = "This sign-in started in another browser. Start again from the app."
 
 // expireNow is net/http's MaxAge for "Max-Age=0".
 const expireNow = -1

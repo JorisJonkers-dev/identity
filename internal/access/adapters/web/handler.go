@@ -146,19 +146,19 @@ func refusal(err error) (*oas.ProblemStatusCode, error) {
 	case errors.Is(err, app.ErrNotAdmin):
 		return problem(http.StatusForbidden, "Only Admins manage access."), nil
 	case errors.Is(err, app.ErrNotFound):
-		return problem(http.StatusNotFound, "That Group or User is not there any more."), nil
+		return problem(http.StatusNotFound, "That Group or person no longer exists. Reload the page."), nil
 	case errors.Is(err, app.ErrNameTaken):
-		return problem(http.StatusConflict, "A Group with that name exists."), nil
+		return problem(http.StatusConflict, "A Group with that name already exists. Choose another name."), nil
 	case errors.Is(err, domain.ErrInvalidGroupName):
-		return problem(http.StatusUnprocessableEntity, "A Group name is 1 to 64 characters."), nil
+		return problem(http.StatusUnprocessableEntity, "Enter a Group name of 1 to 64 characters."), nil
 	case errors.Is(err, app.ErrAdminsGroup):
-		return problem(http.StatusUnprocessableEntity, "The admins Group cannot be deleted or given an App Role."), nil
+		return problem(http.StatusUnprocessableEntity, "The admins Group cannot be deleted or given a role."), nil
 	case errors.Is(err, app.ErrLastAdmin):
-		return problem(http.StatusUnprocessableEntity, "The last Admin cannot leave the admins Group."), nil
+		return problem(http.StatusUnprocessableEntity, "Add another Admin before you remove the last one."), nil
 	case errors.Is(err, app.ErrUnknownClient):
-		return problem(http.StatusUnprocessableEntity, "That Client is not in the cluster."), nil
+		return problem(http.StatusUnprocessableEntity, "That app is not registered."), nil
 	case errors.Is(err, app.ErrUnknownRole):
-		return problem(http.StatusUnprocessableEntity, "That Client declares no such App Role."), nil
+		return problem(http.StatusUnprocessableEntity, "That app has no such role."), nil
 	default:
 		return nil, err
 	}

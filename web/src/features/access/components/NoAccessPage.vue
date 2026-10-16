@@ -4,8 +4,8 @@ import { RouterLink } from 'vue-router'
 
 <template>
   <section aria-labelledby="no-access-title">
-    <h1 id="no-access-title">No access to this app yet</h1>
-    <p>You are signed in, but none of your Groups gives you a role in the app you came from. Ask an Admin to give you access.</p>
-    <p><RouterLink to="/profile">Your profile</RouterLink></p>
+    <h1 id="no-access-title">You don't have access to this app</h1>
+    <p>You are signed in, but none of your Groups has a role in the app you came from. Ask an Admin to add you to a Group that does.</p>
+    <p><RouterLink to="/profile">Go to your profile</RouterLink></p>
   </section>
 </template>

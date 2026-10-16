@@ -24,13 +24,13 @@ describe('signing up', () => {
   })
 
   it('shows what to fix', async () => {
-    const { wrapper } = await mountAt('/signup', { 'POST /api/v1/signup': problem(422, 'A password is 12 to 128 characters.') })
+    const { wrapper } = await mountAt('/signup', { 'POST /api/v1/signup': problem(422, 'Enter a password of 12 to 128 characters.') })
     await wrapper.get('#signup-email').setValue('ada@example.org')
     await wrapper.get('#signup-name').setValue('Ada')
     await wrapper.get('#signup-password').setValue('short')
     await wrapper.get('form').trigger('submit')
     await settle()
-    expect(wrapper.get('[role="alert"]').text()).toBe('A password is 12 to 128 characters.')
+    expect(wrapper.get('[role="alert"]').text()).toBe('Enter a password of 12 to 128 characters.')
   })
 })
 
@@ -47,18 +47,18 @@ describe('confirming an email', () => {
 
   it('says when the password or the link is wrong', async () => {
     const { wrapper } = await mountAt('/confirm?token=abc', {
-      'POST /api/v1/confirmations': problem(422, 'That is not the password you signed up with.'),
+      'POST /api/v1/confirmations': problem(422, 'That is not the password you chose when you signed up. Try again.'),
     })
     await wrapper.get('#confirm-password').setValue('wrong password!!')
     await wrapper.get('form').trigger('submit')
     await settle()
-    expect(wrapper.get('[role="alert"]').text()).toBe('That is not the password you signed up with.')
+    expect(wrapper.get('[role="alert"]').text()).toBe('That is not the password you chose when you signed up. Try again.')
   })
 
   it('says when the link has no token, without asking the server', async () => {
     const { wrapper, requests } = await mountAt('/confirm', {})
     expect(requests).toEqual([])
-    expect(wrapper.get('[role="alert"]').text()).toBe('This link is missing its token. Open the link from the email again.')
+    expect(wrapper.get('[role="alert"]').text()).toBe('This link is incomplete. Open the link in your email again.')
   })
 })
 
@@ -136,12 +136,12 @@ describe('the profile', () => {
   it('shows a refused rename', async () => {
     const { wrapper } = await mountAt('/profile', {
       'GET /api/v1/profile': Response.json(profile),
-      'PATCH /api/v1/profile': problem(422, 'A name is 1 to 100 characters.'),
+      'PATCH /api/v1/profile': problem(422, 'Enter a name of 1 to 100 characters.'),
     })
     await wrapper.get('#profile-name').setValue('   ')
     await wrapper.findAll('form')[0]?.trigger('submit')
     await settle()
-    expect(wrapper.get('[role="alert"]').text()).toBe('A name is 1 to 100 characters.')
+    expect(wrapper.get('[role="alert"]').text()).toBe('Enter a name of 1 to 100 characters.')
   })
 
   it('changes the password, clears the fields and says other sessions ended', async () => {
@@ -156,19 +156,19 @@ describe('the profile', () => {
     await settle()
     expect(requests.find((r) => r.key === 'POST /api/v1/profile/password')?.body).toEqual({ current: 'old password!!', next: 'a new password!' })
     expect(current.element.value).toBe('')
-    expect(wrapper.get('[role="status"]').text()).toBe('Your password is changed. Every other session is signed out.')
+    expect(wrapper.get('[role="status"]').text()).toBe('Your password has been changed. Your other sessions are signed out.')
   })
 
   it('shows a refused password change', async () => {
     const { wrapper } = await mountAt('/profile', {
       'GET /api/v1/profile': Response.json(profile),
-      'POST /api/v1/profile/password': problem(422, 'The current password is wrong.'),
+      'POST /api/v1/profile/password': problem(422, 'Your current password is wrong. Enter it again.'),
     })
     await wrapper.get('#profile-current').setValue('wrong password!!')
     await wrapper.get('#profile-next').setValue('a new password!')
     await wrapper.findAll('form')[1]?.trigger('submit')
     await settle()
-    expect(wrapper.get('[role="alert"]').text()).toBe('The current password is wrong.')
+    expect(wrapper.get('[role="alert"]').text()).toBe('Your current password is wrong. Enter it again.')
   })
 
   it('signs out and goes to sign in', async () => {

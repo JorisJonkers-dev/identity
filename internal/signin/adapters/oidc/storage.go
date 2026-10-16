@@ -105,7 +105,7 @@ func (s *storage) CreateAccessToken(context.Context, op.TokenRequest) (string, t
 	return uuid.NewString(), s.now().Add(accessTokenLifetime), nil
 }
 
-var errNoRefreshTokens = oidc.ErrUnsupportedGrantType().WithDescription("Refresh tokens are not offered.")
+var errNoRefreshTokens = oidc.ErrUnsupportedGrantType().WithDescription("Refresh tokens are not supported. Sign in again for a new token.")
 
 func (s *storage) CreateAccessAndRefreshTokens(context.Context, op.TokenRequest, string) (string, string, time.Time, error) {
 	return "", "", time.Time{}, errNoRefreshTokens
@@ -133,7 +133,7 @@ func (s *storage) TerminateSession(ctx context.Context, userID, _ string) error 
 
 // RevokeToken refuses: a JWT access token lives its 15 minutes, and there are no refresh tokens.
 func (s *storage) RevokeToken(context.Context, string, string, string) *oidc.Error {
-	return oidc.ErrRequestNotSupported().WithDescription("Tokens cannot be revoked; an access token expires after 15 minutes.")
+	return oidc.ErrRequestNotSupported().WithDescription("Tokens cannot be revoked. An access token expires after 15 minutes.")
 }
 
 func (s *storage) SigningKey(context.Context) (op.SigningKey, error) { return s.ring.Signing(), nil }
@@ -247,7 +247,7 @@ func (s *storage) roles(ctx context.Context, subject, clientID string) ([]string
 	return roles, nil
 }
 
-var errNoJWTProfile = oidc.ErrUnauthorizedClient().WithDescription("The JWT profile grant is not offered.")
+var errNoJWTProfile = oidc.ErrUnauthorizedClient().WithDescription("The JWT profile grant is not supported.")
 
 func (s *storage) GetKeyByIDAndClientID(context.Context, string, string) (*jose.JSONWebKey, error) {
 	return nil, errNoJWTProfile

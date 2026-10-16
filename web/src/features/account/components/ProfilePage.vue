@@ -52,7 +52,7 @@ function submitPassword() {
         <label for="profile-next">New password</label>
         <input id="profile-next" v-model="next" type="password" autocomplete="new-password" minlength="12" required />
         <p v-if="changePassword.error.value" role="alert" class="error">{{ changePassword.error.value }}</p>
-        <p v-else-if="changePassword.isDone.value" role="status">Your password is changed. Every other session is signed out.</p>
+        <p v-else-if="changePassword.isDone.value" role="status">Your password has been changed. Your other sessions are signed out.</p>
         <button type="submit" :disabled="changePassword.isPending.value">Change password</button>
       </form>
 

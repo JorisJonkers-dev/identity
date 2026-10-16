@@ -88,7 +88,7 @@ func (h *Handler) SignUp(ctx context.Context, req *oas.SignUp) (oas.SignUpRes, e
 func (h *Handler) ConfirmEmail(ctx context.Context, req *oas.Confirmation) (oas.ConfirmEmailRes, error) {
 	err := h.uc.Confirm(ctx, req.Token, string(req.Password))
 	if errors.Is(err, app.ErrInvalidCredentials) {
-		return problem(http.StatusUnprocessableEntity, "That is not the password you signed up with."), nil
+		return problem(http.StatusUnprocessableEntity, "That is not the password you chose when you signed up. Try again."), nil
 	}
 	if err != nil {
 		return refusal(err)
@@ -136,7 +136,7 @@ func (h *Handler) ChangePassword(ctx context.Context, req *oas.PasswordChange) (
 	s := current(ctx)
 	err := h.uc.ChangePassword(ctx, s.user.ID, s.token, string(req.Current), string(req.Next))
 	if errors.Is(err, app.ErrInvalidCredentials) {
-		return problem(http.StatusUnprocessableEntity, "The current password is wrong."), nil
+		return problem(http.StatusUnprocessableEntity, "Your current password is wrong. Enter it again."), nil
 	}
 	if err != nil {
 		return refusal(err)
@@ -159,15 +159,15 @@ func refusal(err error) (*oas.ProblemStatusCode, error) {
 	case errors.Is(err, domain.ErrInvalidEmail):
 		return problem(http.StatusUnprocessableEntity, "Enter a valid email address."), nil
 	case errors.Is(err, domain.ErrInvalidName):
-		return problem(http.StatusUnprocessableEntity, "A name is 1 to 100 characters."), nil
+		return problem(http.StatusUnprocessableEntity, "Enter a name of 1 to 100 characters."), nil
 	case errors.Is(err, domain.ErrWeakPassword):
-		return problem(http.StatusUnprocessableEntity, "A password is 12 to 128 characters."), nil
+		return problem(http.StatusUnprocessableEntity, "Enter a password of 12 to 128 characters."), nil
 	case errors.Is(err, app.ErrInvalidToken):
 		return problem(http.StatusUnprocessableEntity, "This link has expired or was already used. Sign up again for a new one."), nil
 	case errors.Is(err, app.ErrInvalidCredentials):
 		return problem(http.StatusUnauthorized, "The email or the password is wrong."), nil
 	case errors.Is(err, app.ErrBusy):
-		return problem(http.StatusServiceUnavailable, "Too many sign-ins at once. Try again in a moment."), nil
+		return problem(http.StatusServiceUnavailable, "Too many people are signing in right now. Try again in a moment."), nil
 	default:
 		return nil, err
 	}
