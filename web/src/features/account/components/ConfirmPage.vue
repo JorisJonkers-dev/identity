@@ -19,7 +19,7 @@ function submit() {
 <template>
   <section aria-labelledby="confirm-title">
     <h1 id="confirm-title">Confirm your email</h1>
-    <p v-if="!token" role="alert" class="error">This link is missing its token. Open the link from the email again.</p>
+    <p v-if="!token" role="alert" class="error">This link is incomplete. Open the link in your email again.</p>
     <p v-else-if="confirm.isDone.value" role="status">
       Your email is confirmed. <RouterLink to="/signin">Sign in</RouterLink>
     </p>
@@ -28,7 +28,7 @@ function submit() {
       <label for="confirm-password">Password</label>
       <input id="confirm-password" v-model="password" type="password" autocomplete="current-password" required />
       <p v-if="confirm.error.value" role="alert" class="error">{{ confirm.error.value }}</p>
-      <button type="submit" :disabled="confirm.isPending.value">Confirm</button>
+      <button type="submit" :disabled="confirm.isPending.value">Confirm email</button>
     </form>
   </section>
 </template>

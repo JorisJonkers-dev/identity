@@ -48,12 +48,12 @@ describe('the access page', () => {
     expect(wrapper.get<HTMLInputElement>('input[aria-label="Family: editor on Grafana"]').element.checked).toBe(true)
     expect(wrapper.get<HTMLInputElement>('input[aria-label="Family: user on Grafana"]').element.checked).toBe(false)
     expect(wrapper.get('article[aria-label="admins"]').text()).toContain('Root (root@example.org)')
-    expect(wrapper.find('article[aria-label="admins"] button[type="button"]').text()).toBe('Remove')
+    expect(wrapper.find('article[aria-label="admins"] button[type="button"]').text()).toBe('Remove from Group')
   })
 
   it('says when there are no Clients', async () => {
     const { wrapper } = await mountAt('/access', { 'GET /api/v1/access': Response.json({ ...overview(), clients: [] }) })
-    expect(wrapper.text()).toContain('No Clients are in the cluster yet.')
+    expect(wrapper.text()).toContain('No apps are registered yet.')
     expect(wrapper.find('table').exists()).toBe(false)
   })
 
@@ -118,7 +118,7 @@ describe('the access page', () => {
     const { wrapper, requests } = await mountAt('/access', {
       'GET /api/v1/access': () => Response.json(overview()),
       [`PUT /api/v1/access/groups/${family}/members/${ada}`]: ok,
-      [`DELETE /api/v1/access/groups/${admins}/members/${root}`]: problem(422, 'The last Admin cannot leave the admins Group.'),
+      [`DELETE /api/v1/access/groups/${admins}/members/${root}`]: problem(422, 'Add another Admin before you remove the last one.'),
     })
     const options = wrapper.findAll(`#add-${admins} option`).map((o) => o.text())
     expect(options).toEqual(['Ada (ada@example.org)'])
@@ -135,7 +135,7 @@ describe('the access page', () => {
 
     await wrapper.get('article[aria-label="admins"] li button').trigger('click')
     await settle()
-    expect(wrapper.get('[role="alert"]').text()).toBe('The last Admin cannot leave the admins Group.')
+    expect(wrapper.get('[role="alert"]').text()).toBe('Add another Admin before you remove the last one.')
   })
 
   it('shows the problem when a Group is gone', async () => {
@@ -157,7 +157,7 @@ describe('the access page', () => {
 describe('the no-access page', () => {
   it('says why the app did not open', async () => {
     const { wrapper } = await mountAt('/no-access', {})
-    expect(wrapper.get('h1').text()).toBe('No access to this app yet')
+    expect(wrapper.get('h1').text()).toBe("You don't have access to this app")
     expect(wrapper.get('a').attributes('href')).toBe('/profile')
   })
 })

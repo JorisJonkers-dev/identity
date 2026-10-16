@@ -43,13 +43,13 @@ function add(groupId: string) {
     <p v-else-if="loadError" role="alert" class="error">{{ loadError }}</p>
     <template v-else-if="overview">
       <p>
-        People get into apps through Groups: tick an App Role to give it to everyone in the Group. Roles from several Groups add up. Being in
-        the admins Group lets someone manage this page and opens no app.
+        Select a role to give it to everyone in that Group. A person in several Groups gets the roles of all of them. Members of the
+        admins Group manage this page, and open apps only through their other Groups.
       </p>
       <p v-if="actionError" role="alert" class="error">{{ actionError }}</p>
 
       <h2 id="matrix-title">App Roles</h2>
-      <p v-if="overview.clients.length === 0">No Clients are in the cluster yet.</p>
+      <p v-if="overview.clients.length === 0">No apps are registered yet.</p>
       <div v-else class="scroll">
         <table aria-labelledby="matrix-title">
           <thead>
@@ -79,9 +79,9 @@ function add(groupId: string) {
 
       <h2>Groups</h2>
       <form class="inline" @submit.prevent="create">
-        <label for="new-group">New Group</label>
+        <label for="new-group">Group name</label>
         <input id="new-group" v-model="newGroup" required maxlength="64" />
-        <button type="submit">Make Group</button>
+        <button type="submit">Create Group</button>
       </form>
 
       <article v-for="group in overview.groups" :key="group.id" :aria-label="group.name">
@@ -94,7 +94,7 @@ function add(groupId: string) {
         <ul>
           <li v-for="member in group.members" :key="member">
             {{ person(overview, member) }}
-            <button type="button" @click="access.removeMember(group.id, member)">Remove</button>
+            <button type="button" @click="access.removeMember(group.id, member)">Remove from Group</button>
           </li>
         </ul>
         <form class="inline" @submit.prevent="add(group.id)">

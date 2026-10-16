@@ -172,13 +172,13 @@ func TestRefusals(t *testing.T) {
 		detail string
 	}{
 		{app.ErrNotAdmin, http.StatusForbidden, "Only Admins manage access."},
-		{app.ErrNotFound, http.StatusNotFound, "That Group or User is not there any more."},
-		{app.ErrNameTaken, http.StatusConflict, "A Group with that name exists."},
-		{domain.ErrInvalidGroupName, http.StatusUnprocessableEntity, "A Group name is 1 to 64 characters."},
-		{app.ErrAdminsGroup, http.StatusUnprocessableEntity, "The admins Group cannot be deleted or given an App Role."},
-		{app.ErrLastAdmin, http.StatusUnprocessableEntity, "The last Admin cannot leave the admins Group."},
-		{app.ErrUnknownClient, http.StatusUnprocessableEntity, "That Client is not in the cluster."},
-		{app.ErrUnknownRole, http.StatusUnprocessableEntity, "That Client declares no such App Role."},
+		{app.ErrNotFound, http.StatusNotFound, "That Group or person no longer exists. Reload the page."},
+		{app.ErrNameTaken, http.StatusConflict, "A Group with that name already exists. Choose another name."},
+		{domain.ErrInvalidGroupName, http.StatusUnprocessableEntity, "Enter a Group name of 1 to 64 characters."},
+		{app.ErrAdminsGroup, http.StatusUnprocessableEntity, "The admins Group cannot be deleted or given a role."},
+		{app.ErrLastAdmin, http.StatusUnprocessableEntity, "Add another Admin before you remove the last one."},
+		{app.ErrUnknownClient, http.StatusUnprocessableEntity, "That app is not registered."},
+		{app.ErrUnknownRole, http.StatusUnprocessableEntity, "That app has no such role."},
 	} {
 		h := web.New(&useCases{err: tc.err})
 		ctx := signedIn()

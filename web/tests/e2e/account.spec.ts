@@ -41,7 +41,7 @@ test('a person signs up, confirms by mail, signs in, sees their profile and sign
 
   await page.goto(await confirmationLink(page, email))
   await page.getByLabel('Password', { exact: true }).fill(password)
-  await page.getByRole('button', { name: 'Confirm' }).click()
+  await page.getByRole('button', { name: 'Confirm email' }).click()
   await expect(page.getByRole('status')).toContainText('Your email is confirmed.')
 
   await page.getByRole('link', { name: 'Sign in' }).first().click()
@@ -81,6 +81,6 @@ test('a wrong password is refused with the same answer as an unknown email', asy
 
 test('the no-access page says why an app did not open', async ({ page }) => {
   await page.goto('/no-access')
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('No access to this app yet')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText("You don't have access to this app")
   await expectAccessible(page)
 })
