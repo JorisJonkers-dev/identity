@@ -38,9 +38,14 @@ func command(ctx context.Context, getenv func(string) string, args []string, std
 	return 0
 }
 
+// refusal is a message for the operator, written as sentences.
+type refusal string
+
+func (r refusal) Error() string { return string(r) }
+
 func promote(ctx context.Context, databaseURL, email string, force bool) error {
 	if databaseURL == "" {
-		return errors.New("DATABASE_URL is not set. Set it to the identity database URL and run again.")
+		return refusal("DATABASE_URL is not set. Set it to the identity database URL and run again.")
 	}
 	store, err := pg.Open(ctx, databaseURL)
 	if err != nil {
@@ -50,7 +55,7 @@ func promote(ctx context.Context, databaseURL, email string, force bool) error {
 	users := app.New(persistence.New(store.Queries()), nil, nil, nil, nil, "")
 	u, err := users.UserByEmail(ctx, email)
 	if errors.Is(err, app.ErrNotFound) {
-		return fmt.Errorf("no User has the email %s. Have them sign up and confirm their email first.", email)
+		return refusal("no User has the email " + email + ". Have them sign up and confirm their email first.")
 	}
 	if err != nil {
 		return err
@@ -58,7 +63,7 @@ func promote(ctx context.Context, databaseURL, email string, force bool) error {
 	access := accessapp.New(accesspersistence.New(store.Queries(), store), catalog.New(clients.NewIndex()), people.New(users), rand.Reader)
 	err = access.Promote(ctx, u.ID, force)
 	if errors.Is(err, accessapp.ErrAdminExists) {
-		return errors.New("an Admin already exists. To add another, run again with --force.")
+		return refusal("an Admin already exists. To add another, run again with --force.")
 	}
 	return err
 }
