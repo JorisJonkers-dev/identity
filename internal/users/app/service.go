@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
+	audit "github.com/JorisJonkers-dev/identity/internal/audit/domain"
 	"github.com/JorisJonkers-dev/identity/internal/users/domain"
 )
 
@@ -162,6 +163,7 @@ type Service struct {
 	webauthn  WebAuthn
 	admins    Admins
 	signedOut SignedOut
+	audit     Audit
 
 	decoy atomic.Pointer[string]
 }
@@ -178,6 +180,28 @@ type SignedOut func(ctx context.Context, userID uuid.UUID, sessionIDs []uuid.UUI
 
 // WithSignedOut tells f about every session that ends.
 func WithSignedOut(f SignedOut) Option { return func(s *Service) { s.signedOut = f } }
+
+// Audit records sign-ins, failed sign-ins, sign-outs and Profile changes as Audit Events.
+type Audit interface {
+	Record(ctx context.Context, e audit.Event)
+}
+
+// WithAudit records Audit Events through a.
+func WithAudit(a Audit) Option { return func(s *Service) { s.audit = a } }
+
+// record keeps e when the Service has an Audit.
+func (s *Service) record(ctx context.Context, e audit.Event) {
+	if s.audit != nil {
+		s.audit.Record(ctx, e)
+	}
+}
+
+// failed records a failed sign-in and returns err, the refusal.
+func (s *Service) failed(ctx context.Context, e audit.Event, err error) error {
+	e.Action = audit.SignInFailed
+	s.record(ctx, e)
+	return err
+}
 
 // WithAdmins caps an Admin's session at 12 hours.
 func WithAdmins(admins Admins) Option { return func(s *Service) { s.admins = admins } }
@@ -266,13 +290,15 @@ func (s *Service) Confirm(ctx context.Context, token, password string) error {
 	if !ok {
 		return ErrInvalidCredentials
 	}
-	err = s.store.CreateUser(ctx, domain.User{ID: uuid.New(), Email: signup.Email, Name: signup.Name, PasswordHash: signup.PasswordHash, CreatedAt: now})
+	id := uuid.New()
+	err = s.store.CreateUser(ctx, domain.User{ID: id, Email: signup.Email, Name: signup.Name, PasswordHash: signup.PasswordHash, CreatedAt: now})
 	if errors.Is(err, ErrEmailTaken) {
 		return errors.Join(ErrInvalidToken, s.store.DeleteSignup(ctx, hash))
 	}
 	if err != nil {
 		return err
 	}
+	s.record(ctx, audit.Event{Action: audit.UserCreated, User: id})
 	return s.store.DeleteSignup(ctx, hash)
 }
 
@@ -281,14 +307,15 @@ func (s *Service) Confirm(ctx context.Context, token, password string) error {
 func (s *Service) SignIn(ctx context.Context, rawEmail, password string) (string, error) {
 	email, err := domain.NewEmail(rawEmail)
 	if err != nil {
-		return "", ErrInvalidCredentials
+		return "", s.failed(ctx, audit.Event{Reason: audit.ReasonPassword}, ErrInvalidCredentials)
 	}
+	refused := audit.Event{Email: email.String(), Reason: audit.ReasonPassword}
 	u, err := s.store.UserByEmail(ctx, email)
 	if errors.Is(err, ErrNotFound) {
 		if err := s.decoyCheck(password); err != nil {
 			return "", err
 		}
-		return "", ErrInvalidCredentials
+		return "", s.failed(ctx, refused, ErrInvalidCredentials)
 	}
 	if err != nil {
 		return "", err
@@ -298,7 +325,8 @@ func (s *Service) SignIn(ctx context.Context, rawEmail, password string) (string
 		return "", err
 	}
 	if !ok {
-		return "", ErrInvalidCredentials
+		refused.User = u.ID
+		return "", s.failed(ctx, refused, ErrInvalidCredentials)
 	}
 	has, err := s.hasSecondFactor(ctx, u.ID)
 	if err != nil {
@@ -337,6 +365,7 @@ func (s *Service) startSession(ctx context.Context, userID uuid.UUID, methods []
 	if err := s.store.CreateSession(ctx, sess); err != nil {
 		return "", err
 	}
+	s.record(ctx, audit.Event{Action: audit.SignedIn, User: userID})
 	return token, nil
 }
 
@@ -439,9 +468,19 @@ func (s *Service) check(ctx context.Context, sess Session) (domain.User, Session
 	return u, sess, err
 }
 
-// SignOutEverywhere ends every session of a User (docs/adr/0007).
-func (s *Service) SignOutEverywhere(ctx context.Context, userID uuid.UUID) error {
-	return s.endSessions(ctx, userID, nil)
+// SignOutEverywhere ends every session of a User (docs/adr/0007). The actor is who asked: an
+// Admin, or uuid.Nil for the User themself.
+func (s *Service) SignOutEverywhere(ctx context.Context, actor, userID uuid.UUID) error {
+	return s.signOut(ctx, actor, userID)
+}
+
+// signOut ends every session of a User and records it, when there was any to end.
+func (s *Service) signOut(ctx context.Context, actor, userID uuid.UUID) error {
+	ended, err := s.endSessions(ctx, userID, nil)
+	if ended > 0 {
+		s.record(ctx, audit.Event{Action: audit.SignedOut, Actor: actor, User: userID})
+	}
+	return err
 }
 
 // SignOut signs the User a token belongs to out everywhere (docs/adr/0007); signing out a session
@@ -454,19 +493,20 @@ func (s *Service) SignOut(ctx context.Context, token string) error {
 	if err != nil {
 		return err
 	}
-	return s.endSessions(ctx, sess.UserID, nil)
+	return s.signOut(ctx, uuid.Nil, sess.UserID)
 }
 
-// endSessions ends every session of a User but the one keep names, and says which ended.
-func (s *Service) endSessions(ctx context.Context, userID uuid.UUID, keep []byte) error {
+// endSessions ends every session of a User but the one keep names, says which ended, and returns
+// how many.
+func (s *Service) endSessions(ctx context.Context, userID uuid.UUID, keep []byte) (int, error) {
 	ended, err := s.store.DeleteOtherSessions(ctx, userID, keep)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if len(ended) > 0 && s.signedOut != nil {
 		s.signedOut(ctx, userID, ended)
 	}
-	return nil
+	return len(ended), nil
 }
 
 // User returns a User by id.
@@ -494,7 +534,11 @@ func (s *Service) Rename(ctx context.Context, id uuid.UUID, rawName string) erro
 	if err != nil {
 		return err
 	}
-	return s.store.UpdateName(ctx, id, name)
+	if err := s.store.UpdateName(ctx, id, name); err != nil {
+		return err
+	}
+	s.record(ctx, audit.Event{Action: audit.UserRenamed, User: id})
+	return nil
 }
 
 // ChangePassword replaces a User's password after checking the current one, and ends every other
@@ -522,7 +566,9 @@ func (s *Service) ChangePassword(ctx context.Context, id uuid.UUID, sessionToken
 	if err := s.store.UpdatePasswordHash(ctx, id, hash); err != nil {
 		return err
 	}
-	return s.endSessions(ctx, id, hashOf(sessionToken))
+	s.record(ctx, audit.Event{Action: audit.PasswordChanged, User: id})
+	_, err = s.endSessions(ctx, id, hashOf(sessionToken))
+	return err
 }
 
 // token returns a fresh random token and the hash it is stored under.

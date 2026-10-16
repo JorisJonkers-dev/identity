@@ -123,8 +123,8 @@ func TestReadingAGroupThatIsGoneIsNotFound(t *testing.T) {
 func TestDeletingAGroupTakesItsMembersAndAssignments(t *testing.T) {
 	f := open(t)
 	family := f.group(t, "Family")
-	_ = f.s.AddMember(f.ctx, domain.Membership{GroupID: family.ID, UserID: f.user(t, "ada@example.org")})
-	_ = f.s.Assign(f.ctx, domain.Assignment{GroupID: family.ID, ClientID: "grafana", Role: "user"})
+	_, _ = f.s.AddMember(f.ctx, domain.Membership{GroupID: family.ID, UserID: f.user(t, "ada@example.org")})
+	_, _ = f.s.Assign(f.ctx, domain.Assignment{GroupID: family.ID, ClientID: "grafana", Role: "user"})
 	if err := f.s.DeleteGroup(f.ctx, family.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func TestAddingAMemberTwiceKeepsOneMembership(t *testing.T) {
 	f := open(t)
 	m := domain.Membership{GroupID: f.group(t, "Family").ID, UserID: f.user(t, "ada@example.org")}
 	for range 2 {
-		if err := f.s.AddMember(f.ctx, m); err != nil {
+		if _, err := f.s.AddMember(f.ctx, m); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -167,7 +167,7 @@ func TestAddingAMemberToAGroupOrUserThatIsGoneIsNotFound(t *testing.T) {
 		"a User who is gone":   {GroupID: family.ID, UserID: uuid.New()},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if err := f.s.AddMember(f.ctx, m); !errors.Is(err, app.ErrNotFound) {
+			if _, err := f.s.AddMember(f.ctx, m); !errors.Is(err, app.ErrNotFound) {
 				t.Fatalf("err = %v, want ErrNotFound", err)
 			}
 		})
@@ -177,8 +177,8 @@ func TestAddingAMemberToAGroupOrUserThatIsGoneIsNotFound(t *testing.T) {
 func TestARemovedMemberIsNoLongerListed(t *testing.T) {
 	f := open(t)
 	m := domain.Membership{GroupID: f.group(t, "Family").ID, UserID: f.user(t, "ada@example.org")}
-	_ = f.s.AddMember(f.ctx, m)
-	if err := f.s.RemoveMember(f.ctx, m); err != nil {
+	_, _ = f.s.AddMember(f.ctx, m)
+	if _, err := f.s.RemoveMember(f.ctx, m); err != nil {
 		t.Fatal(err)
 	}
 	if ms, _ := f.s.Memberships(f.ctx); len(ms) != 0 {
@@ -188,7 +188,7 @@ func TestARemovedMemberIsNoLongerListed(t *testing.T) {
 
 func TestRemovingAMembershipThatDoesNotExistChangesNothing(t *testing.T) {
 	f := open(t)
-	if err := f.s.RemoveMember(f.ctx, domain.Membership{GroupID: uuid.New(), UserID: f.user(t, "ada@example.org")}); err != nil {
+	if _, err := f.s.RemoveMember(f.ctx, domain.Membership{GroupID: uuid.New(), UserID: f.user(t, "ada@example.org")}); err != nil {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -199,7 +199,7 @@ func TestAUserIsAnAdminOnlyOnceInTheAdminsGroup(t *testing.T) {
 	if yes, _ := f.s.IsAdmin(f.ctx, bob); yes {
 		t.Fatal("an Admin before joining")
 	}
-	_ = f.s.AddMember(f.ctx, domain.Membership{GroupID: admins.ID, UserID: bob})
+	_, _ = f.s.AddMember(f.ctx, domain.Membership{GroupID: admins.ID, UserID: bob})
 	if yes, err := f.s.IsAdmin(f.ctx, bob); !yes || err != nil {
 		t.Fatalf("IsAdmin = %v, %v", yes, err)
 	}
@@ -209,8 +209,8 @@ func TestTheLastAdminIsNotRemoved(t *testing.T) {
 	f := open(t)
 	admins, bob := f.admins(t), f.user(t, "bob@example.org")
 	last := domain.Membership{GroupID: admins.ID, UserID: bob}
-	_ = f.s.AddMember(f.ctx, last)
-	if err := f.s.RemoveMember(f.ctx, last); !errors.Is(err, app.ErrLastAdmin) {
+	_, _ = f.s.AddMember(f.ctx, last)
+	if _, err := f.s.RemoveMember(f.ctx, last); !errors.Is(err, app.ErrLastAdmin) {
 		t.Fatalf("err = %v, want ErrLastAdmin", err)
 	}
 	if yes, _ := f.s.IsAdmin(f.ctx, bob); !yes {
@@ -225,12 +225,12 @@ func TestRacingRemovalsKeepAnAdmin(t *testing.T) {
 	for i := range 10 {
 		a, b := f.user(t, uuid.NewString()+"@example.org"), f.user(t, uuid.NewString()+"@example.org")
 		for _, u := range []uuid.UUID{a, b} {
-			_ = f.s.AddMember(f.ctx, domain.Membership{GroupID: admins.ID, UserID: u})
+			_, _ = f.s.AddMember(f.ctx, domain.Membership{GroupID: admins.ID, UserID: u})
 		}
 		var wg sync.WaitGroup
 		errs := make([]error, 2)
 		for j, u := range []uuid.UUID{a, b} {
-			wg.Go(func() { errs[j] = f.s.RemoveMember(f.ctx, domain.Membership{GroupID: admins.ID, UserID: u}) })
+			wg.Go(func() { _, errs[j] = f.s.RemoveMember(f.ctx, domain.Membership{GroupID: admins.ID, UserID: u}) })
 		}
 		wg.Wait()
 		n, err := f.q.CountMembers(f.ctx, admins.ID)
@@ -242,7 +242,7 @@ func TestRacingRemovalsKeepAnAdmin(t *testing.T) {
 		}
 		ms, _ := f.s.Memberships(f.ctx)
 		for _, m := range ms {
-			_ = f.q.RemoveMember(f.ctx, queries.RemoveMemberParams{GroupID: m.GroupID, UserID: m.UserID})
+			_, _ = f.q.RemoveMember(f.ctx, queries.RemoveMemberParams{GroupID: m.GroupID, UserID: m.UserID})
 		}
 	}
 }
@@ -252,7 +252,7 @@ func TestAUsersAppRolesOnAClientAddUpAcrossGroups(t *testing.T) {
 	viewers, editors := f.group(t, "Viewers"), f.group(t, "Editors")
 	ada := f.user(t, "ada@example.org")
 	for _, g := range []domain.Group{viewers, editors} {
-		_ = f.s.AddMember(f.ctx, domain.Membership{GroupID: g.ID, UserID: ada})
+		_, _ = f.s.AddMember(f.ctx, domain.Membership{GroupID: g.ID, UserID: ada})
 	}
 	for _, a := range []domain.Assignment{
 		{GroupID: viewers.ID, ClientID: "grafana", Role: "viewer"},
@@ -260,7 +260,7 @@ func TestAUsersAppRolesOnAClientAddUpAcrossGroups(t *testing.T) {
 		{GroupID: editors.ID, ClientID: "grafana", Role: "editor"},
 		{GroupID: editors.ID, ClientID: "jellyfin", Role: "user"},
 	} {
-		_ = f.s.Assign(f.ctx, a)
+		_, _ = f.s.Assign(f.ctx, a)
 	}
 	roles, err := f.s.RolesOf(f.ctx, ada, "grafana")
 	if err != nil || !slices.Equal(roles, []string{"editor", "viewer"}) {
@@ -272,7 +272,7 @@ func TestGivingAnAppRoleTwiceKeepsOneAssignment(t *testing.T) {
 	f := open(t)
 	a := domain.Assignment{GroupID: f.group(t, "Viewers").ID, ClientID: "grafana", Role: "viewer"}
 	for range 2 {
-		if err := f.s.Assign(f.ctx, a); err != nil {
+		if _, err := f.s.Assign(f.ctx, a); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -283,7 +283,7 @@ func TestGivingAnAppRoleTwiceKeepsOneAssignment(t *testing.T) {
 
 func TestGivingAnAppRoleToAGroupThatIsGoneIsNotFound(t *testing.T) {
 	f := open(t)
-	if err := f.s.Assign(f.ctx, domain.Assignment{GroupID: uuid.New(), ClientID: "grafana", Role: "user"}); !errors.Is(err, app.ErrNotFound) {
+	if _, err := f.s.Assign(f.ctx, domain.Assignment{GroupID: uuid.New(), ClientID: "grafana", Role: "user"}); !errors.Is(err, app.ErrNotFound) {
 		t.Fatalf("err = %v, want ErrNotFound", err)
 	}
 }
@@ -291,10 +291,10 @@ func TestGivingAnAppRoleToAGroupThatIsGoneIsNotFound(t *testing.T) {
 func TestAnAppRoleTakenAwayNoLongerCounts(t *testing.T) {
 	f := open(t)
 	editors, ada := f.group(t, "Editors"), f.user(t, "ada@example.org")
-	_ = f.s.AddMember(f.ctx, domain.Membership{GroupID: editors.ID, UserID: ada})
+	_, _ = f.s.AddMember(f.ctx, domain.Membership{GroupID: editors.ID, UserID: ada})
 	a := domain.Assignment{GroupID: editors.ID, ClientID: "grafana", Role: "editor"}
-	_ = f.s.Assign(f.ctx, a)
-	if err := f.s.Unassign(f.ctx, a); err != nil {
+	_, _ = f.s.Assign(f.ctx, a)
+	if _, err := f.s.Unassign(f.ctx, a); err != nil {
 		t.Fatal(err)
 	}
 	if roles, _ := f.s.RolesOf(f.ctx, ada, "grafana"); len(roles) != 0 {
@@ -307,7 +307,7 @@ func TestAUsersAppRolesAreListedPerClientAcrossGroups(t *testing.T) {
 	viewers, editors := f.group(t, "Viewers"), f.group(t, "Editors")
 	ada := f.user(t, "ada@example.org")
 	for _, g := range []domain.Group{viewers, editors} {
-		_ = f.s.AddMember(f.ctx, domain.Membership{GroupID: g.ID, UserID: ada})
+		_, _ = f.s.AddMember(f.ctx, domain.Membership{GroupID: g.ID, UserID: ada})
 	}
 	for _, a := range []domain.Assignment{
 		{GroupID: viewers.ID, ClientID: "grafana", Role: "viewer"},
@@ -315,7 +315,7 @@ func TestAUsersAppRolesAreListedPerClientAcrossGroups(t *testing.T) {
 		{GroupID: editors.ID, ClientID: "grafana", Role: "editor"},
 		{GroupID: editors.ID, ClientID: "jellyfin", Role: "user"},
 	} {
-		_ = f.s.Assign(f.ctx, a)
+		_, _ = f.s.Assign(f.ctx, a)
 	}
 	held, err := f.s.RolesByClient(f.ctx, ada)
 	if err != nil || len(held) != 2 || !slices.Equal(held["grafana"], []string{"editor", "viewer"}) || !slices.Equal(held["jellyfin"], []string{"user"}) {
@@ -347,7 +347,7 @@ func TestAFreshInstallHasNoAdmins(t *testing.T) {
 
 func TestTheAdminsAreCounted(t *testing.T) {
 	f := open(t)
-	_ = f.s.AddMember(f.ctx, domain.Membership{GroupID: f.admins(t).ID, UserID: f.user(t, "ada@example.org")})
+	_, _ = f.s.AddMember(f.ctx, domain.Membership{GroupID: f.admins(t).ID, UserID: f.user(t, "ada@example.org")})
 	if n, err := f.s.CountAdmins(f.ctx); n != 1 || err != nil {
 		t.Fatalf("CountAdmins = %d, %v", n, err)
 	}
@@ -358,9 +358,62 @@ func TestTheUnassignedAreUsersInNoGroup(t *testing.T) {
 	admins, family := f.admins(t), f.group(t, "Family")
 	ada, bob := f.user(t, "ada@example.org"), f.user(t, "bob@example.org")
 	f.user(t, "cy@example.org")
-	_ = f.s.AddMember(f.ctx, domain.Membership{GroupID: admins.ID, UserID: ada})
-	_ = f.s.AddMember(f.ctx, domain.Membership{GroupID: family.ID, UserID: bob})
+	_, _ = f.s.AddMember(f.ctx, domain.Membership{GroupID: admins.ID, UserID: ada})
+	_, _ = f.s.AddMember(f.ctx, domain.Membership{GroupID: family.ID, UserID: bob})
 	if n, err := f.s.CountUnassigned(f.ctx); n != 1 || err != nil {
 		t.Fatalf("CountUnassigned = %d, %v; want only cy", n, err)
+	}
+}
+
+func TestAddingAMemberSaysWhetherTheyWereNew(t *testing.T) {
+	f := open(t)
+	m := domain.Membership{GroupID: f.group(t, "Family").ID, UserID: f.user(t, "ada@example.org")}
+	first, _ := f.s.AddMember(f.ctx, m)
+	again, err := f.s.AddMember(f.ctx, m)
+	if !first || again || err != nil {
+		t.Fatalf("first %v, again %v, %v", first, again, err)
+	}
+}
+
+func TestRemovingAMemberSaysWhetherTheyWereOne(t *testing.T) {
+	f := open(t)
+	family := f.group(t, "Family")
+	m := domain.Membership{GroupID: family.ID, UserID: f.user(t, "ada@example.org")}
+	_, _ = f.s.AddMember(f.ctx, m)
+	first, _ := f.s.RemoveMember(f.ctx, m)
+	again, err := f.s.RemoveMember(f.ctx, m)
+	gone, _ := f.s.RemoveMember(f.ctx, domain.Membership{GroupID: uuid.New(), UserID: m.UserID})
+	if !first || again || gone || err != nil {
+		t.Fatalf("first %v, again %v, in no Group %v, %v", first, again, gone, err)
+	}
+}
+
+func TestTheLastAdminsRefusedRemovalSaysNothingWasRemoved(t *testing.T) {
+	f := open(t)
+	last := domain.Membership{GroupID: f.admins(t).ID, UserID: f.user(t, "ada@example.org")}
+	_, _ = f.s.AddMember(f.ctx, last)
+	if removed, err := f.s.RemoveMember(f.ctx, last); removed || !errors.Is(err, app.ErrLastAdmin) {
+		t.Fatalf("removed %v, %v", removed, err)
+	}
+}
+
+func TestAssigningSaysWhetherTheAssignmentIsNew(t *testing.T) {
+	f := open(t)
+	a := domain.Assignment{GroupID: f.group(t, "Family").ID, ClientID: "grafana", Role: "viewer"}
+	first, _ := f.s.Assign(f.ctx, a)
+	again, err := f.s.Assign(f.ctx, a)
+	if !first || again || err != nil {
+		t.Fatalf("first %v, again %v, %v", first, again, err)
+	}
+}
+
+func TestUnassigningSaysWhetherTheAssignmentWasThere(t *testing.T) {
+	f := open(t)
+	a := domain.Assignment{GroupID: f.group(t, "Family").ID, ClientID: "grafana", Role: "viewer"}
+	_, _ = f.s.Assign(f.ctx, a)
+	first, _ := f.s.Unassign(f.ctx, a)
+	again, err := f.s.Unassign(f.ctx, a)
+	if !first || again || err != nil {
+		t.Fatalf("first %v, again %v, %v", first, again, err)
 	}
 }

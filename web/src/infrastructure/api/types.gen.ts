@@ -5,6 +5,69 @@ export type ClientOptions = {
 };
 
 /**
+ * The family of an Audit Event.
+ */
+export type AuditKind = 'sign-in' | 'people' | 'access' | 'tokens';
+
+/**
+ * What an Audit Event records.
+ */
+export type AuditAction = 'signed-in' | 'sign-in-failed' | 'signed-out' | 'user-created' | 'user-renamed' | 'password-changed' | 'second-factor-added' | 'second-factor-removed' | 'admin-promoted' | 'group-created' | 'group-renamed' | 'group-deleted' | 'member-added' | 'member-removed' | 'role-assigned' | 'role-removed' | 'token-minted' | 'token-revoked';
+
+/**
+ * Where a page of Audit Events ends; opaque.
+ */
+export type AuditCursor = string;
+
+/**
+ * A User an Audit Event names. A User who is gone has only an id.
+ */
+export type AuditPerson = {
+    id: Id;
+    email?: Email;
+    name?: string;
+};
+
+/**
+ * A Client an Audit Event names. A Client that is gone is labelled with its id.
+ */
+export type AuditClient = {
+    id: ClientId;
+    label: string;
+};
+
+/**
+ * One Audit Event.
+ */
+export type AuditEvent = {
+    id: Id;
+    at: string;
+    kind: AuditKind;
+    action: AuditAction;
+    actor?: AuditPerson;
+    user?: AuditPerson;
+    client?: AuditClient;
+    groupName?: string;
+    role?: AppRole;
+    /**
+     * The address a failed sign-in gave; it may belong to no User.
+     */
+    email?: string;
+    /**
+     * Why a sign-in failed.
+     */
+    reason?: 'password' | 'second-factor' | 'no-access';
+};
+
+/**
+ * One page of Audit Events, newest first.
+ */
+export type AuditPage = {
+    events: Array<AuditEvent>;
+    next?: AuditCursor;
+};
+
+/**
  * An email address.
  */
 export type Email = string;
@@ -1251,3 +1314,49 @@ export type AssignRoleResponses = {
 };
 
 export type AssignRoleResponse = AssignRoleResponses[keyof AssignRoleResponses];
+
+export type ListAuditEventsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Only events by or about this User.
+         */
+        user?: Id;
+        /**
+         * Only events about this Client.
+         */
+        client?: ClientId;
+        /**
+         * Only events of this kind.
+         */
+        kind?: AuditKind;
+        /**
+         * A page's next, to read the page after it.
+         */
+        before?: AuditCursor;
+    };
+    url: '/api/v1/audit';
+};
+
+export type ListAuditEventsErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type ListAuditEventsError = ListAuditEventsErrors[keyof ListAuditEventsErrors];
+
+export type ListAuditEventsResponses = {
+    /**
+     * One page of Audit Events.
+     */
+    200: AuditPage;
+};
+
+export type ListAuditEventsResponse = ListAuditEventsResponses[keyof ListAuditEventsResponses];

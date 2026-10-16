@@ -19,14 +19,15 @@ type users struct {
 	session   usersapp.Session
 	user      usersdomain.User
 	signedOut uuid.UUID
+	actor     uuid.UUID
 }
 
 func (u *users) SignedIn(context.Context, string) (usersdomain.User, usersapp.Session, error) {
 	return u.user, u.session, u.err
 }
 func (u *users) User(context.Context, uuid.UUID) (usersdomain.User, error) { return u.user, u.err }
-func (u *users) SignOutEverywhere(_ context.Context, id uuid.UUID) error {
-	u.signedOut = id
+func (u *users) SignOutEverywhere(_ context.Context, actor, id uuid.UUID) error {
+	u.signedOut, u.actor = id, actor
 	return u.err
 }
 
@@ -58,7 +59,8 @@ func TestClaimsAndSignOut(t *testing.T) {
 		t.Fatalf("Claims = %+v, %v", c, err)
 	}
 	id := uuid.New()
-	if err := a.SignOutEverywhere(context.Background(), id); err != nil || u.signedOut != id {
+	u.actor = uuid.New()
+	if err := a.SignOutEverywhere(context.Background(), id); err != nil || u.signedOut != id || u.actor != uuid.Nil {
 		t.Fatalf("SignOutEverywhere = %v", err)
 	}
 	u.err = errors.New("boom")

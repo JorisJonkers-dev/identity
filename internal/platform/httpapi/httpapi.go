@@ -10,6 +10,7 @@ import (
 	"github.com/ogen-go/ogen/ogenerrors"
 
 	accessweb "github.com/JorisJonkers-dev/identity/internal/access/adapters/web"
+	auditweb "github.com/JorisJonkers-dev/identity/internal/audit/adapters/web"
 	launcherweb "github.com/JorisJonkers-dev/identity/internal/launcher/adapters/web"
 	"github.com/JorisJonkers-dev/identity/internal/platform/httpx"
 	"github.com/JorisJonkers-dev/identity/internal/platform/oas"
@@ -20,6 +21,7 @@ import (
 type api struct {
 	*usersweb.Handler
 	*accessweb.Access
+	*auditweb.Audit
 	*launcherweb.Launcher
 	logger  *slog.Logger
 	version string
@@ -53,10 +55,10 @@ type Access interface {
 
 // New returns the API's http.Handler, serving every path the contract declares under /api.
 // The users adapter is also the session security handler.
-func New(logger *slog.Logger, version string, users usersweb.UseCases, access Access, launcher launcherweb.UseCases) (http.Handler, error) {
+func New(logger *slog.Logger, version string, users usersweb.UseCases, access Access, audit auditweb.UseCases, launcher launcherweb.UseCases) (http.Handler, error) {
 	h := usersweb.New(users, access)
 	srv, err := oas.NewServer(
-		&api{Handler: h, Access: accessweb.New(access), Launcher: launcherweb.NewLauncher(launcher), logger: logger, version: version},
+		&api{Handler: h, Access: accessweb.New(access), Audit: auditweb.New(audit), Launcher: launcherweb.NewLauncher(launcher), logger: logger, version: version},
 		h,
 		oas.WithErrorHandler(writeError),
 		oas.WithNotFound(func(w http.ResponseWriter, _ *http.Request) {

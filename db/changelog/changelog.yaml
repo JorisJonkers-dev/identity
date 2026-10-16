@@ -23,3 +23,6 @@ databaseChangeLog:
   - include:
       file: 0007-session-clients.yaml
       relativeToChangelogFile: true
+  - include:
+      file: 0008-audit-events.yaml
+      relativeToChangelogFile: true

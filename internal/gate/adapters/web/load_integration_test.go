@@ -22,6 +22,7 @@ import (
 	"github.com/JorisJonkers-dev/identity/internal/access/adapters/people"
 	accesspersistence "github.com/JorisJonkers-dev/identity/internal/access/adapters/persistence"
 	accessapp "github.com/JorisJonkers-dev/identity/internal/access/app"
+	auditdomain "github.com/JorisJonkers-dev/identity/internal/audit/domain"
 	"github.com/JorisJonkers-dev/identity/internal/gate/adapters/contexts"
 	gatepersistence "github.com/JorisJonkers-dev/identity/internal/gate/adapters/persistence"
 	"github.com/JorisJonkers-dev/identity/internal/gate/adapters/web"
@@ -67,17 +68,19 @@ func TestTheGateCheckHoldsItsP99(t *testing.T) {
 	must(t, q.CreateUser(ctx, queries.CreateUserParams{ID: userID, Email: "ada@example.org", Name: "Ada", PasswordHash: "h", CreatedAt: now}))
 	must(t, q.CreateSession(ctx, queries.CreateSessionParams{TokenHash: sum("sso"), ID: sessionID, UserID: userID, CreatedAt: now, ExpiresAt: now.Add(time.Hour), Methods: []string{"pwd"}}))
 	must(t, q.CreateGroup(ctx, queries.CreateGroupParams{ID: groupID, Name: "Readers"}))
-	must(t, q.AddMember(ctx, queries.AddMemberParams{GroupID: groupID, UserID: userID}))
-	must(t, q.Assign(ctx, queries.AssignParams{GroupID: groupID, ClientID: "stats", Role: "user"}))
+	_, err = q.AddMember(ctx, queries.AddMemberParams{GroupID: groupID, UserID: userID})
+	must(t, err)
+	_, err = q.Assign(ctx, queries.AssignParams{GroupID: groupID, ClientID: "stats", Role: "user"})
+	must(t, err)
 	must(t, q.CreateGateSession(ctx, queries.CreateGateSessionParams{TokenHash: sum("host-cookie"), Host: "stats.jorisjonkers.dev", SessionID: sessionID, CreatedAt: now}))
 
 	index := clients.NewIndex()
 	index.Put(domain.Client{ID: "stats", SignIn: domain.Gated, Host: "stats.jorisjonkers.dev", Label: "Stats", Roles: []string{"user"}})
 	users := usersapp.New(userspersistence.New(q), nil, nil, time.Now, rand.Reader, "")
-	access := accessapp.New(accesspersistence.New(q, store), catalog.New(index), people.New(users), rand.Reader)
-	signIn := signinapp.New(signinpersistence.New(q), index, accounts.New(users), access, nil, time.Now, rand.Reader)
+	access := accessapp.New(accesspersistence.New(q, store), catalog.New(index), people.New(users), discard{}, rand.Reader)
+	signIn := signinapp.New(signinpersistence.New(q), index, accounts.New(users), access, nil, discard{}, time.Now, rand.Reader)
 	others := contexts.New(signIn, users)
-	gate := gateapp.New(gatepersistence.New(q), others, others, others, time.Now, rand.Reader, 30*time.Second)
+	gate := gateapp.New(gatepersistence.New(q), others, others, others, discard{}, time.Now, rand.Reader, 30*time.Second)
 	h, err := web.New(gate, web.Config{Issuer: "https://auth.test", SessionCookie: "__Host-identity_session"}, slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatal(err)
@@ -156,3 +159,8 @@ func must(t *testing.T, err error) {
 		t.Fatal(err)
 	}
 }
+
+// discard records no Audit Events.
+type discard struct{}
+
+func (discard) Record(context.Context, auditdomain.Event) {}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	audit "github.com/JorisJonkers-dev/identity/internal/audit/domain"
 	"github.com/JorisJonkers-dev/identity/internal/signin/app"
 	"github.com/JorisJonkers-dev/identity/internal/signin/domain"
 )
@@ -185,8 +186,14 @@ type fixture struct {
 	accounts *accounts
 	access   *access
 	logouts  *logouts
+	events   *recorded
 	now      time.Time
 }
+
+// recorded is the Audit Events a Service recorded.
+type recorded []audit.Event
+
+func (r *recorded) Record(_ context.Context, e audit.Event) { *r = append(*r, e) }
 
 type counter struct{ n byte }
 
@@ -212,6 +219,7 @@ func newFixture() *fixture {
 		requests: &requests{byID: map[uuid.UUID]domain.AuthRequest{}, code: map[string]uuid.UUID{}, fail: map[string]error{}},
 		accounts: &accounts{ada: uuid.New(), sessionID: uuid.New()},
 		logouts:  &logouts{},
+		events:   &recorded{},
 		now:      t0,
 	}
 	f.access = &access{ada: f.accounts.ada, roles: map[string][]string{"spa": {"editor", "viewer", "retired"}}}
@@ -224,7 +232,7 @@ func newFixture() *fixture {
 		"unready": {ID: "unready", SignIn: domain.Native, Host: "unready.test", Credential: domain.Secret},
 		"gated":   {ID: "gated", SignIn: domain.Gated, Host: "gated.test"},
 	}
-	f.Service = app.New(f.requests, cs, f.accounts, f.access, f.logouts, func() time.Time { return f.now }, &counter{})
+	f.Service = app.New(f.requests, cs, f.accounts, f.access, f.logouts, f.events, func() time.Time { return f.now }, &counter{})
 	return f
 }
 
@@ -258,7 +266,7 @@ func TestStartKeepsTheRequestForTenMinutes(t *testing.T) {
 
 func TestNoSignInStartsWithoutRandomness(t *testing.T) {
 	f := newFixture()
-	f.Service = app.New(f.requests, clients{}, f.accounts, f.access, f.logouts, time.Now, broken{})
+	f.Service = app.New(f.requests, clients{}, f.accounts, f.access, f.logouts, f.events, time.Now, broken{})
 	if _, err := f.Start(context.Background(), domain.AuthRequest{}); !errors.Is(err, errBoom) {
 		t.Fatalf("err = %v", err)
 	}

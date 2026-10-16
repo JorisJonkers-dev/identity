@@ -6,15 +6,17 @@ package queries
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
 
 type Querier interface {
-	AddMember(ctx context.Context, arg AddMemberParams) error
+	AddMember(ctx context.Context, arg AddMemberParams) (int64, error)
 	AddSessionClient(ctx context.Context, arg AddSessionClientParams) error
 	AdminsGroup(ctx context.Context) (AdminsGroupRow, error)
-	Assign(ctx context.Context, arg AssignParams) error
+	AppendAuditEvent(ctx context.Context, arg AppendAuditEventParams) error
+	Assign(ctx context.Context, arg AssignParams) (int64, error)
 	AuthRequestByID(ctx context.Context, id uuid.UUID) (AuthRequest, error)
 	ChallengeCeremony(ctx context.Context, arg ChallengeCeremonyParams) (ChallengeCeremonyRow, error)
 	// Records who signed in, once: a request already completed keeps its first User.
@@ -32,6 +34,7 @@ type Querier interface {
 	CreateSignup(ctx context.Context, arg CreateSignupParams) error
 	CreateTOTPFactor(ctx context.Context, arg CreateTOTPFactorParams) error
 	CreateUser(ctx context.Context, arg CreateUserParams) error
+	DeleteAuditEventsBefore(ctx context.Context, at time.Time) (int64, error)
 	DeleteAuthRequest(ctx context.Context, id uuid.UUID) error
 	DeleteChallenge(ctx context.Context, tokenHash []byte) error
 	// The admins Group stays, whatever the caller checked.
@@ -48,6 +51,8 @@ type Querier interface {
 	GroupByID(ctx context.Context, id uuid.UUID) (GroupByIDRow, error)
 	IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error)
 	ListAssignments(ctx context.Context) ([]Assignment, error)
+	// Newest first, before a (at, id) cursor; a User filter matches what they did and what was done to them.
+	ListAuditEvents(ctx context.Context, arg ListAuditEventsParams) ([]AuditEvent, error)
 	ListGroups(ctx context.Context) ([]ListGroupsRow, error)
 	ListMemberships(ctx context.Context) ([]Membership, error)
 	ListUsers(ctx context.Context) ([]User, error)
@@ -57,7 +62,7 @@ type Querier interface {
 	PasskeysOfUser(ctx context.Context, userID uuid.UUID) ([]Passkey, error)
 	// Readiness: the database answers a query, not only a connection.
 	Ping(ctx context.Context) (int32, error)
-	RemoveMember(ctx context.Context, arg RemoveMemberParams) error
+	RemoveMember(ctx context.Context, arg RemoveMemberParams) (int64, error)
 	RenameGroup(ctx context.Context, arg RenameGroupParams) (int64, error)
 	// Every App Role a User holds, per Client: the union over their Groups (docs/adr/0004).
 	RolesByClient(ctx context.Context, userID uuid.UUID) ([]RolesByClientRow, error)
@@ -87,7 +92,7 @@ type Querier interface {
 	// The Clients the ended sessions signed into, removed as they are read.
 	TakeSessionClients(ctx context.Context, sessionIds []uuid.UUID) ([]SessionClient, error)
 	TouchSession(ctx context.Context, arg TouchSessionParams) error
-	Unassign(ctx context.Context, arg UnassignParams) error
+	Unassign(ctx context.Context, arg UnassignParams) (int64, error)
 	UpdateUserName(ctx context.Context, arg UpdateUserNameParams) error
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
 	// A User has one challenge. A new sign-in replaces its token and expiry; its wrong codes still

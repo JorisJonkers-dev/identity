@@ -32,6 +32,7 @@ import (
 	"github.com/JorisJonkers-dev/identity/internal/platform/mail"
 	"github.com/JorisJonkers-dev/identity/internal/platform/metrics"
 	"github.com/JorisJonkers-dev/identity/internal/platform/pg"
+	"github.com/JorisJonkers-dev/identity/internal/platform/schedule"
 	"github.com/JorisJonkers-dev/identity/internal/platform/vault"
 	"github.com/JorisJonkers-dev/identity/internal/server"
 	"github.com/JorisJonkers-dev/identity/internal/signin/adapters/clients"
@@ -43,6 +44,8 @@ var version = "dev"
 const (
 	defaultAddr        = ":8080"
 	defaultMetricsAddr = ":9090"
+	// Audit Events older than a year are removed this often, by every replica.
+	pruneInterval = time.Hour
 )
 
 func main() {
@@ -103,7 +106,21 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 	}
 	stopMetrics := serveMetrics(mln, metrics.Handler(identity.Unassigned, logger), logger)
 	defer stopMetrics()
+	go schedule.Every(ctx, pruneInterval, prune(identity.Prune, logger), func(err error) {
+		logger.ErrorContext(ctx, "audit events not pruned", "error", err)
+	})
 	return server.New(logger, version, identity.Routes).Serve(ctx, ln)
+}
+
+// prune removes Audit Events older than a year, logging how many it removed.
+func prune(job func(context.Context) (int64, error), logger *slog.Logger) func(context.Context) error {
+	return func(ctx context.Context) error {
+		n, err := job(ctx)
+		if n > 0 {
+			logger.InfoContext(ctx, "audit events pruned", "count", n)
+		}
+		return err
+	}
 }
 
 // vaultConfig reaches Vault's transit engine, which seals TOTP secrets (docs/adr/0013).

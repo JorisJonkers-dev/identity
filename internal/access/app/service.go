@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JorisJonkers-dev/identity/internal/access/domain"
+	audit "github.com/JorisJonkers-dev/identity/internal/audit/domain"
 )
 
 var (
@@ -43,20 +44,22 @@ type Store interface {
 	// DeleteGroup never deletes the admins Group.
 	DeleteGroup(ctx context.Context, id uuid.UUID) error
 	Memberships(ctx context.Context) ([]domain.Membership, error)
-	// AddMember is ErrNotFound when the Group or the User is not there.
-	AddMember(ctx context.Context, m domain.Membership) error
+	// AddMember is ErrNotFound when the Group or the User is not there, and reports whether the
+	// User was not a member already.
+	AddMember(ctx context.Context, m domain.Membership) (bool, error)
 	// RemoveMember refuses with ErrLastAdmin to leave the admins Group empty, even when two
-	// removals race.
-	RemoveMember(ctx context.Context, m domain.Membership) error
+	// removals race, and reports whether the User was a member.
+	RemoveMember(ctx context.Context, m domain.Membership) (bool, error)
 	IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error)
 	AdminsGroup(ctx context.Context) (domain.Group, error)
 	CountAdmins(ctx context.Context) (int, error)
 	// CountUnassigned is the confirmed Users in no Group.
 	CountUnassigned(ctx context.Context) (int, error)
 	Assignments(ctx context.Context) ([]domain.Assignment, error)
-	// Assign is ErrNotFound when the Group is not there.
-	Assign(ctx context.Context, a domain.Assignment) error
-	Unassign(ctx context.Context, a domain.Assignment) error
+	// Assign is ErrNotFound when the Group is not there, and reports whether it is new.
+	Assign(ctx context.Context, a domain.Assignment) (bool, error)
+	// Unassign reports whether the Assignment was there.
+	Unassign(ctx context.Context, a domain.Assignment) (bool, error)
 	// RolesOf is the App Roles a User's Groups hold on a Client.
 	RolesOf(ctx context.Context, userID uuid.UUID, clientID string) ([]string, error)
 	// RolesByClient is every App Role a User's Groups hold, per Client.
@@ -72,7 +75,13 @@ type Clients interface {
 // People lists Users, and signs one out everywhere.
 type People interface {
 	People(ctx context.Context) ([]domain.Person, error)
-	SignOut(ctx context.Context, userID uuid.UUID) error
+	// SignOut signs a User out everywhere at the actor's asking.
+	SignOut(ctx context.Context, actor, userID uuid.UUID) error
+}
+
+// Audit records each change as an Audit Event, after it is made.
+type Audit interface {
+	Record(ctx context.Context, e audit.Event)
 }
 
 // Overview is everything the access page shows.
@@ -90,12 +99,13 @@ type Service struct {
 	store   Store
 	clients Clients
 	people  People
+	audit   Audit
 	random  io.Reader
 }
 
 // New returns a Service. random is where Group ids come from.
-func New(store Store, clients Clients, people People, random io.Reader) *Service {
-	return &Service{store: store, clients: clients, people: people, random: random}
+func New(store Store, clients Clients, people People, audit Audit, random io.Reader) *Service {
+	return &Service{store: store, clients: clients, people: people, audit: audit, random: random}
 }
 
 // IsAdmin reports whether a User is in the admins Group.
@@ -118,7 +128,11 @@ func (s *Service) Promote(ctx context.Context, userID uuid.UUID, force bool) err
 	if err != nil {
 		return err
 	}
-	return s.store.AddMember(ctx, domain.Membership{GroupID: g.ID, UserID: userID})
+	added, err := s.store.AddMember(ctx, domain.Membership{GroupID: g.ID, UserID: userID})
+	if added {
+		s.audit.Record(ctx, audit.Event{Action: audit.AdminPromoted, User: userID, Group: g.ID, GroupName: g.Name})
+	}
+	return err
 }
 
 // Unassigned is how many Users wait in no Group, for the signup alert.
@@ -192,6 +206,7 @@ func (s *Service) CreateGroup(ctx context.Context, actor Actor, name string) (do
 	if err := s.store.CreateGroup(ctx, g); err != nil {
 		return domain.Group{}, err
 	}
+	s.audit.Record(ctx, audit.Event{Action: audit.GroupCreated, Actor: actor.ID, Group: g.ID, GroupName: g.Name})
 	return g, nil
 }
 
@@ -207,6 +222,7 @@ func (s *Service) RenameGroup(ctx context.Context, actor Actor, id uuid.UUID, na
 	if err := s.store.RenameGroup(ctx, id, n); err != nil {
 		return domain.Group{}, err
 	}
+	s.audit.Record(ctx, audit.Event{Action: audit.GroupRenamed, Actor: actor.ID, Group: id, GroupName: n.String()})
 	return s.store.Group(ctx, id)
 }
 
@@ -222,7 +238,11 @@ func (s *Service) DeleteGroup(ctx context.Context, actor Actor, id uuid.UUID) er
 	if g.Admins {
 		return ErrAdminsGroup
 	}
-	return s.store.DeleteGroup(ctx, id)
+	if err := s.store.DeleteGroup(ctx, id); err != nil {
+		return err
+	}
+	s.audit.Record(ctx, audit.Event{Action: audit.GroupDeleted, Actor: actor.ID, Group: id, GroupName: g.Name})
+	return nil
 }
 
 // AddMember puts a User in a Group.
@@ -230,7 +250,20 @@ func (s *Service) AddMember(ctx context.Context, actor Actor, m domain.Membershi
 	if err := s.admin(ctx, actor); err != nil {
 		return err
 	}
-	return s.store.AddMember(ctx, m)
+	added, err := s.store.AddMember(ctx, m)
+	if added {
+		s.recordMembership(ctx, audit.MemberAdded, actor, m)
+	}
+	return err
+}
+
+// recordMembership records a membership change, naming the Group as it is called now.
+func (s *Service) recordMembership(ctx context.Context, action audit.Action, actor Actor, m domain.Membership) {
+	e := audit.Event{Action: action, Actor: actor.ID, User: m.UserID, Group: m.GroupID}
+	if g, err := s.store.Group(ctx, m.GroupID); err == nil {
+		e.GroupName = g.Name
+	}
+	s.audit.Record(ctx, e)
 }
 
 // SignOutUser ends every session a User has (docs/adr/0007).
@@ -238,7 +271,7 @@ func (s *Service) SignOutUser(ctx context.Context, actor Actor, userID uuid.UUID
 	if err := s.admin(ctx, actor); err != nil {
 		return err
 	}
-	return s.people.SignOut(ctx, userID)
+	return s.people.SignOut(ctx, actor.ID, userID)
 }
 
 // RemoveMember takes a User out of a Group; the admins Group keeps at least one.
@@ -246,7 +279,11 @@ func (s *Service) RemoveMember(ctx context.Context, actor Actor, m domain.Member
 	if err := s.admin(ctx, actor); err != nil {
 		return err
 	}
-	return s.store.RemoveMember(ctx, m)
+	removed, err := s.store.RemoveMember(ctx, m)
+	if removed {
+		s.recordMembership(ctx, audit.MemberRemoved, actor, m)
+	}
+	return err
 }
 
 // Assign gives a Group an App Role the Client declares. The admins Group holds none, so being an
@@ -269,7 +306,11 @@ func (s *Service) Assign(ctx context.Context, actor Actor, a domain.Assignment) 
 	if !c.Declares(a.Role) {
 		return ErrUnknownRole
 	}
-	return s.store.Assign(ctx, a)
+	assigned, err := s.store.Assign(ctx, a)
+	if assigned {
+		s.audit.Record(ctx, audit.Event{Action: audit.RoleAssigned, Actor: actor.ID, Client: a.ClientID, Group: g.ID, GroupName: g.Name, Role: a.Role})
+	}
+	return err
 }
 
 // Unassign takes an App Role from a Group, also on a Removed Client.
@@ -277,5 +318,13 @@ func (s *Service) Unassign(ctx context.Context, actor Actor, a domain.Assignment
 	if err := s.admin(ctx, actor); err != nil {
 		return err
 	}
-	return s.store.Unassign(ctx, a)
+	removed, err := s.store.Unassign(ctx, a)
+	if removed {
+		e := audit.Event{Action: audit.RoleRemoved, Actor: actor.ID, Client: a.ClientID, Group: a.GroupID, Role: a.Role}
+		if g, err := s.store.Group(ctx, a.GroupID); err == nil {
+			e.GroupName = g.Name
+		}
+		s.audit.Record(ctx, e)
+	}
+	return err
 }

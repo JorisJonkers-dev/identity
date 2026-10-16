@@ -120,9 +120,9 @@ func TestRolesComeFromAssignmentsOverPostgres(t *testing.T) {
 	actor := accessapp.Actor{ID: ada.ID, SecondFactor: true}
 	index := clientindex.NewIndex()
 	index.Put(testClients["web"])
-	access := accessapp.New(accesspersistence.New(q, store), catalog.New(index), accesspeople.New(users), rand.Reader)
+	access := accessapp.New(accesspersistence.New(q, store), catalog.New(index), accesspeople.New(users), discard{}, rand.Reader)
 	groups, _ := q.ListGroups(ctx)
-	if err := q.AddMember(ctx, queries.AddMemberParams{GroupID: groups[0].ID, UserID: ada.ID}); err != nil {
+	if _, err := q.AddMember(ctx, queries.AddMemberParams{GroupID: groups[0].ID, UserID: ada.ID}); err != nil {
 		t.Fatal(err)
 	}
 

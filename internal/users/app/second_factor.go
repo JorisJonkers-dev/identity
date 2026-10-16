@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	audit "github.com/JorisJonkers-dev/identity/internal/audit/domain"
 	"github.com/JorisJonkers-dev/identity/internal/users/domain"
 )
 
@@ -149,14 +150,14 @@ func (s *Service) CompleteSignIn(ctx context.Context, challenge, code string) (s
 			return "", err
 		}
 		if !used {
-			return "", ErrInvalidCode
+			return "", s.failed(ctx, audit.Event{User: userID, Reason: audit.ReasonSecondFactor}, ErrInvalidCode)
 		}
 		if err := s.store.DeleteChallenge(ctx, hash); err != nil {
 			return "", err
 		}
 		return s.startSession(ctx, userID, []string{methodPassword, methodOTP})
 	}
-	return "", ErrInvalidCode
+	return "", s.failed(ctx, audit.Event{User: userID, Reason: audit.ReasonSecondFactor}, ErrInvalidCode)
 }
 
 // SecondFactors lists a User's authenticator apps and passkeys, oldest first.
@@ -248,6 +249,7 @@ func (s *Service) ConfirmTOTP(ctx context.Context, userID uuid.UUID, sessionToke
 	if err := s.store.DeleteTOTPEnrolment(ctx, userID); err != nil {
 		return err
 	}
+	s.record(ctx, audit.Event{Action: audit.SecondFactorAdded, User: userID})
 	return s.proved(ctx, userID, sessionToken, methodOTP)
 }
 
@@ -258,7 +260,8 @@ func (s *Service) proved(ctx context.Context, userID uuid.UUID, sessionToken, me
 	if err := s.store.SetSessionMethods(ctx, hash, []string{methodPassword, method}); err != nil {
 		return err
 	}
-	return s.endSessions(ctx, userID, hash)
+	_, err := s.endSessions(ctx, userID, hash)
+	return err
 }
 
 // mayEnrol is nil when the password is the User's and, if they already have an authenticator, the
@@ -297,16 +300,19 @@ func (s *Service) RemoveFactor(ctx context.Context, userID, factorID uuid.UUID, 
 		return err
 	}
 	had, err := s.store.DeleteTOTPFactor(ctx, factorID, userID)
-	if err != nil || had {
-		return err
-	}
-	had, err = s.store.DeletePasskey(ctx, factorID, userID)
 	if err != nil {
 		return err
 	}
 	if !had {
+		had, err = s.store.DeletePasskey(ctx, factorID, userID)
+		if err != nil {
+			return err
+		}
+	}
+	if !had {
 		return ErrNotFound
 	}
+	s.record(ctx, audit.Event{Action: audit.SecondFactorRemoved, User: userID})
 	return nil
 }
 

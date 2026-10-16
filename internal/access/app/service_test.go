@@ -11,6 +11,7 @@ import (
 
 	"github.com/JorisJonkers-dev/identity/internal/access/app"
 	"github.com/JorisJonkers-dev/identity/internal/access/domain"
+	audit "github.com/JorisJonkers-dev/identity/internal/audit/domain"
 )
 
 var errBoom = errors.New("boom")
@@ -71,20 +72,24 @@ func (s *store) Memberships(context.Context) ([]domain.Membership, error) {
 	return slices.Clone(s.members), s.err("Memberships")
 }
 
-func (s *store) AddMember(_ context.Context, m domain.Membership) error {
+func (s *store) AddMember(_ context.Context, m domain.Membership) (bool, error) {
 	if err := s.err("AddMember"); err != nil {
-		return err
+		return false, err
+	}
+	if slices.Contains(s.members, m) {
+		return false, nil
 	}
 	s.members = append(s.members, m)
-	return nil
+	return true, nil
 }
 
-func (s *store) RemoveMember(_ context.Context, m domain.Membership) error {
+func (s *store) RemoveMember(_ context.Context, m domain.Membership) (bool, error) {
 	if err := s.err("RemoveMember"); err != nil {
-		return err
+		return false, err
 	}
+	n := len(s.members)
 	s.members = slices.DeleteFunc(s.members, func(o domain.Membership) bool { return o == m })
-	return nil
+	return len(s.members) < n, nil
 }
 
 func (s *store) IsAdmin(_ context.Context, userID uuid.UUID) (bool, error) {
@@ -126,17 +131,24 @@ func (s *store) Assignments(context.Context) ([]domain.Assignment, error) {
 	return slices.Clone(s.assignments), s.err("Assignments")
 }
 
-func (s *store) Assign(_ context.Context, a domain.Assignment) error {
+func (s *store) Assign(_ context.Context, a domain.Assignment) (bool, error) {
 	if err := s.err("Assign"); err != nil {
-		return err
+		return false, err
+	}
+	if slices.Contains(s.assignments, a) {
+		return false, nil
 	}
 	s.assignments = append(s.assignments, a)
-	return nil
+	return true, nil
 }
 
-func (s *store) Unassign(_ context.Context, a domain.Assignment) error {
+func (s *store) Unassign(_ context.Context, a domain.Assignment) (bool, error) {
+	if err := s.err("Unassign"); err != nil {
+		return false, err
+	}
+	n := len(s.assignments)
 	s.assignments = slices.DeleteFunc(s.assignments, func(o domain.Assignment) bool { return o == a })
-	return s.err("Unassign")
+	return len(s.assignments) < n, nil
 }
 
 func (s *store) RolesOf(_ context.Context, userID uuid.UUID, clientID string) ([]string, error) {
@@ -175,17 +187,24 @@ func (c catalog) Client(_ context.Context, id string) (domain.Client, bool) {
 }
 
 type people struct {
-	list      []domain.Person
-	err       error
-	signedOut []uuid.UUID
+	list        []domain.Person
+	err         error
+	signedOut   []uuid.UUID
+	signedOutBy []uuid.UUID
 }
 
 func (p *people) People(context.Context) ([]domain.Person, error) { return p.list, p.err }
 
-func (p *people) SignOut(_ context.Context, userID uuid.UUID) error {
+func (p *people) SignOut(_ context.Context, actor, userID uuid.UUID) error {
 	p.signedOut = append(p.signedOut, userID)
+	p.signedOutBy = append(p.signedOutBy, actor)
 	return p.err
 }
+
+// recorded is the Audit Events a Service recorded.
+type recorded []audit.Event
+
+func (r *recorded) Record(_ context.Context, e audit.Event) { *r = append(*r, e) }
 
 var (
 	admin   = uuid.MustParse("00000000-0000-4000-8000-0000000000a1")
@@ -200,6 +219,7 @@ var (
 type fixture struct {
 	store  *store
 	people *people
+	events *recorded
 	svc    *app.Service
 }
 
@@ -210,7 +230,8 @@ func newFixture() *fixture {
 		fail:    map[string]error{},
 	}
 	p := &people{list: []domain.Person{{ID: ada, Email: "ada@example.org", Name: "Ada"}}}
-	return &fixture{store: s, people: p, svc: app.New(s, catalog{grafana}, p, bytes.NewReader(bytes.Repeat([]byte{7}, 64)))}
+	events := &recorded{}
+	return &fixture{store: s, people: p, events: events, svc: app.New(s, catalog{grafana}, p, events, bytes.NewReader(bytes.Repeat([]byte{7}, 64)))}
 }
 
 var ctx = context.Background()
@@ -337,7 +358,7 @@ func TestTwoGroupsCannotShareAName(t *testing.T) {
 
 func TestNoGroupIsMadeWithoutRandomnessForItsID(t *testing.T) {
 	f := newFixture()
-	broken := app.New(f.store, catalog{}, f.people, bytes.NewReader(nil))
+	broken := app.New(f.store, catalog{}, f.people, f.events, bytes.NewReader(nil))
 	if _, err := broken.CreateGroup(ctx, asAdmin, "Cousins"); err == nil {
 		t.Fatal("a Group was made without randomness")
 	}

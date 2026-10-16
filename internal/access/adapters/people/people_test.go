@@ -15,13 +15,13 @@ import (
 type users struct {
 	list      []usersdomain.User
 	err       error
-	signedOut *uuid.UUID
+	signedOut *[2]uuid.UUID
 }
 
 func (u users) Users(context.Context) ([]usersdomain.User, error) { return u.list, u.err }
 
-func (u users) SignOutEverywhere(_ context.Context, id uuid.UUID) error {
-	*u.signedOut = id
+func (u users) SignOutEverywhere(_ context.Context, actor, id uuid.UUID) error {
+	*u.signedOut = [2]uuid.UUID{actor, id}
 	return u.err
 }
 
@@ -39,10 +39,10 @@ func TestPeopleAreUsersWithoutTheirSecrets(t *testing.T) {
 	}
 }
 
-func TestSigningOutAPersonSignsTheUserOutEverywhere(t *testing.T) {
-	var got uuid.UUID
-	id := uuid.New()
-	if err := people.New(users{signedOut: &got}).SignOut(context.Background(), id); err != nil || got != id {
+func TestSigningOutAPersonSignsTheUserOutEverywhereAtTheActorsAsking(t *testing.T) {
+	var got [2]uuid.UUID
+	actor, id := uuid.New(), uuid.New()
+	if err := people.New(users{signedOut: &got}).SignOut(context.Background(), actor, id); err != nil || got != [2]uuid.UUID{actor, id} {
 		t.Fatalf("SignOut = %v, signed out %v", err, got)
 	}
 }

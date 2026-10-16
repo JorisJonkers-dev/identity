@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	audit "github.com/JorisJonkers-dev/identity/internal/audit/domain"
 	"github.com/JorisJonkers-dev/identity/internal/users/domain"
 )
 
@@ -155,6 +156,7 @@ func (s *Service) ConfirmPasskey(ctx context.Context, userID uuid.UUID, sessionT
 	if err := s.store.DeletePasskeyEnrolment(ctx, userID); err != nil {
 		return err
 	}
+	s.record(ctx, audit.Event{Action: audit.SecondFactorAdded, User: userID})
 	return s.proved(ctx, userID, sessionToken, methodPasskey)
 }
 
@@ -208,10 +210,11 @@ func (s *Service) CompleteSignInWithPasskey(ctx context.Context, challenge strin
 	if err != nil {
 		return "", err
 	}
+	refused := audit.Event{User: userID, Reason: audit.ReasonSecondFactor}
 	// The ceremony is taken, not read: of two requests with one assertion, one gets it.
 	_, ceremony, err := s.store.TakeChallengeCeremony(ctx, hash, now)
 	if errors.Is(err, ErrNotFound) {
-		return "", ErrInvalidPasskey
+		return "", s.failed(ctx, refused, ErrInvalidPasskey)
 	}
 	if err != nil {
 		return "", err
@@ -222,20 +225,20 @@ func (s *Service) CompleteSignInWithPasskey(ctx context.Context, challenge strin
 	}
 	used, err := wa.FinishLogin(pu, ceremony, response)
 	if err != nil {
-		return "", ErrInvalidPasskey
+		return "", s.failed(ctx, refused, ErrInvalidPasskey)
 	}
 	// The counter moves on only from the record it was checked against, so two sign-ins with a
 	// copied key cannot both pass on one stored counter.
 	i := slices.IndexFunc(keys, func(k Passkey) bool { return bytes.Equal(k.CredentialID, used.CredentialID) })
 	if i < 0 {
-		return "", ErrInvalidPasskey
+		return "", s.failed(ctx, refused, ErrInvalidPasskey)
 	}
 	kept, err := s.store.UsePasskey(ctx, userID, used, keys[i].Credential, now)
 	if err != nil {
 		return "", err
 	}
 	if !kept {
-		return "", ErrInvalidPasskey
+		return "", s.failed(ctx, refused, ErrInvalidPasskey)
 	}
 	if err := s.store.DeleteChallenge(ctx, hash); err != nil {
 		return "", err

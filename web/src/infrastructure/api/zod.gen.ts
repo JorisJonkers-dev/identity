@@ -3,6 +3,45 @@
 import * as z from 'zod';
 
 /**
+ * The family of an Audit Event.
+ */
+export const zAuditKind = z.enum([
+    'sign-in',
+    'people',
+    'access',
+    'tokens'
+]);
+
+/**
+ * What an Audit Event records.
+ */
+export const zAuditAction = z.enum([
+    'signed-in',
+    'sign-in-failed',
+    'signed-out',
+    'user-created',
+    'user-renamed',
+    'password-changed',
+    'second-factor-added',
+    'second-factor-removed',
+    'admin-promoted',
+    'group-created',
+    'group-renamed',
+    'group-deleted',
+    'member-added',
+    'member-removed',
+    'role-assigned',
+    'role-removed',
+    'token-minted',
+    'token-revoked'
+]);
+
+/**
+ * Where a page of Audit Events ends; opaque.
+ */
+export const zAuditCursor = z.string().min(1).max(100);
+
+/**
  * An email address.
  */
 export const zEmail = z.email().max(254);
@@ -69,14 +108,60 @@ export const zPasswordChange = z.object({
 export const zId = z.uuid().max(36);
 
 /**
+ * A User an Audit Event names. A User who is gone has only an id.
+ */
+export const zAuditPerson = z.object({
+    id: zId,
+    email: zEmail.optional(),
+    name: z.string().max(400).optional()
+});
+
+/**
  * A Client's id, the name of its Client object.
  */
 export const zClientId = z.string().min(1).max(253).regex(/^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$/);
 
 /**
+ * A Client an Audit Event names. A Client that is gone is labelled with its id.
+ */
+export const zAuditClient = z.object({
+    id: zClientId,
+    label: z.string().max(200)
+});
+
+/**
  * An App Role a Client declares.
  */
 export const zAppRole = z.string().min(1).max(63).regex(/^[a-z][a-z0-9-]*$/);
+
+/**
+ * One Audit Event.
+ */
+export const zAuditEvent = z.object({
+    id: zId,
+    at: z.iso.datetime({ offset: true }).max(64),
+    kind: zAuditKind,
+    action: zAuditAction,
+    actor: zAuditPerson.optional(),
+    user: zAuditPerson.optional(),
+    client: zAuditClient.optional(),
+    groupName: z.string().max(64).optional(),
+    role: zAppRole.optional(),
+    email: z.string().max(320).optional(),
+    reason: z.enum([
+        'password',
+        'second-factor',
+        'no-access'
+    ]).optional()
+});
+
+/**
+ * One page of Audit Events, newest first.
+ */
+export const zAuditPage = z.object({
+    events: z.array(zAuditEvent).max(50),
+    next: zAuditCursor.optional()
+});
 
 /**
  * What a Group is called.
@@ -463,3 +548,15 @@ export const zAssignRolePath = z.object({
  * The Group holds the App Role.
  */
 export const zAssignRoleResponse = z.void();
+
+export const zListAuditEventsQuery = z.object({
+    user: zId.optional(),
+    client: zClientId.optional(),
+    kind: zAuditKind.optional(),
+    before: zAuditCursor.optional()
+});
+
+/**
+ * One page of Audit Events.
+ */
+export const zListAuditEventsResponse = zAuditPage;

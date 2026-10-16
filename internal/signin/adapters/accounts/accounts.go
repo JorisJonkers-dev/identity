@@ -18,7 +18,7 @@ import (
 type Users interface {
 	SignedIn(ctx context.Context, token string) (usersdomain.User, usersapp.Session, error)
 	User(ctx context.Context, id uuid.UUID) (usersdomain.User, error)
-	SignOutEverywhere(ctx context.Context, id uuid.UUID) error
+	SignOutEverywhere(ctx context.Context, actor, id uuid.UUID) error
 }
 
 // Accounts is the app.Accounts.
@@ -49,5 +49,5 @@ func (a *Accounts) Claims(ctx context.Context, id uuid.UUID) (app.Claims, error)
 }
 
 func (a *Accounts) SignOutEverywhere(ctx context.Context, id uuid.UUID) error {
-	return a.users.SignOutEverywhere(ctx, id)
+	return a.users.SignOutEverywhere(ctx, uuid.Nil, id)
 }

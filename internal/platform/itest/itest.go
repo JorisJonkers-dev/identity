@@ -66,8 +66,22 @@ var (
 
 // Env is one running identity.
 type Env struct {
-	srv *httptest.Server
-	db  *pg.Store
+	srv   *httptest.Server
+	db    *pg.Store
+	logs  *logBuffer
+	prune func(context.Context) (int64, error)
+}
+
+// logBuffer keeps what identity logs, for tests to read; requests log from many goroutines.
+type logBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (l *logBuffer) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.buf.Write(p)
 }
 
 // Start runs identity for t with the Clients given, and stops it when t ends.
@@ -83,7 +97,8 @@ func Start(t *testing.T, cs ...signindomain.Client) *Env {
 	for _, c := range cs {
 		index.Put(c)
 	}
-	logger := slog.New(slog.DiscardHandler)
+	logs := &logBuffer{}
+	logger := slog.New(slog.NewJSONHandler(logs, nil))
 	built, err := assembly.New(assembly.Config{
 		Store:     store,
 		PublicURL: "https://" + Host,
@@ -100,7 +115,36 @@ func Start(t *testing.T, cs ...signindomain.Client) *Env {
 	srv := httptest.NewUnstartedServer(server.New(logger, "itest", built.Routes).Handler())
 	srv.StartTLS()
 	t.Cleanup(srv.Close)
-	return &Env{srv: srv, db: store}
+	return &Env{srv: srv, db: store, logs: logs, prune: built.Prune}
+}
+
+// Logs is every line identity logged so far, each decoded from its JSON.
+func (e *Env) Logs(t *testing.T) []map[string]any {
+	t.Helper()
+	e.logs.mu.Lock()
+	raw := slices.Clone(e.logs.buf.Bytes())
+	e.logs.mu.Unlock()
+	var lines []map[string]any
+	for line := range bytes.Lines(raw) {
+		var m map[string]any
+		if err := json.Unmarshal(line, &m); err != nil {
+			t.Fatalf("a log line that is not JSON: %s", line)
+		}
+		lines = append(lines, m)
+	}
+	return lines
+}
+
+// Queries reaches the test's database directly, to set up what no request can, such as an event
+// a year old.
+func (e *Env) Queries() *queries.Queries { return e.db.Queries() }
+
+// Prune runs the scheduled job that removes Audit Events older than a year.
+func (e *Env) Prune(t *testing.T) {
+	t.Helper()
+	if _, err := e.prune(t.Context()); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // Browser is a fresh browser, signed in to nothing, that reaches identity at https://identity.test.
@@ -178,7 +222,7 @@ func (e *Env) Promote(t *testing.T, email string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := q.AddMember(t.Context(), queries.AddMemberParams{GroupID: admins.ID, UserID: u.ID}); err != nil {
+	if _, err := q.AddMember(t.Context(), queries.AddMemberParams{GroupID: admins.ID, UserID: u.ID}); err != nil {
 		t.Fatal(err)
 	}
 }

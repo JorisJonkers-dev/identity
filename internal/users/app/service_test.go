@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
+	audit "github.com/JorisJonkers-dev/identity/internal/audit/domain"
 	"github.com/JorisJonkers-dev/identity/internal/users/app"
 	"github.com/JorisJonkers-dev/identity/internal/users/domain"
 )
@@ -554,13 +555,14 @@ type fixture struct {
 	sealer *sealer
 	wa     *webAuthn
 	admins *admins
+	events *recorded
 	now    time.Time
 	// dry makes every read of randomness fail.
 	dry bool
 }
 
 func newFixture() *fixture {
-	f := &fixture{store: newStore(), hasher: &hasher{}, mailer: &mailer{}, sealer: &sealer{}, wa: &webAuthn{}, admins: &admins{ids: map[uuid.UUID]bool{}}, now: t0}
+	f := &fixture{store: newStore(), hasher: &hasher{}, mailer: &mailer{}, sealer: &sealer{}, wa: &webAuthn{}, admins: &admins{ids: map[uuid.UUID]bool{}}, events: &recorded{}, now: t0}
 	// A reader that never runs out gives every token a distinct value.
 	var n byte
 	random := readerFunc(func(p []byte) (int, error) {
@@ -574,9 +576,14 @@ func newFixture() *fixture {
 		return len(p), nil
 	})
 	f.Service = app.New(f.store, f.hasher, f.mailer, func() time.Time { return f.now }, random, "https://auth.test",
-		app.WithSealer(f.sealer), app.WithWebAuthn(f.wa), app.WithAdmins(f.admins))
+		app.WithSealer(f.sealer), app.WithWebAuthn(f.wa), app.WithAdmins(f.admins), app.WithAudit(f.events))
 	return f
 }
+
+// recorded is the Audit Events a Service recorded.
+type recorded []audit.Event
+
+func (r *recorded) Record(_ context.Context, e audit.Event) { *r = append(*r, e) }
 
 type readerFunc func([]byte) (int, error)
 
@@ -1110,7 +1117,7 @@ func TestSignOutEverywhereEndsEverySessionOfThatUser(t *testing.T) {
 	one, _ := f.SignIn(ctx, "a@b.c", pw)
 	two, _ := f.SignIn(ctx, "a@b.c", pw)
 	bob, _ := f.SignIn(ctx, "b@b.c", pw)
-	if err := f.SignOutEverywhere(ctx, ada); err != nil {
+	if err := f.SignOutEverywhere(ctx, uuid.Nil, ada); err != nil {
 		t.Fatal(err)
 	}
 	for _, tok := range []string{one, two} {
@@ -1123,7 +1130,7 @@ func TestSignOutEverywhereEndsEverySessionOfThatUser(t *testing.T) {
 	}
 	boom := errors.New("boom")
 	f.store.fail["DeleteOtherSessions"] = boom
-	if err := f.SignOutEverywhere(ctx, ada); !errors.Is(err, boom) {
+	if err := f.SignOutEverywhere(ctx, uuid.Nil, ada); !errors.Is(err, boom) {
 		t.Fatalf("a failing store: %v", err)
 	}
 }

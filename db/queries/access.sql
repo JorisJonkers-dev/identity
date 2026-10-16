@@ -24,10 +24,10 @@ SELECT count(*) FROM memberships WHERE group_id = $1;
 -- name: ListMemberships :many
 SELECT group_id, user_id FROM memberships;
 
--- name: AddMember :exec
+-- name: AddMember :execrows
 INSERT INTO memberships (group_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;
 
--- name: RemoveMember :exec
+-- name: RemoveMember :execrows
 DELETE FROM memberships WHERE group_id = $1 AND user_id = $2;
 
 -- name: IsAdmin :one
@@ -38,10 +38,10 @@ SELECT EXISTS (
 -- name: ListAssignments :many
 SELECT group_id, client_id, role FROM assignments ORDER BY client_id, role;
 
--- name: Assign :exec
+-- name: Assign :execrows
 INSERT INTO assignments (group_id, client_id, role) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING;
 
--- name: Unassign :exec
+-- name: Unassign :execrows
 DELETE FROM assignments WHERE group_id = $1 AND client_id = $2 AND role = $3;
 
 -- name: RolesOf :many

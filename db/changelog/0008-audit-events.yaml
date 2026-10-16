@@ -1,0 +1,48 @@
+# Audit Events: who signed in, failed to, or changed a User, Group or Assignment. Kept one year,
+# then pruned. No foreign keys: an event outlives what it names, so it carries the Group's name.
+databaseChangeLog:
+  - changeSet:
+      id: 0008-create-audit-events
+      author: identity
+      changes:
+        - createTable:
+            tableName: audit_events
+            columns:
+              - column: {name: id, type: uuid, constraints: {primaryKey: true, nullable: false}}
+              - column: {name: at, type: timestamptz, constraints: {nullable: false}}
+              - column: {name: kind, type: text, constraints: {nullable: false}}
+              - column: {name: action, type: text, constraints: {nullable: false}}
+              # Who did it, when someone other than the User did.
+              - column: {name: actor_id, type: uuid}
+              - column: {name: user_id, type: uuid}
+              - column: {name: client_id, type: text}
+              - column: {name: group_id, type: uuid}
+              - column: {name: group_name, type: text}
+              - column: {name: role, type: text}
+              # Only for a failed sign-in, which may name no User.
+              - column: {name: email, type: text}
+              - column: {name: reason, type: text}
+        - createIndex:
+            tableName: audit_events
+            indexName: audit_events_at_idx
+            columns:
+              - column: {name: at}
+              - column: {name: id}
+        - createIndex:
+            tableName: audit_events
+            indexName: audit_events_user_idx
+            columns:
+              - column: {name: user_id}
+              - column: {name: at}
+        - createIndex:
+            tableName: audit_events
+            indexName: audit_events_actor_idx
+            columns:
+              - column: {name: actor_id}
+              - column: {name: at}
+        - createIndex:
+            tableName: audit_events
+            indexName: audit_events_client_idx
+            columns:
+              - column: {name: client_id}
+              - column: {name: at}

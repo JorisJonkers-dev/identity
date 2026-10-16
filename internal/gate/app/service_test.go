@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	audit "github.com/JorisJonkers-dev/identity/internal/audit/domain"
 	"github.com/JorisJonkers-dev/identity/internal/gate/app"
 )
 
@@ -130,17 +131,24 @@ type fixture struct {
 	store    *store
 	roles    *roles
 	accounts *accounts
+	events   *recorded
 	now      time.Time
 }
+
+// recorded is the Audit Events a Service recorded.
+type recorded []audit.Event
+
+func (r *recorded) Record(_ context.Context, e audit.Event) { *r = append(*r, e) }
 
 func newFixture() *fixture {
 	f := &fixture{
 		store:    &store{codes: map[string]app.Code{}, sessions: map[string]app.Session{}, fail: map[string]error{}},
 		roles:    &roles{held: map[string][]string{"tribelt-stats": {"user"}}},
 		accounts: &accounts{},
+		events:   &recorded{},
 		now:      t0,
 	}
-	f.Service = app.New(f.store, clients{stats.Host: stats}, f.roles, f.accounts, func() time.Time { return f.now }, &counter{}, 30*time.Second)
+	f.Service = app.New(f.store, clients{stats.Host: stats}, f.roles, f.accounts, f.events, func() time.Time { return f.now }, &counter{}, 30*time.Second)
 	return f
 }
 
@@ -229,7 +237,7 @@ func TestACheckRefuses(t *testing.T) {
 	// A host's cookie is no good on another gated host.
 	f2 := newFixture()
 	other := app.Client{ID: "other", Label: "Other", Host: "other.jorisjonkers.dev"}
-	f2.Service = app.New(f2.store, clients{stats.Host: stats, other.Host: other}, f2.roles, f2.accounts, time.Now, &counter{}, time.Minute)
+	f2.Service = app.New(f2.store, clients{stats.Host: stats, other.Host: other}, f2.roles, f2.accounts, &recorded{}, time.Now, &counter{}, time.Minute)
 	theirs := f2.signedIn(t)
 	f2.roles.held["other"] = []string{"user"}
 	if _, err := f2.Check(ctx, other.Host, theirs); !errors.Is(err, app.ErrNoSignIn) {
@@ -318,7 +326,7 @@ func TestAGateSignInFailsWhenTheStoreDoes(t *testing.T) {
 
 func TestNoGateCodeOrStateIsMadeWithoutRandomness(t *testing.T) {
 	f := newFixture()
-	dry := app.New(f.store, clients{stats.Host: stats}, f.roles, f.accounts, time.Now, bytes.NewReader(nil), time.Minute)
+	dry := app.New(f.store, clients{stats.Host: stats}, f.roles, f.accounts, &recorded{}, time.Now, bytes.NewReader(nil), time.Minute)
 	if _, err := dry.Start(context.Background(), "sso", stats.Host, "s", "/"); err == nil {
 		t.Error("a code was made")
 	}
@@ -376,7 +384,7 @@ func TestFinishingAGateSignInFailsWhenTheStoreDoes(t *testing.T) {
 func TestNoHostCookieIsMadeWithoutRandomness(t *testing.T) {
 	f := newFixture()
 	c, _ := f.Start(context.Background(), "sso", stats.Host, "s", "/")
-	f.Service = app.New(f.store, clients{stats.Host: stats}, f.roles, f.accounts, func() time.Time { return t0 }, bytes.NewReader(nil), time.Minute)
+	f.Service = app.New(f.store, clients{stats.Host: stats}, f.roles, f.accounts, &recorded{}, func() time.Time { return t0 }, bytes.NewReader(nil), time.Minute)
 	if _, _, err := f.Finish(context.Background(), stats.Host, c, "s"); err == nil {
 		t.Fatal("a host cookie was made")
 	}
