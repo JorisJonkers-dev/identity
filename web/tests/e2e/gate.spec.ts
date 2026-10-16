@@ -1,6 +1,6 @@
 import { request as httpRequest, createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { expect, test } from '@playwright/test'
-import { enrolTOTP, promote, signedUp } from './helpers'
+import { enrolTOTP, givesRole, promote, signedUp } from './helpers'
 
 const identity = { host: 'localhost', port: 18573 }
 
@@ -57,44 +57,51 @@ test('a gated app signs in through the Gate, and only for a User with a role on 
   const name = label(info.project.name)
   const email = await signedUp(page, `gate-${info.project.name}`)
 
-  // No cookie for the host: the Gate's page with one button.
-  await page.goto(`${app}/week/42`)
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Sign in to ${name}`)
-  await page.getByRole('link', { name: 'Sign in with jorisjonkers.dev' }).click()
-  // Signed in, but no Group gives a role on Stats.
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`You don't have access to ${name}`)
+  await test.step('a visitor without the host cookie gets the Gate page with one button', async () => {
+    await page.goto(`${app}/week/42`)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Sign in to ${name}`)
+  })
 
-  // An Admin gives the User's Group the role.
-  promote(email)
-  await enrolTOTP(page)
-  await page.goto('/access')
-  const group = `Stats readers ${info.project.name} ${String(Date.now())}`
-  await page.getByLabel('Group name').fill(group)
-  await page.getByRole('button', { name: 'Create Group' }).click()
-  const article = page.getByRole('article', { name: group })
-  await article.getByLabel('Add a member').selectOption({ label: `Grace Hopper (${email})` })
-  await article.getByRole('button', { name: 'Add' }).click()
-  await page.getByRole('checkbox', { name: `${group}: user on ${name}` }).check()
-  await expect(page.getByRole('checkbox', { name: `${group}: user on ${name}` })).toBeChecked()
+  await test.step('a signed-in User with no role on the app is told so', async () => {
+    await page.getByRole('link', { name: 'Sign in with jorisjonkers.dev' }).click()
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(`You don't have access to ${name}`)
+  })
 
-  await page.goto(`${app}/week/42`)
-  await page.getByRole('link', { name: 'Sign in with jorisjonkers.dev' }).click()
-  await expect(page).toHaveURL(`${app}/week/42`)
-  await expect(page.locator('body')).toHaveText(`Hello ${email} with user`)
+  await test.step("an Admin gives the User's Group the role", async () => {
+    promote(email)
+    await enrolTOTP(page)
+    await page.goto('/access')
+    const group = `Stats readers ${info.project.name} ${String(Date.now())}`
+    await page.getByLabel('Group name').fill(group)
+    await page.getByRole('button', { name: 'Create Group' }).click()
+    const article = page.getByRole('article', { name: group })
+    await article.getByLabel('Add a member').selectOption({ label: `Grace Hopper (${email})` })
+    await article.getByRole('button', { name: 'Add' }).click()
+    await givesRole(page, page.getByRole('checkbox', { name: `${group}: user on ${name}` }))
+  })
 
-  // The cookie is the host's alone, and the next visit needs no sign-in.
-  const cookies = await page.context().cookies(app)
-  const gate = cookies.find((c) => c.name === '__Host-identity_gate')
-  expect(gate?.httpOnly).toBe(true)
-  expect(gate?.domain).toBe('stats.localhost')
-  expect((await page.context().cookies('http://localhost:18573')).some((c) => c.name === '__Host-identity_gate')).toBe(false)
-  await page.goto(`${app}/`)
-  await expect(page.locator('body')).toHaveText(`Hello ${email} with user`)
+  await test.step('signing in through the Gate returns to the page asked for', async () => {
+    await page.goto(`${app}/week/42`)
+    await page.getByRole('link', { name: 'Sign in with jorisjonkers.dev' }).click()
+    await expect(page).toHaveURL(`${app}/week/42`)
+    await expect(page.locator('body')).toHaveText(`Hello ${email} with user`)
+  })
 
-  // Signing out at identity reaches the gated host at once, not when its 30-second cache runs out.
-  await page.goto('/profile')
-  await page.getByRole('button', { name: 'Sign out' }).click()
-  await expect(page).toHaveURL('/signin')
-  await page.goto(`${app}/`)
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Sign in to ${name}`)
+  await test.step("the cookie is the host's alone, and the next visit needs no sign-in", async () => {
+    const cookies = await page.context().cookies(app)
+    const gate = cookies.find((c) => c.name === '__Host-identity_gate')
+    expect(gate?.httpOnly).toBe(true)
+    expect(gate?.domain).toBe('stats.localhost')
+    expect((await page.context().cookies('http://localhost:18573')).some((c) => c.name === '__Host-identity_gate')).toBe(false)
+    await page.goto(`${app}/`)
+    await expect(page.locator('body')).toHaveText(`Hello ${email} with user`)
+  })
+
+  await test.step('signing out at identity reaches the gated host at once, not when its 30-second cache runs out', async () => {
+    await page.goto('/profile')
+    await page.getByRole('button', { name: 'Sign out' }).click()
+    await expect(page).toHaveURL('/signin')
+    await page.goto(`${app}/`)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Sign in to ${name}`)
+  })
 })

@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { createHmac } from 'node:crypto'
 import AxeBuilder from '@axe-core/playwright'
-import { expect, type Page } from '@playwright/test'
+import { expect, type Locator, type Page } from '@playwright/test'
 
 const mailpit = 'http://localhost:28025'
 
@@ -80,4 +80,15 @@ export async function enrolTOTP(page: Page): Promise<string> {
   await form.getByRole('button', { name: 'Add authenticator app' }).click()
   await expect(page.getByRole('status')).toContainText('Authenticator app added.')
   return secret
+}
+
+/**
+ * Ticks an App Role on the access page and waits for identity to keep it. The box is ticked in the
+ * browser at once, so leaving the page before the answer can cancel the request.
+ */
+export async function givesRole(page: Page, role: Locator) {
+  const kept = page.waitForResponse((r) => r.request().method() === 'PUT' && r.url().includes('/roles/') && r.status() === 204)
+  await role.check()
+  await kept
+  await expect(role).toBeChecked()
 }
