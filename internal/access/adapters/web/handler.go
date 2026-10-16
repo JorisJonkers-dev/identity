@@ -18,14 +18,14 @@ import (
 
 // UseCases is what the adapter needs from the application layer. Each refuses anyone but an Admin.
 type UseCases interface {
-	Overview(ctx context.Context, actor uuid.UUID) (app.Overview, error)
-	CreateGroup(ctx context.Context, actor uuid.UUID, name string) (domain.Group, error)
-	RenameGroup(ctx context.Context, actor, id uuid.UUID, name string) (domain.Group, error)
-	DeleteGroup(ctx context.Context, actor, id uuid.UUID) error
-	AddMember(ctx context.Context, actor uuid.UUID, m domain.Membership) error
-	RemoveMember(ctx context.Context, actor uuid.UUID, m domain.Membership) error
-	Assign(ctx context.Context, actor uuid.UUID, a domain.Assignment) error
-	Unassign(ctx context.Context, actor uuid.UUID, a domain.Assignment) error
+	Overview(ctx context.Context, actor app.Actor) (app.Overview, error)
+	CreateGroup(ctx context.Context, actor app.Actor, name string) (domain.Group, error)
+	RenameGroup(ctx context.Context, actor app.Actor, id uuid.UUID, name string) (domain.Group, error)
+	DeleteGroup(ctx context.Context, actor app.Actor, id uuid.UUID) error
+	AddMember(ctx context.Context, actor app.Actor, m domain.Membership) error
+	RemoveMember(ctx context.Context, actor app.Actor, m domain.Membership) error
+	Assign(ctx context.Context, actor app.Actor, a domain.Assignment) error
+	Unassign(ctx context.Context, actor app.Actor, a domain.Assignment) error
 }
 
 // Access implements the access operations.
@@ -36,7 +36,7 @@ func New(uc UseCases) *Access { return &Access{uc: uc} }
 
 // GetAccess implements getAccess.
 func (h *Access) GetAccess(ctx context.Context) (oas.GetAccessRes, error) {
-	o, err := h.uc.Overview(ctx, principal.From(ctx))
+	o, err := h.uc.Overview(ctx, actor(ctx))
 	if err != nil {
 		return refusal(err)
 	}
@@ -73,7 +73,7 @@ func (h *Access) GetAccess(ctx context.Context) (oas.GetAccessRes, error) {
 
 // CreateGroup implements createGroup.
 func (h *Access) CreateGroup(ctx context.Context, req *oas.GroupDraft) (oas.CreateGroupRes, error) {
-	g, err := h.uc.CreateGroup(ctx, principal.From(ctx), req.Name)
+	g, err := h.uc.CreateGroup(ctx, actor(ctx), req.Name)
 	if err != nil {
 		return refusal(err)
 	}
@@ -82,7 +82,7 @@ func (h *Access) CreateGroup(ctx context.Context, req *oas.GroupDraft) (oas.Crea
 
 // RenameGroup implements renameGroup.
 func (h *Access) RenameGroup(ctx context.Context, req *oas.GroupDraft, p oas.RenameGroupParams) (oas.RenameGroupRes, error) {
-	if _, err := h.uc.RenameGroup(ctx, principal.From(ctx), uuid.UUID(p.GroupId), req.Name); err != nil {
+	if _, err := h.uc.RenameGroup(ctx, actor(ctx), uuid.UUID(p.GroupId), req.Name); err != nil {
 		return refusal(err)
 	}
 	return &oas.RenameGroupNoContent{}, nil
@@ -90,7 +90,7 @@ func (h *Access) RenameGroup(ctx context.Context, req *oas.GroupDraft, p oas.Ren
 
 // DeleteGroup implements deleteGroup.
 func (h *Access) DeleteGroup(ctx context.Context, p oas.DeleteGroupParams) (oas.DeleteGroupRes, error) {
-	if err := h.uc.DeleteGroup(ctx, principal.From(ctx), uuid.UUID(p.GroupId)); err != nil {
+	if err := h.uc.DeleteGroup(ctx, actor(ctx), uuid.UUID(p.GroupId)); err != nil {
 		return refusal(err)
 	}
 	return &oas.DeleteGroupNoContent{}, nil
@@ -99,7 +99,7 @@ func (h *Access) DeleteGroup(ctx context.Context, p oas.DeleteGroupParams) (oas.
 // AddMember implements addMember.
 func (h *Access) AddMember(ctx context.Context, p oas.AddMemberParams) (oas.AddMemberRes, error) {
 	m := domain.Membership{GroupID: uuid.UUID(p.GroupId), UserID: uuid.UUID(p.UserId)}
-	if err := h.uc.AddMember(ctx, principal.From(ctx), m); err != nil {
+	if err := h.uc.AddMember(ctx, actor(ctx), m); err != nil {
 		return refusal(err)
 	}
 	return &oas.AddMemberNoContent{}, nil
@@ -108,7 +108,7 @@ func (h *Access) AddMember(ctx context.Context, p oas.AddMemberParams) (oas.AddM
 // RemoveMember implements removeMember.
 func (h *Access) RemoveMember(ctx context.Context, p oas.RemoveMemberParams) (oas.RemoveMemberRes, error) {
 	m := domain.Membership{GroupID: uuid.UUID(p.GroupId), UserID: uuid.UUID(p.UserId)}
-	if err := h.uc.RemoveMember(ctx, principal.From(ctx), m); err != nil {
+	if err := h.uc.RemoveMember(ctx, actor(ctx), m); err != nil {
 		return refusal(err)
 	}
 	return &oas.RemoveMemberNoContent{}, nil
@@ -117,7 +117,7 @@ func (h *Access) RemoveMember(ctx context.Context, p oas.RemoveMemberParams) (oa
 // AssignRole implements assignRole.
 func (h *Access) AssignRole(ctx context.Context, p oas.AssignRoleParams) (oas.AssignRoleRes, error) {
 	a := domain.Assignment{GroupID: uuid.UUID(p.GroupId), ClientID: string(p.ClientId), Role: string(p.Role)}
-	if err := h.uc.Assign(ctx, principal.From(ctx), a); err != nil {
+	if err := h.uc.Assign(ctx, actor(ctx), a); err != nil {
 		return refusal(err)
 	}
 	return &oas.AssignRoleNoContent{}, nil
@@ -126,10 +126,15 @@ func (h *Access) AssignRole(ctx context.Context, p oas.AssignRoleParams) (oas.As
 // UnassignRole implements unassignRole.
 func (h *Access) UnassignRole(ctx context.Context, p oas.UnassignRoleParams) (oas.UnassignRoleRes, error) {
 	a := domain.Assignment{GroupID: uuid.UUID(p.GroupId), ClientID: string(p.ClientId), Role: string(p.Role)}
-	if err := h.uc.Unassign(ctx, principal.From(ctx), a); err != nil {
+	if err := h.uc.Unassign(ctx, actor(ctx), a); err != nil {
 		return refusal(err)
 	}
 	return &oas.UnassignRoleNoContent{}, nil
+}
+
+func actor(ctx context.Context) app.Actor {
+	p := principal.From(ctx)
+	return app.Actor{ID: p.UserID, SecondFactor: p.SecondFactor}
 }
 
 func group(g domain.Group, members []oas.ID) oas.Group {
@@ -145,6 +150,8 @@ func refusal(err error) (*oas.ProblemStatusCode, error) {
 	switch {
 	case errors.Is(err, app.ErrNotAdmin):
 		return problem(http.StatusForbidden, "Only Admins manage access."), nil
+	case errors.Is(err, app.ErrSecondFactorNeeded):
+		return problem(http.StatusForbidden, "Sign out, then sign in again with an authenticator app to manage access. If you have none, add one on the Security page first."), nil
 	case errors.Is(err, app.ErrNotFound):
 		return problem(http.StatusNotFound, "That Group or person no longer exists. Reload the page."), nil
 	case errors.Is(err, app.ErrNameTaken):

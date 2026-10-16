@@ -37,7 +37,7 @@ func (a *Accounts) SignedIn(ctx context.Context, token string) (domain.SignIn, e
 	if err != nil {
 		return domain.SignIn{}, err
 	}
-	return domain.SignIn{UserID: s.UserID, SessionID: s.ID, At: s.CreatedAt}, nil
+	return domain.SignIn{UserID: s.UserID, SessionID: s.ID, At: s.CreatedAt, Methods: s.Methods}, nil
 }
 
 func (a *Accounts) Claims(ctx context.Context, id uuid.UUID) (app.Claims, error) {

@@ -70,7 +70,7 @@ func TestARequestFromStartToCode(t *testing.T) {
 	}
 
 	userID, sessionID := session(t, pool)
-	in := domain.SignIn{UserID: userID, SessionID: sessionID, At: t0}
+	in := domain.SignIn{UserID: userID, SessionID: sessionID, At: t0, Methods: []string{"pwd", "otp"}}
 	if done, err := s.CompleteRequest(ctx, r.ID, in); !done || err != nil {
 		t.Fatalf("CompleteRequest = %v, %v", done, err)
 	}
@@ -85,7 +85,7 @@ func TestARequestFromStartToCode(t *testing.T) {
 	}
 	got, err = s.TakeByCodeHash(ctx, []byte("code-hash"))
 	if err != nil || got.ID != r.ID || got.SignIn == nil || got.SignIn.UserID != in.UserID ||
-		got.SignIn.SessionID != in.SessionID || !got.SignIn.At.Equal(in.At) {
+		got.SignIn.SessionID != in.SessionID || !got.SignIn.At.Equal(in.At) || len(got.SignIn.Methods) != 2 || got.SignIn.Methods[1] != "otp" {
 		t.Fatalf("RequestByCodeHash = %+v, %v", got, err)
 	}
 

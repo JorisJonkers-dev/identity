@@ -13,7 +13,7 @@ import (
 )
 
 const createSession = `-- name: CreateSession :exec
-INSERT INTO sessions (token_hash, id, user_id, created_at, last_seen_at, expires_at) VALUES ($1, $2, $3, $4, $4, $5)
+INSERT INTO sessions (token_hash, id, user_id, created_at, last_seen_at, expires_at, methods) VALUES ($1, $2, $3, $4, $4, $5, $6)
 `
 
 type CreateSessionParams struct {
@@ -22,6 +22,7 @@ type CreateSessionParams struct {
 	UserID    uuid.UUID
 	CreatedAt time.Time
 	ExpiresAt time.Time
+	Methods   []string
 }
 
 func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) error {
@@ -31,6 +32,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) er
 		arg.UserID,
 		arg.CreatedAt,
 		arg.ExpiresAt,
+		arg.Methods,
 	)
 	return err
 }
@@ -58,6 +60,31 @@ func (q *Queries) CreateSignup(ctx context.Context, arg CreateSignupParams) erro
 	return err
 }
 
+const createTOTPFactor = `-- name: CreateTOTPFactor :exec
+INSERT INTO totp_factors (id, user_id, label, sealed_secret, last_step, created_at) VALUES ($1, $2, $3, $4, $5, $6)
+`
+
+type CreateTOTPFactorParams struct {
+	ID           uuid.UUID
+	UserID       uuid.UUID
+	Label        string
+	SealedSecret string
+	LastStep     int64
+	CreatedAt    time.Time
+}
+
+func (q *Queries) CreateTOTPFactor(ctx context.Context, arg CreateTOTPFactorParams) error {
+	_, err := q.db.Exec(ctx, createTOTPFactor,
+		arg.ID,
+		arg.UserID,
+		arg.Label,
+		arg.SealedSecret,
+		arg.LastStep,
+		arg.CreatedAt,
+	)
+	return err
+}
+
 const createUser = `-- name: CreateUser :exec
 INSERT INTO users (id, email, name, password_hash, created_at) VALUES ($1, $2, $3, $4, $5)
 `
@@ -78,6 +105,15 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 		arg.PasswordHash,
 		arg.CreatedAt,
 	)
+	return err
+}
+
+const deleteChallenge = `-- name: DeleteChallenge :exec
+DELETE FROM sign_in_challenges WHERE token_hash = $1
+`
+
+func (q *Queries) DeleteChallenge(ctx context.Context, tokenHash []byte) error {
+	_, err := q.db.Exec(ctx, deleteChallenge, tokenHash)
 	return err
 }
 
@@ -124,6 +160,32 @@ func (q *Queries) DeleteSignup(ctx context.Context, tokenHash []byte) error {
 	return err
 }
 
+const deleteTOTPEnrolment = `-- name: DeleteTOTPEnrolment :exec
+DELETE FROM totp_enrolments WHERE user_id = $1
+`
+
+func (q *Queries) DeleteTOTPEnrolment(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteTOTPEnrolment, userID)
+	return err
+}
+
+const deleteTOTPFactor = `-- name: DeleteTOTPFactor :execrows
+DELETE FROM totp_factors WHERE id = $1 AND user_id = $2
+`
+
+type DeleteTOTPFactorParams struct {
+	ID     uuid.UUID
+	UserID uuid.UUID
+}
+
+func (q *Queries) DeleteTOTPFactor(ctx context.Context, arg DeleteTOTPFactorParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteTOTPFactor, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const listUsers = `-- name: ListUsers :many
 SELECT id, email, name, password_hash, created_at FROM users ORDER BY lower(name), email
 `
@@ -155,7 +217,7 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 }
 
 const sessionByHash = `-- name: SessionByHash :one
-SELECT token_hash, id, user_id, created_at, last_seen_at, expires_at FROM sessions WHERE token_hash = $1
+SELECT token_hash, id, user_id, created_at, last_seen_at, expires_at, methods FROM sessions WHERE token_hash = $1
 `
 
 type SessionByHashRow struct {
@@ -165,6 +227,7 @@ type SessionByHashRow struct {
 	CreatedAt  time.Time
 	LastSeenAt time.Time
 	ExpiresAt  time.Time
+	Methods    []string
 }
 
 func (q *Queries) SessionByHash(ctx context.Context, tokenHash []byte) (SessionByHashRow, error) {
@@ -177,8 +240,24 @@ func (q *Queries) SessionByHash(ctx context.Context, tokenHash []byte) (SessionB
 		&i.CreatedAt,
 		&i.LastSeenAt,
 		&i.ExpiresAt,
+		&i.Methods,
 	)
 	return i, err
+}
+
+const setSessionMethods = `-- name: SetSessionMethods :exec
+UPDATE sessions SET methods = $2 WHERE token_hash = $1
+`
+
+type SetSessionMethodsParams struct {
+	TokenHash []byte
+	Methods   []string
+}
+
+// A session that has just proved a Second Factor says so from then on.
+func (q *Queries) SetSessionMethods(ctx context.Context, arg SetSessionMethodsParams) error {
+	_, err := q.db.Exec(ctx, setSessionMethods, arg.TokenHash, arg.Methods)
+	return err
 }
 
 const signupByHash = `-- name: SignupByHash :one
@@ -202,6 +281,75 @@ func (q *Queries) SignupByHash(ctx context.Context, tokenHash []byte) (SignupByH
 		&i.ExpiresAt,
 	)
 	return i, err
+}
+
+const spendChallengeAttempt = `-- name: SpendChallengeAttempt :one
+UPDATE sign_in_challenges SET attempts = attempts + 1
+WHERE token_hash = $1 AND attempts < $2 AND expires_at > $3
+RETURNING user_id
+`
+
+type SpendChallengeAttemptParams struct {
+	TokenHash []byte
+	Attempts  int32
+	ExpiresAt time.Time
+}
+
+// Counts one code against a sign-in; past the last attempt nothing comes back.
+func (q *Queries) SpendChallengeAttempt(ctx context.Context, arg SpendChallengeAttemptParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, spendChallengeAttempt, arg.TokenHash, arg.Attempts, arg.ExpiresAt)
+	var user_id uuid.UUID
+	err := row.Scan(&user_id)
+	return user_id, err
+}
+
+const tOTPEnrolment = `-- name: TOTPEnrolment :one
+SELECT sealed_secret, expires_at FROM totp_enrolments WHERE user_id = $1
+`
+
+type TOTPEnrolmentRow struct {
+	SealedSecret string
+	ExpiresAt    time.Time
+}
+
+func (q *Queries) TOTPEnrolment(ctx context.Context, userID uuid.UUID) (TOTPEnrolmentRow, error) {
+	row := q.db.QueryRow(ctx, tOTPEnrolment, userID)
+	var i TOTPEnrolmentRow
+	err := row.Scan(&i.SealedSecret, &i.ExpiresAt)
+	return i, err
+}
+
+const tOTPFactorsOfUser = `-- name: TOTPFactorsOfUser :many
+SELECT id, user_id, label, sealed_secret, last_step, created_at, last_used_at FROM totp_factors
+WHERE user_id = $1 ORDER BY created_at, id
+`
+
+func (q *Queries) TOTPFactorsOfUser(ctx context.Context, userID uuid.UUID) ([]TotpFactor, error) {
+	rows, err := q.db.Query(ctx, tOTPFactorsOfUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []TotpFactor{}
+	for rows.Next() {
+		var i TotpFactor
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Label,
+			&i.SealedSecret,
+			&i.LastStep,
+			&i.CreatedAt,
+			&i.LastUsedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const touchSession = `-- name: TouchSession :exec
@@ -245,6 +393,71 @@ type UpdateUserPasswordParams struct {
 func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
 	_, err := q.db.Exec(ctx, updateUserPassword, arg.ID, arg.PasswordHash)
 	return err
+}
+
+const upsertChallenge = `-- name: UpsertChallenge :exec
+INSERT INTO sign_in_challenges (token_hash, user_id, expires_at, window_started_at) VALUES ($1, $2, $3, $4)
+ON CONFLICT (user_id) DO UPDATE SET
+  token_hash = EXCLUDED.token_hash,
+  expires_at = EXCLUDED.expires_at,
+  attempts = CASE WHEN sign_in_challenges.window_started_at <= $5 THEN 0 ELSE sign_in_challenges.attempts END,
+  window_started_at = CASE WHEN sign_in_challenges.window_started_at <= $5 THEN EXCLUDED.window_started_at ELSE sign_in_challenges.window_started_at END
+`
+
+type UpsertChallengeParams struct {
+	TokenHash       []byte
+	UserID          uuid.UUID
+	ExpiresAt       time.Time
+	WindowStartedAt time.Time
+	WindowSince     time.Time
+}
+
+// A User has one challenge. A new sign-in replaces its token and expiry; its wrong codes still
+// count until the window that began with the first of them has passed.
+func (q *Queries) UpsertChallenge(ctx context.Context, arg UpsertChallengeParams) error {
+	_, err := q.db.Exec(ctx, upsertChallenge,
+		arg.TokenHash,
+		arg.UserID,
+		arg.ExpiresAt,
+		arg.WindowStartedAt,
+		arg.WindowSince,
+	)
+	return err
+}
+
+const upsertTOTPEnrolment = `-- name: UpsertTOTPEnrolment :exec
+INSERT INTO totp_enrolments (user_id, sealed_secret, expires_at) VALUES ($1, $2, $3)
+ON CONFLICT (user_id) DO UPDATE SET sealed_secret = EXCLUDED.sealed_secret, expires_at = EXCLUDED.expires_at
+`
+
+type UpsertTOTPEnrolmentParams struct {
+	UserID       uuid.UUID
+	SealedSecret string
+	ExpiresAt    time.Time
+}
+
+func (q *Queries) UpsertTOTPEnrolment(ctx context.Context, arg UpsertTOTPEnrolmentParams) error {
+	_, err := q.db.Exec(ctx, upsertTOTPEnrolment, arg.UserID, arg.SealedSecret, arg.ExpiresAt)
+	return err
+}
+
+const useTOTPStep = `-- name: UseTOTPStep :execrows
+UPDATE totp_factors SET last_step = $2, last_used_at = $3 WHERE id = $1 AND last_step < $2
+`
+
+type UseTOTPStepParams struct {
+	ID         uuid.UUID
+	LastStep   int64
+	LastUsedAt *time.Time
+}
+
+// Accepts a code's step once: a replayed or older code changes nothing.
+func (q *Queries) UseTOTPStep(ctx context.Context, arg UseTOTPStepParams) (int64, error) {
+	result, err := q.db.Exec(ctx, useTOTPStep, arg.ID, arg.LastStep, arg.LastUsedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const userByEmail = `-- name: UserByEmail :one

@@ -9,8 +9,8 @@ import { describeError } from './problem'
 export function useAction<TData, TError, TVariables>(options: UseMutationOptions<TData, TError, TVariables>) {
   const mutation = useMutation(options)
   return {
-    run: (variables: TVariables, onSuccess?: () => void) => {
-      mutation.mutate(variables, { onSuccess: () => onSuccess?.() })
+    run: (variables: TVariables, onSuccess?: (data: TData) => void) => {
+      mutation.mutate(variables, { onSuccess: (data) => onSuccess?.(data) })
     },
     isPending: mutation.isPending,
     isDone: mutation.isSuccess,

@@ -27,6 +27,13 @@ type Handler interface {
 	//
 	// POST /api/v1/profile/password
 	ChangePassword(ctx context.Context, req *PasswordChange) (ChangePasswordRes, error)
+	// CompleteSignIn implements completeSignIn operation.
+	//
+	// Takes a code from the User's authenticator app for the sign-in the challenge cookie names, and
+	// starts a session proved by both. A challenge takes five codes; a code works once.
+	//
+	// POST /api/v1/session/second-factor
+	CompleteSignIn(ctx context.Context, req *SecondFactorCode) (CompleteSignInRes, error)
 	// ConfirmEmail implements confirmEmail operation.
 	//
 	// Creates the User a sign-up describes, given the token from the mailed link and the password chosen
@@ -34,6 +41,14 @@ type Handler interface {
 	//
 	// POST /api/v1/confirmations
 	ConfirmEmail(ctx context.Context, req *Confirmation) (ConfirmEmailRes, error)
+	// ConfirmTOTP implements confirmTOTP operation.
+	//
+	// Keeps the authenticator app startTOTP set up once it gives a right code and the User's password is
+	// right. A User who already has one must be in a session that proved it. Every other session of the
+	// User's ends.
+	//
+	// POST /api/v1/profile/second-factors/totp/confirmation
+	ConfirmTOTP(ctx context.Context, req *TOTPConfirmation) (ConfirmTOTPRes, error)
 	// CreateGroup implements createGroup operation.
 	//
 	// Makes an empty Group. Names are unique whatever their case. Admins only.
@@ -66,12 +81,25 @@ type Handler interface {
 	//
 	// GET /api/v1/version
 	GetVersion(ctx context.Context) (GetVersionRes, error)
+	// ListSecondFactors implements listSecondFactors operation.
+	//
+	// Every authenticator app the User enrolled.
+	//
+	// GET /api/v1/profile/second-factors
+	ListSecondFactors(ctx context.Context) (ListSecondFactorsRes, error)
 	// RemoveMember implements removeMember operation.
 	//
 	// The admins Group always keeps one member. Admins only.
 	//
 	// DELETE /api/v1/access/groups/{groupId}/members/{userId}
 	RemoveMember(ctx context.Context, params RemoveMemberParams) (RemoveMemberRes, error)
+	// RemoveSecondFactor implements removeSecondFactor operation.
+	//
+	// Removes one of the User's authenticator apps once they give their password, from a session that
+	// proved a Second Factor.
+	//
+	// POST /api/v1/profile/second-factors/{factorId}/removal
+	RemoveSecondFactor(ctx context.Context, req *PasswordCheck, params RemoveSecondFactorParams) (RemoveSecondFactorRes, error)
 	// RenameGroup implements renameGroup operation.
 	//
 	// No token carries a Group's name, so renaming one changes nothing for any app. Admins only.
@@ -98,6 +126,13 @@ type Handler interface {
 	//
 	// POST /api/v1/signup
 	SignUp(ctx context.Context, req *SignUp) (SignUpRes, error)
+	// StartTOTP implements startTOTP operation.
+	//
+	// Makes a secret for a new authenticator app. It is kept, sealed by Vault, for ten minutes, until
+	// confirmTOTP gets a right code from the app.
+	//
+	// POST /api/v1/profile/second-factors/totp
+	StartTOTP(ctx context.Context) (StartTOTPRes, error)
 	// UnassignRole implements unassignRole operation.
 	//
 	// Removes an Assignment, also one on a Removed Client. Admins only.

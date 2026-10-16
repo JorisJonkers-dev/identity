@@ -567,6 +567,79 @@ func decodeRemoveMemberParams(args [2]string, argsEscaped bool, r *http.Request)
 	return params, nil
 }
 
+// RemoveSecondFactorParams is parameters of removeSecondFactor operation.
+type RemoveSecondFactorParams struct {
+	// The Second Factor.
+	FactorId ID
+}
+
+func unpackRemoveSecondFactorParams(packed middleware.Parameters) (params RemoveSecondFactorParams) {
+	{
+		key := middleware.ParameterKey{
+			Name: "factorId",
+			In:   "path",
+		}
+		params.FactorId = packed[key].(ID)
+	}
+	return params
+}
+
+func decodeRemoveSecondFactorParams(args [1]string, argsEscaped bool, r *http.Request) (params RemoveSecondFactorParams, _ error) {
+	// Decode path: factorId.
+	if err := func() error {
+		param := args[0]
+		if argsEscaped {
+			unescaped, err := url.PathUnescape(args[0])
+			if err != nil {
+				return errors.Wrap(err, "unescape path")
+			}
+			param = unescaped
+		}
+		if len(param) > 0 {
+			d := uri.NewPathDecoder(uri.PathDecoderConfig{
+				Param:   "factorId",
+				Value:   param,
+				Style:   uri.PathStyleSimple,
+				Explode: false,
+			})
+
+			if err := func() error {
+				var paramsDotFactorIdVal uuid.UUID
+				if err := func() error {
+					val, err := d.DecodeValue()
+					if err != nil {
+						return err
+					}
+
+					c, err := conv.ToUUID(val)
+					if err != nil {
+						return err
+					}
+
+					paramsDotFactorIdVal = c
+					return nil
+				}(); err != nil {
+					return err
+				}
+				params.FactorId = ID(paramsDotFactorIdVal)
+				return nil
+			}(); err != nil {
+				return err
+			}
+		} else {
+			return validate.ErrFieldRequired
+		}
+		return nil
+	}(); err != nil {
+		return params, &ogenerrors.DecodeParamError{
+			Name: "factorId",
+			In:   "path",
+			Err:  err,
+		}
+	}
+	return params, nil
+}
+
 // RenameGroupParams is parameters of renameGroup operation.
 type RenameGroupParams struct {
 	// The Group.

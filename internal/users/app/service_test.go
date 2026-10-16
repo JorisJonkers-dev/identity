@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"strings"
 	"testing"
@@ -19,20 +20,156 @@ var t0 = time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC)
 
 // store is an in-memory app.Store; fail makes the named method return its error.
 type store struct {
-	users    map[uuid.UUID]domain.User
-	signups  map[string]app.Signup
-	sessions map[string]app.Session
-	fail     map[string]error
-	touches  int
+	users      map[uuid.UUID]domain.User
+	signups    map[string]app.Signup
+	sessions   map[string]app.Session
+	challenges map[string]*challenge
+	factors    []app.TOTPFactor
+	enrolments map[uuid.UUID]app.TOTPEnrolment
+	fail       map[string]error
+	touches    int
+	// stale makes UseTOTPStep lose to another sign-in that used the step first.
+	stale bool
+}
+
+type challenge struct {
+	app.Challenge
+	attempts int
 }
 
 func newStore() *store {
 	return &store{
-		users:    map[uuid.UUID]domain.User{},
-		signups:  map[string]app.Signup{},
-		sessions: map[string]app.Session{},
-		fail:     map[string]error{},
+		users:      map[uuid.UUID]domain.User{},
+		signups:    map[string]app.Signup{},
+		sessions:   map[string]app.Session{},
+		challenges: map[string]*challenge{},
+		enrolments: map[uuid.UUID]app.TOTPEnrolment{},
+		fail:       map[string]error{},
 	}
+}
+
+func (s *store) SetSessionMethods(_ context.Context, hash []byte, methods []string) error {
+	if err := s.fail["SetSessionMethods"]; err != nil {
+		return err
+	}
+	sess := s.sessions[string(hash)]
+	sess.Methods = methods
+	s.sessions[string(hash)] = sess
+	return nil
+}
+
+// SaveChallenge keeps one challenge per User and carries its attempts, as the SQL does.
+func (s *store) SaveChallenge(_ context.Context, c app.Challenge, windowSince time.Time) error {
+	if err := s.fail["SaveChallenge"]; err != nil {
+		return err
+	}
+	for k, old := range s.challenges {
+		if old.UserID != c.UserID {
+			continue
+		}
+		delete(s.challenges, k)
+		if old.WindowStartedAt.After(windowSince) {
+			c.WindowStartedAt = old.WindowStartedAt
+			s.challenges[string(c.TokenHash)] = &challenge{Challenge: c, attempts: old.attempts}
+			return nil
+		}
+	}
+	s.challenges[string(c.TokenHash)] = &challenge{Challenge: c}
+	return nil
+}
+
+func (s *store) SpendChallengeAttempt(_ context.Context, hash []byte, maxAttempts int, now time.Time) (uuid.UUID, error) {
+	if err := s.fail["SpendChallengeAttempt"]; err != nil {
+		return uuid.Nil, err
+	}
+	c, ok := s.challenges[string(hash)]
+	if !ok || c.attempts >= maxAttempts || !now.Before(c.ExpiresAt) {
+		return uuid.Nil, app.ErrNotFound
+	}
+	c.attempts++
+	return c.UserID, nil
+}
+
+func (s *store) DeleteChallenge(_ context.Context, hash []byte) error {
+	if err := s.fail["DeleteChallenge"]; err != nil {
+		return err
+	}
+	delete(s.challenges, string(hash))
+	return nil
+}
+
+func (s *store) TOTPFactors(_ context.Context, userID uuid.UUID) ([]app.TOTPFactor, error) {
+	if err := s.fail["TOTPFactors"]; err != nil {
+		return nil, err
+	}
+	var out []app.TOTPFactor
+	for _, f := range s.factors {
+		if f.UserID == userID {
+			out = append(out, f)
+		}
+	}
+	return out, nil
+}
+
+func (s *store) CreateTOTPFactor(_ context.Context, f app.TOTPFactor) error {
+	if err := s.fail["CreateTOTPFactor"]; err != nil {
+		return err
+	}
+	s.factors = append(s.factors, f)
+	return nil
+}
+
+func (s *store) UseTOTPStep(_ context.Context, id uuid.UUID, step int64, _ time.Time) (bool, error) {
+	if err := s.fail["UseTOTPStep"]; err != nil {
+		return false, err
+	}
+	for i, f := range s.factors {
+		if f.ID == id && f.LastStep < step && !s.stale {
+			s.factors[i].LastStep = step
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (s *store) DeleteTOTPFactor(_ context.Context, id, userID uuid.UUID) (bool, error) {
+	if err := s.fail["DeleteTOTPFactor"]; err != nil {
+		return false, err
+	}
+	for i, f := range s.factors {
+		if f.ID == id && f.UserID == userID {
+			s.factors = append(s.factors[:i], s.factors[i+1:]...)
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (s *store) SaveTOTPEnrolment(_ context.Context, e app.TOTPEnrolment) error {
+	if err := s.fail["SaveTOTPEnrolment"]; err != nil {
+		return err
+	}
+	s.enrolments[e.UserID] = e
+	return nil
+}
+
+func (s *store) TOTPEnrolment(_ context.Context, userID uuid.UUID) (app.TOTPEnrolment, error) {
+	if err := s.fail["TOTPEnrolment"]; err != nil {
+		return app.TOTPEnrolment{}, err
+	}
+	e, ok := s.enrolments[userID]
+	if !ok {
+		return app.TOTPEnrolment{}, app.ErrNotFound
+	}
+	return e, nil
+}
+
+func (s *store) DeleteTOTPEnrolment(_ context.Context, userID uuid.UUID) error {
+	if err := s.fail["DeleteTOTPEnrolment"]; err != nil {
+		return err
+	}
+	delete(s.enrolments, userID)
+	return nil
 }
 
 func (s *store) CreateUser(_ context.Context, u domain.User) error {
@@ -225,26 +362,56 @@ func (m *mailer) Send(_ context.Context, mail app.Mail) error {
 	return nil
 }
 
+// sealer "seals" by prefixing, as Vault's ciphertexts are, so a test can see nothing is in clear.
+type sealer struct{ failSeal, failOpen error }
+
+func (s *sealer) Seal(_ context.Context, p []byte) (string, error) {
+	return "vault:v1:" + base64.StdEncoding.EncodeToString(p), s.failSeal
+}
+
+func (s *sealer) Open(_ context.Context, c string) ([]byte, error) {
+	if s.failOpen != nil {
+		return nil, s.failOpen
+	}
+	return base64.StdEncoding.DecodeString(strings.TrimPrefix(c, "vault:v1:"))
+}
+
+// admins names the Admins; err fails every check.
+type admins struct {
+	ids map[uuid.UUID]bool
+	err error
+}
+
+func (a *admins) IsAdmin(_ context.Context, id uuid.UUID) (bool, error) { return a.ids[id], a.err }
+
 type fixture struct {
 	*app.Service
 	store  *store
 	hasher *hasher
 	mailer *mailer
+	sealer *sealer
+	admins *admins
 	now    time.Time
+	// dry makes every read of randomness fail.
+	dry bool
 }
 
 func newFixture() *fixture {
-	f := &fixture{store: newStore(), hasher: &hasher{}, mailer: &mailer{}, now: t0}
+	f := &fixture{store: newStore(), hasher: &hasher{}, mailer: &mailer{}, sealer: &sealer{}, admins: &admins{ids: map[uuid.UUID]bool{}}, now: t0}
 	// A reader that never runs out gives every token a distinct value.
 	var n byte
 	random := readerFunc(func(p []byte) (int, error) {
+		if f.dry {
+			return 0, errors.New("no randomness")
+		}
 		n++
 		for i := range p {
 			p[i] = n
 		}
 		return len(p), nil
 	})
-	f.Service = app.New(f.store, f.hasher, f.mailer, func() time.Time { return f.now }, random, "https://auth.test")
+	f.Service = app.New(f.store, f.hasher, f.mailer, func() time.Time { return f.now }, random, "https://auth.test",
+		app.WithSealer(f.sealer), app.WithAdmins(f.admins))
 	return f
 }
 

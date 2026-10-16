@@ -1,6 +1,7 @@
 package oidc
 
 import (
+	"slices"
 	"time"
 
 	"github.com/zitadel/oidc/v3/pkg/oidc"
@@ -30,11 +31,20 @@ func (r authRequest) GetScopes() []string                { return r.Scopes }
 func (r authRequest) GetState() string                   { return r.State }
 func (r authRequest) Done() bool                         { return r.SignIn != nil }
 
+// GetAMR is how the session was proved (RFC 8176), with "mfa" once that is more than one factor. A
+// request completed before sessions recorded their methods was proved by a password.
 func (r authRequest) GetAMR() []string {
 	if r.SignIn == nil {
 		return nil
 	}
-	return []string{"pwd"} // a Single sign-on session is proved by a password, for now
+	if len(r.SignIn.Methods) == 0 {
+		return []string{"pwd"}
+	}
+	amr := slices.Clone(r.SignIn.Methods)
+	if len(amr) > 1 {
+		amr = append(amr, "mfa")
+	}
+	return amr
 }
 
 func (r authRequest) GetAuthTime() time.Time {

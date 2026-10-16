@@ -10,6 +10,7 @@ export function createAppRouter(history: RouterHistory = createWebHistory()): Ro
       { path: '/confirm', name: 'confirm', component: () => import('../features/account/components/ConfirmPage.vue') },
       { path: '/signin', name: 'signin', component: () => import('../features/account/components/SignInPage.vue') },
       { path: '/profile', name: 'profile', component: () => import('../features/account/components/ProfilePage.vue') },
+      { path: '/security', name: 'security', component: () => import('../features/security/components/SecurityPage.vue') },
       { path: '/access', name: 'access', component: () => import('../features/access/components/AccessPage.vue') },
       { path: '/no-access', name: 'no-access', component: () => import('../features/access/components/NoAccessPage.vue') },
       { path: '/:rest(.*)*', redirect: '/' },

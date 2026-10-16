@@ -32,6 +32,9 @@ export default defineConfig({
       SMTP_ADDR: 'localhost:51025',
       SMTP_TLS: 'none',
       MAIL_FROM: 'identity@localhost',
+      // The compose dev-mode Vault and its fixed root token, which only a local run has.
+      VAULT_ADDR: 'http://localhost:58200',
+      VAULT_TOKEN: 'dev-only-root',
     },
   },
 })

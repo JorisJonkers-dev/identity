@@ -22,46 +22,46 @@ type useCases struct {
 	err      error
 	overview app.Overview
 	group    domain.Group
-	actor    uuid.UUID
+	actor    app.Actor
 	asked    []any
 }
 
-func (u *useCases) Overview(_ context.Context, actor uuid.UUID) (app.Overview, error) {
+func (u *useCases) Overview(_ context.Context, actor app.Actor) (app.Overview, error) {
 	u.actor = actor
 	return u.overview, u.err
 }
 
-func (u *useCases) CreateGroup(_ context.Context, actor uuid.UUID, name string) (domain.Group, error) {
+func (u *useCases) CreateGroup(_ context.Context, actor app.Actor, name string) (domain.Group, error) {
 	u.actor, u.asked = actor, append(u.asked, name)
 	return u.group, u.err
 }
 
-func (u *useCases) RenameGroup(_ context.Context, actor, id uuid.UUID, name string) (domain.Group, error) {
+func (u *useCases) RenameGroup(_ context.Context, actor app.Actor, id uuid.UUID, name string) (domain.Group, error) {
 	u.actor, u.asked = actor, append(u.asked, id, name)
 	return u.group, u.err
 }
 
-func (u *useCases) DeleteGroup(_ context.Context, actor, id uuid.UUID) error {
+func (u *useCases) DeleteGroup(_ context.Context, actor app.Actor, id uuid.UUID) error {
 	u.actor, u.asked = actor, append(u.asked, id)
 	return u.err
 }
 
-func (u *useCases) AddMember(_ context.Context, actor uuid.UUID, m domain.Membership) error {
+func (u *useCases) AddMember(_ context.Context, actor app.Actor, m domain.Membership) error {
 	u.actor, u.asked = actor, append(u.asked, m)
 	return u.err
 }
 
-func (u *useCases) RemoveMember(_ context.Context, actor uuid.UUID, m domain.Membership) error {
+func (u *useCases) RemoveMember(_ context.Context, actor app.Actor, m domain.Membership) error {
 	u.actor, u.asked = actor, append(u.asked, m)
 	return u.err
 }
 
-func (u *useCases) Assign(_ context.Context, actor uuid.UUID, a domain.Assignment) error {
+func (u *useCases) Assign(_ context.Context, actor app.Actor, a domain.Assignment) error {
 	u.actor, u.asked = actor, append(u.asked, a)
 	return u.err
 }
 
-func (u *useCases) Unassign(_ context.Context, actor uuid.UUID, a domain.Assignment) error {
+func (u *useCases) Unassign(_ context.Context, actor app.Actor, a domain.Assignment) error {
 	u.actor, u.asked = actor, append(u.asked, a)
 	return u.err
 }
@@ -72,7 +72,9 @@ var (
 	family = uuid.MustParse("00000000-0000-4000-8000-0000000000b2")
 )
 
-func signedIn() context.Context { return principal.With(context.Background(), admin) }
+func signedIn() context.Context {
+	return principal.With(context.Background(), principal.Principal{UserID: admin, SecondFactor: true})
+}
 
 func wantProblem(t *testing.T, res any, err error, status int, detail string) {
 	t.Helper()
@@ -92,7 +94,7 @@ func TestGetAccess(t *testing.T) {
 	}}
 	res, err := web.New(uc).GetAccess(signedIn())
 	o, ok := res.(*oas.AccessOverview)
-	if err != nil || !ok || uc.actor != admin {
+	if err != nil || !ok || uc.actor != (app.Actor{ID: admin, SecondFactor: true}) {
 		t.Fatalf("GetAccess = %#v, %v (actor %v)", res, err, uc.actor)
 	}
 	if len(o.Groups) != 2 || o.Groups[0].Name != "Family" || len(o.Groups[0].Members) != 1 || uuid.UUID(o.Groups[0].Members[0]) != ada ||
@@ -125,7 +127,7 @@ func TestGroups(t *testing.T) {
 	}
 	if res, err := h.DeleteGroup(signedIn(), oas.DeleteGroupParams{GroupId: oas.ID(family)}); err != nil {
 		t.Fatal(err)
-	} else if _, ok := res.(*oas.DeleteGroupNoContent); !ok || uc.asked[3] != family || uc.actor != admin {
+	} else if _, ok := res.(*oas.DeleteGroupNoContent); !ok || uc.asked[3] != family || uc.actor != (app.Actor{ID: admin, SecondFactor: true}) {
 		t.Fatalf("DeleteGroup = %#v, asked %v", res, uc.asked)
 	}
 }
@@ -157,9 +159,9 @@ func TestMembersAndRoles(t *testing.T) {
 			return ok, a, err
 		},
 	} {
-		uc.asked, uc.actor = nil, uuid.Nil
+		uc.asked, uc.actor = nil, app.Actor{}
 		ok, want, err := call()
-		if err != nil || ok != true || len(uc.asked) != 1 || uc.asked[0] != want || uc.actor != admin {
+		if err != nil || ok != true || len(uc.asked) != 1 || uc.asked[0] != want || uc.actor != (app.Actor{ID: admin, SecondFactor: true}) {
 			t.Errorf("%s = %v, %v; asked %v by %v", name, ok, err, uc.asked, uc.actor)
 		}
 	}
@@ -172,6 +174,7 @@ func TestRefusals(t *testing.T) {
 		detail string
 	}{
 		{app.ErrNotAdmin, http.StatusForbidden, "Only Admins manage access."},
+		{app.ErrSecondFactorNeeded, http.StatusForbidden, "Sign out, then sign in again with an authenticator app to manage access. If you have none, add one on the Security page first."},
 		{app.ErrNotFound, http.StatusNotFound, "That Group or person no longer exists. Reload the page."},
 		{app.ErrNameTaken, http.StatusConflict, "A Group with that name already exists. Choose another name."},
 		{domain.ErrInvalidGroupName, http.StatusUnprocessableEntity, "Enter a Group name of 1 to 64 characters."},

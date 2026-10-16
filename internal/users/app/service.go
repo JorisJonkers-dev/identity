@@ -25,11 +25,17 @@ var (
 	ErrInvalidToken       = errors.New("this link has expired or was already used")
 	ErrNoSession          = errors.New("not signed in")
 	ErrBusy               = errors.New("too many password checks at once")
+	// ErrSecondFactorNeeded means the password was right and a Second Factor is enrolled: SignIn's
+	// token is then a sign-in challenge, which CompleteSignIn turns into a session.
+	ErrSecondFactorNeeded = errors.New("the sign-in needs a Second Factor")
+	ErrInvalidCode        = errors.New("the code is wrong or was already used")
+	ErrNoSealer           = errors.New("no Vault to keep Second Factor secrets in")
 )
 
 const (
-	signupLifetime  = 24 * time.Hour
-	sessionLifetime = 30 * 24 * time.Hour
+	signupLifetime       = 24 * time.Hour
+	sessionLifetime      = 30 * 24 * time.Hour
+	adminSessionLifetime = 12 * time.Hour
 	// A session's last use is written at most once a minute, not on every request (docs/adr/0009).
 	touchInterval = time.Minute
 	tokenBytes    = 32
@@ -54,6 +60,9 @@ type Session struct {
 	CreatedAt  time.Time
 	LastSeenAt time.Time
 	ExpiresAt  time.Time
+	// Methods is how the session was proved, as RFC 8176 names them: "pwd", and "otp" once a
+	// Second Factor was.
+	Methods []string
 }
 
 // Store is the users context's persistence.
@@ -74,6 +83,35 @@ type Store interface {
 	DeleteSession(ctx context.Context, tokenHash []byte) error
 	DeleteOtherSessions(ctx context.Context, userID uuid.UUID, keepTokenHash []byte) error
 	DeleteSessionsOfUser(ctx context.Context, userID uuid.UUID) error
+	SetSessionMethods(ctx context.Context, tokenHash []byte, methods []string) error
+	// SaveChallenge makes or replaces the User's one challenge. Its spent attempts carry over unless
+	// the window that holds them began at or before windowSince.
+	SaveChallenge(ctx context.Context, c Challenge, windowSince time.Time) error
+	// SpendChallengeAttempt counts one code against an unexpired challenge with attempts left and
+	// returns its User; ErrNotFound when there is none.
+	SpendChallengeAttempt(ctx context.Context, tokenHash []byte, maxAttempts int, now time.Time) (uuid.UUID, error)
+	DeleteChallenge(ctx context.Context, tokenHash []byte) error
+	TOTPFactors(ctx context.Context, userID uuid.UUID) ([]TOTPFactor, error)
+	CreateTOTPFactor(ctx context.Context, f TOTPFactor) error
+	// UseTOTPStep records a step newer than the factor's last, reporting whether it was newer.
+	UseTOTPStep(ctx context.Context, id uuid.UUID, step int64, at time.Time) (bool, error)
+	// DeleteTOTPFactor reports whether the User had the factor.
+	DeleteTOTPFactor(ctx context.Context, id, userID uuid.UUID) (bool, error)
+	SaveTOTPEnrolment(ctx context.Context, e TOTPEnrolment) error
+	// TOTPEnrolment is ErrNotFound when the User has none.
+	TOTPEnrolment(ctx context.Context, userID uuid.UUID) (TOTPEnrolment, error)
+	DeleteTOTPEnrolment(ctx context.Context, userID uuid.UUID) error
+}
+
+// Sealer keeps a secret as ciphertext only Vault can open (docs/adr/0013).
+type Sealer interface {
+	Seal(ctx context.Context, plaintext []byte) (string, error)
+	Open(ctx context.Context, ciphertext string) ([]byte, error)
+}
+
+// Admins tells who is an Admin, whose session lasts 12 hours (docs/adr/0007).
+type Admins interface {
+	IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error)
 }
 
 // Hasher turns a password into a stored hash and checks a candidate against one.
@@ -100,13 +138,28 @@ type Service struct {
 	now       func() time.Time
 	random    io.Reader
 	publicURL string
+	sealer    Sealer
+	admins    Admins
 
 	decoy atomic.Pointer[string]
 }
 
+// Option sets what a Service may run without.
+type Option func(*Service)
+
+// WithSealer lets Users enrol a TOTP Second Factor, its secret sealed by sealer.
+func WithSealer(sealer Sealer) Option { return func(s *Service) { s.sealer = sealer } }
+
+// WithAdmins caps an Admin's session at 12 hours.
+func WithAdmins(admins Admins) Option { return func(s *Service) { s.admins = admins } }
+
 // New returns a Service. publicURL is where links in mail point, with no trailing slash.
-func New(store Store, hasher Hasher, mailer Mailer, now func() time.Time, random io.Reader, publicURL string) *Service {
-	return &Service{store: store, hasher: hasher, mailer: mailer, now: now, random: random, publicURL: publicURL}
+func New(store Store, hasher Hasher, mailer Mailer, now func() time.Time, random io.Reader, publicURL string, opts ...Option) *Service {
+	s := &Service{store: store, hasher: hasher, mailer: mailer, now: now, random: random, publicURL: publicURL}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 // SignUp waits for an email confirmation and mails the link. It answers the same for an email
@@ -218,7 +271,23 @@ func (s *Service) SignIn(ctx context.Context, rawEmail, password string) (string
 	if !ok {
 		return "", ErrInvalidCredentials
 	}
+	factors, err := s.store.TOTPFactors(ctx, u.ID)
+	if err != nil {
+		return "", err
+	}
+	if len(factors) > 0 {
+		challenge, err := s.challenge(ctx, u.ID)
+		if err != nil {
+			return "", err
+		}
+		return challenge, ErrSecondFactorNeeded
+	}
+	return s.startSession(ctx, u.ID, []string{methodPassword})
+}
 
+// startSession makes a Single sign-on session proved by methods and returns its token. An Admin's
+// session lasts 12 hours, everyone else's 30 days from its last use.
+func (s *Service) startSession(ctx context.Context, userID uuid.UUID, methods []string) (string, error) {
 	token, hash, err := s.token()
 	if err != nil {
 		return "", err
@@ -228,11 +297,39 @@ func (s *Service) SignIn(ctx context.Context, rawEmail, password string) (string
 		return "", err
 	}
 	now := s.now()
-	sess := Session{TokenHash: hash, ID: id, UserID: u.ID, CreatedAt: now, LastSeenAt: now, ExpiresAt: now.Add(sessionLifetime)}
+	end, err := s.end(ctx, userID, now)
+	if err != nil {
+		return "", err
+	}
+	sess := Session{
+		TokenHash: hash, ID: id, UserID: userID, CreatedAt: now, LastSeenAt: now,
+		ExpiresAt: earliest(now.Add(sessionLifetime), end), Methods: methods,
+	}
 	if err := s.store.CreateSession(ctx, sess); err != nil {
 		return "", err
 	}
 	return token, nil
+}
+
+// end is when a session made at created must end whatever its use: 12 hours on for an Admin, and
+// never for anyone else.
+func (s *Service) end(ctx context.Context, userID uuid.UUID, created time.Time) (time.Time, error) {
+	if s.admins == nil {
+		return time.Time{}, nil
+	}
+	admin, err := s.admins.IsAdmin(ctx, userID)
+	if err != nil || !admin {
+		return time.Time{}, err
+	}
+	return created.Add(adminSessionLifetime), nil
+}
+
+// earliest is the sooner of t and an end; a zero end is no end.
+func earliest(t, end time.Time) time.Time {
+	if !end.IsZero() && end.Before(t) {
+		return end
+	}
+	return t
 }
 
 // decoyCheck verifies password against a hash no User has, to spend what a real check spends.
@@ -279,11 +376,16 @@ func (s *Service) SignedIn(ctx context.Context, token string) (domain.User, Sess
 		return domain.User{}, Session{}, err
 	}
 	now := s.now()
-	if !now.Before(sess.ExpiresAt) {
+	end, err := s.end(ctx, sess.UserID, sess.CreatedAt)
+	if err != nil {
+		return domain.User{}, Session{}, err
+	}
+	expires := earliest(sess.ExpiresAt, end)
+	if !now.Before(expires) {
 		return domain.User{}, Session{}, ErrNoSession
 	}
 	if now.Sub(sess.LastSeenAt) >= touchInterval {
-		if err := s.store.TouchSession(ctx, hash, now, now.Add(sessionLifetime)); err != nil {
+		if err := s.store.TouchSession(ctx, hash, now, earliest(now.Add(sessionLifetime), end)); err != nil {
 			return domain.User{}, Session{}, err
 		}
 	}

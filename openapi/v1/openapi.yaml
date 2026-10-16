@@ -117,6 +117,21 @@ paths:
               schema:
                 type: string
                 maxLength: 256
+        "202":
+          description: >-
+            The password is right and the User has a Second Factor. A short-lived challenge cookie
+            is set; completeSignIn takes the code.
+          headers:
+            Set-Cookie:
+              description: The challenge cookie, good for five minutes.
+              required: true
+              schema:
+                type: string
+                maxLength: 256
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecondFactorNeeded"
         "4XX":
           $ref: "#/components/responses/Problem"
         default:
@@ -194,6 +209,122 @@ paths:
       responses:
         "204":
           description: The password is changed.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/session/second-factor:
+    post:
+      operationId: completeSignIn
+      summary: Finish signing in with a Second Factor
+      description: >-
+        Takes a code from the User's authenticator app for the sign-in the challenge cookie names,
+        and starts a session proved by both. A challenge takes five codes; a code works once.
+      tags: [account]
+      security:
+        - challenge: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SecondFactorCode"
+      responses:
+        "204":
+          description: Signed in.
+          headers:
+            Set-Cookie:
+              description: The session cookie. The spent challenge cookie expires on its own.
+              required: true
+              schema:
+                type: string
+                maxLength: 256
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/profile/second-factors:
+    get:
+      operationId: listSecondFactors
+      summary: The signed-in User's Second Factors
+      description: Every authenticator app the User enrolled.
+      tags: [profile]
+      responses:
+        "200":
+          description: The Second Factors.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecondFactors"
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/profile/second-factors/totp:
+    post:
+      operationId: startTOTP
+      summary: Start adding an authenticator app
+      description: >-
+        Makes a secret for a new authenticator app. It is kept, sealed by Vault, for ten minutes,
+        until confirmTOTP gets a right code from the app.
+      tags: [profile]
+      responses:
+        "200":
+          description: What to put into the authenticator app.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TOTPSetup"
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/profile/second-factors/totp/confirmation:
+    post:
+      operationId: confirmTOTP
+      summary: Finish adding an authenticator app
+      description: >-
+        Keeps the authenticator app startTOTP set up once it gives a right code and the User's
+        password is right. A User who already has one must be in a session that proved it. Every
+        other session of the User's ends.
+      tags: [profile]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TOTPConfirmation"
+      responses:
+        "204":
+          description: The authenticator app is a Second Factor of the User's.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/profile/second-factors/{factorId}/removal:
+    parameters:
+      - name: factorId
+        in: path
+        required: true
+        description: The Second Factor.
+        schema:
+          $ref: "#/components/schemas/Id"
+    post:
+      operationId: removeSecondFactor
+      summary: Remove a Second Factor
+      description: >-
+        Removes one of the User's authenticator apps once they give their password, from a session
+        that proved a Second Factor.
+      tags: [profile]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordCheck"
+      responses:
+        "204":
+          description: Removed.
         "4XX":
           $ref: "#/components/responses/Problem"
         default:
@@ -332,6 +463,13 @@ paths:
           $ref: "#/components/responses/Problem"
 components:
   securitySchemes:
+    challenge:
+      type: apiKey
+      in: cookie
+      name: __Host-identity_challenge
+      description: >-
+        A sign-in whose password was right, waiting for its Second Factor: set by signIn's 202,
+        host-only, HttpOnly, Secure, SameSite=Lax, for five minutes.
     session:
       type: apiKey
       in: cookie
@@ -439,8 +577,11 @@ components:
       description: The signed-in User.
       type: object
       additionalProperties: false
-      required: [email, name, createdAt, admin]
+      required: [email, name, createdAt, admin, secondFactor]
       properties:
+        secondFactor:
+          type: boolean
+          description: Whether this session was proved with a Second Factor, which the admin pages need.
         admin:
           type: boolean
           description: Whether the User is an Admin, who manages access. An Admin holds no App Role by being one.
@@ -611,6 +752,115 @@ components:
           description: Every Assignment.
           items:
             $ref: "#/components/schemas/Assignment"
+    SecondFactorNeeded:
+      description: The sign-in waits for a Second Factor.
+      type: object
+      additionalProperties: false
+      required: [secondFactor]
+      properties:
+        secondFactor:
+          type: string
+          enum: [totp]
+          description: Which kind of Second Factor to ask for.
+    SecondFactorCode:
+      description: A code from an authenticator app.
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 16
+          description: The six digits the app shows.
+          example: "492039"
+    SecondFactor:
+      description: One of a User's Second Factors.
+      type: object
+      additionalProperties: false
+      required: [id, kind, label, createdAt]
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        kind:
+          type: string
+          enum: [totp]
+          description: An authenticator app.
+        label:
+          type: string
+          maxLength: 256
+          description: What the User called it.
+          example: Phone
+        createdAt:
+          type: string
+          format: date-time
+          maxLength: 64
+          description: When it was added.
+          example: "2026-10-16T12:00:00Z"
+        lastUsedAt:
+          type: string
+          format: date-time
+          maxLength: 64
+          description: When it last signed the User in.
+          example: "2026-10-16T18:00:00Z"
+    SecondFactors:
+      description: A User's Second Factors.
+      type: object
+      additionalProperties: false
+      required: [factors]
+      properties:
+        factors:
+          type: array
+          maxItems: 64
+          description: Oldest first.
+          items:
+            $ref: "#/components/schemas/SecondFactor"
+    TOTPSetup:
+      description: What an authenticator app needs, as a QR code's URI and as a secret to type in.
+      type: object
+      additionalProperties: false
+      required: [secret, uri]
+      properties:
+        secret:
+          type: string
+          maxLength: 64
+          description: The base32 secret, for typing into the app.
+          example: JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP
+        uri:
+          type: string
+          maxLength: 512
+          description: The otpauth URI the QR code carries.
+          example: otpauth://totp/jorisjonkers.dev:ada@example.org?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=jorisjonkers.dev
+    TOTPConfirmation:
+      description: >-
+        A name for the new authenticator app, its first code, and the User's password, so a session
+        someone else holds cannot add one.
+      type: object
+      additionalProperties: false
+      required: [label, code, password]
+      properties:
+        password:
+          $ref: "#/components/schemas/Password"
+        label:
+          type: string
+          minLength: 1
+          maxLength: 256
+          description: What to call it, 1 to 64 characters.
+          example: Phone
+        code:
+          type: string
+          minLength: 1
+          maxLength: 16
+          description: The six digits the app shows now.
+          example: "492039"
+    PasswordCheck:
+      description: The User's password, to confirm a change that weakens their sign-in.
+      type: object
+      additionalProperties: false
+      required: [password]
+      properties:
+        password:
+          $ref: "#/components/schemas/Password"
     Version:
       description: The running build.
       type: object

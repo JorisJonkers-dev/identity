@@ -30,18 +30,32 @@ func (users) SignIn(context.Context, string, string) (string, error) {
 	return "good", nil
 }
 func (users) SignOut(context.Context, string) error { return nil }
-func (users) Authenticate(_ context.Context, token string) (domain.User, error) {
+func (users) SignedIn(_ context.Context, token string) (domain.User, app.Session, error) {
 	if token != "good" {
-		return domain.User{}, app.ErrNoSession
+		return domain.User{}, app.Session{}, app.ErrNoSession
 	}
 	e, _ := domain.NewEmail("ada@example.org")
 	n, _ := domain.NewName("Ada")
-	return domain.User{ID: uuid.New(), Email: e, Name: n, CreatedAt: time.Unix(0, 0).UTC()}, nil
+	return domain.User{ID: uuid.New(), Email: e, Name: n, CreatedAt: time.Unix(0, 0).UTC()}, app.Session{Methods: []string{"pwd"}}, nil
 }
+func (users) CompleteSignIn(context.Context, string, string) (string, error) { return "good", nil }
+func (users) SecondFactors(context.Context, uuid.UUID) ([]app.TOTPFactor, error) {
+	return nil, nil
+}
+
+func (users) StartTOTP(context.Context, uuid.UUID) (app.TOTPSetup, error) {
+	return app.TOTPSetup{}, nil
+}
+
+func (users) ConfirmTOTP(context.Context, uuid.UUID, string, string, string, string) error {
+	return nil
+}
+func (users) RemoveTOTP(context.Context, uuid.UUID, uuid.UUID, string, string) error  { return nil }
 func (users) Rename(context.Context, uuid.UUID, string) error                         { return nil }
 func (users) ChangePassword(context.Context, uuid.UUID, string, string, string) error { return nil }
 func (u users) User(ctx context.Context, _ uuid.UUID) (domain.User, error) {
-	return u.Authenticate(ctx, "good")
+	user, _, err := u.SignedIn(ctx, "good")
+	return user, err
 }
 
 // access knows no Admin; only the operations the tests reach are answered.
@@ -49,8 +63,8 @@ type access struct{ accessweb.UseCases }
 
 func (access) IsAdmin(context.Context, uuid.UUID) (bool, error) { return false, nil }
 
-func (access) Overview(_ context.Context, actor uuid.UUID) (accessapp.Overview, error) {
-	if actor == uuid.Nil {
+func (access) Overview(_ context.Context, actor accessapp.Actor) (accessapp.Overview, error) {
+	if actor.ID == uuid.Nil {
 		return accessapp.Overview{}, errors.New("no principal reached the access adapter")
 	}
 	return accessapp.Overview{}, accessapp.ErrNotAdmin

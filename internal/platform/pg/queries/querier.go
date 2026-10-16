@@ -25,8 +25,10 @@ type Querier interface {
 	CreateGroup(ctx context.Context, arg CreateGroupParams) error
 	CreateSession(ctx context.Context, arg CreateSessionParams) error
 	CreateSignup(ctx context.Context, arg CreateSignupParams) error
+	CreateTOTPFactor(ctx context.Context, arg CreateTOTPFactorParams) error
 	CreateUser(ctx context.Context, arg CreateUserParams) error
 	DeleteAuthRequest(ctx context.Context, id uuid.UUID) error
+	DeleteChallenge(ctx context.Context, tokenHash []byte) error
 	// The admins Group stays, whatever the caller checked.
 	DeleteGroup(ctx context.Context, id uuid.UUID) error
 	// Ends every session of a User but one, as changing the password does.
@@ -35,6 +37,8 @@ type Querier interface {
 	// Signing out from any Client signs out everywhere (docs/adr/0007).
 	DeleteSessionsOfUser(ctx context.Context, userID uuid.UUID) error
 	DeleteSignup(ctx context.Context, tokenHash []byte) error
+	DeleteTOTPEnrolment(ctx context.Context, userID uuid.UUID) error
+	DeleteTOTPFactor(ctx context.Context, arg DeleteTOTPFactorParams) (int64, error)
 	GroupByID(ctx context.Context, id uuid.UUID) (GroupByIDRow, error)
 	IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error)
 	ListAssignments(ctx context.Context) ([]Assignment, error)
@@ -52,7 +56,13 @@ type Querier interface {
 	// A request gets one code; a second is refused.
 	SaveAuthCode(ctx context.Context, arg SaveAuthCodeParams) (int64, error)
 	SessionByHash(ctx context.Context, tokenHash []byte) (SessionByHashRow, error)
+	// A session that has just proved a Second Factor says so from then on.
+	SetSessionMethods(ctx context.Context, arg SetSessionMethodsParams) error
 	SignupByHash(ctx context.Context, tokenHash []byte) (SignupByHashRow, error)
+	// Counts one code against a sign-in; past the last attempt nothing comes back.
+	SpendChallengeAttempt(ctx context.Context, arg SpendChallengeAttemptParams) (uuid.UUID, error)
+	TOTPEnrolment(ctx context.Context, userID uuid.UUID) (TOTPEnrolmentRow, error)
+	TOTPFactorsOfUser(ctx context.Context, userID uuid.UUID) ([]TotpFactor, error)
 	// Redeeming a code removes its request in the same statement, so two exchanges racing with one
 	// code cannot both get tokens.
 	TakeAuthRequestByCodeHash(ctx context.Context, codeHash []byte) (AuthRequest, error)
@@ -60,6 +70,12 @@ type Querier interface {
 	Unassign(ctx context.Context, arg UnassignParams) error
 	UpdateUserName(ctx context.Context, arg UpdateUserNameParams) error
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
+	// A User has one challenge. A new sign-in replaces its token and expiry; its wrong codes still
+	// count until the window that began with the first of them has passed.
+	UpsertChallenge(ctx context.Context, arg UpsertChallengeParams) error
+	UpsertTOTPEnrolment(ctx context.Context, arg UpsertTOTPEnrolmentParams) error
+	// Accepts a code's step once: a replayed or older code changes nothing.
+	UseTOTPStep(ctx context.Context, arg UseTOTPStepParams) (int64, error)
 	UserByEmail(ctx context.Context, email string) (User, error)
 	UserByID(ctx context.Context, id uuid.UUID) (User, error)
 }

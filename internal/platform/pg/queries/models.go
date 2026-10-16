@@ -33,6 +33,7 @@ type AuthRequest struct {
 	SessionID           *uuid.UUID
 	AuthTime            *time.Time
 	CodeHash            []byte
+	Methods             []string
 }
 
 type Group struct {
@@ -54,6 +55,15 @@ type Session struct {
 	LastSeenAt time.Time
 	ExpiresAt  time.Time
 	ID         uuid.UUID
+	Methods    []string
+}
+
+type SignInChallenge struct {
+	TokenHash       []byte
+	UserID          uuid.UUID
+	Attempts        int32
+	ExpiresAt       time.Time
+	WindowStartedAt time.Time
 }
 
 type Signup struct {
@@ -62,6 +72,22 @@ type Signup struct {
 	Name         string
 	PasswordHash string
 	ExpiresAt    time.Time
+}
+
+type TotpEnrolment struct {
+	UserID       uuid.UUID
+	SealedSecret string
+	ExpiresAt    time.Time
+}
+
+type TotpFactor struct {
+	ID           uuid.UUID
+	UserID       uuid.UUID
+	Label        string
+	SealedSecret string
+	LastStep     int64
+	CreatedAt    time.Time
+	LastUsedAt   *time.Time
 }
 
 type User struct {

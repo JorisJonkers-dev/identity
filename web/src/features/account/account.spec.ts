@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mountAt, problem, settle } from '../../app/testing'
 import { navigation } from '../../infrastructure/navigation'
 
-const profile = { email: 'ada@example.org', name: 'Ada', createdAt: '2026-10-15T12:00:00Z', admin: false }
+const profile = { email: 'ada@example.org', name: 'Ada', createdAt: '2026-10-15T12:00:00Z', admin: false, secondFactor: false }
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -88,6 +88,40 @@ describe('signing in', () => {
     leave.mockRestore()
   })
 
+  it('asks for the code when the User has an authenticator app, then signs in', async () => {
+    const { wrapper, router, requests } = await mountAt('/signin', {
+      'POST /api/v1/session': Response.json({ secondFactor: 'totp' }, { status: 202 }),
+      'POST /api/v1/session/second-factor': new Response(null, { status: 204 }),
+      'GET /api/v1/profile': Response.json(profile),
+    })
+    await wrapper.get('#signin-email').setValue('ada@example.org')
+    await wrapper.get('#signin-password').setValue('correct horse battery')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(wrapper.get('h1').text()).toBe('Enter your code')
+    expect(router.currentRoute.value.path).toBe('/signin')
+    await wrapper.get('#signin-code').setValue('492 039')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(requests.find((r) => r.key === 'POST /api/v1/session/second-factor')?.body).toEqual({ code: '492039' })
+    expect(router.currentRoute.value.path).toBe('/profile')
+  })
+
+  it('says when the code is wrong', async () => {
+    const { wrapper } = await mountAt('/signin', {
+      'POST /api/v1/session': Response.json({ secondFactor: 'totp' }, { status: 202 }),
+      'POST /api/v1/session/second-factor': problem(422, 'That code is wrong or was already used.'),
+    })
+    await wrapper.get('#signin-email').setValue('ada@example.org')
+    await wrapper.get('#signin-password').setValue('correct horse battery')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    await wrapper.get('#signin-code').setValue('000000')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(wrapper.get('[role="alert"]').text()).toBe('That code is wrong or was already used.')
+  })
+
   it('says when the email or the password is wrong', async () => {
     const { wrapper } = await mountAt('/signin', { 'POST /api/v1/session': problem(401, 'The email or the password is wrong.') })
     await wrapper.get('#signin-email').setValue('ada@example.org')
@@ -126,6 +160,11 @@ describe('the profile', () => {
     await settle()
     expect(requests.find((r) => r.key === 'PATCH /api/v1/profile')?.body).toEqual({ name: 'Ada King' })
     expect(wrapper.get('dl').text()).toContain('Ada King')
+  })
+
+  it('links to the Security page', async () => {
+    const { wrapper } = await mountAt('/profile', { 'GET /api/v1/profile': Response.json(profile) })
+    expect(wrapper.get('a[href="/security"]').text()).toBe('Security and authenticator apps')
   })
 
   it('offers an Admin the access page', async () => {

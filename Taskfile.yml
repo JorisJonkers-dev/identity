@@ -108,10 +108,11 @@ tasks:
       - CGO_ENABLED=0 go build -trimpath -o bin/{{.APP}} ./cmd/{{.APP}}
 
   db:
-    desc: Start the compose Postgres and Mailpit, and migrate Postgres with liquibase-runner
+    desc: Start the compose Postgres, Mailpit and Vault, migrate Postgres with liquibase-runner, and make the TOTP key
     cmds:
-      - docker compose up -d --wait postgres mailpit
+      - docker compose up -d --wait postgres mailpit vault
       - docker compose run --rm migrate
+      - docker compose run --rm vault-init
 
   e2e:
     desc: Playwright with axe against the built binary and the compose Postgres

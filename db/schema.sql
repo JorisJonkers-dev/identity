@@ -24,7 +24,8 @@ CREATE TABLE public.auth_requests (
     user_id uuid,
     session_id uuid,
     auth_time timestamp with time zone,
-    code_hash bytea
+    code_hash bytea,
+    methods text[]
 );
 
 CREATE TABLE public.groups (
@@ -46,7 +47,16 @@ CREATE TABLE public.sessions (
     created_at timestamp with time zone NOT NULL,
     last_seen_at timestamp with time zone NOT NULL,
     expires_at timestamp with time zone NOT NULL,
-    id uuid DEFAULT gen_random_uuid() NOT NULL
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    methods text[] DEFAULT '{pwd}'::text[] NOT NULL
+);
+
+CREATE TABLE public.sign_in_challenges (
+    token_hash bytea NOT NULL,
+    user_id uuid NOT NULL,
+    attempts integer DEFAULT 0 NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    window_started_at timestamp with time zone NOT NULL
 );
 
 CREATE TABLE public.signups (
@@ -55,6 +65,24 @@ CREATE TABLE public.signups (
     name text NOT NULL,
     password_hash text NOT NULL,
     expires_at timestamp with time zone NOT NULL
+);
+
+CREATE TABLE public.totp_enrolments (
+    user_id uuid NOT NULL,
+    sealed_secret text NOT NULL,
+    expires_at timestamp with time zone NOT NULL
+);
+
+CREATE TABLE public.totp_factors (
+    id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    label text NOT NULL,
+    sealed_secret text NOT NULL,
+    last_step bigint NOT NULL,
+    created_at timestamp with time zone NOT NULL,
+    last_used_at timestamp with time zone,
+    CONSTRAINT totp_factors_label_length CHECK (((label = btrim(label)) AND ((char_length(label) >= 1) AND (char_length(label) <= 64)))),
+    CONSTRAINT totp_factors_sealed CHECK ((sealed_secret ~~ 'vault:v%'::text))
 );
 
 CREATE TABLE public.users (
@@ -88,8 +116,20 @@ ALTER TABLE ONLY public.sessions
 ALTER TABLE ONLY public.sessions
     ADD CONSTRAINT sessions_pkey PRIMARY KEY (token_hash);
 
+ALTER TABLE ONLY public.sign_in_challenges
+    ADD CONSTRAINT sign_in_challenges_pkey PRIMARY KEY (token_hash);
+
+ALTER TABLE ONLY public.sign_in_challenges
+    ADD CONSTRAINT sign_in_challenges_user_key UNIQUE (user_id);
+
 ALTER TABLE ONLY public.signups
     ADD CONSTRAINT signups_pkey PRIMARY KEY (token_hash);
+
+ALTER TABLE ONLY public.totp_enrolments
+    ADD CONSTRAINT totp_enrolments_pkey PRIMARY KEY (user_id);
+
+ALTER TABLE ONLY public.totp_factors
+    ADD CONSTRAINT totp_factors_pkey PRIMARY KEY (id);
 
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_email_key UNIQUE (email);
@@ -109,7 +149,11 @@ CREATE INDEX memberships_user_idx ON public.memberships USING btree (user_id);
 
 CREATE INDEX sessions_user_idx ON public.sessions USING btree (user_id);
 
+CREATE INDEX sign_in_challenges_expires_at_idx ON public.sign_in_challenges USING btree (expires_at);
+
 CREATE INDEX signups_expires_at_idx ON public.signups USING btree (expires_at);
+
+CREATE INDEX totp_factors_user_idx ON public.totp_factors USING btree (user_id);
 
 ALTER TABLE ONLY public.assignments
     ADD CONSTRAINT assignments_group_fk FOREIGN KEY (group_id) REFERENCES public.groups(id) ON DELETE CASCADE;
@@ -128,3 +172,12 @@ ALTER TABLE ONLY public.memberships
 
 ALTER TABLE ONLY public.sessions
     ADD CONSTRAINT sessions_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.sign_in_challenges
+    ADD CONSTRAINT sign_in_challenges_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.totp_enrolments
+    ADD CONSTRAINT totp_enrolments_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.totp_factors
+    ADD CONSTRAINT totp_factors_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;

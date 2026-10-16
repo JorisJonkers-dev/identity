@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { expectAccessible, promote, signedUp } from './helpers'
+import { enrolTOTP, expectAccessible, promote, signedUp } from './helpers'
 
 test('a promoted Admin manages Groups on the access page', async ({ page }, info) => {
   const email = await signedUp(page, `admin-${info.project.name}`)
@@ -7,6 +7,13 @@ test('a promoted Admin manages Groups on the access page', async ({ page }, info
 
   expect(promote(email)).toBe(`${email} is now an Admin.\n`)
   await page.reload()
+
+  // An Admin with no Second Factor is sent to add one before the access page opens.
+  await page.getByRole('link', { name: 'Manage access' }).click()
+  await expect(page).toHaveURL('/security?for=admin')
+  await expectAccessible(page)
+  await enrolTOTP(page)
+  await page.goto('/profile')
   await page.getByRole('link', { name: 'Manage access' }).click()
   await expect(page).toHaveURL('/access')
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Access')
