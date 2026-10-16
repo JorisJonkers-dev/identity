@@ -955,40 +955,69 @@ func TestSignOutEndsEverySessionAndSaysWhich(t *testing.T) {
 	}
 }
 
-func TestProfileChanges(t *testing.T) {
+func TestAUserRenamesThemselfWithTheNameTrimmed(t *testing.T) {
 	f := newFixture()
 	id := f.signedUp(t, "ada@example.org")
+	if err := f.Rename(context.Background(), id, "  Ada King "); err != nil || f.store.users[id].Name.String() != "Ada King" {
+		t.Fatalf("Rename = %v, name %q", err, f.store.users[id].Name)
+	}
+}
+
+func TestANameCannotBeEmpty(t *testing.T) {
+	f := newFixture()
+	id := f.signedUp(t, "ada@example.org")
+	if err := f.Rename(context.Background(), id, ""); !errors.Is(err, domain.ErrInvalidName) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestChangingThePasswordNeedsTheCurrentOne(t *testing.T) {
+	f := newFixture()
+	id := f.signedUp(t, "ada@example.org")
+	if err := f.ChangePassword(context.Background(), id, "", "wrong password!!", "a new password!"); !errors.Is(err, app.ErrInvalidCredentials) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestANewPasswordMustBeStrong(t *testing.T) {
+	f := newFixture()
+	id := f.signedUp(t, "ada@example.org")
+	if err := f.ChangePassword(context.Background(), id, "", pw, "short"); !errors.Is(err, domain.ErrWeakPassword) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestChangingThePasswordEndsEveryOtherSessionButThisOne(t *testing.T) {
 	ctx := context.Background()
-
-	if err := f.Rename(ctx, id, "  Ada King "); err != nil || f.store.users[id].Name.String() != "Ada King" {
-		t.Fatalf("rename: %v, %q", err, f.store.users[id].Name)
-	}
-	if err := f.Rename(ctx, id, ""); !errors.Is(err, domain.ErrInvalidName) {
-		t.Fatalf("empty name err = %v", err)
-	}
-
-	if err := f.ChangePassword(ctx, id, "", "wrong password!!", "a new password!"); !errors.Is(err, app.ErrInvalidCredentials) {
-		t.Fatalf("wrong current password err = %v", err)
-	}
-	if err := f.ChangePassword(ctx, id, "", pw, "short"); !errors.Is(err, domain.ErrWeakPassword) {
-		t.Fatalf("weak new password err = %v", err)
-	}
+	f := newFixture()
+	id := f.signedUp(t, "ada@example.org")
 	keep, _ := f.SignIn(ctx, "ada@example.org", pw)
 	other, _ := f.SignIn(ctx, "ada@example.org", pw)
 	if err := f.ChangePassword(ctx, id, keep, pw, "a new password!"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := f.Authenticate(ctx, other); !errors.Is(err, app.ErrNoSession) {
-		t.Fatalf("another session survived the password change: %v", err)
+		t.Fatalf("another session survived: %v", err)
 	}
 	if _, err := f.Authenticate(ctx, keep); err != nil {
 		t.Fatalf("the session that changed the password ended: %v", err)
 	}
+}
+
+func TestTheNewPasswordSignsIn(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture()
+	id := f.signedUp(t, "ada@example.org")
+	_ = f.ChangePassword(ctx, id, "", pw, "a new password!")
 	if _, err := f.SignIn(ctx, "ada@example.org", "a new password!"); err != nil {
-		t.Fatalf("signing in with the new password: %v", err)
+		t.Fatalf("err = %v", err)
 	}
-	u, err := f.User(ctx, id)
-	if err != nil || u.ID != id {
+}
+
+func TestAUserIsReadByID(t *testing.T) {
+	f := newFixture()
+	id := f.signedUp(t, "ada@example.org")
+	if u, err := f.User(context.Background(), id); err != nil || u.ID != id {
 		t.Fatalf("User = %+v, %v", u, err)
 	}
 }
