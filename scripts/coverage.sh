@@ -17,8 +17,15 @@ generated='/internal/platform/(oas|pg/queries|pg/pgtest|itest)(/|$)'
 # integration bucket reaches it.
 needs_db='/(cmd/identity|internal/assembly|internal/platform/pg|internal/[a-z]+/adapters/persistence)$'
 
+# Every package with tests, under the build tags given: a package of only integration tests, such as
+# a context's HTTP behaviour tests, exists only under the integration tag.
 packages() {
-  go list ./... | grep -Ev "$generated"
+  go list ${1:+-tags "$1"} ./... | grep -Ev "$generated"
+}
+
+# The packages with source to measure; one holding only tests has nothing to cover.
+measured() {
+  go list ${1:+-tags "$1"} -f '{{if .GoFiles}}{{.ImportPath}}{{end}}' ./... | grep -Ev "$generated"
 }
 
 joined() {
@@ -40,9 +47,9 @@ functions_gate() {
 }
 
 if [ "$bucket" = integration ]; then
-  all=$(packages)
+  all=$(packages integration)
   go test -race -count=1 -tags integration -covermode=atomic \
-    -coverpkg="$(echo "$all" | joined)" -coverprofile="$out/integration.out" $all
+    -coverpkg="$(measured integration | joined)" -coverprofile="$out/integration.out" $all
   counted=$(functions_gate "$out/integration.out")
   printf '{"integration": {"functions": {"covered": %s, "total": %s}}}\n' "${counted% *}" "${counted#* }" \
     >"$out/coverage-totals-integration.json"
