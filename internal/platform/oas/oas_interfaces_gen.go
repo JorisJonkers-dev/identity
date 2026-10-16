@@ -81,6 +81,10 @@ type SignOutRes interface {
 	signOutRes()
 }
 
+type SignOutUserRes interface {
+	signOutUserRes()
+}
+
 type SignUpRes interface {
 	signUpRes()
 }

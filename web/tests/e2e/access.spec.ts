@@ -28,3 +28,22 @@ test('a promoted Admin manages Groups on the access page', async ({ page }, info
   await page.getByRole('article', { name: group }).getByRole('button', { name: `Delete ${group}` }).click()
   await expect(page.getByRole('article', { name: group })).toHaveCount(0)
 })
+
+test('an Admin signs a User out on every device', async ({ page, browser }, info) => {
+  const other = await browser.newContext({ ...info.project.use })
+  const theirs = await other.newPage()
+  const email = await signedUp(theirs, `signed-out-${info.project.name}`)
+
+  promote(await signedUp(page, `admin-out-${info.project.name}`))
+  await enrolTOTP(page)
+  await page.goto('/access')
+  const row = page.getByRole('listitem', { name: `Grace Hopper (${email})` })
+  await row.getByRole('button', { name: 'Sign out on every device' }).click()
+  await row.getByRole('button', { name: 'Yes, sign out' }).click()
+  await expect(row.getByRole('status')).toHaveText('Grace Hopper is signed out on every device.')
+  await expectAccessible(page)
+
+  await theirs.goto('/profile')
+  await expect(theirs.getByRole('alert').getByRole('link', { name: 'Sign in' })).toBeVisible()
+  await other.close()
+})

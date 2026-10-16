@@ -104,7 +104,7 @@ func TestTheAPIServerHoldsClientsToTheEstate(t *testing.T) {
 	gated := map[string]any{"signIn": "gated", "host": "sonarr.jorisjonkers.dev", "label": "Sonarr", "roles": []any{"user"}}
 	token := map[string]any{"signIn": "token", "host": "api.jorisjonkers.dev", "roles": []any{"user", "writer"}}
 	pkce := with(native, map[string]any{"credential": "pkce", "secretPath": nil})
-	for name, spec := range map[string]map[string]any{"grafana": native, "sonarr": gated, "api": token, "spa": with(pkce, map[string]any{"host": "spa.jorisjonkers.dev", "redirectUris": []any{"https://spa.jorisjonkers.dev/cb"}, "launchUrl": nil, "iconUrl": nil})} {
+	for name, spec := range map[string]map[string]any{"grafana": native, "sonarr": gated, "api": token, "spa": with(pkce, map[string]any{"host": "spa.jorisjonkers.dev", "redirectUris": []any{"https://spa.jorisjonkers.dev/cb"}, "launchUrl": nil, "iconUrl": nil, "backChannelLogoutUri": nil})} {
 		if _, err := res.Create(ctx, clientObject(name, spec), metav1.CreateOptions{}); err != nil {
 			t.Fatalf("a valid %s Client is refused: %v", name, err)
 		}
@@ -120,6 +120,8 @@ func TestTheAPIServerHoldsClientsToTheEstate(t *testing.T) {
 		"a native Client without a credential":           with(native, map[string]any{"credential": nil, "secretPath": nil}),
 		"a native Client without redirects":              with(native, map[string]any{"redirectUris": nil}),
 		"a gated Client with redirects":                  with(gated, map[string]any{"redirectUris": []any{"https://sonarr.jorisjonkers.dev/cb"}}),
+		"a back-channel logout to another host":          with(native, map[string]any{"backChannelLogoutUri": "https://evil.jorisjonkers.dev/logout"}),
+		"a gated Client with a back-channel logout":      with(gated, map[string]any{"backChannelLogoutUri": "https://sonarr.jorisjonkers.dev/logout"}),
 		"a secret Client without a path":                 with(native, map[string]any{"secretPath": nil}),
 		"a PKCE Client with a secret path":               with(pkce, map[string]any{"secretPath": "secret/data/x/y/client"}), //nolint:gosec // a path, not a secret
 		"roles that do not start with user":              with(native, map[string]any{"roles": []any{"viewer", "user"}}),

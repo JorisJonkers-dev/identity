@@ -12,6 +12,7 @@ import (
 
 type Querier interface {
 	AddMember(ctx context.Context, arg AddMemberParams) error
+	AddSessionClient(ctx context.Context, arg AddSessionClientParams) error
 	AdminsGroup(ctx context.Context) (AdminsGroupRow, error)
 	Assign(ctx context.Context, arg AssignParams) error
 	AuthRequestByID(ctx context.Context, id uuid.UUID) (AuthRequest, error)
@@ -35,13 +36,11 @@ type Querier interface {
 	DeleteChallenge(ctx context.Context, tokenHash []byte) error
 	// The admins Group stays, whatever the caller checked.
 	DeleteGroup(ctx context.Context, id uuid.UUID) error
-	// Ends every session of a User but one, as changing the password does.
-	DeleteOtherSessions(ctx context.Context, arg DeleteOtherSessionsParams) error
+	// Ends every session of a User but the one keep names (or every one, when keep is null), and says
+	// which ended, so exactly those are announced (docs/adr/0007).
+	DeleteOtherSessions(ctx context.Context, arg DeleteOtherSessionsParams) ([]uuid.UUID, error)
 	DeletePasskey(ctx context.Context, arg DeletePasskeyParams) (int64, error)
 	DeletePasskeyEnrolment(ctx context.Context, userID uuid.UUID) error
-	DeleteSession(ctx context.Context, tokenHash []byte) error
-	// Signing out from any Client signs out everywhere (docs/adr/0007).
-	DeleteSessionsOfUser(ctx context.Context, userID uuid.UUID) error
 	DeleteSignup(ctx context.Context, tokenHash []byte) error
 	DeleteTOTPEnrolment(ctx context.Context, userID uuid.UUID) error
 	DeleteTOTPFactor(ctx context.Context, arg DeleteTOTPFactorParams) (int64, error)
@@ -83,6 +82,8 @@ type Querier interface {
 	TakeChallengeCeremony(ctx context.Context, arg TakeChallengeCeremonyParams) (TakeChallengeCeremonyRow, error)
 	// Redeeming a code removes it in the same statement, so a code works once.
 	TakeGateCode(ctx context.Context, codeHash []byte) (TakeGateCodeRow, error)
+	// The Clients the ended sessions signed into, removed as they are read.
+	TakeSessionClients(ctx context.Context, sessionIds []uuid.UUID) ([]SessionClient, error)
 	TouchSession(ctx context.Context, arg TouchSessionParams) error
 	Unassign(ctx context.Context, arg UnassignParams) error
 	UpdateUserName(ctx context.Context, arg UpdateUserNameParams) error

@@ -31,8 +31,8 @@ func grafana(host string) map[string]any {
 	return map[string]any{
 		"signIn": "native", "host": host, "label": "Grafana", "description": "Dashboards",
 		"launchUrl": "https://" + host + "/", "iconUrl": "https://" + host + "/icon.svg",
-		"redirectUris": []any{"https://" + host + "/login/generic_oauth"},
-		"credential":   "secret", "secretPath": "secret/data/monitoring/grafana/client",
+		"redirectUris": []any{"https://" + host + "/login/generic_oauth"}, "backChannelLogoutUri": "https://" + host + "/logout",
+		"credential": "secret", "secretPath": "secret/data/monitoring/grafana/client",
 		"roles": []any{"user", "viewer"},
 	}
 }
@@ -67,7 +67,8 @@ func TestWatchFollowsClientObjects(t *testing.T) {
 	}
 	if err != nil || c.ID != want.ID || c.SignIn != want.SignIn || c.Label != want.Label || c.Description != want.Description ||
 		c.LaunchURL != want.LaunchURL || c.IconURL != want.IconURL || c.RedirectURIs[0] != want.RedirectURIs[0] ||
-		c.Credential != want.Credential || c.SecretPath != want.SecretPath || len(c.Roles) != 2 {
+		c.Credential != want.Credential || c.SecretPath != want.SecretPath || len(c.Roles) != 2 ||
+		c.BackChannelLogoutURI != "https://grafana.jorisjonkers.dev/logout" {
 		t.Fatalf("ClientForHost = %+v, %v", c, err)
 	}
 

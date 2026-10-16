@@ -21,3 +21,10 @@ UPDATE auth_requests SET code_hash = $2 WHERE id = $1 AND code_hash IS NULL AND 
 
 -- name: DeleteAuthRequest :exec
 DELETE FROM auth_requests WHERE id = $1;
+
+-- name: AddSessionClient :exec
+INSERT INTO session_clients (session_id, client_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;
+
+-- name: TakeSessionClients :many
+-- The Clients the ended sessions signed into, removed as they are read.
+DELETE FROM session_clients WHERE session_id = ANY(sqlc.arg(session_ids)::uuid[]) RETURNING session_id, client_id;

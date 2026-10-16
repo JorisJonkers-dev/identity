@@ -82,6 +82,7 @@ var operationRolesSession = map[string][]string{
 	RemoveSecondFactorOperation: []string{},
 	RenameGroupOperation:        []string{},
 	SignOutOperation:            []string{},
+	SignOutUserOperation:        []string{},
 	StartPasskeyOperation:       []string{},
 	StartTOTPOperation:          []string{},
 	UnassignRoleOperation:       []string{},

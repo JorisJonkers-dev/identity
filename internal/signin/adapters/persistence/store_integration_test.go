@@ -154,3 +154,32 @@ func TestOnlyOneOfTwoRacingExchangesTakesACode(t *testing.T) {
 		}
 	}
 }
+
+func TestTheClientsASessionSignedIntoAreTakenOnce(t *testing.T) {
+	ctx := context.Background()
+	s, _ := open(t)
+	ended, kept := uuid.New(), uuid.New()
+	for _, sc := range []app.SessionClient{{SessionID: ended, ClientID: "spa"}, {SessionID: ended, ClientID: "spa"}, {SessionID: ended, ClientID: "web"}, {SessionID: kept, ClientID: "spa"}} {
+		if err := s.AddSessionClient(ctx, sc.SessionID, sc.ClientID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := s.TakeSessionClients(ctx, []uuid.UUID{ended})
+	if err != nil || len(got) != 2 {
+		t.Fatalf("taken = %v, %v", got, err)
+	}
+	for _, sc := range got {
+		if sc.SessionID != ended || (sc.ClientID != "spa" && sc.ClientID != "web") {
+			t.Fatalf("taken %+v", sc)
+		}
+	}
+	if again, _ := s.TakeSessionClients(ctx, []uuid.UUID{ended}); len(again) != 0 {
+		t.Fatalf("taken twice: %v", again)
+	}
+	if left, _ := s.TakeSessionClients(ctx, []uuid.UUID{kept}); len(left) != 1 || left[0].ClientID != "spa" {
+		t.Fatalf("the other session's Clients = %v", left)
+	}
+	if err := s.AddSessionClient(ctx, ended, "spa"); err != nil {
+		t.Fatal(err)
+	}
+}

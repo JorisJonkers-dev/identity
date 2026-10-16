@@ -90,4 +90,11 @@ test('a gated app signs in through the Gate, and only for a User with a role on 
   expect((await page.context().cookies('http://localhost:18573')).some((c) => c.name === '__Host-identity_gate')).toBe(false)
   await page.goto(`${app}/`)
   await expect(page.locator('body')).toHaveText(`Hello ${email} with user`)
+
+  // Signing out at identity reaches the gated host at once, not when its 30-second cache runs out.
+  await page.goto('/profile')
+  await page.getByRole('button', { name: 'Sign out' }).click()
+  await expect(page).toHaveURL('/signin')
+  await page.goto(`${app}/`)
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Sign in to ${name}`)
 })

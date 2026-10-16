@@ -26,6 +26,7 @@ const (
 	RenameGroupOperation               OperationName = "RenameGroup"
 	SignInOperation                    OperationName = "SignIn"
 	SignOutOperation                   OperationName = "SignOut"
+	SignOutUserOperation               OperationName = "SignOutUser"
 	SignUpOperation                    OperationName = "SignUp"
 	StartPasskeyOperation              OperationName = "StartPasskey"
 	StartTOTPOperation                 OperationName = "StartTOTP"

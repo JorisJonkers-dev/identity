@@ -53,6 +53,7 @@ func New(cfg Config, svc *app.Service, ring *Ring, logger *slog.Logger, now func
 	}
 	provider, err := op.NewProvider(&op.Config{
 		CryptoKey: cryptoKey, CodeMethodS256: true, AuthMethodPost: true,
+		BackChannelLogoutSupported: true, BackChannelLogoutSessionSupported: true,
 	}, &storage{svc: svc, ring: ring, logger: logger, now: now}, op.StaticIssuer(cfg.Issuer), opts...)
 	if err != nil {
 		return nil, err

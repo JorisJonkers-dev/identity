@@ -73,3 +73,19 @@ func toRequest(row queries.AuthRequest, err error) (domain.AuthRequest, error) {
 	}
 	return r, nil
 }
+
+func (s *Store) AddSessionClient(ctx context.Context, sessionID uuid.UUID, clientID string) error {
+	return s.q.AddSessionClient(ctx, queries.AddSessionClientParams{SessionID: sessionID, ClientID: clientID})
+}
+
+func (s *Store) TakeSessionClients(ctx context.Context, sessionIDs []uuid.UUID) ([]app.SessionClient, error) {
+	rows, err := s.q.TakeSessionClients(ctx, sessionIDs)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]app.SessionClient, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, app.SessionClient{SessionID: r.SessionID, ClientID: r.ClientID})
+	}
+	return out, nil
+}

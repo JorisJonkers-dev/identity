@@ -163,19 +163,35 @@ func (q *Queries) DeleteChallenge(ctx context.Context, tokenHash []byte) error {
 	return err
 }
 
-const deleteOtherSessions = `-- name: DeleteOtherSessions :exec
-DELETE FROM sessions WHERE user_id = $1 AND token_hash <> $2
+const deleteOtherSessions = `-- name: DeleteOtherSessions :many
+DELETE FROM sessions WHERE user_id = $1 AND token_hash IS DISTINCT FROM $2::bytea RETURNING id
 `
 
 type DeleteOtherSessionsParams struct {
-	UserID    uuid.UUID
-	TokenHash []byte
+	UserID uuid.UUID
+	Keep   []byte
 }
 
-// Ends every session of a User but one, as changing the password does.
-func (q *Queries) DeleteOtherSessions(ctx context.Context, arg DeleteOtherSessionsParams) error {
-	_, err := q.db.Exec(ctx, deleteOtherSessions, arg.UserID, arg.TokenHash)
-	return err
+// Ends every session of a User but the one keep names (or every one, when keep is null), and says
+// which ended, so exactly those are announced (docs/adr/0007).
+func (q *Queries) DeleteOtherSessions(ctx context.Context, arg DeleteOtherSessionsParams) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, deleteOtherSessions, arg.UserID, arg.Keep)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []uuid.UUID{}
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const deletePasskey = `-- name: DeletePasskey :execrows
@@ -201,25 +217,6 @@ DELETE FROM passkey_enrolments WHERE user_id = $1
 
 func (q *Queries) DeletePasskeyEnrolment(ctx context.Context, userID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deletePasskeyEnrolment, userID)
-	return err
-}
-
-const deleteSession = `-- name: DeleteSession :exec
-DELETE FROM sessions WHERE token_hash = $1
-`
-
-func (q *Queries) DeleteSession(ctx context.Context, tokenHash []byte) error {
-	_, err := q.db.Exec(ctx, deleteSession, tokenHash)
-	return err
-}
-
-const deleteSessionsOfUser = `-- name: DeleteSessionsOfUser :exec
-DELETE FROM sessions WHERE user_id = $1
-`
-
-// Signing out from any Client signs out everywhere (docs/adr/0007).
-func (q *Queries) DeleteSessionsOfUser(ctx context.Context, userID uuid.UUID) error {
-	_, err := q.db.Exec(ctx, deleteSessionsOfUser, userID)
 	return err
 }
 

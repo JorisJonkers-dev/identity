@@ -75,7 +75,7 @@ func TestTheGateCheckHoldsItsP99(t *testing.T) {
 	index.Put(domain.Client{ID: "stats", SignIn: domain.Gated, Host: "stats.jorisjonkers.dev", Label: "Stats", Roles: []string{"user"}})
 	users := usersapp.New(userspersistence.New(q), nil, nil, time.Now, rand.Reader, "")
 	access := accessapp.New(accesspersistence.New(q, store), catalog.New(index), people.New(users), rand.Reader)
-	signIn := signinapp.New(signinpersistence.New(q), index, accounts.New(users), access, time.Now, rand.Reader)
+	signIn := signinapp.New(signinpersistence.New(q), index, accounts.New(users), access, nil, time.Now, rand.Reader)
 	others := contexts.New(signIn, users)
 	gate := gateapp.New(gatepersistence.New(q), others, others, others, time.Now, rand.Reader, 30*time.Second)
 	h, err := web.New(gate, web.Config{Issuer: "https://auth.test", SessionCookie: "__Host-identity_session"}, slog.New(slog.DiscardHandler))

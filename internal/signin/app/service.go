@@ -38,6 +38,21 @@ type Requests interface {
 	// SaveCode records the code of a completed request that has none yet, reporting whether it did.
 	SaveCode(ctx context.Context, id uuid.UUID, codeHash []byte) (bool, error)
 	DeleteRequest(ctx context.Context, id uuid.UUID) error
+	// AddSessionClient records that a session signed into a Client.
+	AddSessionClient(ctx context.Context, sessionID uuid.UUID, clientID string) error
+	// TakeSessionClients removes and returns the Clients the sessions signed into.
+	TakeSessionClients(ctx context.Context, sessionIDs []uuid.UUID) ([]SessionClient, error)
+}
+
+// SessionClient is a Client a Single sign-on session signed into.
+type SessionClient struct {
+	SessionID uuid.UUID
+	ClientID  string
+}
+
+// Logouts tells a native Client that a session it signed into ended, by OIDC back-channel logout.
+type Logouts interface {
+	Send(ctx context.Context, c domain.Client, userID, sessionID uuid.UUID)
 }
 
 // Clients finds Clients, by id or by host; a Removed Client is found by neither.
@@ -72,13 +87,14 @@ type Service struct {
 	clients  Clients
 	accounts Accounts
 	access   Access
+	logouts  Logouts
 	now      func() time.Time
 	random   io.Reader
 }
 
 // New returns a Service. random is where request ids come from.
-func New(requests Requests, clients Clients, accounts Accounts, access Access, now func() time.Time, random io.Reader) *Service {
-	return &Service{requests: requests, clients: clients, accounts: accounts, access: access, now: now, random: random}
+func New(requests Requests, clients Clients, accounts Accounts, access Access, logouts Logouts, now func() time.Time, random io.Reader) *Service {
+	return &Service{requests: requests, clients: clients, accounts: accounts, access: access, logouts: logouts, now: now, random: random}
 }
 
 // Start keeps r, as /authorize received it, for requestLifetime, and returns it with its id.
@@ -142,6 +158,23 @@ func (s *Service) Complete(ctx context.Context, id uuid.UUID, sessionToken strin
 	}
 	if !done {
 		return ErrNotFound
+	}
+	return s.requests.AddSessionClient(ctx, signIn.SessionID, r.ClientID)
+}
+
+// SignedOut sends a logout token to every native Client the ended sessions signed into that takes
+// one (docs/adr/0007). A Client that has since gone, or takes none, is skipped.
+func (s *Service) SignedOut(ctx context.Context, userID uuid.UUID, sessionIDs []uuid.UUID) error {
+	signed, err := s.requests.TakeSessionClients(ctx, sessionIDs)
+	if err != nil {
+		return err
+	}
+	for _, sc := range signed {
+		c, err := s.clients.Client(ctx, sc.ClientID)
+		if err != nil || c.BackChannelLogoutURI == "" {
+			continue
+		}
+		s.logouts.Send(ctx, c, userID, sc.SessionID)
 	}
 	return nil
 }

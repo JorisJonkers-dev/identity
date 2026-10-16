@@ -139,6 +139,13 @@ type Handler interface {
 	//
 	// DELETE /api/v1/session
 	SignOut(ctx context.Context) (SignOutRes, error)
+	// SignOutUser implements signOutUser operation.
+	//
+	// Ends all of the User's sessions. Apps that support back-channel logout are told, and apps behind the
+	// Gate ask the User to sign in again. Signing out a User with no session does nothing. Admins only.
+	//
+	// POST /api/v1/access/users/{userId}/sign-out
+	SignOutUser(ctx context.Context, params SignOutUserParams) (SignOutUserRes, error)
 	// SignUp implements signUp operation.
 	//
 	// Registers an unconfirmed User and mails a confirmation link. Answers 202 whether or not the email is

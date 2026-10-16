@@ -1,0 +1,17 @@
+# Which native Clients each Single sign-on session signed into, so ending the session can send each
+# a back-channel logout token (docs/adr/0007). No foreign key: the rows are read after the session
+# is gone, and removed once the tokens are sent.
+databaseChangeLog:
+  - changeSet:
+      id: 0007-create-session-clients
+      author: identity
+      changes:
+        - createTable:
+            tableName: session_clients
+            columns:
+              - column: {name: session_id, type: uuid, constraints: {nullable: false}}
+              - column: {name: client_id, type: text, constraints: {nullable: false}}
+        - addPrimaryKey:
+            tableName: session_clients
+            columnNames: session_id, client_id
+            constraintName: session_clients_pkey

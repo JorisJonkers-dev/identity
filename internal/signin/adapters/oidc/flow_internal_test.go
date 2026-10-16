@@ -60,7 +60,7 @@ func serve(t *testing.T, requests app.Requests, accounts app.Accounts, access ap
 	var h http.Handler
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { h.ServeHTTP(w, r) }))
 	t.Cleanup(srv.Close)
-	svc := app.New(requests, testClients, accounts, access, time.Now, rand.Reader)
+	svc := app.New(requests, testClients, accounts, access, noLogouts{}, time.Now, rand.Reader)
 	var err error
 	h, err = New(Config{Issuer: srv.URL, Insecure: true, SessionCookie: cookieName}, svc, NewRing(testKey()), slog.New(slog.DiscardHandler), time.Now)
 	if err != nil {
@@ -255,7 +255,8 @@ func TestDiscoveryAndJWKSAreServedAtTheIssuer(t *testing.T) {
 		t.Fatalf("discovery = %d, %v", res.status, err)
 	}
 	if d.Issuer != e.issuer || d.AuthorizationEndpoint != e.issuer+"/oidc/authorize" || d.JwksURI != e.issuer+"/oidc/keys" ||
-		d.TokenEndpoint != e.issuer+"/oidc/token" || d.EndSessionEndpoint != e.issuer+"/oidc/end_session" {
+		d.TokenEndpoint != e.issuer+"/oidc/token" || d.EndSessionEndpoint != e.issuer+"/oidc/end_session" ||
+		!d.BackChannelLogoutSupported || !d.BackChannelLogoutSessionSupported {
 		t.Fatalf("discovery = %+v", d)
 	}
 	var jwks struct {

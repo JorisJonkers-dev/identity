@@ -74,6 +74,11 @@ CREATE TABLE public.passkeys (
     CONSTRAINT passkeys_label_length CHECK (((label = btrim(label)) AND ((char_length(label) >= 1) AND (char_length(label) <= 64))))
 );
 
+CREATE TABLE public.session_clients (
+    session_id uuid NOT NULL,
+    client_id text NOT NULL
+);
+
 CREATE TABLE public.sessions (
     token_hash bytea NOT NULL,
     user_id uuid NOT NULL,
@@ -158,6 +163,9 @@ ALTER TABLE ONLY public.passkeys
 
 ALTER TABLE ONLY public.passkeys
     ADD CONSTRAINT passkeys_pkey PRIMARY KEY (id);
+
+ALTER TABLE ONLY public.session_clients
+    ADD CONSTRAINT session_clients_pkey PRIMARY KEY (session_id, client_id);
 
 ALTER TABLE ONLY public.sessions
     ADD CONSTRAINT sessions_id_key UNIQUE (id);

@@ -161,6 +161,34 @@ describe('the access page', () => {
     expect(requests.map((r) => r.key)).toContain(`PUT /api/v1/access/groups/${family}/members/${ada}`)
   })
 
+  it('signs a person out everywhere, after asking', async () => {
+    const { wrapper, requests } = await mountAt('/access', {
+      'GET /api/v1/access': () => Response.json(overview()),
+      [`POST /api/v1/access/users/${ada}/sign-out`]: ok,
+    })
+    const row = () => wrapper.get(`li[aria-label="Ada (ada@example.org)"]`)
+    await row().get('button').trigger('click')
+    expect(row().text()).toContain('Sign Ada out on every device?')
+    await row().get('button.cancel').trigger('click')
+    expect(row().text()).not.toContain('Sign Ada out on every device?')
+    expect(requests.some((r) => r.key.startsWith('POST'))).toBe(false)
+    await row().get('button').trigger('click')
+    await row().get('button.confirm').trigger('click')
+    await settle()
+    expect(requests.map((r) => r.key)).toContain(`POST /api/v1/access/users/${ada}/sign-out`)
+    expect(row().get('[role="status"]').text()).toBe('Ada is signed out on every device.')
+  })
+
+  it('shows the problem when a sign-out fails', async () => {
+    const { wrapper } = await mountAt('/access', { 'GET /api/v1/access': () => Response.json(overview()) })
+    const row = wrapper.get(`li[aria-label="Ada (ada@example.org)"]`)
+    await row.get('button').trigger('click')
+    await row.get('button.confirm').trigger('click')
+    await settle()
+    expect(wrapper.get('[role="alert"]').text()).toBe(`no answer for POST /api/v1/access/users/${ada}/sign-out`)
+    expect(row.find('[role="status"]').exists()).toBe(false)
+  })
+
   it('shows no queue when everyone is in a Group', async () => {
     const o = overview()
     o.groups[1] = { id: family, name: 'Family', admins: false, members: [ada] }

@@ -101,6 +101,17 @@ func (r *requests) DeleteRequest(_ context.Context, id uuid.UUID) error {
 	return r.fail
 }
 
+func (r *requests) AddSessionClient(context.Context, uuid.UUID, string) error { return r.fail }
+
+func (r *requests) TakeSessionClients(context.Context, []uuid.UUID) ([]app.SessionClient, error) {
+	return nil, r.fail
+}
+
+// noLogouts sends nothing: the Provider's flows never sign a session out.
+type noLogouts struct{}
+
+func (noLogouts) Send(context.Context, domain.Client, uuid.UUID, uuid.UUID) {}
+
 type clients map[string]domain.Client
 
 func (c clients) Client(_ context.Context, id string) (domain.Client, error) {

@@ -156,14 +156,11 @@ func TestSessions(t *testing.T) {
 	if got, _ := s.SessionByHash(ctx, sess.TokenHash); !slices.Equal(got.Methods, []string{"pwd", "otp"}) {
 		t.Fatalf("methods after a Second Factor = %v", got.Methods)
 	}
-	if err := s.DeleteSession(ctx, sess.TokenHash); err != nil {
-		t.Fatal(err)
+	if got, err := s.SessionByID(ctx, sess.ID); err != nil || !bytes.Equal(got.TokenHash, sess.TokenHash) {
+		t.Fatalf("SessionByID = %+v, %v", got, err)
 	}
-	if _, err := s.SessionByHash(ctx, sess.TokenHash); !errors.Is(err, app.ErrNotFound) {
-		t.Fatalf("after deleting: %v", err)
-	}
-	if err := s.DeleteSession(ctx, sess.TokenHash); err != nil {
-		t.Fatalf("deleting a session that does not exist: %v", err)
+	if _, err := s.SessionByID(ctx, uuid.New()); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("an unknown session id: %v", err)
 	}
 
 	keep := app.Session{TokenHash: []byte("keep"), ID: uuid.New(), UserID: u.ID, CreatedAt: t0, LastSeenAt: t0, ExpiresAt: t0.Add(time.Hour), Methods: []string{"pwd"}}
@@ -171,8 +168,9 @@ func TestSessions(t *testing.T) {
 	other.TokenHash, other.ID = []byte("other"), uuid.New()
 	_ = s.CreateSession(ctx, keep)
 	_ = s.CreateSession(ctx, other)
-	if err := s.DeleteOtherSessions(ctx, u.ID, keep.TokenHash); err != nil {
-		t.Fatal(err)
+	ended, err := s.DeleteOtherSessions(ctx, u.ID, keep.TokenHash)
+	if err != nil || len(ended) != 2 || !slices.Contains(ended, other.ID) || !slices.Contains(ended, sess.ID) {
+		t.Fatalf("DeleteOtherSessions = %v, %v; want the other two", ended, err)
 	}
 	if _, err := s.SessionByHash(ctx, other.TokenHash); !errors.Is(err, app.ErrNotFound) {
 		t.Fatalf("the other session survived: %v", err)
@@ -181,8 +179,8 @@ func TestSessions(t *testing.T) {
 		t.Fatalf("the kept session ended: %v", err)
 	}
 
-	if err := s.DeleteSessionsOfUser(ctx, u.ID); err != nil {
-		t.Fatal(err)
+	if ended, err := s.DeleteOtherSessions(ctx, u.ID, nil); err != nil || len(ended) != 1 || ended[0] != keep.ID {
+		t.Fatalf("ending every session = %v, %v", ended, err)
 	}
 	if _, err := s.SessionByHash(ctx, keep.TokenHash); !errors.Is(err, app.ErrNotFound) {
 		t.Fatalf("a session survived signing out everywhere: %v", err)
