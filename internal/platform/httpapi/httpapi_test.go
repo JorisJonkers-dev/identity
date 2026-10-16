@@ -148,7 +148,7 @@ func TestVersionNeedsNoSignIn(t *testing.T) {
 	}
 }
 
-func TestProblems(t *testing.T) {
+func TestAnUnknownPathOrMethodGetsAProblem(t *testing.T) {
 	srv := serve(t)
 	cases := []struct {
 		name, method, path string

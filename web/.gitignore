@@ -1,0 +1,4 @@
+
+# Stryker's working copy and report, from the mutation report in CI.
+.stryker-tmp/
+reports/

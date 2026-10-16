@@ -68,20 +68,28 @@ func TestReadConfigDefaults(t *testing.T) {
 	}
 }
 
-func TestCommandUsage(t *testing.T) {
+func TestAnUnknownOrIncompleteCommandPrintsTheUsage(t *testing.T) {
 	for _, args := range [][]string{{"admin"}, {"admin", "demote", "a@b.c"}, {"serve", "promote", "a@b.c"}, {"admin", "promote"}} {
-		var out, errs strings.Builder
-		if code := command(t.Context(), env(nil), args, &out, &errs); code != 2 || !strings.Contains(errs.String(), "usage:") {
-			t.Errorf("command(%v) = %d, %q", args, code, errs.String())
-		}
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			var out, errs strings.Builder
+			if code := command(t.Context(), env(nil), args, &out, &errs); code != 2 || !strings.Contains(errs.String(), "usage:") {
+				t.Fatalf("command = %d, %q", code, errs.String())
+			}
+		})
 	}
+}
+
+func TestPromotingWithoutADatabaseSaysWhatIsMissing(t *testing.T) {
 	var out, errs strings.Builder
 	if code := command(t.Context(), env(nil), []string{"admin", "promote", "a@b.c"}, &out, &errs); code != 1 || !strings.Contains(errs.String(), "DATABASE_URL is not set") {
-		t.Fatalf("without a database = %d, %q", code, errs.String())
+		t.Fatalf("command = %d, %q", code, errs.String())
 	}
-	errs.Reset()
+}
+
+func TestPromotingAgainstAnUnreachableDatabaseFails(t *testing.T) {
+	var out, errs strings.Builder
 	if code := command(t.Context(), env(map[string]string{"DATABASE_URL": unreachable}), []string{"admin", "promote", "--force", "a@b.c"}, &out, &errs); code != 1 || errs.Len() == 0 {
-		t.Fatalf("an unreachable database = %d, %q", code, errs.String())
+		t.Fatalf("command = %d, %q", code, errs.String())
 	}
 }
 

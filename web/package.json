@@ -21,7 +21,10 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "@hey-api/openapi-ts": "0.99.0",
+    "@jorisjonkers-dev/vue-web-commons": "https://github.com/JorisJonkers-dev/vue-web-commons/releases/download/v0.8.0/jorisjonkers-dev-vue-web-commons-0.8.0.tgz",
     "@playwright/test": "^1.63.0",
+    "@stryker-mutator/core": "10.0.0",
+    "@stryker-mutator/vitest-runner": "10.0.0",
     "@types/node": "^26.6.2",
     "@vitejs/plugin-vue": "^6.0.9",
     "@vitest/coverage-v8": "^5.0.1",

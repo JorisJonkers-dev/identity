@@ -176,7 +176,7 @@ func TestAPasskeyAddedInTheProfileFinishesTheNextSignIn(t *testing.T) {
 	env := itest.Start(t)
 	ada := env.SignedUp(t, "ada@example.org")
 	authenticator := virtualwebauthn.NewAuthenticator()
-	credential := virtualwebauthn.NewCredential(virtualwebauthn.KeyTypeEC2)
+	credential := itest.PasskeyCredential(t)
 	authenticator.AddCredential(credential)
 
 	var made struct{ Options string }

@@ -1,7 +1,6 @@
 package vault_test
 
 import (
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -116,69 +115,82 @@ func TestKubernetesLoginAndARefusedTokenSignsInAgain(t *testing.T) {
 	}
 }
 
-func TestFailures(t *testing.T) {
-	ctx := context.Background()
+func TestSealingWithoutAServiceAccountTokenSaysWhatIsMissing(t *testing.T) {
 	missing := vault.NewTransit("http://127.0.0.1:1", "transit", vault.Kubernetes("kubernetes", "identity", "/no/such/token"), http.DefaultClient)
-	if _, err := missing.Seal(ctx, "totp", nil); err == nil || !strings.Contains(err.Error(), "service account token") {
-		t.Errorf("no service account token: %v", err)
+	if _, err := missing.Seal(t.Context(), "totp", nil); err == nil || !strings.Contains(err.Error(), "service account token") {
+		t.Fatalf("err = %v", err)
 	}
+}
+
+func TestAnUnreachableVaultNeitherSealsNorOpens(t *testing.T) {
 	down := vault.NewTransit("http://127.0.0.1:1", "transit", vault.Token("t"), http.DefaultClient)
-	if _, err := down.Seal(ctx, "totp", nil); err == nil {
+	if _, err := down.Seal(t.Context(), "totp", nil); err == nil {
 		t.Error("an unreachable Vault sealed")
 	}
-	if _, err := down.Open(ctx, "totp", "vault:v1:eA=="); err == nil || errors.Is(err, vault.ErrSealed) {
+	if _, err := down.Open(t.Context(), "totp", "vault:v1:eA=="); err == nil || errors.Is(err, vault.ErrSealed) {
 		t.Errorf("an unreachable Vault opened: %v", err)
 	}
+}
+
+func TestABadVaultAddressDoesNotSeal(t *testing.T) {
 	bad := vault.NewTransit("http://bad host", "transit", vault.Token("t"), http.DefaultClient)
-	if _, err := bad.Seal(ctx, "totp", nil); err == nil {
-		t.Error("a bad address sealed")
+	if _, err := bad.Seal(t.Context(), "totp", nil); err == nil {
+		t.Fatal("a bad address sealed")
 	}
+}
+
+func jwtFile(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "token")
+	if err := os.WriteFile(path, []byte("j"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+// answering is a Vault that answers body on the path ending in suffix, and as usual elsewhere.
+func answering(t *testing.T, suffix, body string) string {
+	t.Helper()
+	return serve(t, &fakeVault{tokens: map[string]bool{"root": true}, answer: func(path string) (int, string, bool) {
+		return http.StatusOK, body, strings.HasSuffix(path, suffix)
+	}})
+}
+
+func TestARefusedLoginReportsVaultsStatus(t *testing.T) {
 	refusing := &fakeVault{tokens: map[string]bool{}, answer: func(path string) (int, string, bool) {
 		return http.StatusInternalServerError, "", strings.HasSuffix(path, "/login")
 	}}
-	jwtFile := filepath.Join(t.TempDir(), "token")
-	_ = os.WriteFile(jwtFile, []byte("j"), 0o600)
-	if _, err := vault.NewTransit(serve(t, refusing), "transit", vault.Kubernetes("kubernetes", "identity", jwtFile), http.DefaultClient).Seal(ctx, "totp", nil); err == nil || err.Error() != "vault: answered 500" {
-		t.Errorf("a refused login: %v", err)
+	tr := vault.NewTransit(serve(t, refusing), "transit", vault.Kubernetes("kubernetes", "identity", jwtFile(t)), http.DefaultClient)
+	if _, err := tr.Seal(t.Context(), "totp", nil); err == nil || err.Error() != "vault: answered 500" {
+		t.Fatalf("err = %v", err)
 	}
-	//nolint:gosec // Vault answers with no token in them, not credentials
-	for name, answer := range map[string]string{
-		"no token":      `{"auth":{}}`,
-		"not JSON":      `{`,
-		"bad plaintext": `{"data":{"plaintext":"%%%"}}`,
-	} {
-		f := &fakeVault{tokens: map[string]bool{"root": true}, answer: func(path string) (int, string, bool) {
-			switch {
-			case name == "no token" && strings.HasSuffix(path, "/login"):
-				return http.StatusOK, answer, true
-			case name == "not JSON" && strings.HasSuffix(path, "/encrypt/totp"):
-				return http.StatusOK, answer, true
-			case name == "bad plaintext" && strings.HasSuffix(path, "/decrypt/totp"):
-				return http.StatusOK, answer, true
-			}
-			return 0, "", false
-		}}
-		addr := serve(t, f)
-		jwt := filepath.Join(t.TempDir(), "token")
-		_ = os.WriteFile(jwt, []byte("j"), 0o600)
-		login := vault.Token("root")
-		if name == "no token" {
-			login = vault.Kubernetes("kubernetes", "identity", jwt)
-		}
-		tr := vault.NewTransit(addr, "transit", login, http.DefaultClient)
-		var err error
-		if name == "bad plaintext" {
-			_, err = tr.Open(ctx, "totp", "vault:v1:"+base64.StdEncoding.EncodeToString([]byte("x")))
-		} else {
-			_, err = tr.Seal(ctx, "totp", []byte("x"))
-		}
-		if err == nil {
-			t.Errorf("%s: no error", name)
-		}
+}
+
+func TestALoginAnswerWithoutATokenIsAnError(t *testing.T) {
+	tr := vault.NewTransit(answering(t, "/login", `{"auth":{}}`), "transit", vault.Kubernetes("kubernetes", "identity", jwtFile(t)), http.DefaultClient)
+	if _, err := tr.Seal(t.Context(), "totp", []byte("x")); err == nil {
+		t.Fatal("sealed without a token")
 	}
+}
+
+func TestAnEncryptAnswerThatIsNotJSONIsAnError(t *testing.T) {
+	tr := vault.NewTransit(answering(t, "/encrypt/totp", `{`), "transit", vault.Token("root"), http.DefaultClient)
+	if _, err := tr.Seal(t.Context(), "totp", []byte("x")); err == nil {
+		t.Fatal("sealed with a broken answer")
+	}
+}
+
+func TestADecryptAnswerWithBadPlaintextIsAnError(t *testing.T) {
+	tr := vault.NewTransit(answering(t, "/decrypt/totp", `{"data":{"plaintext":"%%%"}}`), "transit", vault.Token("root"), http.DefaultClient)
+	if _, err := tr.Open(t.Context(), "totp", "vault:v1:"+base64.StdEncoding.EncodeToString([]byte("x"))); err == nil {
+		t.Fatal("opened bad plaintext")
+	}
+}
+
+func TestATokenRefusedTwiceIsAnErrorNotASealedValue(t *testing.T) {
 	never := &fakeVault{tokens: map[string]bool{}}
-	if _, err := vault.NewTransit(serve(t, never), "transit", vault.Token("wrong"), http.DefaultClient).Open(ctx, "totp", "vault:v1:eA=="); err == nil || errors.Is(err, vault.ErrSealed) {
-		t.Errorf("a token refused twice: %v", err)
+	if _, err := vault.NewTransit(serve(t, never), "transit", vault.Token("wrong"), http.DefaultClient).Open(t.Context(), "totp", "vault:v1:eA=="); err == nil || errors.Is(err, vault.ErrSealed) {
+		t.Fatalf("err = %v", err)
 	}
 }
 
