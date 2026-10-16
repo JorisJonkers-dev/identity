@@ -60,6 +60,82 @@ export type AuditEvent = {
 };
 
 /**
+ * A count.
+ */
+export type Count = number;
+
+/**
+ * A User waiting for a Group, and when they confirmed their email.
+ */
+export type WaitingUser = {
+    id: Id;
+    email: Email;
+    name: string;
+    confirmedAt: string;
+};
+
+/**
+ * Sign-ins to the Identity Provider in one hour.
+ */
+export type SignInHour = {
+    /**
+     * When the hour starts.
+     */
+    at: string;
+    signIns: Count;
+    failed: Count;
+};
+
+/**
+ * How things stand.
+ */
+export type Dashboard = {
+    users: Count;
+    usersThisWeek: Count;
+    /**
+     * The Users waiting for a Group, the newest first.
+     */
+    unassigned: Array<WaitingUser>;
+    signIns: Count;
+    failedSignIns: Count;
+    /**
+     * The last 24 hours, oldest first.
+     */
+    hours: [
+        SignInHour,
+        SignInHour,
+        SignInHour,
+        SignInHour,
+        SignInHour,
+        SignInHour,
+        SignInHour,
+        SignInHour,
+        SignInHour,
+        SignInHour,
+        SignInHour,
+        SignInHour,
+        SignInHour,
+        SignInHour,
+        SignInHour,
+        SignInHour,
+        SignInHour,
+        SignInHour,
+        SignInHour,
+        SignInHour,
+        SignInHour,
+        SignInHour,
+        SignInHour,
+        SignInHour
+    ];
+    activeSessions: Count;
+    sessionUsers: Count;
+    /**
+     * Where the charts over time are, when Grafana is configured.
+     */
+    grafanaUrl?: string;
+};
+
+/**
  * One page of Audit Events, newest first.
  */
 export type AuditPage = {
@@ -1360,3 +1436,32 @@ export type ListAuditEventsResponses = {
 };
 
 export type ListAuditEventsResponse = ListAuditEventsResponses[keyof ListAuditEventsResponses];
+
+export type GetDashboardData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/dashboard';
+};
+
+export type GetDashboardErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type GetDashboardError = GetDashboardErrors[keyof GetDashboardErrors];
+
+export type GetDashboardResponses = {
+    /**
+     * The dashboard.
+     */
+    200: Dashboard;
+};
+
+export type GetDashboardResponse = GetDashboardResponses[keyof GetDashboardResponses];

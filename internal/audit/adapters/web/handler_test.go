@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"net/http"
+	"net/url"
 	"testing"
 	"time"
 
@@ -26,10 +27,16 @@ var (
 
 // useCases answers with what a test sets and records what it was asked.
 type useCases struct {
-	page   app.Page
-	err    error
-	actor  app.Actor
-	filter domain.Filter
+	page      app.Page
+	dashboard app.Dashboard
+	err       error
+	actor     app.Actor
+	filter    domain.Filter
+}
+
+func (u *useCases) Dashboard(_ context.Context, actor app.Actor) (app.Dashboard, error) {
+	u.actor = actor
+	return u.dashboard, u.err
 }
 
 func (u *useCases) List(_ context.Context, actor app.Actor, f domain.Filter) (app.Page, error) {
@@ -43,7 +50,7 @@ func asAdmin() context.Context {
 
 func list(t *testing.T, uc *useCases, params oas.ListAuditEventsParams) oas.ListAuditEventsRes {
 	t.Helper()
-	res, err := web.New(uc).ListAuditEvents(asAdmin(), params)
+	res, err := web.New(uc, nil).ListAuditEvents(asAdmin(), params)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,8 +156,8 @@ func TestARefusedListingSaysWhy(t *testing.T) {
 		err    error
 		detail string
 	}{
-		{"not an Admin", app.ErrNotAdmin, "Only Admins read the audit log."},
-		{"no Second Factor", app.ErrSecondFactorNeeded, "Sign out, then sign in again with a passkey or authenticator app to read the audit log. If you have neither, add one on the Security page first."},
+		{"not an Admin", app.ErrNotAdmin, "Only Admins can see this page."},
+		{"no Second Factor", app.ErrSecondFactorNeeded, "This page needs a Second Factor. If you have a passkey or authenticator app, sign out and sign in again with it. If you have neither, add a Second Factor on the Security page first, then sign out and sign in again."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -164,7 +171,64 @@ func TestARefusedListingSaysWhy(t *testing.T) {
 
 func TestAFailedListingIsPassedOn(t *testing.T) {
 	t.Parallel()
-	if _, err := web.New(&useCases{err: errBoom}).ListAuditEvents(asAdmin(), oas.ListAuditEventsParams{}); !errors.Is(err, errBoom) {
+	if _, err := web.New(&useCases{err: errBoom}, nil).ListAuditEvents(asAdmin(), oas.ListAuditEventsParams{}); !errors.Is(err, errBoom) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func getDashboard(t *testing.T, uc *useCases, grafana *url.URL) oas.GetDashboardRes {
+	t.Helper()
+	res, err := web.New(uc, grafana).GetDashboard(asAdmin())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return res
+}
+
+func TestTheDashboardCarriesItsCounts(t *testing.T) {
+	t.Parallel()
+	var hours [24]app.Hour
+	for i := range hours {
+		hours[i] = app.Hour{At: t0.Add(time.Duration(i) * time.Hour), SignIns: i, Failed: i % 2}
+	}
+	uc := &useCases{dashboard: app.Dashboard{
+		Users: 14, UsersThisWeek: 1, SignIns: 186, FailedSignIns: 4, Hours: hours, ActiveSessions: 23, SessionUsers: 12,
+		Unassigned: []app.Person{{ID: ada, Name: "Noor Bakker", Email: "noor@example.org", CreatedAt: t0}},
+	}}
+	d := getDashboard(t, uc, nil).(*oas.Dashboard)
+	if d.Users != 14 || d.UsersThisWeek != 1 || d.SignIns != 186 || d.FailedSignIns != 4 || d.ActiveSessions != 23 || d.SessionUsers != 12 {
+		t.Fatalf("dashboard = %+v", d)
+	}
+	if len(d.Unassigned) != 1 || d.Unassigned[0] != (oas.WaitingUser{ID: oas.ID(ada), Email: "noor@example.org", Name: "Noor Bakker", ConfirmedAt: t0}) {
+		t.Fatalf("unassigned = %+v", d.Unassigned)
+	}
+	if len(d.Hours) != 24 || d.Hours[23] != (oas.SignInHour{At: t0.Add(23 * time.Hour), SignIns: 23, Failed: 1}) {
+		t.Fatalf("hours = %+v", d.Hours)
+	}
+	if d.GrafanaUrl.Set || uc.actor != (app.Actor{ID: admin, SecondFactor: true}) {
+		t.Fatalf("grafana %+v, asked as %+v", d.GrafanaUrl, uc.actor)
+	}
+}
+
+func TestTheDashboardLinksToGrafanaWhenItIsConfigured(t *testing.T) {
+	t.Parallel()
+	grafana, _ := url.Parse("https://grafana.example.org/d/identity")
+	if d := getDashboard(t, &useCases{}, grafana).(*oas.Dashboard); d.GrafanaUrl.Value.String() != grafana.String() {
+		t.Fatalf("grafana = %+v", d.GrafanaUrl)
+	}
+}
+
+func TestARefusedDashboardSaysWhy(t *testing.T) {
+	t.Parallel()
+	res := getDashboard(t, &useCases{err: app.ErrNotAdmin}, nil)
+	if p, ok := res.(*oas.ProblemStatusCode); !ok || p.StatusCode != http.StatusForbidden || p.Response.Detail.Value != "Only Admins can see this page." {
+		t.Fatalf("answer = %+v", res)
+	}
+}
+
+func TestAFailedDashboardIsPassedOn(t *testing.T) {
+	t.Parallel()
+	if _, err := web.New(&useCases{err: errBoom}, nil).GetDashboard(asAdmin()); !errors.Is(err, errBoom) {
 		t.Fatalf("err = %v", err)
 	}
 }

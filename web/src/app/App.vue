@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { RouterView } from 'vue-router'
+import { RouterView, useRoute } from 'vue-router'
+
+const route = useRoute()
 </script>
 
 <template>
-  <main class="shell">
+  <main :class="route.meta.wide ? 'wide' : 'shell'">
     <RouterView />
   </main>
 </template>

@@ -55,6 +55,8 @@ type Store interface {
 	CountAdmins(ctx context.Context) (int, error)
 	// CountUnassigned is the confirmed Users in no Group.
 	CountUnassigned(ctx context.Context) (int, error)
+	// Unassigned is the confirmed Users in no Group.
+	Unassigned(ctx context.Context) ([]uuid.UUID, error)
 	Assignments(ctx context.Context) ([]domain.Assignment, error)
 	// Assign is ErrNotFound when the Group is not there, and reports whether it is new.
 	Assign(ctx context.Context, a domain.Assignment) (bool, error)
@@ -138,6 +140,11 @@ func (s *Service) Promote(ctx context.Context, userID uuid.UUID, force bool) err
 // Unassigned is how many Users wait in no Group, for the signup alert.
 func (s *Service) Unassigned(ctx context.Context) (int, error) {
 	return s.store.CountUnassigned(ctx)
+}
+
+// UnassignedUsers is who waits in no Group, for the dashboard's queue.
+func (s *Service) UnassignedUsers(ctx context.Context) ([]uuid.UUID, error) {
+	return s.store.Unassigned(ctx)
 }
 
 // Roles is the App Roles a User holds on a Client: the union over their Groups. Being an Admin

@@ -120,6 +120,16 @@ func (UnimplementedHandler) GetAccess(ctx context.Context) (r GetAccessRes, _ er
 	return r, ht.ErrNotImplemented
 }
 
+// GetDashboard implements getDashboard operation.
+//
+// Users, the Unassigned queue, sign-ins and failed sign-ins over the last 24 hours, and live sessions.
+// Admins only, from a session that proved a Second Factor.
+//
+// GET /api/v1/dashboard
+func (UnimplementedHandler) GetDashboard(ctx context.Context) (r GetDashboardRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // GetLauncher implements getLauncher operation.
 //
 // One entry per Client the User holds an App Role on, sorted by label. Icons are served from

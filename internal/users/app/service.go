@@ -80,6 +80,8 @@ type Store interface {
 	DeleteSignup(ctx context.Context, tokenHash []byte) error
 	CreateSession(ctx context.Context, s Session) error
 	SessionByHash(ctx context.Context, tokenHash []byte) (Session, error)
+	// CountActiveSessions is how many sessions are unexpired at now, and how many Users hold them.
+	CountActiveSessions(ctx context.Context, now time.Time) (sessions, users int, err error)
 	// SessionByID is ErrNotFound when there is none.
 	SessionByID(ctx context.Context, id uuid.UUID) (Session, error)
 	TouchSession(ctx context.Context, tokenHash []byte, lastSeen, expires time.Time) error
@@ -507,6 +509,11 @@ func (s *Service) endSessions(ctx context.Context, userID uuid.UUID, keep []byte
 		s.signedOut(ctx, userID, ended)
 	}
 	return len(ended), nil
+}
+
+// ActiveSessions is how many Single sign-on sessions are live, and how many Users hold them.
+func (s *Service) ActiveSessions(ctx context.Context) (sessions, users int, err error) {
+	return s.store.CountActiveSessions(ctx, s.now())
 }
 
 // User returns a User by id.

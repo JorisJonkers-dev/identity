@@ -15,6 +15,7 @@ const broken = reactive(new Set<string>())
     <h1 id="home-title">Your apps</h1>
     <nav aria-label="Your account" class="links">
       <RouterLink to="/profile">Your profile</RouterLink>
+      <RouterLink v-if="admin" to="/admin">Dashboard</RouterLink>
       <RouterLink v-if="admin" to="/access">Manage access</RouterLink>
     </nav>
     <p v-if="apps.length === 0">You don't have access to any apps yet. Ask an Admin to add you to a Group.</p>

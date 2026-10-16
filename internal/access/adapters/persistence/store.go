@@ -142,6 +142,10 @@ func (s *Store) CountAdmins(ctx context.Context) (int, error) {
 	return int(n), err
 }
 
+func (s *Store) Unassigned(ctx context.Context) ([]uuid.UUID, error) {
+	return s.q.ListUnassigned(ctx)
+}
+
 func (s *Store) CountUnassigned(ctx context.Context) (int, error) {
 	n, err := s.q.CountUnassigned(ctx)
 	return int(n), err

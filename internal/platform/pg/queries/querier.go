@@ -21,8 +21,11 @@ type Querier interface {
 	ChallengeCeremony(ctx context.Context, arg ChallengeCeremonyParams) (ChallengeCeremonyRow, error)
 	// Records who signed in, once: a request already completed keeps its first User.
 	CompleteAuthRequest(ctx context.Context, arg CompleteAuthRequestParams) (int64, error)
+	CountActiveSessions(ctx context.Context, expiresAt time.Time) (CountActiveSessionsRow, error)
 	CountAdmins(ctx context.Context) (int64, error)
 	CountMembers(ctx context.Context, groupID uuid.UUID) (int64, error)
+	// Sign-ins to the Identity Provider itself, and failed ones, per hour since a time.
+	CountSignInsByHour(ctx context.Context, at time.Time) ([]CountSignInsByHourRow, error)
 	// Confirmed Users in no Group, the admins Group included (docs/adr/0005).
 	CountUnassigned(ctx context.Context) (int64, error)
 	CreateAuthRequest(ctx context.Context, arg CreateAuthRequestParams) error
@@ -55,6 +58,8 @@ type Querier interface {
 	ListAuditEvents(ctx context.Context, arg ListAuditEventsParams) ([]AuditEvent, error)
 	ListGroups(ctx context.Context) ([]ListGroupsRow, error)
 	ListMemberships(ctx context.Context) ([]Membership, error)
+	// The Users CountUnassigned counts.
+	ListUnassigned(ctx context.Context) ([]uuid.UUID, error)
 	ListUsers(ctx context.Context) ([]User, error)
 	// Holds the Group until the transaction ends, so two removals cannot both see the other member.
 	LockGroup(ctx context.Context, id uuid.UUID) (bool, error)

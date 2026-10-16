@@ -42,6 +42,20 @@ export const zAuditAction = z.enum([
 export const zAuditCursor = z.string().min(1).max(100);
 
 /**
+ * A count.
+ */
+export const zCount = z.int().gte(0).lte(2147483647);
+
+/**
+ * Sign-ins to the Identity Provider in one hour.
+ */
+export const zSignInHour = z.object({
+    at: z.iso.datetime({ offset: true }).max(64),
+    signIns: zCount,
+    failed: zCount
+});
+
+/**
  * An email address.
  */
 export const zEmail = z.email().max(254);
@@ -114,6 +128,56 @@ export const zAuditPerson = z.object({
     id: zId,
     email: zEmail.optional(),
     name: z.string().max(400).optional()
+});
+
+/**
+ * A User waiting for a Group, and when they confirmed their email.
+ */
+export const zWaitingUser = z.object({
+    id: zId,
+    email: zEmail,
+    name: z.string().max(400),
+    confirmedAt: z.iso.datetime({ offset: true }).max(64)
+});
+
+/**
+ * How things stand.
+ */
+export const zDashboard = z.object({
+    users: zCount,
+    usersThisWeek: zCount,
+    unassigned: z.array(zWaitingUser).max(10000),
+    signIns: zCount,
+    failedSignIns: zCount,
+    hours: z.tuple([
+        zSignInHour,
+        zSignInHour,
+        zSignInHour,
+        zSignInHour,
+        zSignInHour,
+        zSignInHour,
+        zSignInHour,
+        zSignInHour,
+        zSignInHour,
+        zSignInHour,
+        zSignInHour,
+        zSignInHour,
+        zSignInHour,
+        zSignInHour,
+        zSignInHour,
+        zSignInHour,
+        zSignInHour,
+        zSignInHour,
+        zSignInHour,
+        zSignInHour,
+        zSignInHour,
+        zSignInHour,
+        zSignInHour,
+        zSignInHour
+    ]),
+    activeSessions: zCount,
+    sessionUsers: zCount,
+    grafanaUrl: z.url().max(2048).optional()
 });
 
 /**
@@ -560,3 +624,8 @@ export const zListAuditEventsQuery = z.object({
  * One page of Audit Events.
  */
 export const zListAuditEventsResponse = zAuditPage;
+
+/**
+ * The dashboard.
+ */
+export const zGetDashboardResponse = zDashboard;

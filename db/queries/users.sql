@@ -134,3 +134,6 @@ RETURNING taken.user_id, taken.passkey_ceremony;
 
 -- name: SessionByID :one
 SELECT token_hash, id, user_id, created_at, last_seen_at, expires_at, methods FROM sessions WHERE id = $1;
+
+-- name: CountActiveSessions :one
+SELECT count(*) AS sessions, count(DISTINCT user_id) AS users FROM sessions WHERE expires_at > $1;

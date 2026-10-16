@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/vue-query';
 
 import { client } from '../client.gen';
-import { addMember, assignRole, changePassword, completeSignIn, completeSignInWithPasskey, confirmEmail, confirmPasskey, confirmTotp, createGroup, deleteGroup, getAccess, getLauncher, getProfile, getVersion, listAuditEvents, listSecondFactors, type Options, passkeyOptions, removeMember, removeSecondFactor, renameGroup, signIn, signOut, signOutUser, signUp, startPasskey, startTotp, unassignRole, updateProfile } from '../sdk.gen';
-import type { AddMemberData, AddMemberError, AddMemberResponse, AssignRoleData, AssignRoleError, AssignRoleResponse, AuditCursor, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CompleteSignInData, CompleteSignInError, CompleteSignInResponse, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyError, CompleteSignInWithPasskeyResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, ConfirmPasskeyData, ConfirmPasskeyError, ConfirmPasskeyResponse, ConfirmTotpData, ConfirmTotpError, ConfirmTotpResponse, CreateGroupData, CreateGroupError, CreateGroupResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, GetAccessData, GetAccessError, GetAccessResponse, GetLauncherData, GetLauncherError, GetLauncherResponse, GetProfileData, GetProfileError, GetProfileResponse, GetVersionData, GetVersionError, GetVersionResponse, ListAuditEventsData, ListAuditEventsError, ListAuditEventsResponse, ListSecondFactorsData, ListSecondFactorsError, ListSecondFactorsResponse, PasskeyOptionsData, PasskeyOptionsError, PasskeyOptionsResponse, RemoveMemberData, RemoveMemberError, RemoveMemberResponse, RemoveSecondFactorData, RemoveSecondFactorError, RemoveSecondFactorResponse, RenameGroupData, RenameGroupError, RenameGroupResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutError, SignOutResponse, SignOutUserData, SignOutUserError, SignOutUserResponse, SignUpData, SignUpError, StartPasskeyData, StartPasskeyError, StartPasskeyResponse, StartTotpData, StartTotpError, StartTotpResponse, UnassignRoleData, UnassignRoleError, UnassignRoleResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
+import { addMember, assignRole, changePassword, completeSignIn, completeSignInWithPasskey, confirmEmail, confirmPasskey, confirmTotp, createGroup, deleteGroup, getAccess, getDashboard, getLauncher, getProfile, getVersion, listAuditEvents, listSecondFactors, type Options, passkeyOptions, removeMember, removeSecondFactor, renameGroup, signIn, signOut, signOutUser, signUp, startPasskey, startTotp, unassignRole, updateProfile } from '../sdk.gen';
+import type { AddMemberData, AddMemberError, AddMemberResponse, AssignRoleData, AssignRoleError, AssignRoleResponse, AuditCursor, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CompleteSignInData, CompleteSignInError, CompleteSignInResponse, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyError, CompleteSignInWithPasskeyResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, ConfirmPasskeyData, ConfirmPasskeyError, ConfirmPasskeyResponse, ConfirmTotpData, ConfirmTotpError, ConfirmTotpResponse, CreateGroupData, CreateGroupError, CreateGroupResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, GetAccessData, GetAccessError, GetAccessResponse, GetDashboardData, GetDashboardError, GetDashboardResponse, GetLauncherData, GetLauncherError, GetLauncherResponse, GetProfileData, GetProfileError, GetProfileResponse, GetVersionData, GetVersionError, GetVersionResponse, ListAuditEventsData, ListAuditEventsError, ListAuditEventsResponse, ListSecondFactorsData, ListSecondFactorsError, ListSecondFactorsResponse, PasskeyOptionsData, PasskeyOptionsError, PasskeyOptionsResponse, RemoveMemberData, RemoveMemberError, RemoveMemberResponse, RemoveSecondFactorData, RemoveSecondFactorError, RemoveSecondFactorResponse, RenameGroupData, RenameGroupError, RenameGroupResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutError, SignOutResponse, SignOutUserData, SignOutUserError, SignOutUserResponse, SignUpData, SignUpError, StartPasskeyData, StartPasskeyError, StartPasskeyResponse, StartTotpData, StartTotpError, StartTotpResponse, UnassignRoleData, UnassignRoleError, UnassignRoleResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -637,3 +637,23 @@ export const listAuditEventsInfiniteOptions = (options?: Options<ListAuditEvents
     });
     return opts as Omit<typeof opts, 'initialData'>;
 };
+
+export const getDashboardQueryKey = (options?: Options<GetDashboardData>) => createQueryKey('getDashboard', options);
+
+/**
+ * How things stand
+ *
+ * Users, the Unassigned queue, sign-ins and failed sign-ins over the last 24 hours, and live sessions. Admins only, from a session that proved a Second Factor.
+ */
+export const getDashboardOptions = (options?: Options<GetDashboardData>) => queryOptions<GetDashboardResponse, GetDashboardError, GetDashboardResponse, ReturnType<typeof getDashboardQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getDashboard({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getDashboardQueryKey(options)
+});

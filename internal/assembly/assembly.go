@@ -21,6 +21,7 @@ import (
 	accessapp "github.com/JorisJonkers-dev/identity/internal/access/app"
 	"github.com/JorisJonkers-dev/identity/internal/audit/adapters/directory"
 	auditpersistence "github.com/JorisJonkers-dev/identity/internal/audit/adapters/persistence"
+	auditweb "github.com/JorisJonkers-dev/identity/internal/audit/adapters/web"
 	auditapp "github.com/JorisJonkers-dev/identity/internal/audit/app"
 	auditdomain "github.com/JorisJonkers-dev/identity/internal/audit/domain"
 	gatecontexts "github.com/JorisJonkers-dev/identity/internal/gate/adapters/contexts"
@@ -73,8 +74,10 @@ type Config struct {
 	Synced func() bool
 	// IconTransport fetches Clients' icons; nil is the default transport.
 	IconTransport http.RoundTripper
-	Logger        *slog.Logger
-	Version       string
+	// Grafana is where the dashboard links for charts over time; nil links nowhere.
+	Grafana *url.URL
+	Logger  *slog.Logger
+	Version string
 }
 
 // Identity is identity built: its routes, the count of Users waiting for a Group, which /metrics
@@ -108,15 +111,15 @@ func New(cfg Config) (*Identity, error) {
 	}
 	q := cfg.Store.Queries()
 	users := app.New(persistence.New(q), passwords.NewArgon2id(maxConcurrentHashes, hashWait), cfg.Mailer, time.Now, rand.Reader, cfg.PublicURL, opts...)
-	audit = auditapp.New(auditpersistence.New(q), admins, directory.New(users, cfg.Index), cfg.Logger, time.Now, rand.Reader)
 	access = accessapp.New(accesspersistence.New(q, cfg.Store), catalog.New(cfg.Index), people.New(users), recorder, rand.Reader)
+	audit = auditapp.New(auditpersistence.New(q), admins, directory.New(users, access, cfg.Index), cfg.Logger, time.Now, rand.Reader)
 	launcherContexts := launchercontexts.New(cfg.Index, access)
 	transport := cfg.IconTransport
 	if transport == nil {
 		transport = http.DefaultTransport
 	}
 	launcher := launcherapp.New(launcherContexts, launcherContexts, launcherfetch.New(transport, iconTimeout), time.Now)
-	api, err := httpapi.New(cfg.Logger, cfg.Version, users, access, audit, launcher)
+	api, err := httpapi.New(cfg.Logger, cfg.Version, users, access, auditweb.New(audit, cfg.Grafana), launcher)
 	if err != nil {
 		return nil, err
 	}

@@ -1,0 +1,175 @@
+import type { AuditEvent, AuditPerson, SignInHour } from '../../infrastructure/api/types.gen'
+
+/** One piece of an Audit Event's sentence, and how it is set: a name, a role pill, or plain. */
+export interface Part {
+  text: string
+  as?: 'name' | 'pill'
+}
+
+function name(p: AuditPerson | undefined): string {
+  return p?.name ?? p?.email ?? 'a deleted User'
+}
+
+const why: Record<NonNullable<AuditEvent['reason']>, string> = {
+  password: ' (wrong email or password)',
+  'second-factor': ' (wrong code or passkey)',
+  'no-access': ' (no access)',
+}
+
+/** The sentence an Audit Event reads as, the way the Audit page shows it. */
+export function describeEvent(e: AuditEvent): Part[] {
+  const actor: Part = { text: name(e.actor), as: 'name' }
+  const user: Part = { text: name(e.user), as: 'name' }
+  const to = e.client ? ` to ${e.client.label}` : ''
+  const group = e.groupName ?? 'a Group'
+  const role: Part = { text: e.role ?? '', as: 'pill' }
+  const client = e.client?.label ?? 'an app'
+  switch (e.action) {
+    case 'signed-in':
+      return [user, { text: ` signed in${to}` }]
+    case 'sign-in-failed':
+      return [
+        { text: 'Failed sign-in for ' },
+        { text: e.email ?? (e.user ? name(e.user) : 'an address that is not an email'), as: 'name' },
+        { text: `${to}${e.reason ? why[e.reason] : ''}` },
+      ]
+    case 'signed-out':
+      return e.actor ? [actor, { text: ' signed ' }, user, { text: ' out on every device' }] : [user, { text: ' signed out' }]
+    case 'user-created':
+      return [user, { text: ' signed up and confirmed their email' }]
+    case 'user-renamed':
+      return [user, { text: ' changed their name' }]
+    case 'password-changed':
+      return [user, { text: ' changed their password' }]
+    case 'second-factor-added':
+      return [user, { text: ' added a Second Factor' }]
+    case 'second-factor-removed':
+      return [user, { text: ' removed a Second Factor' }]
+    case 'admin-promoted':
+      return [user, { text: ' was made an Admin' }]
+    case 'group-created':
+      return [actor, { text: ` made the Group ${group}` }]
+    case 'group-renamed':
+      return [actor, { text: ` renamed a Group to ${group}` }]
+    case 'group-deleted':
+      return [actor, { text: ` deleted the Group ${group}` }]
+    case 'member-added':
+      return [actor, { text: ` added ${name(e.user)} to ${group}` }]
+    case 'member-removed':
+      return [actor, { text: ` took ${name(e.user)} out of ${group}` }]
+    case 'role-assigned':
+      return [actor, { text: ` gave ${group} ` }, role, { text: ` on ${client}` }]
+    case 'role-removed':
+      return [actor, { text: ' took ' }, role, { text: ` on ${client} away from ${group}` }]
+    case 'token-minted':
+      return [user, { text: ' created a token' }]
+    case 'token-revoked':
+      return [user, { text: ' revoked a token' }]
+  }
+}
+
+/** The colour of an event's dot: a sign-in, a failed one, a change to access, or anything else. */
+export function tone(e: AuditEvent): 'ok' | 'bad' | 'a' | '' {
+  if (e.action === 'signed-in') return 'ok'
+  if (e.action === 'sign-in-failed') return 'bad'
+  return e.kind === 'access' ? 'a' : ''
+}
+
+/** The time of day an event happened, as 21:14:02. */
+export function clock(at: string): string {
+  return new Date(at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+}
+
+/** The day an event happened: Today, Yesterday, or 14 Oct. */
+export function dayOf(at: string, now: Date): string {
+  const day = new Date(at)
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  if (day.getTime() >= midnight) return 'Today'
+  if (day.getTime() >= midnight - 24 * 3600 * 1000) return 'Yesterday'
+  return day.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+}
+
+/** How long ago something happened, as the Unassigned queue says it. */
+export function ago(at: string, now: Date): string {
+  const minutes = Math.floor((now.getTime() - new Date(at).getTime()) / 60000)
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${String(minutes)}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${String(hours)}h ago`
+  if (hours < 48) return 'yesterday'
+  return `${String(Math.floor(hours / 24))} days ago`
+}
+
+/** A person's initials, for their avatar. */
+export function initials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean)
+  const first = words[0] ?? '?'
+  const last = words.length > 1 ? (words[words.length - 1] as string) : ''
+  return (first.charAt(0) + last.charAt(0)).toUpperCase()
+}
+
+// The chart's frame, the same as the design's: x from 30 to 470, y from 110 (none) to 20 (most).
+const x0 = 30
+const x1 = 470
+const yTop = 20
+const yZero = 110
+
+/** The sign-ins chart drawn: the line, the shaded area under it, the failed line, and the scale. */
+export interface Chart {
+  line: string
+  area: string
+  failed: string
+  end: { x: number; y: number }
+  max: number
+  first: string
+  middle: string
+  middleX: number
+  last: string
+  summary: string
+}
+
+function hourOf(h: SignInHour): string {
+  return new Date(h.at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
+/** The top of the scale: the most sign-ins in an hour, rounded up to 5, 10, 20, 50, 100, 200 and so on. */
+export function scaleFor(most: number): number {
+  for (let step = 5; ; step *= 10) {
+    for (const top of [step, step * 2, step * 4]) {
+      if (most <= top) return top
+    }
+  }
+}
+
+/** A count and its noun, as 1 sign-in or 2 sign-ins. */
+export function counted(n: number, noun: string): string {
+  return `${String(n)} ${noun}${n === 1 ? '' : 's'}`
+}
+
+/** Draws 24 hours of sign-ins into the chart's frame. */
+export function drawChart(hours: SignInHour[]): Chart {
+  const most = Math.max(0, ...hours.map((h) => h.signIns))
+  const max = scaleFor(most)
+  const x = (i: number) => (x0 + ((x1 - x0) * i) / (hours.length - 1)).toFixed(1)
+  const y = (v: number) => (yZero - ((yZero - yTop) * v) / max).toFixed(1)
+  const points = hours.map((h, i) => `${x(i)},${y(h.signIns)}`)
+  const last = hours[hours.length - 1] as SignInHour
+  const peak = hours.reduce((a, b) => (b.signIns > a.signIns ? b : a), last)
+  const total = hours.reduce((n, h) => n + h.signIns, 0)
+  const failed = hours.reduce((n, h) => n + h.failed, 0)
+  return {
+    line: points.join(' '),
+    area: `M${String(x0)},${String(yZero)} L${points.join(' L')} L${String(x1)},${String(yZero)} Z`,
+    failed: hours.map((h, i) => `${x(i)},${y(h.failed)}`).join(' '),
+    end: { x: Number(x(hours.length - 1)), y: Number(y(last.signIns)) },
+    max,
+    first: hourOf(hours[0] as SignInHour),
+    middle: hourOf(hours[Math.floor(hours.length / 2)] as SignInHour),
+    middleX: Number(x(Math.floor(hours.length / 2))),
+    last: hourOf(last),
+    summary:
+      total === 0
+        ? `No sign-ins in the last 24 hours. ${counted(failed, 'failed sign-in')}.`
+        : `${counted(total, 'sign-in')} in the last 24 hours. ${counted(failed, 'failed sign-in')}. The busiest hour had ${counted(peak.signIns, 'sign-in')}, around ${hourOf(peak)}.`,
+  }
+}

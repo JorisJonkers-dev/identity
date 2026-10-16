@@ -127,6 +127,10 @@ func (s *store) CountUnassigned(context.Context) (int, error) {
 	return 7, s.err("CountUnassigned")
 }
 
+func (s *store) Unassigned(context.Context) ([]uuid.UUID, error) {
+	return []uuid.UUID{ada}, s.err("Unassigned")
+}
+
 func (s *store) Assignments(context.Context) ([]domain.Assignment, error) {
 	return slices.Clone(s.assignments), s.err("Assignments")
 }
@@ -593,5 +597,12 @@ func TestSigningAUserOutFailsWhenTheUsersContextDoes(t *testing.T) {
 	f.people.err = errBoom
 	if err := f.svc.SignOutUser(ctx, asAdmin, ada); !errors.Is(err, errBoom) {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestTheUnassignedUsersAreThoseInNoGroup(t *testing.T) {
+	f := newFixture()
+	if ids, err := f.svc.UnassignedUsers(context.Background()); err != nil || !slices.Equal(ids, []uuid.UUID{ada}) {
+		t.Fatalf("UnassignedUsers = %v, %v", ids, err)
 	}
 }

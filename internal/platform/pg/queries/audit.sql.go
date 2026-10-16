@@ -51,6 +51,43 @@ func (q *Queries) AppendAuditEvent(ctx context.Context, arg AppendAuditEventPara
 	return err
 }
 
+const countSignInsByHour = `-- name: CountSignInsByHour :many
+SELECT date_trunc('hour', at)::timestamptz AS hour,
+       count(*) FILTER (WHERE action = 'signed-in') AS signed_in,
+       count(*) FILTER (WHERE action = 'sign-in-failed') AS failed
+FROM audit_events
+WHERE kind = 'sign-in' AND client_id IS NULL AND at >= $1
+GROUP BY 1
+ORDER BY 1
+`
+
+type CountSignInsByHourRow struct {
+	Hour     time.Time
+	SignedIn int64
+	Failed   int64
+}
+
+// Sign-ins to the Identity Provider itself, and failed ones, per hour since a time.
+func (q *Queries) CountSignInsByHour(ctx context.Context, at time.Time) ([]CountSignInsByHourRow, error) {
+	rows, err := q.db.Query(ctx, countSignInsByHour, at)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CountSignInsByHourRow{}
+	for rows.Next() {
+		var i CountSignInsByHourRow
+		if err := rows.Scan(&i.Hour, &i.SignedIn, &i.Failed); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const deleteAuditEventsBefore = `-- name: DeleteAuditEventsBefore :execrows
 DELETE FROM audit_events WHERE at < $1
 `

@@ -33,6 +33,22 @@ func (q *Queries) ChallengeCeremony(ctx context.Context, arg ChallengeCeremonyPa
 	return i, err
 }
 
+const countActiveSessions = `-- name: CountActiveSessions :one
+SELECT count(*) AS sessions, count(DISTINCT user_id) AS users FROM sessions WHERE expires_at > $1
+`
+
+type CountActiveSessionsRow struct {
+	Sessions int64
+	Users    int64
+}
+
+func (q *Queries) CountActiveSessions(ctx context.Context, expiresAt time.Time) (CountActiveSessionsRow, error) {
+	row := q.db.QueryRow(ctx, countActiveSessions, expiresAt)
+	var i CountActiveSessionsRow
+	err := row.Scan(&i.Sessions, &i.Users)
+	return i, err
+}
+
 const createPasskey = `-- name: CreatePasskey :exec
 INSERT INTO passkeys (id, user_id, label, credential_id, credential, created_at) VALUES ($1, $2, $3, $4, $5, $6)
 `
