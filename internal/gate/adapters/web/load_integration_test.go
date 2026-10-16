@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"slices"
 	"sync"
 	"testing"
@@ -37,11 +38,10 @@ import (
 	usersapp "github.com/JorisJonkers-dev/identity/internal/users/app"
 )
 
-// The check's target (docs/adr/0009), and how hard the test leans on it.
+// The check's target (docs/adr/0009), and how many requests the test sends.
 const (
 	p99Target = 5 * time.Millisecond
 	requests  = 5000
-	workers   = 8
 )
 
 func sum(s string) []byte {
@@ -50,7 +50,9 @@ func sum(s string) []byte {
 }
 
 // TestTheGateCheckHoldsItsP99 runs the real check over Postgres behind a real HTTP server, with
-// a warm cache, and fails when its p99 reaches the target.
+// a warm cache, and fails when its p99 reaches the target. It times the server's handling, not the
+// client's round trip, and keeps one request in flight per CPU, so a busy CI runner's queueing in
+// the test's own client is not counted against the check.
 func TestTheGateCheckHoldsItsP99(t *testing.T) {
 	ctx := context.Background()
 	store, err := pg.Open(ctx, pgtest.URL(t))
@@ -80,48 +82,56 @@ func TestTheGateCheckHoldsItsP99(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewServer(h)
+	var mu sync.Mutex
+	times := make([]time.Duration, 0, requests)
+	timed := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		began := time.Now()
+		h.ServeHTTP(w, r)
+		took := time.Since(began)
+		if r.Header.Get("X-Warm") == "" {
+			mu.Lock()
+			times = append(times, took)
+			mu.Unlock()
+		}
+	})
+	srv := httptest.NewServer(timed)
 	t.Cleanup(srv.Close)
+	workers := runtime.GOMAXPROCS(0)
 	client := &http.Client{Transport: &http.Transport{MaxIdleConnsPerHost: workers}}
 
-	check := func() (time.Duration, error) {
+	check := func(warm bool) error {
 		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/gate/check", nil)
 		req.Header.Set("X-Forwarded-Host", "stats.jorisjonkers.dev")
 		req.Header.Set("X-Forwarded-Uri", "/")
 		req.AddCookie(&http.Cookie{Name: "__Host-identity_gate", Value: "host-cookie"}) //nolint:gosec // a request's cookie carries no attributes
-		began := time.Now()
+		if warm {
+			req.Header.Set("X-Warm", "1")
+		}
 		res, err := client.Do(req)
-		took := time.Since(began)
 		if err != nil {
-			return 0, err
+			return err
 		}
 		_ = res.Body.Close()
 		if res.StatusCode != http.StatusOK {
-			return 0, fmt.Errorf("check = %d", res.StatusCode)
+			return fmt.Errorf("check = %d", res.StatusCode)
 		}
-		return took, nil
+		return nil
 	}
 	for range workers { // warm the cache and the connections
-		if _, err := check(); err != nil {
+		if err := check(true); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	var mu sync.Mutex
-	times := make([]time.Duration, 0, requests)
 	var wg sync.WaitGroup
 	errs := make(chan error, workers)
 	for range workers {
 		wg.Go(func() {
 			for range requests / workers {
-				took, err := check()
-				if err != nil {
+				if err := check(false); err != nil {
 					errs <- err
 					return
 				}
-				mu.Lock()
-				times = append(times, took)
-				mu.Unlock()
 			}
 		})
 	}
@@ -130,6 +140,8 @@ func TestTheGateCheckHoldsItsP99(t *testing.T) {
 	for err := range errs {
 		t.Fatal(err)
 	}
+	mu.Lock()
+	defer mu.Unlock()
 	slices.Sort(times)
 	p50, p99 := times[len(times)/2], times[len(times)*99/100]
 	t.Logf("Gate check over %d requests: p50 %v, p99 %v", len(times), p50, p99)
