@@ -41,6 +41,7 @@ export const zSignIn = z.object({
  * The signed-in User.
  */
 export const zProfile = z.object({
+    secondFactor: z.boolean(),
     admin: z.boolean(),
     email: zEmail,
     name: z.string().max(400),
@@ -132,6 +133,62 @@ export const zAccessOverview = z.object({
 });
 
 /**
+ * The sign-in waits for a Second Factor.
+ */
+export const zSecondFactorNeeded = z.object({
+    secondFactor: z.enum(['totp'])
+});
+
+/**
+ * A code from an authenticator app.
+ */
+export const zSecondFactorCode = z.object({
+    code: z.string().min(1).max(16)
+});
+
+/**
+ * One of a User's Second Factors.
+ */
+export const zSecondFactor = z.object({
+    id: zId,
+    kind: z.enum(['totp']),
+    label: z.string().max(256),
+    createdAt: z.iso.datetime({ offset: true }).max(64),
+    lastUsedAt: z.iso.datetime({ offset: true }).max(64).optional()
+});
+
+/**
+ * A User's Second Factors.
+ */
+export const zSecondFactors = z.object({
+    factors: z.array(zSecondFactor).max(64)
+});
+
+/**
+ * What an authenticator app needs, as a QR code's URI and as a secret to type in.
+ */
+export const zTotpSetup = z.object({
+    secret: z.string().max(64),
+    uri: z.string().max(512)
+});
+
+/**
+ * A name for the new authenticator app, its first code, and the User's password, so a session someone else holds cannot add one.
+ */
+export const zTotpConfirmation = z.object({
+    password: zPassword,
+    label: z.string().min(1).max(256),
+    code: z.string().min(1).max(16)
+});
+
+/**
+ * The User's password, to confirm a change that weakens their sign-in.
+ */
+export const zPasswordCheck = z.object({
+    password: zPassword
+});
+
+/**
  * The running build.
  */
 export const zVersion = z.object({
@@ -189,10 +246,10 @@ export const zSignOutResponse = z.void();
 
 export const zSignInBody = zSignIn;
 
-/**
- * Signed in.
- */
-export const zSignInResponse = z.void();
+export const zSignInResponse = z.union([
+    zSecondFactorNeeded,
+    z.void()
+]);
 
 /**
  * The Profile.
@@ -212,6 +269,41 @@ export const zChangePasswordBody = zPasswordChange;
  * The password is changed.
  */
 export const zChangePasswordResponse = z.void();
+
+export const zCompleteSignInBody = zSecondFactorCode;
+
+/**
+ * Signed in.
+ */
+export const zCompleteSignInResponse = z.void();
+
+/**
+ * The Second Factors.
+ */
+export const zListSecondFactorsResponse = zSecondFactors;
+
+/**
+ * What to put into the authenticator app.
+ */
+export const zStartTotpResponse = zTotpSetup;
+
+export const zConfirmTotpBody = zTotpConfirmation;
+
+/**
+ * The authenticator app is a Second Factor of the User's.
+ */
+export const zConfirmTotpResponse = z.void();
+
+export const zRemoveSecondFactorBody = zPasswordCheck;
+
+export const zRemoveSecondFactorPath = z.object({
+    factorId: zId
+});
+
+/**
+ * Removed.
+ */
+export const zRemoveSecondFactorResponse = z.void();
 
 /**
  * The access overview.

@@ -40,7 +40,7 @@ func (s *Store) TakeByCodeHash(ctx context.Context, codeHash []byte) (domain.Aut
 
 func (s *Store) CompleteRequest(ctx context.Context, id uuid.UUID, in domain.SignIn) (bool, error) {
 	n, err := s.q.CompleteAuthRequest(ctx, queries.CompleteAuthRequestParams{
-		ID: id, UserID: &in.UserID, SessionID: &in.SessionID, AuthTime: &in.At,
+		ID: id, UserID: &in.UserID, SessionID: &in.SessionID, AuthTime: &in.At, Methods: in.Methods,
 	})
 	return n == 1, err
 }
@@ -69,7 +69,7 @@ func toRequest(row queries.AuthRequest, err error) (domain.AuthRequest, error) {
 	}
 	// The three are written together by CompleteAuthRequest, so one stands for all.
 	if row.UserID != nil {
-		r.SignIn = &domain.SignIn{UserID: *row.UserID, SessionID: *row.SessionID, At: *row.AuthTime}
+		r.SignIn = &domain.SignIn{UserID: *row.UserID, SessionID: *row.SessionID, At: *row.AuthTime, Methods: row.Methods}
 	}
 	return r, nil
 }

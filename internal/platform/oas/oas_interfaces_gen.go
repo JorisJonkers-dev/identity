@@ -13,8 +13,16 @@ type ChangePasswordRes interface {
 	changePasswordRes()
 }
 
+type CompleteSignInRes interface {
+	completeSignInRes()
+}
+
 type ConfirmEmailRes interface {
 	confirmEmailRes()
+}
+
+type ConfirmTOTPRes interface {
+	confirmTOTPRes()
 }
 
 type CreateGroupRes interface {
@@ -37,8 +45,16 @@ type GetVersionRes interface {
 	getVersionRes()
 }
 
+type ListSecondFactorsRes interface {
+	listSecondFactorsRes()
+}
+
 type RemoveMemberRes interface {
 	removeMemberRes()
+}
+
+type RemoveSecondFactorRes interface {
+	removeSecondFactorRes()
 }
 
 type RenameGroupRes interface {
@@ -55,6 +71,10 @@ type SignOutRes interface {
 
 type SignUpRes interface {
 	signUpRes()
+}
+
+type StartTOTPRes interface {
+	startTOTPRes()
 }
 
 type UnassignRoleRes interface {

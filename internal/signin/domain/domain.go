@@ -78,4 +78,6 @@ type SignIn struct {
 	SessionID uuid.UUID
 	// At is when the User last proved their password, the ID token's auth_time.
 	At time.Time
+	// Methods is how the session was proved, as RFC 8176 names them.
+	Methods []string
 }

@@ -11,3 +11,6 @@ databaseChangeLog:
   - include:
       file: 0003-access.yaml
       relativeToChangelogFile: true
+  - include:
+      file: 0004-second-factor.yaml
+      relativeToChangelogFile: true

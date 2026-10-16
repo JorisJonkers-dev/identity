@@ -53,6 +53,10 @@ export type SignIn = {
  */
 export type Profile = {
     /**
+     * Whether this session was proved with a Second Factor, which the admin pages need.
+     */
+    secondFactor: boolean;
+    /**
      * Whether the User is an Admin, who manages access. An Admin holds no App Role by being one.
      */
     admin: boolean;
@@ -185,6 +189,95 @@ export type AccessOverview = {
      * Every Assignment.
      */
     assignments: Array<Assignment>;
+};
+
+/**
+ * The sign-in waits for a Second Factor.
+ */
+export type SecondFactorNeeded = {
+    /**
+     * Which kind of Second Factor to ask for.
+     */
+    secondFactor: 'totp';
+};
+
+/**
+ * A code from an authenticator app.
+ */
+export type SecondFactorCode = {
+    /**
+     * The six digits the app shows.
+     */
+    code: string;
+};
+
+/**
+ * One of a User's Second Factors.
+ */
+export type SecondFactor = {
+    id: Id;
+    /**
+     * An authenticator app.
+     */
+    kind: 'totp';
+    /**
+     * What the User called it.
+     */
+    label: string;
+    /**
+     * When it was added.
+     */
+    createdAt: string;
+    /**
+     * When it last signed the User in.
+     */
+    lastUsedAt?: string;
+};
+
+/**
+ * A User's Second Factors.
+ */
+export type SecondFactors = {
+    /**
+     * Oldest first.
+     */
+    factors: Array<SecondFactor>;
+};
+
+/**
+ * What an authenticator app needs, as a QR code's URI and as a secret to type in.
+ */
+export type TotpSetup = {
+    /**
+     * The base32 secret, for typing into the app.
+     */
+    secret: string;
+    /**
+     * The otpauth URI the QR code carries.
+     */
+    uri: string;
+};
+
+/**
+ * A name for the new authenticator app, its first code, and the User's password, so a session someone else holds cannot add one.
+ */
+export type TotpConfirmation = {
+    password: Password;
+    /**
+     * What to call it, 1 to 64 characters.
+     */
+    label: string;
+    /**
+     * The six digits the app shows now.
+     */
+    code: string;
+};
+
+/**
+ * The User's password, to confirm a change that weakens their sign-in.
+ */
+export type PasswordCheck = {
+    password: Password;
 };
 
 /**
@@ -375,6 +468,10 @@ export type SignInError = SignInErrors[keyof SignInErrors];
 
 export type SignInResponses = {
     /**
+     * The password is right and the User has a Second Factor. A short-lived challenge cookie is set; completeSignIn takes the code.
+     */
+    202: SecondFactorNeeded;
+    /**
      * Signed in.
      */
     204: void;
@@ -468,6 +565,156 @@ export type ChangePasswordResponses = {
 };
 
 export type ChangePasswordResponse = ChangePasswordResponses[keyof ChangePasswordResponses];
+
+export type CompleteSignInData = {
+    body: SecondFactorCode;
+    path?: never;
+    query?: never;
+    url: '/api/v1/session/second-factor';
+};
+
+export type CompleteSignInErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type CompleteSignInError = CompleteSignInErrors[keyof CompleteSignInErrors];
+
+export type CompleteSignInResponses = {
+    /**
+     * Signed in.
+     */
+    204: void;
+};
+
+export type CompleteSignInResponse = CompleteSignInResponses[keyof CompleteSignInResponses];
+
+export type ListSecondFactorsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/profile/second-factors';
+};
+
+export type ListSecondFactorsErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type ListSecondFactorsError = ListSecondFactorsErrors[keyof ListSecondFactorsErrors];
+
+export type ListSecondFactorsResponses = {
+    /**
+     * The Second Factors.
+     */
+    200: SecondFactors;
+};
+
+export type ListSecondFactorsResponse = ListSecondFactorsResponses[keyof ListSecondFactorsResponses];
+
+export type StartTotpData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/profile/second-factors/totp';
+};
+
+export type StartTotpErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type StartTotpError = StartTotpErrors[keyof StartTotpErrors];
+
+export type StartTotpResponses = {
+    /**
+     * What to put into the authenticator app.
+     */
+    200: TotpSetup;
+};
+
+export type StartTotpResponse = StartTotpResponses[keyof StartTotpResponses];
+
+export type ConfirmTotpData = {
+    body: TotpConfirmation;
+    path?: never;
+    query?: never;
+    url: '/api/v1/profile/second-factors/totp/confirmation';
+};
+
+export type ConfirmTotpErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type ConfirmTotpError = ConfirmTotpErrors[keyof ConfirmTotpErrors];
+
+export type ConfirmTotpResponses = {
+    /**
+     * The authenticator app is a Second Factor of the User's.
+     */
+    204: void;
+};
+
+export type ConfirmTotpResponse = ConfirmTotpResponses[keyof ConfirmTotpResponses];
+
+export type RemoveSecondFactorData = {
+    body: PasswordCheck;
+    path: {
+        /**
+         * The Second Factor.
+         */
+        factorId: Id;
+    };
+    query?: never;
+    url: '/api/v1/profile/second-factors/{factorId}/removal';
+};
+
+export type RemoveSecondFactorErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type RemoveSecondFactorError = RemoveSecondFactorErrors[keyof RemoveSecondFactorErrors];
+
+export type RemoveSecondFactorResponses = {
+    /**
+     * Removed.
+     */
+    204: void;
+};
+
+export type RemoveSecondFactorResponse = RemoveSecondFactorResponses[keyof RemoveSecondFactorResponses];
 
 export type GetAccessData = {
     body?: never;

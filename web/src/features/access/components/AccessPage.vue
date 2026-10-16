@@ -1,7 +1,21 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { useQuery } from '@tanstack/vue-query'
+import { reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { getProfileOptions } from '../../../infrastructure/api/@tanstack/vue-query.gen'
 import type { AccessOverview } from '../../../infrastructure/api/types.gen'
 import { useAccess } from '../composables/useAccess'
+
+// An Admin whose session proved no Second Factor is sent to add one first (docs/adr/0005).
+const router = useRouter()
+const profile = useQuery({ ...getProfileOptions(), retry: false })
+watch(
+  () => profile.data.value,
+  (p) => {
+    if (p?.admin && !p.secondFactor) void router.replace({ path: '/security', query: { for: 'admin' } })
+  },
+  { immediate: true },
+)
 
 const access = useAccess()
 const { overview, isLoading, loadError, actionError } = access

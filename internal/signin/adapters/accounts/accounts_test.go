@@ -32,9 +32,10 @@ func (u *users) SignOutEverywhere(_ context.Context, id uuid.UUID) error {
 
 func TestSignedInTranslatesTheSession(t *testing.T) {
 	at := time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC)
-	u := &users{session: usersapp.Session{ID: uuid.New(), UserID: uuid.New(), CreatedAt: at}}
+	u := &users{session: usersapp.Session{ID: uuid.New(), UserID: uuid.New(), CreatedAt: at, Methods: []string{"pwd", "otp"}}}
 	got, err := accounts.New(u).SignedIn(context.Background(), "tok")
-	if err != nil || got.UserID != u.session.UserID || got.SessionID != u.session.ID || !got.At.Equal(at) {
+	if err != nil || got.UserID != u.session.UserID || got.SessionID != u.session.ID || !got.At.Equal(at) ||
+		len(got.Methods) != 2 || got.Methods[1] != "otp" {
 		t.Fatalf("SignedIn = %+v, %v", got, err)
 	}
 	u.err = usersapp.ErrNoSession

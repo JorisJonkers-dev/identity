@@ -15,7 +15,10 @@ watched without a restart; outside a cluster there are none. Admins put Users in
 Groups App Roles on Clients at `/access`; a User with no App Role on a Client gets no code, and the
 ID token and access token carry that Client's App Roles, and nothing else about access, in a
 `roles` claim. `identity admin promote <email>`, run in the pod, makes the first Admin, and the
-access page lists the Users waiting for a Group. Kept signing keys and Client secrets arrive with
+access page lists the Users waiting for a Group. Users add authenticator apps (TOTP) on the
+Security page, sealed by Vault transit; sign-in then asks for a code, and Admins manage access
+only from a session that gave one ([0015](docs/adr/0015-a-second-factor-is-proved-not-just-held.md)).
+Passkeys come next. Kept signing keys and Client secrets arrive with
 the following tickets. The schema moves through
 liquibase-runner, not goose ([0010](docs/adr/0010-migrations-run-through-liquibase-runner.md)).
 
@@ -42,6 +45,7 @@ How the repository is laid out and worked on.
 | `internal/server/` | Probes, `/api/` to the API, everything else to the SPA, graceful drain |
 | `cmd/identity/` | The composition root; reads `DATABASE_URL`, `PUBLIC_URL`, `SMTP_ADDR`, `MAIL_FROM`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_TLS` and `ADDR` (default `:8080`) |
 | `internal/users/` | The users context: sign-up, confirmation, sign-in, sessions and the Profile |
+| `internal/platform/vault/` | Seals and opens TOTP secrets with Vault's transit engine, signing in with a token or the pod's service account |
 | `internal/access/` | The access context: Groups, members and Assignments, managed by Admins, and the App Roles sign-in puts in tokens |
 | `internal/signin/` | The sign-in context: the OIDC Provider on zitadel/oidc, authorization requests, and the Single sign-on check at `/oidc/login` |
 | `compose.yaml` | Postgres, the migration runner and Mailpit for `task dev` and `task e2e` |

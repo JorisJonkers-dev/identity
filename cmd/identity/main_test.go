@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
 )
 
 func env(vars map[string]string) func(string) string {
@@ -82,5 +85,40 @@ func TestCommandUsage(t *testing.T) {
 	errs.Reset()
 	if code := command(t.Context(), env(map[string]string{"DATABASE_URL": unreachable}), []string{"admin", "promote", "--force", "a@b.c"}, &out, &errs); code != 1 || errs.Len() == 0 {
 		t.Fatalf("an unreachable database = %d, %q", code, errs.String())
+	}
+}
+
+func TestVaultIsOptionalAndSignsInAsConfigured(t *testing.T) {
+	cfg, err := readConfig(env(complete()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := cfg.vault.sealer(); ok {
+		t.Fatal("a sealer without VAULT_ADDR")
+	}
+	if v := cfg.vault; v.role != "identity" || v.authMount != "kubernetes" || v.transitMount != "transit" || v.totpKey != "identity-totp" ||
+		v.jwtPath != "/var/run/secrets/kubernetes.io/serviceaccount/token" {
+		t.Fatalf("Vault defaults = %+v", v)
+	}
+	for _, token := range []string{"", "dev-root"} {
+		vars := complete()
+		vars["VAULT_ADDR"], vars["VAULT_TOKEN"], vars["VAULT_JWT_PATH"] = "http://127.0.0.1:1", token, "/no/such/token"
+		cfg, _ := readConfig(env(vars))
+		sealer, ok := cfg.vault.sealer()
+		if !ok {
+			t.Fatal("no sealer with VAULT_ADDR")
+		}
+		// Neither reaches a Vault: the token fails to connect, the service account fails to read.
+		if _, err := sealer.Seal(t.Context(), []byte("x")); err == nil {
+			t.Errorf("sealed against nothing with token %q", token)
+		}
+	}
+}
+
+func TestAdminsFuncIsTheFunction(t *testing.T) {
+	called := false
+	f := adminsFunc(func(context.Context, uuid.UUID) (bool, error) { called = true; return true, nil })
+	if yes, err := f.IsAdmin(t.Context(), uuid.New()); !yes || err != nil || !called {
+		t.Fatalf("IsAdmin = %v, %v, called %v", yes, err, called)
 	}
 }

@@ -13,7 +13,7 @@ import (
 )
 
 const authRequestByID = `-- name: AuthRequestByID :one
-SELECT id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode, code_challenge, code_challenge_method, created_at, expires_at, user_id, session_id, auth_time, code_hash FROM auth_requests WHERE id = $1
+SELECT id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode, code_challenge, code_challenge_method, created_at, expires_at, user_id, session_id, auth_time, code_hash, methods FROM auth_requests WHERE id = $1
 `
 
 func (q *Queries) AuthRequestByID(ctx context.Context, id uuid.UUID) (AuthRequest, error) {
@@ -36,12 +36,13 @@ func (q *Queries) AuthRequestByID(ctx context.Context, id uuid.UUID) (AuthReques
 		&i.SessionID,
 		&i.AuthTime,
 		&i.CodeHash,
+		&i.Methods,
 	)
 	return i, err
 }
 
 const completeAuthRequest = `-- name: CompleteAuthRequest :execrows
-UPDATE auth_requests SET user_id = $2, session_id = $3, auth_time = $4 WHERE id = $1 AND user_id IS NULL
+UPDATE auth_requests SET user_id = $2, session_id = $3, auth_time = $4, methods = $5 WHERE id = $1 AND user_id IS NULL
 `
 
 type CompleteAuthRequestParams struct {
@@ -49,6 +50,7 @@ type CompleteAuthRequestParams struct {
 	UserID    *uuid.UUID
 	SessionID *uuid.UUID
 	AuthTime  *time.Time
+	Methods   []string
 }
 
 // Records who signed in, once: a request already completed keeps its first User.
@@ -58,6 +60,7 @@ func (q *Queries) CompleteAuthRequest(ctx context.Context, arg CompleteAuthReque
 		arg.UserID,
 		arg.SessionID,
 		arg.AuthTime,
+		arg.Methods,
 	)
 	if err != nil {
 		return 0, err
@@ -132,7 +135,7 @@ func (q *Queries) SaveAuthCode(ctx context.Context, arg SaveAuthCodeParams) (int
 }
 
 const takeAuthRequestByCodeHash = `-- name: TakeAuthRequestByCodeHash :one
-DELETE FROM auth_requests WHERE code_hash = $1 RETURNING id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode, code_challenge, code_challenge_method, created_at, expires_at, user_id, session_id, auth_time, code_hash
+DELETE FROM auth_requests WHERE code_hash = $1 RETURNING id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode, code_challenge, code_challenge_method, created_at, expires_at, user_id, session_id, auth_time, code_hash, methods
 `
 
 // Redeeming a code removes its request in the same statement, so two exchanges racing with one
@@ -157,6 +160,7 @@ func (q *Queries) TakeAuthRequestByCodeHash(ctx context.Context, codeHash []byte
 		&i.SessionID,
 		&i.AuthTime,
 		&i.CodeHash,
+		&i.Methods,
 	)
 	return i, err
 }

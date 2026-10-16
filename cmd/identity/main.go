@@ -6,7 +6,10 @@
 // Environment: DATABASE_URL, PUBLIC_URL (where mailed links point), SMTP_ADDR and MAIL_FROM are
 // required; SMTP_USERNAME and SMTP_PASSWORD sign in to the mail server; SMTP_TLS is "required"
 // (the default) or "none", which only a local run against Mailpit may use; ADDR defaults to :8080,
-// and METRICS_ADDR, which serves only /metrics, to :9090.
+// and METRICS_ADDR, which serves only /metrics, to :9090. VAULT_ADDR lets Users add authenticator
+// apps: identity signs in to Vault with VAULT_TOKEN, or as VAULT_ROLE (identity) through the
+// Kubernetes auth method; VAULT_TRANSIT_MOUNT (transit) and VAULT_TOTP_KEY (identity-totp) name the
+// key.
 package main
 
 import (
@@ -24,6 +27,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 
@@ -36,6 +40,7 @@ import (
 	"github.com/JorisJonkers-dev/identity/internal/platform/metrics"
 	"github.com/JorisJonkers-dev/identity/internal/platform/passwords"
 	"github.com/JorisJonkers-dev/identity/internal/platform/pg"
+	"github.com/JorisJonkers-dev/identity/internal/platform/vault"
 	"github.com/JorisJonkers-dev/identity/internal/platform/webui"
 	"github.com/JorisJonkers-dev/identity/internal/server"
 	"github.com/JorisJonkers-dev/identity/internal/signin/adapters/accounts"
@@ -96,12 +101,21 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 	}
 	defer store.Close()
 
-	users := app.New(persistence.New(store.Queries()), passwords.NewArgon2id(maxConcurrentHashes, hashWait), cfg.mailer, time.Now, rand.Reader, cfg.publicURL)
+	// users caps an Admin's session at 12 hours, and access lists users' Users: each needs the other.
+	var access *accessapp.Service
+	admins := adminsFunc(func(ctx context.Context, id uuid.UUID) (bool, error) { return access.IsAdmin(ctx, id) })
+	opts := []app.Option{app.WithAdmins(admins)}
+	if sealer, ok := cfg.vault.sealer(); ok {
+		opts = append(opts, app.WithSealer(sealer))
+	} else {
+		logger.Warn("VAULT_ADDR is not set: no authenticator apps")
+	}
+	users := app.New(persistence.New(store.Queries()), passwords.NewArgon2id(maxConcurrentHashes, hashWait), cfg.mailer, time.Now, rand.Reader, cfg.publicURL, opts...)
 	index, synced, err := watchClients(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
-	access := accessapp.New(accesspersistence.New(store.Queries(), store), catalog.New(index), people.New(users), rand.Reader)
+	access = accessapp.New(accesspersistence.New(store.Queries(), store), catalog.New(index), people.New(users), rand.Reader)
 	api, err := httpapi.New(logger, version, users, access)
 	if err != nil {
 		return err
@@ -137,6 +151,32 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 }
 
 var errClientsNotListed = errors.New("the Client objects are not listed yet")
+
+// adminsFunc is app.Admins as a function.
+type adminsFunc func(ctx context.Context, id uuid.UUID) (bool, error)
+
+func (f adminsFunc) IsAdmin(ctx context.Context, id uuid.UUID) (bool, error) { return f(ctx, id) }
+
+// vaultConfig reaches Vault's transit engine, which seals TOTP secrets (docs/adr/0013).
+type vaultConfig struct {
+	addr, token, role, authMount, jwtPath, transitMount, totpKey string
+}
+
+// sealer is the TOTP key, or false when no Vault is configured. A token signs in directly, for a
+// local dev-mode Vault; without one identity signs in with its service account.
+func (v vaultConfig) sealer() (vault.Key, bool) {
+	if v.addr == "" {
+		return vault.Key{}, false
+	}
+	login := vault.Kubernetes(v.authMount, v.role, v.jwtPath)
+	if v.token != "" {
+		login = vault.Token(v.token)
+	}
+	client := &http.Client{Timeout: vaultTimeout}
+	return vault.NewTransit(v.addr, v.transitMount, login, client).Key(v.totpKey), true
+}
+
+const vaultTimeout = 5 * time.Second
 
 // serveMetrics serves h on ln until the returned stop is called.
 func serveMetrics(ln net.Listener, h http.Handler, logger *slog.Logger) (stop func()) {
@@ -192,6 +232,15 @@ type config struct {
 	mailer      mail.SMTP
 	// inCluster is set when running in Kubernetes, the only place Client objects exist.
 	inCluster bool
+	vault     vaultConfig
+}
+
+// or is value, or fallback when value is empty.
+func or(value, fallback string) string {
+	if value == "" {
+		return fallback
+	}
+	return value
 }
 
 // readConfig reads the environment, naming every required variable that is missing at once.
@@ -210,6 +259,12 @@ func readConfig(getenv func(string) string) (config, error) {
 		addr:        getenv("ADDR"),
 		metricsAddr: getenv("METRICS_ADDR"),
 		inCluster:   getenv("KUBERNETES_SERVICE_HOST") != "",
+		vault: vaultConfig{
+			addr: getenv("VAULT_ADDR"), token: getenv("VAULT_TOKEN"),
+			role: or(getenv("VAULT_ROLE"), "identity"), authMount: or(getenv("VAULT_AUTH_MOUNT"), "kubernetes"),
+			jwtPath:      or(getenv("VAULT_JWT_PATH"), "/var/run/secrets/kubernetes.io/serviceaccount/token"),
+			transitMount: or(getenv("VAULT_TRANSIT_MOUNT"), "transit"), totpKey: or(getenv("VAULT_TOTP_KEY"), "identity-totp"),
+		},
 		mailer: mail.SMTP{
 			Addr: need("SMTP_ADDR"), From: need("MAIL_FROM"),
 			Username: getenv("SMTP_USERNAME"), Password: getenv("SMTP_PASSWORD"),

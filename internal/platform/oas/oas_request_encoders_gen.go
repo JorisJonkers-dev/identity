@@ -24,6 +24,20 @@ func encodeChangePasswordRequest(
 	return nil
 }
 
+func encodeCompleteSignInRequest(
+	req *SecondFactorCode,
+	r *http.Request,
+) error {
+	const contentType = "application/json"
+	e := new(jx.Encoder)
+	{
+		req.Encode(e)
+	}
+	encoded := e.Bytes()
+	ht.SetBody(r, bytes.NewReader(encoded), contentType)
+	return nil
+}
+
 func encodeConfirmEmailRequest(
 	req *Confirmation,
 	r *http.Request,
@@ -38,8 +52,36 @@ func encodeConfirmEmailRequest(
 	return nil
 }
 
+func encodeConfirmTOTPRequest(
+	req *TOTPConfirmation,
+	r *http.Request,
+) error {
+	const contentType = "application/json"
+	e := new(jx.Encoder)
+	{
+		req.Encode(e)
+	}
+	encoded := e.Bytes()
+	ht.SetBody(r, bytes.NewReader(encoded), contentType)
+	return nil
+}
+
 func encodeCreateGroupRequest(
 	req *GroupDraft,
+	r *http.Request,
+) error {
+	const contentType = "application/json"
+	e := new(jx.Encoder)
+	{
+		req.Encode(e)
+	}
+	encoded := e.Bytes()
+	ht.SetBody(r, bytes.NewReader(encoded), contentType)
+	return nil
+}
+
+func encodeRemoveSecondFactorRequest(
+	req *PasswordCheck,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"

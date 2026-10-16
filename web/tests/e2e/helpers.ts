@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process'
+import { createHmac } from 'node:crypto'
 import AxeBuilder from '@axe-core/playwright'
 import { expect, type Page } from '@playwright/test'
 
@@ -52,4 +53,30 @@ export function promote(email: string): string {
     env: { PATH: process.env.PATH ?? '', DATABASE_URL: process.env.DATABASE_URL ?? 'postgres://app:app@localhost:55432/app?sslmode=disable' },
     encoding: 'utf8',
   })
+}
+
+/** The RFC 6238 code an authenticator app shows for a base32 secret, a step away from now if asked. */
+export function totp(secret: string, step = 0): string {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+  let bits = ''
+  for (const c of secret.replace(/=+$/, '')) bits += alphabet.indexOf(c).toString(2).padStart(5, '0')
+  const key = Buffer.from(bits.match(/.{8}/g)?.map((b) => parseInt(b, 2)) ?? [])
+  const counter = Buffer.alloc(8)
+  counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30_000) + step))
+  const mac = createHmac('sha1', key).update(counter).digest()
+  const offset = (mac[mac.length - 1] ?? 0) & 0xf
+  return String((mac.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).padStart(6, '0')
+}
+
+/** Adds an authenticator app on the Security page and returns its secret. */
+export async function enrolTOTP(page: Page): Promise<string> {
+  await page.goto('/security')
+  await page.getByRole('button', { name: 'Add an authenticator app' }).click()
+  const secret = (await page.locator('code').textContent()) ?? ''
+  await page.getByLabel('Name for this app').fill('Phone')
+  await page.getByLabel('6-digit code from your app').fill(totp(secret))
+  await page.getByLabel('Your password').fill('correct horse battery')
+  await page.getByRole('button', { name: 'Add authenticator app' }).click()
+  await expect(page.getByRole('status')).toContainText('Authenticator app added.')
+  return secret
 }

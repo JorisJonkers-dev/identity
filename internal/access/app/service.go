@@ -21,7 +21,15 @@ var (
 	ErrUnknownClient = errors.New("no such Client")
 	ErrUnknownRole   = errors.New("the Client declares no such App Role")
 	ErrAdminExists   = errors.New("an Admin exists already")
+	// ErrSecondFactorNeeded is an Admin whose session did not prove a Second Factor.
+	ErrSecondFactorNeeded = errors.New("access is managed only from a session proved with a Second Factor")
 )
+
+// Actor is who asks to manage access, and whether their session proved a Second Factor.
+type Actor struct {
+	ID           uuid.UUID
+	SecondFactor bool
+}
 
 // Store keeps Groups, memberships and Assignments.
 type Store interface {
@@ -121,19 +129,23 @@ func (s *Service) Roles(ctx context.Context, userID uuid.UUID, clientID string) 
 	return s.store.RolesOf(ctx, userID, clientID)
 }
 
-func (s *Service) admin(ctx context.Context, actor uuid.UUID) error {
-	yes, err := s.store.IsAdmin(ctx, actor)
+// admin lets an Admin through, and only from a session that proved a Second Factor (docs/adr/0005).
+func (s *Service) admin(ctx context.Context, actor Actor) error {
+	yes, err := s.store.IsAdmin(ctx, actor.ID)
 	if err != nil {
 		return err
 	}
 	if !yes {
 		return ErrNotAdmin
 	}
+	if !actor.SecondFactor {
+		return ErrSecondFactorNeeded
+	}
 	return nil
 }
 
 // Overview returns every Group, member, Assignment, Client and User.
-func (s *Service) Overview(ctx context.Context, actor uuid.UUID) (Overview, error) {
+func (s *Service) Overview(ctx context.Context, actor Actor) (Overview, error) {
 	if err := s.admin(ctx, actor); err != nil {
 		return Overview{}, err
 	}
@@ -156,7 +168,7 @@ func (s *Service) Overview(ctx context.Context, actor uuid.UUID) (Overview, erro
 }
 
 // CreateGroup makes an empty Group.
-func (s *Service) CreateGroup(ctx context.Context, actor uuid.UUID, name string) (domain.Group, error) {
+func (s *Service) CreateGroup(ctx context.Context, actor Actor, name string) (domain.Group, error) {
 	if err := s.admin(ctx, actor); err != nil {
 		return domain.Group{}, err
 	}
@@ -176,7 +188,7 @@ func (s *Service) CreateGroup(ctx context.Context, actor uuid.UUID, name string)
 }
 
 // RenameGroup changes what a Group is called; no token carries it, so no app notices.
-func (s *Service) RenameGroup(ctx context.Context, actor, id uuid.UUID, name string) (domain.Group, error) {
+func (s *Service) RenameGroup(ctx context.Context, actor Actor, id uuid.UUID, name string) (domain.Group, error) {
 	if err := s.admin(ctx, actor); err != nil {
 		return domain.Group{}, err
 	}
@@ -191,7 +203,7 @@ func (s *Service) RenameGroup(ctx context.Context, actor, id uuid.UUID, name str
 }
 
 // DeleteGroup deletes a Group with its memberships and Assignments. The admins Group stays.
-func (s *Service) DeleteGroup(ctx context.Context, actor, id uuid.UUID) error {
+func (s *Service) DeleteGroup(ctx context.Context, actor Actor, id uuid.UUID) error {
 	if err := s.admin(ctx, actor); err != nil {
 		return err
 	}
@@ -206,7 +218,7 @@ func (s *Service) DeleteGroup(ctx context.Context, actor, id uuid.UUID) error {
 }
 
 // AddMember puts a User in a Group.
-func (s *Service) AddMember(ctx context.Context, actor uuid.UUID, m domain.Membership) error {
+func (s *Service) AddMember(ctx context.Context, actor Actor, m domain.Membership) error {
 	if err := s.admin(ctx, actor); err != nil {
 		return err
 	}
@@ -214,7 +226,7 @@ func (s *Service) AddMember(ctx context.Context, actor uuid.UUID, m domain.Membe
 }
 
 // RemoveMember takes a User out of a Group; the admins Group keeps at least one.
-func (s *Service) RemoveMember(ctx context.Context, actor uuid.UUID, m domain.Membership) error {
+func (s *Service) RemoveMember(ctx context.Context, actor Actor, m domain.Membership) error {
 	if err := s.admin(ctx, actor); err != nil {
 		return err
 	}
@@ -223,7 +235,7 @@ func (s *Service) RemoveMember(ctx context.Context, actor uuid.UUID, m domain.Me
 
 // Assign gives a Group an App Role the Client declares. The admins Group holds none, so being an
 // Admin never opens an app.
-func (s *Service) Assign(ctx context.Context, actor uuid.UUID, a domain.Assignment) error {
+func (s *Service) Assign(ctx context.Context, actor Actor, a domain.Assignment) error {
 	if err := s.admin(ctx, actor); err != nil {
 		return err
 	}
@@ -245,7 +257,7 @@ func (s *Service) Assign(ctx context.Context, actor uuid.UUID, a domain.Assignme
 }
 
 // Unassign takes an App Role from a Group, also on a Removed Client.
-func (s *Service) Unassign(ctx context.Context, actor uuid.UUID, a domain.Assignment) error {
+func (s *Service) Unassign(ctx context.Context, actor Actor, a domain.Assignment) error {
 	if err := s.admin(ctx, actor); err != nil {
 		return err
 	}

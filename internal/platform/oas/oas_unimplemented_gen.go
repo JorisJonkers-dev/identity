@@ -41,6 +41,16 @@ func (UnimplementedHandler) ChangePassword(ctx context.Context, req *PasswordCha
 	return r, ht.ErrNotImplemented
 }
 
+// CompleteSignIn implements completeSignIn operation.
+//
+// Takes a code from the User's authenticator app for the sign-in the challenge cookie names, and
+// starts a session proved by both. A challenge takes five codes; a code works once.
+//
+// POST /api/v1/session/second-factor
+func (UnimplementedHandler) CompleteSignIn(ctx context.Context, req *SecondFactorCode) (r CompleteSignInRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // ConfirmEmail implements confirmEmail operation.
 //
 // Creates the User a sign-up describes, given the token from the mailed link and the password chosen
@@ -48,6 +58,17 @@ func (UnimplementedHandler) ChangePassword(ctx context.Context, req *PasswordCha
 //
 // POST /api/v1/confirmations
 func (UnimplementedHandler) ConfirmEmail(ctx context.Context, req *Confirmation) (r ConfirmEmailRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// ConfirmTOTP implements confirmTOTP operation.
+//
+// Keeps the authenticator app startTOTP set up once it gives a right code and the User's password is
+// right. A User who already has one must be in a session that proved it. Every other session of the
+// User's ends.
+//
+// POST /api/v1/profile/second-factors/totp/confirmation
+func (UnimplementedHandler) ConfirmTOTP(ctx context.Context, req *TOTPConfirmation) (r ConfirmTOTPRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -98,12 +119,31 @@ func (UnimplementedHandler) GetVersion(ctx context.Context) (r GetVersionRes, _ 
 	return r, ht.ErrNotImplemented
 }
 
+// ListSecondFactors implements listSecondFactors operation.
+//
+// Every authenticator app the User enrolled.
+//
+// GET /api/v1/profile/second-factors
+func (UnimplementedHandler) ListSecondFactors(ctx context.Context) (r ListSecondFactorsRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // RemoveMember implements removeMember operation.
 //
 // The admins Group always keeps one member. Admins only.
 //
 // DELETE /api/v1/access/groups/{groupId}/members/{userId}
 func (UnimplementedHandler) RemoveMember(ctx context.Context, params RemoveMemberParams) (r RemoveMemberRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// RemoveSecondFactor implements removeSecondFactor operation.
+//
+// Removes one of the User's authenticator apps once they give their password, from a session that
+// proved a Second Factor.
+//
+// POST /api/v1/profile/second-factors/{factorId}/removal
+func (UnimplementedHandler) RemoveSecondFactor(ctx context.Context, req *PasswordCheck, params RemoveSecondFactorParams) (r RemoveSecondFactorRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -142,6 +182,16 @@ func (UnimplementedHandler) SignOut(ctx context.Context) (r SignOutRes, _ error)
 //
 // POST /api/v1/signup
 func (UnimplementedHandler) SignUp(ctx context.Context, req *SignUp) (r SignUpRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// StartTOTP implements startTOTP operation.
+//
+// Makes a secret for a new authenticator app. It is kept, sealed by Vault, for ten minutes, until
+// confirmTOTP gets a right code from the app.
+//
+// POST /api/v1/profile/second-factors/totp
+func (UnimplementedHandler) StartTOTP(ctx context.Context) (r StartTOTPRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 

@@ -10,11 +10,11 @@ import (
 )
 
 func TestFromIsWhoWithPut(t *testing.T) {
-	id := uuid.New()
-	if got := principal.From(principal.With(context.Background(), id)); got != id {
-		t.Fatalf("From = %v, want %v", got, id)
+	p := principal.Principal{UserID: uuid.New(), SecondFactor: true}
+	if got := principal.From(principal.With(context.Background(), p)); got != p {
+		t.Fatalf("From = %+v, want %+v", got, p)
 	}
-	if got := principal.From(context.Background()); got != uuid.Nil {
-		t.Fatalf("From of nobody = %v", got)
+	if got := principal.From(context.Background()); got != (principal.Principal{}) {
+		t.Fatalf("From of nobody = %+v", got)
 	}
 }

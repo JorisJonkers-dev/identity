@@ -8,15 +8,21 @@ import (
 	"github.com/google/uuid"
 )
 
-type key struct{}
-
-// With returns ctx carrying the signed-in User.
-func With(ctx context.Context, userID uuid.UUID) context.Context {
-	return context.WithValue(ctx, key{}, userID)
+// Principal is the signed-in User, and whether their session proved a Second Factor.
+type Principal struct {
+	UserID       uuid.UUID
+	SecondFactor bool
 }
 
-// From is the signed-in User, or uuid.Nil when nobody is.
-func From(ctx context.Context) uuid.UUID {
-	id, _ := ctx.Value(key{}).(uuid.UUID)
-	return id
+type key struct{}
+
+// With returns ctx carrying p.
+func With(ctx context.Context, p Principal) context.Context {
+	return context.WithValue(ctx, key{}, p)
+}
+
+// From is the signed-in User, or the zero Principal when nobody is.
+func From(ctx context.Context) Principal {
+	p, _ := ctx.Value(key{}).(Principal)
+	return p
 }

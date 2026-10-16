@@ -49,6 +49,13 @@ type Invoker interface {
 	//
 	// POST /api/v1/profile/password
 	ChangePassword(ctx context.Context, request *PasswordChange) (ChangePasswordRes, error)
+	// CompleteSignIn invokes completeSignIn operation.
+	//
+	// Takes a code from the User's authenticator app for the sign-in the challenge cookie names, and
+	// starts a session proved by both. A challenge takes five codes; a code works once.
+	//
+	// POST /api/v1/session/second-factor
+	CompleteSignIn(ctx context.Context, request *SecondFactorCode) (CompleteSignInRes, error)
 	// ConfirmEmail invokes confirmEmail operation.
 	//
 	// Creates the User a sign-up describes, given the token from the mailed link and the password chosen
@@ -56,6 +63,14 @@ type Invoker interface {
 	//
 	// POST /api/v1/confirmations
 	ConfirmEmail(ctx context.Context, request *Confirmation) (ConfirmEmailRes, error)
+	// ConfirmTOTP invokes confirmTOTP operation.
+	//
+	// Keeps the authenticator app startTOTP set up once it gives a right code and the User's password is
+	// right. A User who already has one must be in a session that proved it. Every other session of the
+	// User's ends.
+	//
+	// POST /api/v1/profile/second-factors/totp/confirmation
+	ConfirmTOTP(ctx context.Context, request *TOTPConfirmation) (ConfirmTOTPRes, error)
 	// CreateGroup invokes createGroup operation.
 	//
 	// Makes an empty Group. Names are unique whatever their case. Admins only.
@@ -88,12 +103,25 @@ type Invoker interface {
 	//
 	// GET /api/v1/version
 	GetVersion(ctx context.Context) (GetVersionRes, error)
+	// ListSecondFactors invokes listSecondFactors operation.
+	//
+	// Every authenticator app the User enrolled.
+	//
+	// GET /api/v1/profile/second-factors
+	ListSecondFactors(ctx context.Context) (ListSecondFactorsRes, error)
 	// RemoveMember invokes removeMember operation.
 	//
 	// The admins Group always keeps one member. Admins only.
 	//
 	// DELETE /api/v1/access/groups/{groupId}/members/{userId}
 	RemoveMember(ctx context.Context, params RemoveMemberParams) (RemoveMemberRes, error)
+	// RemoveSecondFactor invokes removeSecondFactor operation.
+	//
+	// Removes one of the User's authenticator apps once they give their password, from a session that
+	// proved a Second Factor.
+	//
+	// POST /api/v1/profile/second-factors/{factorId}/removal
+	RemoveSecondFactor(ctx context.Context, request *PasswordCheck, params RemoveSecondFactorParams) (RemoveSecondFactorRes, error)
 	// RenameGroup invokes renameGroup operation.
 	//
 	// No token carries a Group's name, so renaming one changes nothing for any app. Admins only.
@@ -120,6 +148,13 @@ type Invoker interface {
 	//
 	// POST /api/v1/signup
 	SignUp(ctx context.Context, request *SignUp) (SignUpRes, error)
+	// StartTOTP invokes startTOTP operation.
+	//
+	// Makes a secret for a new authenticator app. It is kept, sealed by Vault, for ten minutes, until
+	// confirmTOTP gets a right code from the app.
+	//
+	// POST /api/v1/profile/second-factors/totp
+	StartTOTP(ctx context.Context) (StartTOTPRes, error)
 	// UnassignRole invokes unassignRole operation.
 	//
 	// Removes an Assignment, also one on a Removed Client. Admins only.
@@ -626,6 +661,123 @@ func (c *Client) sendChangePassword(ctx context.Context, request *PasswordChange
 	return result, nil
 }
 
+// CompleteSignIn invokes completeSignIn operation.
+//
+// Takes a code from the User's authenticator app for the sign-in the challenge cookie names, and
+// starts a session proved by both. A challenge takes five codes; a code works once.
+//
+// POST /api/v1/session/second-factor
+func (c *Client) CompleteSignIn(ctx context.Context, request *SecondFactorCode) (CompleteSignInRes, error) {
+	res, err := c.sendCompleteSignIn(ctx, request)
+	return res, err
+}
+
+func (c *Client) sendCompleteSignIn(ctx context.Context, request *SecondFactorCode) (res CompleteSignInRes, err error) {
+	otelAttrs := []attribute.KeyValue{
+		otelogen.OperationID("completeSignIn"),
+		semconv.HTTPRequestMethodKey.String("POST"),
+		semconv.URLTemplateKey.String("/api/v1/session/second-factor"),
+	}
+	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
+
+	// Run stopwatch.
+	startTime := time.Now()
+	defer func() {
+		// Use floating point division here for higher precision (instead of Millisecond method).
+		elapsedDuration := time.Since(startTime)
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
+	}()
+
+	// Increment request counter.
+	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+
+	// Start a span for this request.
+	ctx, span := c.cfg.Tracer.Start(ctx, CompleteSignInOperation,
+		trace.WithAttributes(otelAttrs...),
+		clientSpanKind,
+	)
+	// Track stage for error reporting.
+	var stage string
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, stage)
+			c.errors.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+		}
+		span.End()
+	}()
+
+	stage = "BuildURL"
+	u := uri.Clone(c.requestURL(ctx))
+	var pathParts [1]string
+	pathParts[0] = "/api/v1/session/second-factor"
+	uri.AddPathParts(u, pathParts[:]...)
+
+	stage = "EncodeRequest"
+	r, err := ht.NewRequest(ctx, "POST", u)
+	if err != nil {
+		return res, errors.Wrap(err, "create request")
+	}
+	if err := encodeCompleteSignInRequest(request, r); err != nil {
+		return res, errors.Wrap(err, "encode request")
+	}
+
+	{
+		type bitset = [1]uint8
+		var satisfied bitset
+		{
+			stage = "Security:Challenge"
+			switch err := c.securityChallenge(ctx, CompleteSignInOperation, r); {
+			case err == nil: // if NO error
+				satisfied[0] |= 1 << 0
+			case errors.Is(err, ogenerrors.ErrSkipClientSecurity):
+				// Skip this security.
+			default:
+				return res, errors.Wrap(err, "security \"Challenge\"")
+			}
+		}
+
+		if ok := func() bool {
+		nextRequirement:
+			for _, requirement := range []bitset{
+				{0b00000001},
+			} {
+				for i, mask := range requirement {
+					if satisfied[i]&mask != mask {
+						continue nextRequirement
+					}
+				}
+				return true
+			}
+			return false
+		}(); !ok {
+			return res, ogenerrors.ErrSecurityRequirementIsNotSatisfied
+		}
+	}
+
+	stage = "SendRequest"
+	resp, err := c.cfg.Client.Do(r)
+	if err != nil {
+		return res, errors.Wrap(err, "do request")
+	}
+	body := resp.Body
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
+
+	stage = "DecodeResponse"
+	result, err := decodeCompleteSignInResponse(resp)
+	if err != nil {
+		return res, errors.Wrap(err, "decode response")
+	}
+
+	return result, nil
+}
+
 // ConfirmEmail invokes confirmEmail operation.
 //
 // Creates the User a sign-up describes, given the token from the mailed link and the password chosen
@@ -703,6 +855,124 @@ func (c *Client) sendConfirmEmail(ctx context.Context, request *Confirmation) (r
 
 	stage = "DecodeResponse"
 	result, err := decodeConfirmEmailResponse(resp)
+	if err != nil {
+		return res, errors.Wrap(err, "decode response")
+	}
+
+	return result, nil
+}
+
+// ConfirmTOTP invokes confirmTOTP operation.
+//
+// Keeps the authenticator app startTOTP set up once it gives a right code and the User's password is
+// right. A User who already has one must be in a session that proved it. Every other session of the
+// User's ends.
+//
+// POST /api/v1/profile/second-factors/totp/confirmation
+func (c *Client) ConfirmTOTP(ctx context.Context, request *TOTPConfirmation) (ConfirmTOTPRes, error) {
+	res, err := c.sendConfirmTOTP(ctx, request)
+	return res, err
+}
+
+func (c *Client) sendConfirmTOTP(ctx context.Context, request *TOTPConfirmation) (res ConfirmTOTPRes, err error) {
+	otelAttrs := []attribute.KeyValue{
+		otelogen.OperationID("confirmTOTP"),
+		semconv.HTTPRequestMethodKey.String("POST"),
+		semconv.URLTemplateKey.String("/api/v1/profile/second-factors/totp/confirmation"),
+	}
+	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
+
+	// Run stopwatch.
+	startTime := time.Now()
+	defer func() {
+		// Use floating point division here for higher precision (instead of Millisecond method).
+		elapsedDuration := time.Since(startTime)
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
+	}()
+
+	// Increment request counter.
+	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+
+	// Start a span for this request.
+	ctx, span := c.cfg.Tracer.Start(ctx, ConfirmTOTPOperation,
+		trace.WithAttributes(otelAttrs...),
+		clientSpanKind,
+	)
+	// Track stage for error reporting.
+	var stage string
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, stage)
+			c.errors.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+		}
+		span.End()
+	}()
+
+	stage = "BuildURL"
+	u := uri.Clone(c.requestURL(ctx))
+	var pathParts [1]string
+	pathParts[0] = "/api/v1/profile/second-factors/totp/confirmation"
+	uri.AddPathParts(u, pathParts[:]...)
+
+	stage = "EncodeRequest"
+	r, err := ht.NewRequest(ctx, "POST", u)
+	if err != nil {
+		return res, errors.Wrap(err, "create request")
+	}
+	if err := encodeConfirmTOTPRequest(request, r); err != nil {
+		return res, errors.Wrap(err, "encode request")
+	}
+
+	{
+		type bitset = [1]uint8
+		var satisfied bitset
+		{
+			stage = "Security:Session"
+			switch err := c.securitySession(ctx, ConfirmTOTPOperation, r); {
+			case err == nil: // if NO error
+				satisfied[0] |= 1 << 0
+			case errors.Is(err, ogenerrors.ErrSkipClientSecurity):
+				// Skip this security.
+			default:
+				return res, errors.Wrap(err, "security \"Session\"")
+			}
+		}
+
+		if ok := func() bool {
+		nextRequirement:
+			for _, requirement := range []bitset{
+				{0b00000001},
+			} {
+				for i, mask := range requirement {
+					if satisfied[i]&mask != mask {
+						continue nextRequirement
+					}
+				}
+				return true
+			}
+			return false
+		}(); !ok {
+			return res, ogenerrors.ErrSecurityRequirementIsNotSatisfied
+		}
+	}
+
+	stage = "SendRequest"
+	resp, err := c.cfg.Client.Do(r)
+	if err != nil {
+		return res, errors.Wrap(err, "do request")
+	}
+	body := resp.Body
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
+
+	stage = "DecodeResponse"
+	result, err := decodeConfirmTOTPResponse(resp)
 	if err != nil {
 		return res, errors.Wrap(err, "decode response")
 	}
@@ -1268,6 +1538,119 @@ func (c *Client) sendGetVersion(ctx context.Context) (res GetVersionRes, err err
 	return result, nil
 }
 
+// ListSecondFactors invokes listSecondFactors operation.
+//
+// Every authenticator app the User enrolled.
+//
+// GET /api/v1/profile/second-factors
+func (c *Client) ListSecondFactors(ctx context.Context) (ListSecondFactorsRes, error) {
+	res, err := c.sendListSecondFactors(ctx)
+	return res, err
+}
+
+func (c *Client) sendListSecondFactors(ctx context.Context) (res ListSecondFactorsRes, err error) {
+	otelAttrs := []attribute.KeyValue{
+		otelogen.OperationID("listSecondFactors"),
+		semconv.HTTPRequestMethodKey.String("GET"),
+		semconv.URLTemplateKey.String("/api/v1/profile/second-factors"),
+	}
+	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
+
+	// Run stopwatch.
+	startTime := time.Now()
+	defer func() {
+		// Use floating point division here for higher precision (instead of Millisecond method).
+		elapsedDuration := time.Since(startTime)
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
+	}()
+
+	// Increment request counter.
+	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+
+	// Start a span for this request.
+	ctx, span := c.cfg.Tracer.Start(ctx, ListSecondFactorsOperation,
+		trace.WithAttributes(otelAttrs...),
+		clientSpanKind,
+	)
+	// Track stage for error reporting.
+	var stage string
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, stage)
+			c.errors.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+		}
+		span.End()
+	}()
+
+	stage = "BuildURL"
+	u := uri.Clone(c.requestURL(ctx))
+	var pathParts [1]string
+	pathParts[0] = "/api/v1/profile/second-factors"
+	uri.AddPathParts(u, pathParts[:]...)
+
+	stage = "EncodeRequest"
+	r, err := ht.NewRequest(ctx, "GET", u)
+	if err != nil {
+		return res, errors.Wrap(err, "create request")
+	}
+
+	{
+		type bitset = [1]uint8
+		var satisfied bitset
+		{
+			stage = "Security:Session"
+			switch err := c.securitySession(ctx, ListSecondFactorsOperation, r); {
+			case err == nil: // if NO error
+				satisfied[0] |= 1 << 0
+			case errors.Is(err, ogenerrors.ErrSkipClientSecurity):
+				// Skip this security.
+			default:
+				return res, errors.Wrap(err, "security \"Session\"")
+			}
+		}
+
+		if ok := func() bool {
+		nextRequirement:
+			for _, requirement := range []bitset{
+				{0b00000001},
+			} {
+				for i, mask := range requirement {
+					if satisfied[i]&mask != mask {
+						continue nextRequirement
+					}
+				}
+				return true
+			}
+			return false
+		}(); !ok {
+			return res, ogenerrors.ErrSecurityRequirementIsNotSatisfied
+		}
+	}
+
+	stage = "SendRequest"
+	resp, err := c.cfg.Client.Do(r)
+	if err != nil {
+		return res, errors.Wrap(err, "do request")
+	}
+	body := resp.Body
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
+
+	stage = "DecodeResponse"
+	result, err := decodeListSecondFactorsResponse(resp)
+	if err != nil {
+		return res, errors.Wrap(err, "decode response")
+	}
+
+	return result, nil
+}
+
 // RemoveMember invokes removeMember operation.
 //
 // The admins Group always keeps one member. Admins only.
@@ -1417,6 +1800,145 @@ func (c *Client) sendRemoveMember(ctx context.Context, params RemoveMemberParams
 
 	stage = "DecodeResponse"
 	result, err := decodeRemoveMemberResponse(resp)
+	if err != nil {
+		return res, errors.Wrap(err, "decode response")
+	}
+
+	return result, nil
+}
+
+// RemoveSecondFactor invokes removeSecondFactor operation.
+//
+// Removes one of the User's authenticator apps once they give their password, from a session that
+// proved a Second Factor.
+//
+// POST /api/v1/profile/second-factors/{factorId}/removal
+func (c *Client) RemoveSecondFactor(ctx context.Context, request *PasswordCheck, params RemoveSecondFactorParams) (RemoveSecondFactorRes, error) {
+	res, err := c.sendRemoveSecondFactor(ctx, request, params)
+	return res, err
+}
+
+func (c *Client) sendRemoveSecondFactor(ctx context.Context, request *PasswordCheck, params RemoveSecondFactorParams) (res RemoveSecondFactorRes, err error) {
+	otelAttrs := []attribute.KeyValue{
+		otelogen.OperationID("removeSecondFactor"),
+		semconv.HTTPRequestMethodKey.String("POST"),
+		semconv.URLTemplateKey.String("/api/v1/profile/second-factors/{factorId}/removal"),
+	}
+	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
+
+	// Run stopwatch.
+	startTime := time.Now()
+	defer func() {
+		// Use floating point division here for higher precision (instead of Millisecond method).
+		elapsedDuration := time.Since(startTime)
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
+	}()
+
+	// Increment request counter.
+	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+
+	// Start a span for this request.
+	ctx, span := c.cfg.Tracer.Start(ctx, RemoveSecondFactorOperation,
+		trace.WithAttributes(otelAttrs...),
+		clientSpanKind,
+	)
+	// Track stage for error reporting.
+	var stage string
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, stage)
+			c.errors.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+		}
+		span.End()
+	}()
+
+	stage = "BuildURL"
+	u := uri.Clone(c.requestURL(ctx))
+	var pathParts [3]string
+	pathParts[0] = "/api/v1/profile/second-factors/"
+	{
+		// Encode "factorId" parameter.
+		e := uri.NewPathEncoder(uri.PathEncoderConfig{
+			Param:   "factorId",
+			Style:   uri.PathStyleSimple,
+			Explode: false,
+		})
+		if err := func() error {
+			if unwrapped := uuid.UUID(params.FactorId); true {
+				return e.EncodeValue(conv.UUIDToString(unwrapped))
+			}
+			return nil
+		}(); err != nil {
+			return res, errors.Wrap(err, "encode path")
+		}
+		encoded, err := e.Result()
+		if err != nil {
+			return res, errors.Wrap(err, "encode path")
+		}
+		pathParts[1] = encoded
+	}
+	pathParts[2] = "/removal"
+	uri.AddPathParts(u, pathParts[:]...)
+
+	stage = "EncodeRequest"
+	r, err := ht.NewRequest(ctx, "POST", u)
+	if err != nil {
+		return res, errors.Wrap(err, "create request")
+	}
+	if err := encodeRemoveSecondFactorRequest(request, r); err != nil {
+		return res, errors.Wrap(err, "encode request")
+	}
+
+	{
+		type bitset = [1]uint8
+		var satisfied bitset
+		{
+			stage = "Security:Session"
+			switch err := c.securitySession(ctx, RemoveSecondFactorOperation, r); {
+			case err == nil: // if NO error
+				satisfied[0] |= 1 << 0
+			case errors.Is(err, ogenerrors.ErrSkipClientSecurity):
+				// Skip this security.
+			default:
+				return res, errors.Wrap(err, "security \"Session\"")
+			}
+		}
+
+		if ok := func() bool {
+		nextRequirement:
+			for _, requirement := range []bitset{
+				{0b00000001},
+			} {
+				for i, mask := range requirement {
+					if satisfied[i]&mask != mask {
+						continue nextRequirement
+					}
+				}
+				return true
+			}
+			return false
+		}(); !ok {
+			return res, ogenerrors.ErrSecurityRequirementIsNotSatisfied
+		}
+	}
+
+	stage = "SendRequest"
+	resp, err := c.cfg.Client.Do(r)
+	if err != nil {
+		return res, errors.Wrap(err, "do request")
+	}
+	body := resp.Body
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
+
+	stage = "DecodeResponse"
+	result, err := decodeRemoveSecondFactorResponse(resp)
 	if err != nil {
 		return res, errors.Wrap(err, "decode response")
 	}
@@ -1835,6 +2357,120 @@ func (c *Client) sendSignUp(ctx context.Context, request *SignUp) (res SignUpRes
 
 	stage = "DecodeResponse"
 	result, err := decodeSignUpResponse(resp)
+	if err != nil {
+		return res, errors.Wrap(err, "decode response")
+	}
+
+	return result, nil
+}
+
+// StartTOTP invokes startTOTP operation.
+//
+// Makes a secret for a new authenticator app. It is kept, sealed by Vault, for ten minutes, until
+// confirmTOTP gets a right code from the app.
+//
+// POST /api/v1/profile/second-factors/totp
+func (c *Client) StartTOTP(ctx context.Context) (StartTOTPRes, error) {
+	res, err := c.sendStartTOTP(ctx)
+	return res, err
+}
+
+func (c *Client) sendStartTOTP(ctx context.Context) (res StartTOTPRes, err error) {
+	otelAttrs := []attribute.KeyValue{
+		otelogen.OperationID("startTOTP"),
+		semconv.HTTPRequestMethodKey.String("POST"),
+		semconv.URLTemplateKey.String("/api/v1/profile/second-factors/totp"),
+	}
+	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
+
+	// Run stopwatch.
+	startTime := time.Now()
+	defer func() {
+		// Use floating point division here for higher precision (instead of Millisecond method).
+		elapsedDuration := time.Since(startTime)
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
+	}()
+
+	// Increment request counter.
+	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+
+	// Start a span for this request.
+	ctx, span := c.cfg.Tracer.Start(ctx, StartTOTPOperation,
+		trace.WithAttributes(otelAttrs...),
+		clientSpanKind,
+	)
+	// Track stage for error reporting.
+	var stage string
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, stage)
+			c.errors.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+		}
+		span.End()
+	}()
+
+	stage = "BuildURL"
+	u := uri.Clone(c.requestURL(ctx))
+	var pathParts [1]string
+	pathParts[0] = "/api/v1/profile/second-factors/totp"
+	uri.AddPathParts(u, pathParts[:]...)
+
+	stage = "EncodeRequest"
+	r, err := ht.NewRequest(ctx, "POST", u)
+	if err != nil {
+		return res, errors.Wrap(err, "create request")
+	}
+
+	{
+		type bitset = [1]uint8
+		var satisfied bitset
+		{
+			stage = "Security:Session"
+			switch err := c.securitySession(ctx, StartTOTPOperation, r); {
+			case err == nil: // if NO error
+				satisfied[0] |= 1 << 0
+			case errors.Is(err, ogenerrors.ErrSkipClientSecurity):
+				// Skip this security.
+			default:
+				return res, errors.Wrap(err, "security \"Session\"")
+			}
+		}
+
+		if ok := func() bool {
+		nextRequirement:
+			for _, requirement := range []bitset{
+				{0b00000001},
+			} {
+				for i, mask := range requirement {
+					if satisfied[i]&mask != mask {
+						continue nextRequirement
+					}
+				}
+				return true
+			}
+			return false
+		}(); !ok {
+			return res, ogenerrors.ErrSecurityRequirementIsNotSatisfied
+		}
+	}
+
+	stage = "SendRequest"
+	resp, err := c.cfg.Client.Do(r)
+	if err != nil {
+		return res, errors.Wrap(err, "do request")
+	}
+	body := resp.Body
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
+
+	stage = "DecodeResponse"
+	result, err := decodeStartTOTPResponse(resp)
 	if err != nil {
 		return res, errors.Wrap(err, "decode response")
 	}

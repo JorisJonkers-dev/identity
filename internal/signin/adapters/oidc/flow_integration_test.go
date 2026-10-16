@@ -5,6 +5,7 @@ package oidc
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"net/http"
 	"net/url"
@@ -116,6 +117,7 @@ func TestRolesComeFromAssignmentsOverPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	actor := accessapp.Actor{ID: ada.ID, SecondFactor: true}
 	index := clientindex.NewIndex()
 	index.Put(testClients["web"])
 	access := accessapp.New(accesspersistence.New(q, store), catalog.New(index), accesspeople.New(users), rand.Reader)
@@ -128,19 +130,19 @@ func TestRolesComeFromAssignmentsOverPostgres(t *testing.T) {
 	login := e.loginURL(t, authorizeQuery("web", "https://web.test/cb", ""))
 	redirect(t, e.get(t, login, true), http.StatusSeeOther, "/no-access")
 
-	viewers, err := access.CreateGroup(ctx, ada.ID, "Viewers of things")
+	viewers, err := access.CreateGroup(ctx, actor, "Viewers of things")
 	if err != nil {
 		t.Fatal(err)
 	}
-	editors, _ := access.CreateGroup(ctx, ada.ID, "Editors of things")
+	editors, _ := access.CreateGroup(ctx, actor, "Editors of things")
 	for _, a := range []accessdomain.Assignment{
 		{GroupID: viewers.ID, ClientID: "web", Role: "viewer"},
 		{GroupID: editors.ID, ClientID: "web", Role: "editor"},
 	} {
-		if err := access.Assign(ctx, ada.ID, a); err != nil {
+		if err := access.Assign(ctx, actor, a); err != nil {
 			t.Fatal(err)
 		}
-		if err := access.AddMember(ctx, ada.ID, accessdomain.Membership{GroupID: a.GroupID, UserID: ada.ID}); err != nil {
+		if err := access.AddMember(ctx, actor, accessdomain.Membership{GroupID: a.GroupID, UserID: ada.ID}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -154,9 +156,18 @@ func TestRolesComeFromAssignmentsOverPostgres(t *testing.T) {
 		}
 		return tok
 	}
+	// The session proved a Second Factor, and the ID token says so.
+	sum := sha256.Sum256([]byte(token))
+	if err := q.SetSessionMethods(ctx, queries.SetSessionMethodsParams{TokenHash: sum[:], Methods: []string{"pwd", "otp"}}); err != nil {
+		t.Fatal(err)
+	}
 	tok := signIn()
+	idToken := e.verify(t, "web", tok.IDToken)
+	if amr := idToken.AuthenticationMethodsReferences; !slices.Equal(amr, []string{"pwd", "otp", "mfa"}) {
+		t.Fatalf("amr = %v", amr)
+	}
 	want := []string{"viewer", "editor"}
-	if got := roles(e.verify(t, "web", tok.IDToken).Claims["roles"]); !slices.Equal(got, want) {
+	if got := roles(idToken.Claims["roles"]); !slices.Equal(got, want) {
 		t.Fatalf("ID token roles = %v, want %v", got, want)
 	}
 	if got := roles(accessClaims(t, tok.AccessToken)["roles"]); !slices.Equal(got, want) {
@@ -171,7 +182,7 @@ func TestRolesComeFromAssignmentsOverPostgres(t *testing.T) {
 		}
 	}
 
-	if err := access.Unassign(ctx, ada.ID, accessdomain.Assignment{GroupID: editors.ID, ClientID: "web", Role: "editor"}); err != nil {
+	if err := access.Unassign(ctx, actor, accessdomain.Assignment{GroupID: editors.ID, ClientID: "web", Role: "editor"}); err != nil {
 		t.Fatal(err)
 	}
 	if got := roles(accessClaims(t, signIn().AccessToken)["roles"]); !slices.Equal(got, []string{"viewer"}) {

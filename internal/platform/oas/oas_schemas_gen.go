@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-faster/errors"
 	"github.com/google/uuid"
 )
 
@@ -159,6 +160,31 @@ func (s *Assignment) SetRole(val AppRole) {
 	s.Role = val
 }
 
+type Challenge struct {
+	APIKey string
+	Roles  []string
+}
+
+// GetAPIKey returns the value of APIKey.
+func (s *Challenge) GetAPIKey() string {
+	return s.APIKey
+}
+
+// GetRoles returns the value of Roles.
+func (s *Challenge) GetRoles() []string {
+	return s.Roles
+}
+
+// SetAPIKey sets the value of APIKey.
+func (s *Challenge) SetAPIKey(val string) {
+	s.APIKey = val
+}
+
+// SetRoles sets the value of Roles.
+func (s *Challenge) SetRoles(val []string) {
+	s.Roles = val
+}
+
 // ChangePasswordNoContent is response for ChangePassword operation.
 type ChangePasswordNoContent struct{}
 
@@ -166,10 +192,32 @@ func (*ChangePasswordNoContent) changePasswordRes() {}
 
 type ClientId string
 
+// CompleteSignInNoContent is response for CompleteSignIn operation.
+type CompleteSignInNoContent struct {
+	SetCookie string
+}
+
+// GetSetCookie returns the value of SetCookie.
+func (s *CompleteSignInNoContent) GetSetCookie() string {
+	return s.SetCookie
+}
+
+// SetSetCookie sets the value of SetCookie.
+func (s *CompleteSignInNoContent) SetSetCookie(val string) {
+	s.SetCookie = val
+}
+
+func (*CompleteSignInNoContent) completeSignInRes() {}
+
 // ConfirmEmailNoContent is response for ConfirmEmail operation.
 type ConfirmEmailNoContent struct{}
 
 func (*ConfirmEmailNoContent) confirmEmailRes() {}
+
+// ConfirmTOTPNoContent is response for ConfirmTOTP operation.
+type ConfirmTOTPNoContent struct{}
+
+func (*ConfirmTOTPNoContent) confirmTOTPRes() {}
 
 // A confirmation token from a mailed link, with the password chosen at sign-up, so a link sent to
 // someone else's address confirms nothing for whoever signed up with it.
@@ -280,6 +328,52 @@ func (s *GroupDraft) SetName(val string) {
 
 type ID uuid.UUID
 
+// NewOptDateTime returns new OptDateTime with value set to v.
+func NewOptDateTime(v time.Time) OptDateTime {
+	return OptDateTime{
+		Value: v,
+		Set:   true,
+	}
+}
+
+// OptDateTime is optional time.Time.
+type OptDateTime struct {
+	Value time.Time
+	Set   bool
+}
+
+// IsSet returns true if OptDateTime was set.
+func (o OptDateTime) IsSet() bool { return o.Set }
+
+// Reset unsets value.
+func (o *OptDateTime) Reset() {
+	var v time.Time
+	o.Value = v
+	o.Set = false
+}
+
+// SetTo sets value to v.
+func (o *OptDateTime) SetTo(v time.Time) {
+	o.Set = true
+	o.Value = v
+}
+
+// Get returns value and boolean that denotes whether value was set.
+func (o OptDateTime) Get() (v time.Time, ok bool) {
+	if !o.Set {
+		return v, false
+	}
+	return o.Value, true
+}
+
+// Or returns value if set, or given parameter if does not.
+func (o OptDateTime) Or(d time.Time) time.Time {
+	if v, ok := o.Get(); ok {
+		return v
+	}
+	return d
+}
+
 // NewOptString returns new OptString with value set to v.
 func NewOptString(v string) OptString {
 	return OptString{
@@ -353,6 +447,22 @@ func (s *PasswordChange) SetCurrent(val Password) {
 // SetNext sets the value of Next.
 func (s *PasswordChange) SetNext(val Password) {
 	s.Next = val
+}
+
+// The User's password, to confirm a change that weakens their sign-in.
+// Ref: #/components/schemas/PasswordCheck
+type PasswordCheck struct {
+	Password Password `json:"password"`
+}
+
+// GetPassword returns the value of Password.
+func (s *PasswordCheck) GetPassword() Password {
+	return s.Password
+}
+
+// SetPassword sets the value of Password.
+func (s *PasswordCheck) SetPassword(val Password) {
+	s.Password = val
 }
 
 // A User, as the access page lists one.
@@ -473,26 +583,33 @@ func (s *ProblemStatusCode) SetResponse(val Problem) {
 	s.Response = val
 }
 
-func (*ProblemStatusCode) addMemberRes()      {}
-func (*ProblemStatusCode) assignRoleRes()     {}
-func (*ProblemStatusCode) changePasswordRes() {}
-func (*ProblemStatusCode) confirmEmailRes()   {}
-func (*ProblemStatusCode) createGroupRes()    {}
-func (*ProblemStatusCode) deleteGroupRes()    {}
-func (*ProblemStatusCode) getAccessRes()      {}
-func (*ProblemStatusCode) getProfileRes()     {}
-func (*ProblemStatusCode) getVersionRes()     {}
-func (*ProblemStatusCode) removeMemberRes()   {}
-func (*ProblemStatusCode) renameGroupRes()    {}
-func (*ProblemStatusCode) signInRes()         {}
-func (*ProblemStatusCode) signOutRes()        {}
-func (*ProblemStatusCode) signUpRes()         {}
-func (*ProblemStatusCode) unassignRoleRes()   {}
-func (*ProblemStatusCode) updateProfileRes()  {}
+func (*ProblemStatusCode) addMemberRes()          {}
+func (*ProblemStatusCode) assignRoleRes()         {}
+func (*ProblemStatusCode) changePasswordRes()     {}
+func (*ProblemStatusCode) completeSignInRes()     {}
+func (*ProblemStatusCode) confirmEmailRes()       {}
+func (*ProblemStatusCode) confirmTOTPRes()        {}
+func (*ProblemStatusCode) createGroupRes()        {}
+func (*ProblemStatusCode) deleteGroupRes()        {}
+func (*ProblemStatusCode) getAccessRes()          {}
+func (*ProblemStatusCode) getProfileRes()         {}
+func (*ProblemStatusCode) getVersionRes()         {}
+func (*ProblemStatusCode) listSecondFactorsRes()  {}
+func (*ProblemStatusCode) removeMemberRes()       {}
+func (*ProblemStatusCode) removeSecondFactorRes() {}
+func (*ProblemStatusCode) renameGroupRes()        {}
+func (*ProblemStatusCode) signInRes()             {}
+func (*ProblemStatusCode) signOutRes()            {}
+func (*ProblemStatusCode) signUpRes()             {}
+func (*ProblemStatusCode) startTOTPRes()          {}
+func (*ProblemStatusCode) unassignRoleRes()       {}
+func (*ProblemStatusCode) updateProfileRes()      {}
 
 // The signed-in User.
 // Ref: #/components/schemas/Profile
 type Profile struct {
+	// Whether this session was proved with a Second Factor, which the admin pages need.
+	SecondFactor bool `json:"secondFactor"`
 	// Whether the User is an Admin, who manages access. An Admin holds no App Role by being one.
 	Admin bool  `json:"admin"`
 	Email Email `json:"email"`
@@ -500,6 +617,11 @@ type Profile struct {
 	Name string `json:"name"`
 	// When the User signed up.
 	CreatedAt time.Time `json:"createdAt"`
+}
+
+// GetSecondFactor returns the value of SecondFactor.
+func (s *Profile) GetSecondFactor() bool {
+	return s.SecondFactor
 }
 
 // GetAdmin returns the value of Admin.
@@ -520,6 +642,11 @@ func (s *Profile) GetName() string {
 // GetCreatedAt returns the value of CreatedAt.
 func (s *Profile) GetCreatedAt() time.Time {
 	return s.CreatedAt
+}
+
+// SetSecondFactor sets the value of SecondFactor.
+func (s *Profile) SetSecondFactor(val bool) {
+	s.SecondFactor = val
 }
 
 // SetAdmin sets the value of Admin.
@@ -567,10 +694,230 @@ type RemoveMemberNoContent struct{}
 
 func (*RemoveMemberNoContent) removeMemberRes() {}
 
+// RemoveSecondFactorNoContent is response for RemoveSecondFactor operation.
+type RemoveSecondFactorNoContent struct{}
+
+func (*RemoveSecondFactorNoContent) removeSecondFactorRes() {}
+
 // RenameGroupNoContent is response for RenameGroup operation.
 type RenameGroupNoContent struct{}
 
 func (*RenameGroupNoContent) renameGroupRes() {}
+
+// One of a User's Second Factors.
+// Ref: #/components/schemas/SecondFactor
+type SecondFactor struct {
+	ID ID `json:"id"`
+	// An authenticator app.
+	Kind SecondFactorKind `json:"kind"`
+	// What the User called it.
+	Label string `json:"label"`
+	// When it was added.
+	CreatedAt time.Time `json:"createdAt"`
+	// When it last signed the User in.
+	LastUsedAt OptDateTime `json:"lastUsedAt"`
+}
+
+// GetID returns the value of ID.
+func (s *SecondFactor) GetID() ID {
+	return s.ID
+}
+
+// GetKind returns the value of Kind.
+func (s *SecondFactor) GetKind() SecondFactorKind {
+	return s.Kind
+}
+
+// GetLabel returns the value of Label.
+func (s *SecondFactor) GetLabel() string {
+	return s.Label
+}
+
+// GetCreatedAt returns the value of CreatedAt.
+func (s *SecondFactor) GetCreatedAt() time.Time {
+	return s.CreatedAt
+}
+
+// GetLastUsedAt returns the value of LastUsedAt.
+func (s *SecondFactor) GetLastUsedAt() OptDateTime {
+	return s.LastUsedAt
+}
+
+// SetID sets the value of ID.
+func (s *SecondFactor) SetID(val ID) {
+	s.ID = val
+}
+
+// SetKind sets the value of Kind.
+func (s *SecondFactor) SetKind(val SecondFactorKind) {
+	s.Kind = val
+}
+
+// SetLabel sets the value of Label.
+func (s *SecondFactor) SetLabel(val string) {
+	s.Label = val
+}
+
+// SetCreatedAt sets the value of CreatedAt.
+func (s *SecondFactor) SetCreatedAt(val time.Time) {
+	s.CreatedAt = val
+}
+
+// SetLastUsedAt sets the value of LastUsedAt.
+func (s *SecondFactor) SetLastUsedAt(val OptDateTime) {
+	s.LastUsedAt = val
+}
+
+// A code from an authenticator app.
+// Ref: #/components/schemas/SecondFactorCode
+type SecondFactorCode struct {
+	// The six digits the app shows.
+	Code string `json:"code"`
+}
+
+// GetCode returns the value of Code.
+func (s *SecondFactorCode) GetCode() string {
+	return s.Code
+}
+
+// SetCode sets the value of Code.
+func (s *SecondFactorCode) SetCode(val string) {
+	s.Code = val
+}
+
+// An authenticator app.
+type SecondFactorKind string
+
+const (
+	SecondFactorKindTotp SecondFactorKind = "totp"
+)
+
+// AllValues returns all SecondFactorKind values.
+func (SecondFactorKind) AllValues() []SecondFactorKind {
+	return []SecondFactorKind{
+		SecondFactorKindTotp,
+	}
+}
+
+// MarshalText implements encoding.TextMarshaler.
+func (s SecondFactorKind) MarshalText() ([]byte, error) {
+	switch s {
+	case SecondFactorKindTotp:
+		return []byte(s), nil
+	default:
+		return nil, errors.Errorf("invalid value: %q", s)
+	}
+}
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (s *SecondFactorKind) UnmarshalText(data []byte) error {
+	switch SecondFactorKind(data) {
+	case SecondFactorKindTotp:
+		*s = SecondFactorKindTotp
+		return nil
+	default:
+		return errors.Errorf("invalid value: %q", data)
+	}
+}
+
+// The sign-in waits for a Second Factor.
+// Ref: #/components/schemas/SecondFactorNeeded
+type SecondFactorNeeded struct {
+	// Which kind of Second Factor to ask for.
+	SecondFactor SecondFactorNeededSecondFactor `json:"secondFactor"`
+}
+
+// GetSecondFactor returns the value of SecondFactor.
+func (s *SecondFactorNeeded) GetSecondFactor() SecondFactorNeededSecondFactor {
+	return s.SecondFactor
+}
+
+// SetSecondFactor sets the value of SecondFactor.
+func (s *SecondFactorNeeded) SetSecondFactor(val SecondFactorNeededSecondFactor) {
+	s.SecondFactor = val
+}
+
+// SecondFactorNeededHeaders wraps SecondFactorNeeded with response headers.
+type SecondFactorNeededHeaders struct {
+	SetCookie string
+	Response  SecondFactorNeeded
+}
+
+// GetSetCookie returns the value of SetCookie.
+func (s *SecondFactorNeededHeaders) GetSetCookie() string {
+	return s.SetCookie
+}
+
+// GetResponse returns the value of Response.
+func (s *SecondFactorNeededHeaders) GetResponse() SecondFactorNeeded {
+	return s.Response
+}
+
+// SetSetCookie sets the value of SetCookie.
+func (s *SecondFactorNeededHeaders) SetSetCookie(val string) {
+	s.SetCookie = val
+}
+
+// SetResponse sets the value of Response.
+func (s *SecondFactorNeededHeaders) SetResponse(val SecondFactorNeeded) {
+	s.Response = val
+}
+
+func (*SecondFactorNeededHeaders) signInRes() {}
+
+// Which kind of Second Factor to ask for.
+type SecondFactorNeededSecondFactor string
+
+const (
+	SecondFactorNeededSecondFactorTotp SecondFactorNeededSecondFactor = "totp"
+)
+
+// AllValues returns all SecondFactorNeededSecondFactor values.
+func (SecondFactorNeededSecondFactor) AllValues() []SecondFactorNeededSecondFactor {
+	return []SecondFactorNeededSecondFactor{
+		SecondFactorNeededSecondFactorTotp,
+	}
+}
+
+// MarshalText implements encoding.TextMarshaler.
+func (s SecondFactorNeededSecondFactor) MarshalText() ([]byte, error) {
+	switch s {
+	case SecondFactorNeededSecondFactorTotp:
+		return []byte(s), nil
+	default:
+		return nil, errors.Errorf("invalid value: %q", s)
+	}
+}
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (s *SecondFactorNeededSecondFactor) UnmarshalText(data []byte) error {
+	switch SecondFactorNeededSecondFactor(data) {
+	case SecondFactorNeededSecondFactorTotp:
+		*s = SecondFactorNeededSecondFactorTotp
+		return nil
+	default:
+		return errors.Errorf("invalid value: %q", data)
+	}
+}
+
+// A User's Second Factors.
+// Ref: #/components/schemas/SecondFactors
+type SecondFactors struct {
+	// Oldest first.
+	Factors []SecondFactor `json:"factors"`
+}
+
+// GetFactors returns the value of Factors.
+func (s *SecondFactors) GetFactors() []SecondFactor {
+	return s.Factors
+}
+
+// SetFactors sets the value of Factors.
+func (s *SecondFactors) SetFactors(val []SecondFactor) {
+	s.Factors = val
+}
+
+func (*SecondFactors) listSecondFactorsRes() {}
 
 type Session struct {
 	APIKey string
@@ -702,6 +1049,78 @@ func (s *SignUp) SetPassword(val Password) {
 type SignUpAccepted struct{}
 
 func (*SignUpAccepted) signUpRes() {}
+
+// A name for the new authenticator app, its first code, and the User's password, so a session someone
+// else holds cannot add one.
+// Ref: #/components/schemas/TOTPConfirmation
+type TOTPConfirmation struct {
+	Password Password `json:"password"`
+	// What to call it, 1 to 64 characters.
+	Label string `json:"label"`
+	// The six digits the app shows now.
+	Code string `json:"code"`
+}
+
+// GetPassword returns the value of Password.
+func (s *TOTPConfirmation) GetPassword() Password {
+	return s.Password
+}
+
+// GetLabel returns the value of Label.
+func (s *TOTPConfirmation) GetLabel() string {
+	return s.Label
+}
+
+// GetCode returns the value of Code.
+func (s *TOTPConfirmation) GetCode() string {
+	return s.Code
+}
+
+// SetPassword sets the value of Password.
+func (s *TOTPConfirmation) SetPassword(val Password) {
+	s.Password = val
+}
+
+// SetLabel sets the value of Label.
+func (s *TOTPConfirmation) SetLabel(val string) {
+	s.Label = val
+}
+
+// SetCode sets the value of Code.
+func (s *TOTPConfirmation) SetCode(val string) {
+	s.Code = val
+}
+
+// What an authenticator app needs, as a QR code's URI and as a secret to type in.
+// Ref: #/components/schemas/TOTPSetup
+type TOTPSetup struct {
+	// The base32 secret, for typing into the app.
+	Secret string `json:"secret"`
+	// The otpauth URI the QR code carries.
+	URI string `json:"uri"`
+}
+
+// GetSecret returns the value of Secret.
+func (s *TOTPSetup) GetSecret() string {
+	return s.Secret
+}
+
+// GetURI returns the value of URI.
+func (s *TOTPSetup) GetURI() string {
+	return s.URI
+}
+
+// SetSecret sets the value of Secret.
+func (s *TOTPSetup) SetSecret(val string) {
+	s.Secret = val
+}
+
+// SetURI sets the value of URI.
+func (s *TOTPSetup) SetURI(val string) {
+	s.URI = val
+}
+
+func (*TOTPSetup) startTOTPRes() {}
 
 // UnassignRoleNoContent is response for UnassignRole operation.
 type UnassignRoleNoContent struct{}

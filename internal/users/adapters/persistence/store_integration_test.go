@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -136,7 +137,7 @@ func TestSessions(t *testing.T) {
 	s, pool := open(t)
 	u := user(t)
 	_ = s.CreateUser(ctx, u)
-	sess := app.Session{TokenHash: []byte("hash"), ID: uuid.New(), UserID: u.ID, CreatedAt: t0, LastSeenAt: t0, ExpiresAt: t0.Add(time.Hour)}
+	sess := app.Session{TokenHash: []byte("hash"), ID: uuid.New(), UserID: u.ID, CreatedAt: t0, LastSeenAt: t0, ExpiresAt: t0.Add(time.Hour), Methods: []string{"pwd"}}
 	if err := s.CreateSession(ctx, sess); err != nil {
 		t.Fatal(err)
 	}
@@ -145,8 +146,15 @@ func TestSessions(t *testing.T) {
 	}
 	got, err := s.SessionByHash(ctx, sess.TokenHash)
 	if err != nil || !bytes.Equal(got.TokenHash, sess.TokenHash) || got.ID != sess.ID || got.UserID != u.ID ||
-		!got.CreatedAt.Equal(t0) || !got.LastSeenAt.Equal(t0.Add(time.Minute)) || !got.ExpiresAt.Equal(t0.Add(2*time.Hour)) {
+		!got.CreatedAt.Equal(t0) || !got.LastSeenAt.Equal(t0.Add(time.Minute)) || !got.ExpiresAt.Equal(t0.Add(2*time.Hour)) ||
+		!slices.Equal(got.Methods, []string{"pwd"}) {
 		t.Fatalf("SessionByHash = %+v, %v", got, err)
+	}
+	if err := s.SetSessionMethods(ctx, sess.TokenHash, []string{"pwd", "otp"}); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := s.SessionByHash(ctx, sess.TokenHash); !slices.Equal(got.Methods, []string{"pwd", "otp"}) {
+		t.Fatalf("methods after a Second Factor = %v", got.Methods)
 	}
 	if err := s.DeleteSession(ctx, sess.TokenHash); err != nil {
 		t.Fatal(err)
@@ -158,7 +166,7 @@ func TestSessions(t *testing.T) {
 		t.Fatalf("deleting a session that does not exist: %v", err)
 	}
 
-	keep := app.Session{TokenHash: []byte("keep"), ID: uuid.New(), UserID: u.ID, CreatedAt: t0, LastSeenAt: t0, ExpiresAt: t0.Add(time.Hour)}
+	keep := app.Session{TokenHash: []byte("keep"), ID: uuid.New(), UserID: u.ID, CreatedAt: t0, LastSeenAt: t0, ExpiresAt: t0.Add(time.Hour), Methods: []string{"pwd"}}
 	other := keep
 	other.TokenHash, other.ID = []byte("other"), uuid.New()
 	_ = s.CreateSession(ctx, keep)
@@ -190,6 +198,131 @@ func TestSessions(t *testing.T) {
 	}
 }
 
+func TestChallenges(t *testing.T) {
+	ctx := context.Background()
+	s, _ := open(t)
+	u := user(t)
+	_ = s.CreateUser(ctx, u)
+	c := app.Challenge{TokenHash: []byte("challenge"), UserID: u.ID, ExpiresAt: t0.Add(5 * time.Minute), WindowStartedAt: t0}
+	if err := s.SaveChallenge(ctx, c, t0.Add(-15*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	for i := range 3 {
+		if id, err := s.SpendChallengeAttempt(ctx, c.TokenHash, 5, t0); err != nil || id != u.ID {
+			t.Fatalf("attempt %d = %v, %v", i+1, id, err)
+		}
+	}
+
+	// A new sign-in inside the window replaces the token and keeps the three spent attempts.
+	next := app.Challenge{TokenHash: []byte("next"), UserID: u.ID, ExpiresAt: t0.Add(10 * time.Minute), WindowStartedAt: t0.Add(5 * time.Minute)}
+	if err := s.SaveChallenge(ctx, next, t0.Add(-10*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SpendChallengeAttempt(ctx, c.TokenHash, 5, t0); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("the replaced token = %v", err)
+	}
+	for i := range 2 {
+		if _, err := s.SpendChallengeAttempt(ctx, next.TokenHash, 5, t0.Add(5*time.Minute)); err != nil {
+			t.Fatalf("attempt %d of the carried five = %v", i+4, err)
+		}
+	}
+	if _, err := s.SpendChallengeAttempt(ctx, next.TokenHash, 5, t0.Add(5*time.Minute)); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("a sixth attempt across two sign-ins = %v", err)
+	}
+
+	// Once the window has passed, a new sign-in starts with every attempt.
+	fresh := app.Challenge{TokenHash: []byte("fresh"), UserID: u.ID, ExpiresAt: t0.Add(25 * time.Minute), WindowStartedAt: t0.Add(20 * time.Minute)}
+	if err := s.SaveChallenge(ctx, fresh, t0.Add(5*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	for i := range 5 {
+		if _, err := s.SpendChallengeAttempt(ctx, fresh.TokenHash, 5, t0.Add(20*time.Minute)); err != nil {
+			t.Fatalf("attempt %d after the window = %v", i+1, err)
+		}
+	}
+	if _, err := s.SpendChallengeAttempt(ctx, fresh.TokenHash, 10, t0.Add(25*time.Minute)); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("an attempt after it expired = %v", err)
+	}
+	if err := s.DeleteChallenge(ctx, fresh.TokenHash); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SpendChallengeAttempt(ctx, fresh.TokenHash, 10, t0); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("a deleted challenge = %v", err)
+	}
+}
+
+func TestTOTPFactorsAndEnrolments(t *testing.T) {
+	ctx := context.Background()
+	s, pool := open(t)
+	u := user(t)
+	_ = s.CreateUser(ctx, u)
+
+	if _, err := s.TOTPEnrolment(ctx, u.ID); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("no enrolment = %v", err)
+	}
+	for _, sealed := range []string{"vault:v1:first", "vault:v1:second"} {
+		if err := s.SaveTOTPEnrolment(ctx, app.TOTPEnrolment{UserID: u.ID, SealedSecret: sealed, ExpiresAt: t0}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if e, err := s.TOTPEnrolment(ctx, u.ID); err != nil || e.SealedSecret != "vault:v1:second" || !e.ExpiresAt.Equal(t0) {
+		t.Fatalf("a restarted enrolment = %+v, %v", e, err)
+	}
+	if err := s.DeleteTOTPEnrolment(ctx, u.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	label, _ := domain.NewFactorLabel("Phone")
+	f := app.TOTPFactor{ID: uuid.New(), UserID: u.ID, Label: label, SealedSecret: "vault:v1:secret", LastStep: 100, CreatedAt: t0}
+	if err := s.CreateTOTPFactor(ctx, f); err != nil {
+		t.Fatal(err)
+	}
+	plain := f
+	plain.ID, plain.SealedSecret = uuid.New(), "JBSWY3DPEHPK3PXP"
+	if err := s.CreateTOTPFactor(ctx, plain); err == nil {
+		t.Fatal("a secret in clear was stored")
+	}
+
+	// Two sign-ins racing to accept step 101: exactly one wins.
+	wins := make(chan bool, 2)
+	for range 2 {
+		go func() {
+			ok, err := s.UseTOTPStep(ctx, f.ID, 101, t0.Add(time.Minute))
+			wins <- ok && err == nil
+		}()
+	}
+	if a, b := <-wins, <-wins; a == b {
+		t.Fatalf("racing uses of one step: %v and %v", a, b)
+	}
+	if ok, _ := s.UseTOTPStep(ctx, f.ID, 100, t0); ok {
+		t.Fatal("an older step was accepted")
+	}
+	got, err := s.TOTPFactors(ctx, u.ID)
+	if err != nil || len(got) != 1 || got[0].LastStep != 101 || got[0].Label != label || got[0].LastUsedAt == nil ||
+		!got[0].LastUsedAt.Equal(t0.Add(time.Minute)) || !got[0].CreatedAt.Equal(t0) {
+		t.Fatalf("TOTPFactors = %+v, %v", got, err)
+	}
+
+	if had, err := s.DeleteTOTPFactor(ctx, f.ID, uuid.New()); err != nil || had {
+		t.Fatalf("deleting another User's factor = %v, %v", had, err)
+	}
+	if had, err := s.DeleteTOTPFactor(ctx, f.ID, u.ID); err != nil || !had {
+		t.Fatalf("DeleteTOTPFactor = %v, %v", had, err)
+	}
+
+	// A label the domain refuses, written behind its back, is an error, not a factor.
+	_ = s.CreateTOTPFactor(ctx, f)
+	if _, err := pool.Exec(ctx, `ALTER TABLE totp_factors DROP CONSTRAINT totp_factors_label_length`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE totp_factors SET label = ' ' WHERE id = $1`, f.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.TOTPFactors(ctx, u.ID); !errors.Is(err, domain.ErrInvalidLabel) {
+		t.Fatalf("a bad label = %v", err)
+	}
+}
+
 func TestFailuresOtherThanNotFoundPassThrough(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	s, _ := open(t)
@@ -197,5 +330,8 @@ func TestFailuresOtherThanNotFoundPassThrough(t *testing.T) {
 	e, _ := domain.NewEmail("ada@example.org")
 	if _, err := s.UserByEmail(ctx, e); err == nil || errors.Is(err, app.ErrNotFound) || errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("a cancelled query: %v", err)
+	}
+	if _, err := s.TOTPFactors(ctx, uuid.New()); err == nil {
+		t.Fatal("a cancelled factor list")
 	}
 }

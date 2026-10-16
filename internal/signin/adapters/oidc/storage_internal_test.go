@@ -170,3 +170,19 @@ func TestAnHTTPIssuerNeedsInsecure(t *testing.T) {
 		t.Fatal("an http Issuer was accepted without Insecure")
 	}
 }
+
+func TestAMRSaysHowTheSessionWasProved(t *testing.T) {
+	for _, tc := range []struct {
+		methods []string
+		want    []string
+	}{
+		{nil, []string{"pwd"}},
+		{[]string{"pwd"}, []string{"pwd"}},
+		{[]string{"pwd", "otp"}, []string{"pwd", "otp", "mfa"}},
+	} {
+		r := authRequest{domain.AuthRequest{SignIn: &domain.SignIn{Methods: tc.methods}}}
+		if got := r.GetAMR(); !slices.Equal(got, tc.want) {
+			t.Errorf("GetAMR(%v) = %v, want %v", tc.methods, got, tc.want)
+		}
+	}
+}

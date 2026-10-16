@@ -3,8 +3,8 @@
 import { queryOptions, type UseMutationOptions } from '@tanstack/vue-query';
 
 import { client } from '../client.gen';
-import { addMember, assignRole, changePassword, confirmEmail, createGroup, deleteGroup, getAccess, getProfile, getVersion, type Options, removeMember, renameGroup, signIn, signOut, signUp, unassignRole, updateProfile } from '../sdk.gen';
-import type { AddMemberData, AddMemberError, AddMemberResponse, AssignRoleData, AssignRoleError, AssignRoleResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, CreateGroupData, CreateGroupError, CreateGroupResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, GetAccessData, GetAccessError, GetAccessResponse, GetProfileData, GetProfileError, GetProfileResponse, GetVersionData, GetVersionError, GetVersionResponse, RemoveMemberData, RemoveMemberError, RemoveMemberResponse, RenameGroupData, RenameGroupError, RenameGroupResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutError, SignOutResponse, SignUpData, SignUpError, UnassignRoleData, UnassignRoleError, UnassignRoleResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
+import { addMember, assignRole, changePassword, completeSignIn, confirmEmail, confirmTotp, createGroup, deleteGroup, getAccess, getProfile, getVersion, listSecondFactors, type Options, removeMember, removeSecondFactor, renameGroup, signIn, signOut, signUp, startTotp, unassignRole, updateProfile } from '../sdk.gen';
+import type { AddMemberData, AddMemberError, AddMemberResponse, AssignRoleData, AssignRoleError, AssignRoleResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CompleteSignInData, CompleteSignInError, CompleteSignInResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, ConfirmTotpData, ConfirmTotpError, ConfirmTotpResponse, CreateGroupData, CreateGroupError, CreateGroupResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, GetAccessData, GetAccessError, GetAccessResponse, GetProfileData, GetProfileError, GetProfileResponse, GetVersionData, GetVersionError, GetVersionResponse, ListSecondFactorsData, ListSecondFactorsError, ListSecondFactorsResponse, RemoveMemberData, RemoveMemberError, RemoveMemberResponse, RemoveSecondFactorData, RemoveSecondFactorError, RemoveSecondFactorResponse, RenameGroupData, RenameGroupError, RenameGroupResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutError, SignOutResponse, SignUpData, SignUpError, StartTotpData, StartTotpError, StartTotpResponse, UnassignRoleData, UnassignRoleError, UnassignRoleResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -183,6 +183,102 @@ export const changePasswordMutation = (options?: Partial<Options<ChangePasswordD
     const mutationOptions: UseMutationOptions<ChangePasswordResponse, ChangePasswordError, Options<ChangePasswordData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await changePassword({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Finish signing in with a Second Factor
+ *
+ * Takes a code from the User's authenticator app for the sign-in the challenge cookie names, and starts a session proved by both. A challenge takes five codes; a code works once.
+ */
+export const completeSignInMutation = (options?: Partial<Options<CompleteSignInData>>): UseMutationOptions<CompleteSignInResponse, CompleteSignInError, Options<CompleteSignInData>> => {
+    const mutationOptions: UseMutationOptions<CompleteSignInResponse, CompleteSignInError, Options<CompleteSignInData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await completeSignIn({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listSecondFactorsQueryKey = (options?: Options<ListSecondFactorsData>) => createQueryKey('listSecondFactors', options);
+
+/**
+ * The signed-in User's Second Factors
+ *
+ * Every authenticator app the User enrolled.
+ */
+export const listSecondFactorsOptions = (options?: Options<ListSecondFactorsData>) => queryOptions<ListSecondFactorsResponse, ListSecondFactorsError, ListSecondFactorsResponse, ReturnType<typeof listSecondFactorsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listSecondFactors({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listSecondFactorsQueryKey(options)
+});
+
+/**
+ * Start adding an authenticator app
+ *
+ * Makes a secret for a new authenticator app. It is kept, sealed by Vault, for ten minutes, until confirmTOTP gets a right code from the app.
+ */
+export const startTotpMutation = (options?: Partial<Options<StartTotpData>>): UseMutationOptions<StartTotpResponse, StartTotpError, Options<StartTotpData>> => {
+    const mutationOptions: UseMutationOptions<StartTotpResponse, StartTotpError, Options<StartTotpData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await startTotp({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Finish adding an authenticator app
+ *
+ * Keeps the authenticator app startTOTP set up once it gives a right code and the User's password is right. A User who already has one must be in a session that proved it. Every other session of the User's ends.
+ */
+export const confirmTotpMutation = (options?: Partial<Options<ConfirmTotpData>>): UseMutationOptions<ConfirmTotpResponse, ConfirmTotpError, Options<ConfirmTotpData>> => {
+    const mutationOptions: UseMutationOptions<ConfirmTotpResponse, ConfirmTotpError, Options<ConfirmTotpData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await confirmTotp({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Remove a Second Factor
+ *
+ * Removes one of the User's authenticator apps once they give their password, from a session that proved a Second Factor.
+ */
+export const removeSecondFactorMutation = (options?: Partial<Options<RemoveSecondFactorData>>): UseMutationOptions<RemoveSecondFactorResponse, RemoveSecondFactorError, Options<RemoveSecondFactorData>> => {
+    const mutationOptions: UseMutationOptions<RemoveSecondFactorResponse, RemoveSecondFactorError, Options<RemoveSecondFactorData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await removeSecondFactor({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

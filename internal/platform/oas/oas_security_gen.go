@@ -13,6 +13,10 @@ import (
 
 // SecurityHandler is handler for security parameters.
 type SecurityHandler interface {
+	// HandleChallenge handles challenge security.
+	// A sign-in whose password was right, waiting for its Second Factor: set by signIn's 202, host-only,
+	// HttpOnly, Secure, SameSite=Lax, for five minutes.
+	HandleChallenge(ctx context.Context, operationName OperationName, t Challenge) (context.Context, error)
 	// HandleSession handles session security.
 	// The Single sign-on session, set by signIn as a host-only, HttpOnly, Secure, SameSite=Lax cookie. The
 	// API takes JSON bodies only, so a cross-site form cannot post to it.
@@ -34,20 +38,50 @@ func findAuthorization(h http.Header, prefix string) (string, bool) {
 	return "", false
 }
 
+// operationRolesChallenge is a private map storing roles per operation.
+var operationRolesChallenge = map[string][]string{
+	CompleteSignInOperation: []string{},
+}
+
+// GetRolesForChallenge returns the required roles for the given operation.
+//
+// This is useful for authorization scenarios where you need to know which roles
+// are required for an operation.
+//
+// Example:
+//
+//	requiredRoles := GetRolesForChallenge(AddPetOperation)
+//
+// Returns nil if the operation has no role requirements or if the operation is unknown.
+func GetRolesForChallenge(operation string) []string {
+	roles, ok := operationRolesChallenge[operation]
+	if !ok {
+		return nil
+	}
+	// Return a copy to prevent external modification
+	result := make([]string, len(roles))
+	copy(result, roles)
+	return result
+}
+
 // operationRolesSession is a private map storing roles per operation.
 var operationRolesSession = map[string][]string{
-	AddMemberOperation:      []string{},
-	AssignRoleOperation:     []string{},
-	ChangePasswordOperation: []string{},
-	CreateGroupOperation:    []string{},
-	DeleteGroupOperation:    []string{},
-	GetAccessOperation:      []string{},
-	GetProfileOperation:     []string{},
-	RemoveMemberOperation:   []string{},
-	RenameGroupOperation:    []string{},
-	SignOutOperation:        []string{},
-	UnassignRoleOperation:   []string{},
-	UpdateProfileOperation:  []string{},
+	AddMemberOperation:          []string{},
+	AssignRoleOperation:         []string{},
+	ChangePasswordOperation:     []string{},
+	ConfirmTOTPOperation:        []string{},
+	CreateGroupOperation:        []string{},
+	DeleteGroupOperation:        []string{},
+	GetAccessOperation:          []string{},
+	GetProfileOperation:         []string{},
+	ListSecondFactorsOperation:  []string{},
+	RemoveMemberOperation:       []string{},
+	RemoveSecondFactorOperation: []string{},
+	RenameGroupOperation:        []string{},
+	SignOutOperation:            []string{},
+	StartTOTPOperation:          []string{},
+	UnassignRoleOperation:       []string{},
+	UpdateProfileOperation:      []string{},
 }
 
 // GetRolesForSession returns the required roles for the given operation.
@@ -69,6 +103,29 @@ func GetRolesForSession(operation string) []string {
 	result := make([]string, len(roles))
 	copy(result, roles)
 	return result
+}
+
+func (s *Server) securityChallenge(ctx context.Context, operationName OperationName, req *http.Request) (context.Context, bool, error) {
+	var t Challenge
+	const parameterName = "__Host-identity_challenge"
+	var value string
+	switch cookie, err := req.Cookie(parameterName); {
+	case err == nil: // if NO error
+		value = cookie.Value
+	case errors.Is(err, http.ErrNoCookie):
+		return ctx, false, nil
+	default:
+		return nil, false, errors.Wrap(err, "get cookie value")
+	}
+	t.APIKey = value
+	t.Roles = operationRolesChallenge[operationName]
+	rctx, err := s.sec.HandleChallenge(ctx, operationName, t)
+	if errors.Is(err, ogenerrors.ErrSkipServerSecurity) {
+		return nil, false, nil
+	} else if err != nil {
+		return nil, false, err
+	}
+	return rctx, true, err
 }
 
 func (s *Server) securitySession(ctx context.Context, operationName OperationName, req *http.Request) (context.Context, bool, error) {
@@ -96,12 +153,27 @@ func (s *Server) securitySession(ctx context.Context, operationName OperationNam
 
 // SecuritySource is provider of security values (tokens, passwords, etc.).
 type SecuritySource interface {
+	// Challenge provides challenge security value.
+	// A sign-in whose password was right, waiting for its Second Factor: set by signIn's 202, host-only,
+	// HttpOnly, Secure, SameSite=Lax, for five minutes.
+	Challenge(ctx context.Context, operationName OperationName) (Challenge, error)
 	// Session provides session security value.
 	// The Single sign-on session, set by signIn as a host-only, HttpOnly, Secure, SameSite=Lax cookie. The
 	// API takes JSON bodies only, so a cross-site form cannot post to it.
 	Session(ctx context.Context, operationName OperationName) (Session, error)
 }
 
+func (s *Client) securityChallenge(ctx context.Context, operationName OperationName, req *http.Request) error {
+	t, err := s.sec.Challenge(ctx, operationName)
+	if err != nil {
+		return errors.Wrap(err, "security source \"Challenge\"")
+	}
+	req.AddCookie(&http.Cookie{
+		Name:  "__Host-identity_challenge",
+		Value: t.APIKey,
+	})
+	return nil
+}
 func (s *Client) securitySession(ctx context.Context, operationName OperationName, req *http.Request) error {
 	t, err := s.sec.Session(ctx, operationName)
 	if err != nil {

@@ -177,6 +177,27 @@ describe('the access page', () => {
   })
 })
 
+describe('an Admin without a Second Factor', () => {
+  it('is sent to the Security page before the access page', async () => {
+    const me = { email: 'root@example.org', name: 'Root', createdAt: '2026-10-15T12:00:00Z', admin: true, secondFactor: false }
+    const { router } = await mountAt('/access', {
+      'GET /api/v1/profile': Response.json(me),
+      'GET /api/v1/access': problem(403, 'Sign in with a Second Factor to manage access.'),
+      'GET /api/v1/profile/second-factors': Response.json({ factors: [] }),
+    })
+    expect(router.currentRoute.value.fullPath).toBe('/security?for=admin')
+  })
+
+  it('stays when their session proved one', async () => {
+    const me = { email: 'root@example.org', name: 'Root', createdAt: '2026-10-15T12:00:00Z', admin: true, secondFactor: true }
+    const { router } = await mountAt('/access', {
+      'GET /api/v1/profile': Response.json(me),
+      'GET /api/v1/access': () => Response.json(overview()),
+    })
+    expect(router.currentRoute.value.path).toBe('/access')
+  })
+})
+
 describe('the no-access page', () => {
   it('says why the app did not open', async () => {
     const { wrapper } = await mountAt('/no-access', {})

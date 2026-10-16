@@ -105,6 +105,7 @@ func (s *Store) DeleteSignup(ctx context.Context, hash []byte) error {
 func (s *Store) CreateSession(ctx context.Context, sess app.Session) error {
 	return s.q.CreateSession(ctx, queries.CreateSessionParams{
 		TokenHash: sess.TokenHash, ID: sess.ID, UserID: sess.UserID, CreatedAt: sess.CreatedAt, ExpiresAt: sess.ExpiresAt,
+		Methods: sess.Methods,
 	})
 }
 
@@ -115,7 +116,7 @@ func (s *Store) SessionByHash(ctx context.Context, hash []byte) (app.Session, er
 	}
 	return app.Session{
 		TokenHash: row.TokenHash, ID: row.ID, UserID: row.UserID,
-		CreatedAt: row.CreatedAt, LastSeenAt: row.LastSeenAt, ExpiresAt: row.ExpiresAt,
+		CreatedAt: row.CreatedAt, LastSeenAt: row.LastSeenAt, ExpiresAt: row.ExpiresAt, Methods: row.Methods,
 	}, nil
 }
 
@@ -133,6 +134,76 @@ func (s *Store) DeleteSessionsOfUser(ctx context.Context, userID uuid.UUID) erro
 
 func (s *Store) DeleteOtherSessions(ctx context.Context, userID uuid.UUID, keep []byte) error {
 	return s.q.DeleteOtherSessions(ctx, queries.DeleteOtherSessionsParams{UserID: userID, TokenHash: keep})
+}
+
+func (s *Store) SetSessionMethods(ctx context.Context, hash []byte, methods []string) error {
+	return s.q.SetSessionMethods(ctx, queries.SetSessionMethodsParams{TokenHash: hash, Methods: methods})
+}
+
+func (s *Store) SaveChallenge(ctx context.Context, c app.Challenge, windowSince time.Time) error {
+	return s.q.UpsertChallenge(ctx, queries.UpsertChallengeParams{
+		TokenHash: c.TokenHash, UserID: c.UserID, ExpiresAt: c.ExpiresAt, WindowStartedAt: c.WindowStartedAt, WindowSince: windowSince,
+	})
+}
+
+func (s *Store) SpendChallengeAttempt(ctx context.Context, hash []byte, maxAttempts int, now time.Time) (uuid.UUID, error) {
+	id, err := s.q.SpendChallengeAttempt(ctx, queries.SpendChallengeAttemptParams{TokenHash: hash, Attempts: int32(maxAttempts), ExpiresAt: now}) //nolint:gosec // a small constant
+	return id, notFound(err)
+}
+
+func (s *Store) DeleteChallenge(ctx context.Context, hash []byte) error {
+	return s.q.DeleteChallenge(ctx, hash)
+}
+
+func (s *Store) TOTPFactors(ctx context.Context, userID uuid.UUID) ([]app.TOTPFactor, error) {
+	rows, err := s.q.TOTPFactorsOfUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	factors := make([]app.TOTPFactor, 0, len(rows))
+	for _, r := range rows {
+		label, err := domain.NewFactorLabel(r.Label)
+		if err != nil {
+			return nil, err
+		}
+		factors = append(factors, app.TOTPFactor{
+			ID: r.ID, UserID: r.UserID, Label: label, SealedSecret: r.SealedSecret,
+			LastStep: r.LastStep, CreatedAt: r.CreatedAt, LastUsedAt: r.LastUsedAt,
+		})
+	}
+	return factors, nil
+}
+
+func (s *Store) CreateTOTPFactor(ctx context.Context, f app.TOTPFactor) error {
+	return s.q.CreateTOTPFactor(ctx, queries.CreateTOTPFactorParams{
+		ID: f.ID, UserID: f.UserID, Label: f.Label.String(), SealedSecret: f.SealedSecret, LastStep: f.LastStep, CreatedAt: f.CreatedAt,
+	})
+}
+
+func (s *Store) UseTOTPStep(ctx context.Context, id uuid.UUID, step int64, at time.Time) (bool, error) {
+	n, err := s.q.UseTOTPStep(ctx, queries.UseTOTPStepParams{ID: id, LastStep: step, LastUsedAt: &at})
+	return n == 1, err
+}
+
+func (s *Store) DeleteTOTPFactor(ctx context.Context, id, userID uuid.UUID) (bool, error) {
+	n, err := s.q.DeleteTOTPFactor(ctx, queries.DeleteTOTPFactorParams{ID: id, UserID: userID})
+	return n == 1, err
+}
+
+func (s *Store) SaveTOTPEnrolment(ctx context.Context, e app.TOTPEnrolment) error {
+	return s.q.UpsertTOTPEnrolment(ctx, queries.UpsertTOTPEnrolmentParams{UserID: e.UserID, SealedSecret: e.SealedSecret, ExpiresAt: e.ExpiresAt})
+}
+
+func (s *Store) TOTPEnrolment(ctx context.Context, userID uuid.UUID) (app.TOTPEnrolment, error) {
+	r, err := s.q.TOTPEnrolment(ctx, userID)
+	if err != nil {
+		return app.TOTPEnrolment{}, notFound(err)
+	}
+	return app.TOTPEnrolment{UserID: userID, SealedSecret: r.SealedSecret, ExpiresAt: r.ExpiresAt}, nil
+}
+
+func (s *Store) DeleteTOTPEnrolment(ctx context.Context, userID uuid.UUID) error {
+	return s.q.DeleteTOTPEnrolment(ctx, userID)
 }
 
 func notFound(err error) error {
