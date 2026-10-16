@@ -215,70 +215,102 @@ func newFixture() *fixture {
 
 var ctx = context.Background()
 
-func TestOnlyAnAdminManagesAccess(t *testing.T) {
-	f := newFixture()
-	a := domain.Assignment{GroupID: family.ID, ClientID: "grafana", Role: "viewer"}
-	m := domain.Membership{GroupID: family.ID, UserID: ada}
-	for name, call := range map[string]func(app.Actor) error{
-		"Overview":     func(u app.Actor) error { _, err := f.svc.Overview(ctx, u); return err },
-		"CreateGroup":  func(u app.Actor) error { _, err := f.svc.CreateGroup(ctx, u, "Cousins"); return err },
-		"RenameGroup":  func(u app.Actor) error { _, err := f.svc.RenameGroup(ctx, u, family.ID, "Kin"); return err },
-		"DeleteGroup":  func(u app.Actor) error { return f.svc.DeleteGroup(ctx, u, friends.ID) },
-		"AddMember":    func(u app.Actor) error { return f.svc.AddMember(ctx, u, m) },
-		"RemoveMember": func(u app.Actor) error { return f.svc.RemoveMember(ctx, u, m) },
-		"Assign":       func(u app.Actor) error { return f.svc.Assign(ctx, u, a) },
-		"Unassign":     func(u app.Actor) error { return f.svc.Unassign(ctx, u, a) },
-		"SignOutUser":  func(u app.Actor) error { return f.svc.SignOutUser(ctx, u, ada) },
-	} {
-		before := *f.store
-		signedOut := len(f.people.signedOut)
-		if err := call(app.Actor{ID: ada, SecondFactor: true}); !errors.Is(err, app.ErrNotAdmin) {
-			t.Errorf("%s by a non-Admin = %v, want ErrNotAdmin", name, err)
-		}
-		if len(f.store.groups) != len(before.groups) || len(f.store.members) != len(before.members) || len(f.store.assignments) != len(before.assignments) {
-			t.Errorf("%s by a non-Admin changed the store", name)
-		}
-		if len(f.people.signedOut) != signedOut {
-			t.Errorf("%s by a non-Admin signed someone out", name)
-		}
-		if err := call(asAdmin); errors.Is(err, app.ErrNotAdmin) || errors.Is(err, app.ErrSecondFactorNeeded) {
-			t.Errorf("%s by an Admin = ErrNotAdmin", name)
-		}
-	}
-	if _, err := f.svc.Overview(ctx, app.Actor{ID: admin}); !errors.Is(err, app.ErrSecondFactorNeeded) {
-		t.Fatalf("an Admin whose session proved no Second Factor = %v", err)
-	}
-	f.store.fail["IsAdmin"] = errBoom
-	if _, err := f.svc.Overview(ctx, asAdmin); !errors.Is(err, errBoom) {
-		t.Fatalf("Overview when the admin check fails = %v", err)
+// asNonAdmin is a signed-in User who proved a Second Factor but is in no admins Group.
+var asNonAdmin = app.Actor{ID: ada, SecondFactor: true}
+
+// operation is one access use case, called as actor against a fixture.
+type operation func(f *fixture, actor app.Actor) error
+
+var operations = []struct {
+	name string
+	call operation
+}{
+	{"reading the overview", func(f *fixture, u app.Actor) error { _, err := f.svc.Overview(ctx, u); return err }},
+	{"creating a Group", func(f *fixture, u app.Actor) error { _, err := f.svc.CreateGroup(ctx, u, "Cousins"); return err }},
+	{"renaming a Group", func(f *fixture, u app.Actor) error { _, err := f.svc.RenameGroup(ctx, u, family.ID, "Kin"); return err }},
+	{"deleting a Group", func(f *fixture, u app.Actor) error { return f.svc.DeleteGroup(ctx, u, friends.ID) }},
+	{"adding a member", func(f *fixture, u app.Actor) error {
+		return f.svc.AddMember(ctx, u, domain.Membership{GroupID: family.ID, UserID: ada})
+	}},
+	{"removing a member", func(f *fixture, u app.Actor) error {
+		return f.svc.RemoveMember(ctx, u, domain.Membership{GroupID: family.ID, UserID: ada})
+	}},
+	{"giving an App Role", func(f *fixture, u app.Actor) error {
+		return f.svc.Assign(ctx, u, domain.Assignment{GroupID: family.ID, ClientID: "grafana", Role: "viewer"})
+	}},
+	{"taking an App Role", func(f *fixture, u app.Actor) error {
+		return f.svc.Unassign(ctx, u, domain.Assignment{GroupID: family.ID, ClientID: "grafana", Role: "viewer"})
+	}},
+	{"signing a User out", func(f *fixture, u app.Actor) error { return f.svc.SignOutUser(ctx, u, ada) }},
+}
+
+func TestEveryAccessOperationRefusesAUserWhoIsNotAnAdminAndChangesNothing(t *testing.T) {
+	for _, op := range operations {
+		t.Run(op.name, func(t *testing.T) {
+			f := newFixture()
+			if err := op.call(f, asNonAdmin); !errors.Is(err, app.ErrNotAdmin) {
+				t.Fatalf("err = %v, want ErrNotAdmin", err)
+			}
+			if len(f.store.groups) != 3 || len(f.store.members) != 1 || len(f.store.assignments) != 0 || len(f.people.signedOut) != 0 {
+				t.Fatalf("a refused call changed something: %+v, signed out %v", f.store, f.people.signedOut)
+			}
+		})
 	}
 }
 
-func TestOverview(t *testing.T) {
+func TestEveryAccessOperationLetsAnAdminThrough(t *testing.T) {
+	for _, op := range operations {
+		t.Run(op.name, func(t *testing.T) {
+			if err := op.call(newFixture(), asAdmin); errors.Is(err, app.ErrNotAdmin) || errors.Is(err, app.ErrSecondFactorNeeded) {
+				t.Fatalf("err = %v, want the Admin let through", err)
+			}
+		})
+	}
+}
+
+func TestAnAdminWhoseSessionProvedNoSecondFactorIsSentToAddOne(t *testing.T) {
+	if _, err := newFixture().svc.Overview(ctx, app.Actor{ID: admin}); !errors.Is(err, app.ErrSecondFactorNeeded) {
+		t.Fatalf("err = %v, want ErrSecondFactorNeeded", err)
+	}
+}
+
+func TestAnAccessOperationFailsWhenTheAdminCheckCannotBeMade(t *testing.T) {
+	f := newFixture()
+	f.store.fail["IsAdmin"] = errBoom
+	if _, err := f.svc.Overview(ctx, asAdmin); !errors.Is(err, errBoom) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestTheOverviewShowsGroupsMembersAssignmentsClientsAndPeople(t *testing.T) {
 	f := newFixture()
 	f.store.assignments = []domain.Assignment{{GroupID: family.ID, ClientID: "grafana", Role: "viewer"}}
 	got, err := f.svc.Overview(ctx, asAdmin)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got.Groups) != 3 || len(got.Memberships) != 1 || len(got.Assignments) != 1 ||
-		len(got.Clients) != 1 || got.People[0].ID != ada {
+	if len(got.Groups) != 3 || len(got.Memberships) != 1 || len(got.Assignments) != 1 || len(got.Clients) != 1 || got.People[0].ID != ada {
 		t.Fatalf("Overview = %+v", got)
-	}
-	for _, name := range []string{"Groups", "Memberships", "Assignments"} {
-		f.store.fail = map[string]error{name: errBoom}
-		if _, err := f.svc.Overview(ctx, asAdmin); !errors.Is(err, errBoom) {
-			t.Errorf("Overview when %s fails = %v", name, err)
-		}
-	}
-	f.store.fail = map[string]error{}
-	f.people.err = errBoom
-	if _, err := f.svc.Overview(ctx, asAdmin); !errors.Is(err, errBoom) {
-		t.Errorf("Overview when People fails = %v", err)
 	}
 }
 
-func TestCreateGroup(t *testing.T) {
+func TestTheOverviewFailsWhenAnyPartCannotBeRead(t *testing.T) {
+	for _, part := range []string{"Groups", "Memberships", "Assignments", "People"} {
+		t.Run(part, func(t *testing.T) {
+			f := newFixture()
+			if part == "People" {
+				f.people.err = errBoom
+			} else {
+				f.store.fail[part] = errBoom
+			}
+			if _, err := f.svc.Overview(ctx, asAdmin); !errors.Is(err, errBoom) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
+
+func TestAnAdminCreatesAGroupWithItsNameTrimmed(t *testing.T) {
 	f := newFixture()
 	g, err := f.svc.CreateGroup(ctx, asAdmin, "  Cousins ")
 	if err != nil {
@@ -287,38 +319,58 @@ func TestCreateGroup(t *testing.T) {
 	if g.Name != "Cousins" || g.Admins || g.ID == uuid.Nil || f.store.groups[3] != g {
 		t.Fatalf("CreateGroup = %+v, stored %+v", g, f.store.groups)
 	}
-	if _, err := f.svc.CreateGroup(ctx, asAdmin, " "); !errors.Is(err, domain.ErrInvalidGroupName) {
-		t.Errorf("an empty name = %v", err)
-	}
-	f.store.fail["CreateGroup"] = app.ErrNameTaken
-	if _, err := f.svc.CreateGroup(ctx, asAdmin, "Family"); !errors.Is(err, app.ErrNameTaken) {
-		t.Errorf("a taken name = %v", err)
-	}
-	broken := app.New(f.store, catalog{}, f.people, bytes.NewReader(nil))
-	if _, err := broken.CreateGroup(ctx, asAdmin, "Cousins"); err == nil {
-		t.Error("no randomness made a Group")
+}
+
+func TestAGroupNeedsAName(t *testing.T) {
+	if _, err := newFixture().svc.CreateGroup(ctx, asAdmin, " "); !errors.Is(err, domain.ErrInvalidGroupName) {
+		t.Fatalf("err = %v", err)
 	}
 }
 
-func TestRenameGroup(t *testing.T) {
+func TestTwoGroupsCannotShareAName(t *testing.T) {
 	f := newFixture()
-	g, err := f.svc.RenameGroup(ctx, asAdmin, family.ID, " Kin ")
+	f.store.fail["CreateGroup"] = app.ErrNameTaken
+	if _, err := f.svc.CreateGroup(ctx, asAdmin, "Family"); !errors.Is(err, app.ErrNameTaken) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestNoGroupIsMadeWithoutRandomnessForItsID(t *testing.T) {
+	f := newFixture()
+	broken := app.New(f.store, catalog{}, f.people, bytes.NewReader(nil))
+	if _, err := broken.CreateGroup(ctx, asAdmin, "Cousins"); err == nil {
+		t.Fatal("a Group was made without randomness")
+	}
+}
+
+func TestAnAdminRenamesAGroup(t *testing.T) {
+	g, err := newFixture().svc.RenameGroup(ctx, asAdmin, family.ID, " Kin ")
 	if err != nil || g.Name != "Kin" || g.ID != family.ID {
 		t.Fatalf("RenameGroup = %+v, %v", g, err)
 	}
-	if _, err := f.svc.RenameGroup(ctx, asAdmin, family.ID, ""); !errors.Is(err, domain.ErrInvalidGroupName) {
-		t.Errorf("an empty name = %v", err)
-	}
-	if _, err := f.svc.RenameGroup(ctx, asAdmin, uuid.New(), "Kin"); !errors.Is(err, app.ErrNotFound) {
-		t.Errorf("an unknown Group = %v", err)
-	}
-	f.store.fail["Group"] = errBoom
-	if _, err := f.svc.RenameGroup(ctx, asAdmin, family.ID, "Kin"); !errors.Is(err, errBoom) {
-		t.Errorf("when reading back fails = %v", err)
+}
+
+func TestARenameNeedsAName(t *testing.T) {
+	if _, err := newFixture().svc.RenameGroup(ctx, asAdmin, family.ID, ""); !errors.Is(err, domain.ErrInvalidGroupName) {
+		t.Fatalf("err = %v", err)
 	}
 }
 
-func TestDeleteGroup(t *testing.T) {
+func TestRenamingAGroupThatIsGoneIsNotFound(t *testing.T) {
+	if _, err := newFixture().svc.RenameGroup(ctx, asAdmin, uuid.New(), "Kin"); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestARenameFailsWhenTheRenamedGroupCannotBeReadBack(t *testing.T) {
+	f := newFixture()
+	f.store.fail["Group"] = errBoom
+	if _, err := f.svc.RenameGroup(ctx, asAdmin, family.ID, "Kin"); !errors.Is(err, errBoom) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestAnAdminDeletesAGroup(t *testing.T) {
 	f := newFixture()
 	if err := f.svc.DeleteGroup(ctx, asAdmin, family.ID); err != nil {
 		t.Fatal(err)
@@ -326,62 +378,94 @@ func TestDeleteGroup(t *testing.T) {
 	if _, err := f.store.Group(ctx, family.ID); !errors.Is(err, app.ErrNotFound) {
 		t.Fatal("the Group is still there")
 	}
-	if err := f.svc.DeleteGroup(ctx, asAdmin, admins.ID); !errors.Is(err, app.ErrAdminsGroup) {
-		t.Errorf("deleting the admins Group = %v", err)
-	}
-	if err := f.svc.DeleteGroup(ctx, asAdmin, family.ID); !errors.Is(err, app.ErrNotFound) {
-		t.Errorf("deleting it twice = %v", err)
+}
+
+func TestTheAdminsGroupCannotBeDeleted(t *testing.T) {
+	if err := newFixture().svc.DeleteGroup(ctx, asAdmin, admins.ID); !errors.Is(err, app.ErrAdminsGroup) {
+		t.Fatalf("err = %v", err)
 	}
 }
 
-func TestMembers(t *testing.T) {
+func TestDeletingAGroupThatIsGoneIsNotFound(t *testing.T) {
+	if err := newFixture().svc.DeleteGroup(ctx, asAdmin, uuid.New()); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestAnAdminAddsAPersonToAGroup(t *testing.T) {
 	f := newFixture()
 	m := domain.Membership{GroupID: family.ID, UserID: ada}
 	if err := f.svc.AddMember(ctx, asAdmin, m); err != nil || f.store.members[1] != m {
-		t.Fatalf("AddMember = %v, %+v", err, f.store.members)
-	}
-	if err := f.svc.RemoveMember(ctx, asAdmin, m); err != nil || len(f.store.members) != 1 {
-		t.Fatalf("RemoveMember = %v, %+v", err, f.store.members)
-	}
-	f.store.fail["AddMember"] = app.ErrNotFound
-	if err := f.svc.AddMember(ctx, asAdmin, m); !errors.Is(err, app.ErrNotFound) {
-		t.Errorf("adding to nothing = %v", err)
-	}
-	f.store.fail["RemoveMember"] = app.ErrLastAdmin
-	if err := f.svc.RemoveMember(ctx, asAdmin, domain.Membership{GroupID: admins.ID, UserID: admin}); !errors.Is(err, app.ErrLastAdmin) {
-		t.Errorf("removing the last Admin = %v", err)
+		t.Fatalf("AddMember = %v, members %+v", err, f.store.members)
 	}
 }
 
-func TestAssign(t *testing.T) {
+func TestAddingAPersonToAGroupThatIsGoneIsNotFound(t *testing.T) {
+	f := newFixture()
+	f.store.fail["AddMember"] = app.ErrNotFound
+	if err := f.svc.AddMember(ctx, asAdmin, domain.Membership{GroupID: uuid.New(), UserID: ada}); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestAnAdminTakesAPersonOutOfAGroup(t *testing.T) {
+	f := newFixture()
+	m := domain.Membership{GroupID: family.ID, UserID: ada}
+	f.store.members = append(f.store.members, m)
+	if err := f.svc.RemoveMember(ctx, asAdmin, m); err != nil || len(f.store.members) != 1 {
+		t.Fatalf("RemoveMember = %v, members %+v", err, f.store.members)
+	}
+}
+
+func TestTheLastAdminCannotLeaveTheAdminsGroup(t *testing.T) {
+	f := newFixture()
+	f.store.fail["RemoveMember"] = app.ErrLastAdmin
+	if err := f.svc.RemoveMember(ctx, asAdmin, domain.Membership{GroupID: admins.ID, UserID: admin}); !errors.Is(err, app.ErrLastAdmin) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestAnAdminGivesAGroupAnAppRoleTheClientDeclares(t *testing.T) {
 	f := newFixture()
 	a := domain.Assignment{GroupID: family.ID, ClientID: "grafana", Role: "viewer"}
-	if err := f.svc.Assign(ctx, asAdmin, a); err != nil || f.store.assignments[0] != a {
-		t.Fatalf("Assign = %v, %+v", err, f.store.assignments)
+	if err := f.svc.Assign(ctx, asAdmin, a); err != nil || len(f.store.assignments) != 1 || f.store.assignments[0] != a {
+		t.Fatalf("Assign = %v, assignments %+v", err, f.store.assignments)
 	}
+}
+
+func TestAnAppRoleIsRefusedAndNotKept(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		a    domain.Assignment
 		want error
 	}{
-		{"the admins Group", domain.Assignment{GroupID: admins.ID, ClientID: "grafana", Role: "user"}, app.ErrAdminsGroup},
-		{"an unknown Group", domain.Assignment{GroupID: uuid.New(), ClientID: "grafana", Role: "user"}, app.ErrNotFound},
-		{"a Removed Client", domain.Assignment{GroupID: family.ID, ClientID: "jellyfin", Role: "user"}, app.ErrUnknownClient},
-		{"an undeclared role", domain.Assignment{GroupID: family.ID, ClientID: "grafana", Role: "admin"}, app.ErrUnknownRole},
+		{"to the admins Group", domain.Assignment{GroupID: admins.ID, ClientID: "grafana", Role: "user"}, app.ErrAdminsGroup},
+		{"to a Group that is gone", domain.Assignment{GroupID: uuid.New(), ClientID: "grafana", Role: "user"}, app.ErrNotFound},
+		{"on a Client the cluster no longer declares", domain.Assignment{GroupID: family.ID, ClientID: "jellyfin", Role: "user"}, app.ErrUnknownClient},
+		{"the Client does not declare", domain.Assignment{GroupID: family.ID, ClientID: "grafana", Role: "admin"}, app.ErrUnknownRole},
 	} {
-		if err := f.svc.Assign(ctx, asAdmin, tc.a); !errors.Is(err, tc.want) {
-			t.Errorf("assigning %s = %v, want %v", tc.name, err, tc.want)
-		}
-	}
-	if len(f.store.assignments) != 1 {
-		t.Fatalf("a refused Assignment was kept: %+v", f.store.assignments)
-	}
-	if err := f.svc.Unassign(ctx, asAdmin, a); err != nil || len(f.store.assignments) != 0 {
-		t.Fatalf("Unassign = %v, %+v", err, f.store.assignments)
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFixture()
+			if err := f.svc.Assign(ctx, asAdmin, tc.a); !errors.Is(err, tc.want) {
+				t.Fatalf("err = %v, want %v", err, tc.want)
+			}
+			if len(f.store.assignments) != 0 {
+				t.Fatalf("a refused Assignment was kept: %+v", f.store.assignments)
+			}
+		})
 	}
 }
 
-func TestRolesAddUp(t *testing.T) {
+func TestAnAdminTakesAnAppRoleAway(t *testing.T) {
+	f := newFixture()
+	a := domain.Assignment{GroupID: family.ID, ClientID: "grafana", Role: "viewer"}
+	f.store.assignments = []domain.Assignment{a}
+	if err := f.svc.Unassign(ctx, asAdmin, a); err != nil || len(f.store.assignments) != 0 {
+		t.Fatalf("Unassign = %v, assignments %+v", err, f.store.assignments)
+	}
+}
+
+func TestAUsersAppRolesOnAClientAreTheUnionOverTheirGroups(t *testing.T) {
 	f := newFixture()
 	f.store.members = append(f.store.members, domain.Membership{GroupID: family.ID, UserID: ada}, domain.Membership{GroupID: friends.ID, UserID: ada})
 	f.store.assignments = []domain.Assignment{
@@ -394,12 +478,15 @@ func TestRolesAddUp(t *testing.T) {
 	if err != nil || !slices.Equal(got, []string{"viewer", "editor"}) {
 		t.Fatalf("Roles = %v, %v", got, err)
 	}
-	if got, _ := f.svc.Roles(ctx, admin, "grafana"); len(got) != 0 {
+}
+
+func TestBeingAnAdminGivesNoAppRole(t *testing.T) {
+	if got, _ := newFixture().svc.Roles(ctx, admin, "grafana"); len(got) != 0 {
 		t.Fatalf("an Admin with no Assignment holds %v", got)
 	}
 }
 
-func TestAUsersRolesAreListedPerClient(t *testing.T) {
+func TestAUsersAppRolesAreListedPerClient(t *testing.T) {
 	f := newFixture()
 	f.store.members = append(f.store.members, domain.Membership{GroupID: family.ID, UserID: ada})
 	f.store.assignments = []domain.Assignment{
@@ -412,48 +499,63 @@ func TestAUsersRolesAreListedPerClient(t *testing.T) {
 	}
 }
 
-func TestIsAdmin(t *testing.T) {
-	f := newFixture()
-	if yes, err := f.svc.IsAdmin(ctx, admin); !yes || err != nil {
-		t.Fatalf("IsAdmin(admin) = %v, %v", yes, err)
-	}
-	if yes, _ := f.svc.IsAdmin(ctx, ada); yes {
-		t.Fatal("IsAdmin(ada) = true")
+func TestAMemberOfTheAdminsGroupIsAnAdmin(t *testing.T) {
+	if yes, err := newFixture().svc.IsAdmin(ctx, admin); !yes || err != nil {
+		t.Fatalf("IsAdmin = %v, %v", yes, err)
 	}
 }
 
-func TestPromoteMakesTheFirstAdminOnly(t *testing.T) {
+func TestAUserOutsideTheAdminsGroupIsNoAdmin(t *testing.T) {
+	if yes, _ := newFixture().svc.IsAdmin(ctx, ada); yes {
+		t.Fatal("IsAdmin = true")
+	}
+}
+
+func TestTheFirstPromoteMakesAnAdmin(t *testing.T) {
 	f := newFixture()
 	f.store.members = nil
 	if err := f.svc.Promote(ctx, ada, false); err != nil {
 		t.Fatal(err)
 	}
 	if yes, _ := f.svc.IsAdmin(ctx, ada); !yes {
-		t.Fatal("the first promote made no Admin")
-	}
-	if err := f.svc.Promote(ctx, admin, false); !errors.Is(err, app.ErrAdminExists) {
-		t.Fatalf("a second promote without force = %v, want ErrAdminExists", err)
-	}
-	if yes, _ := f.svc.IsAdmin(ctx, admin); yes {
-		t.Fatal("a refused promote made an Admin")
-	}
-	if err := f.svc.Promote(ctx, admin, true); err != nil {
-		t.Fatalf("a forced promote = %v", err)
-	}
-	if yes, _ := f.svc.IsAdmin(ctx, admin); !yes {
-		t.Fatal("a forced promote made no Admin")
-	}
-	for _, name := range []string{"CountAdmins", "AdminsGroup", "AddMember"} {
-		f.store.fail = map[string]error{name: errBoom}
-		if err := f.svc.Promote(ctx, uuid.New(), true); !errors.Is(err, errBoom) {
-			t.Errorf("Promote when %s fails = %v", name, err)
-		}
+		t.Fatal("no Admin was made")
 	}
 }
 
-func TestUnassignedCountsUsersInNoGroup(t *testing.T) {
+func TestAPromoteWithoutForceIsRefusedOnceAnAdminExists(t *testing.T) {
 	f := newFixture()
-	if n, err := f.svc.Unassigned(ctx); n != 7 || err != nil {
+	if err := f.svc.Promote(ctx, ada, false); !errors.Is(err, app.ErrAdminExists) {
+		t.Fatalf("err = %v, want ErrAdminExists", err)
+	}
+	if yes, _ := f.svc.IsAdmin(ctx, ada); yes {
+		t.Fatal("a refused promote made an Admin")
+	}
+}
+
+func TestAForcedPromoteMakesAnotherAdmin(t *testing.T) {
+	f := newFixture()
+	if err := f.svc.Promote(ctx, ada, true); err != nil {
+		t.Fatal(err)
+	}
+	if yes, _ := f.svc.IsAdmin(ctx, ada); !yes {
+		t.Fatal("no Admin was made")
+	}
+}
+
+func TestAPromoteFailsWhenTheStoreDoes(t *testing.T) {
+	for _, step := range []string{"CountAdmins", "AdminsGroup", "AddMember"} {
+		t.Run(step, func(t *testing.T) {
+			f := newFixture()
+			f.store.fail[step] = errBoom
+			if err := f.svc.Promote(ctx, uuid.New(), true); !errors.Is(err, errBoom) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
+
+func TestTheUnassignedCountIsTheStores(t *testing.T) {
+	if n, err := newFixture().svc.Unassigned(ctx); n != 7 || err != nil {
 		t.Fatalf("Unassigned = %d, %v", n, err)
 	}
 }
@@ -463,8 +565,12 @@ func TestAnAdminSignsAUserOutEverywhere(t *testing.T) {
 	if err := f.svc.SignOutUser(ctx, asAdmin, ada); err != nil || len(f.people.signedOut) != 1 || f.people.signedOut[0] != ada {
 		t.Fatalf("SignOutUser = %v, signed out %v", err, f.people.signedOut)
 	}
+}
+
+func TestSigningAUserOutFailsWhenTheUsersContextDoes(t *testing.T) {
+	f := newFixture()
 	f.people.err = errBoom
 	if err := f.svc.SignOutUser(ctx, asAdmin, ada); !errors.Is(err, errBoom) {
-		t.Fatalf("a failing users context: %v", err)
+		t.Fatalf("err = %v", err)
 	}
 }

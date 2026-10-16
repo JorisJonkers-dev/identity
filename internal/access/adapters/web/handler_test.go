@@ -89,9 +89,11 @@ func wantProblem(t *testing.T, res any, err error, status int, detail string) {
 	}
 }
 
-func TestGetAccess(t *testing.T) {
+var asAdmin = app.Actor{ID: admin, SecondFactor: true}
+
+func TestTheOverviewCarriesGroupsWithTheirMembersPeopleClientsAndAssignments(t *testing.T) {
 	uc := &useCases{overview: app.Overview{
-		Groups:      []domain.Group{{ID: family, Name: "Family"}, {ID: uuid.Nil, Name: "Empty"}},
+		Groups:      []domain.Group{{ID: family, Name: "Family"}},
 		Memberships: []domain.Membership{{GroupID: family, UserID: ada}},
 		Assignments: []domain.Assignment{{GroupID: family, ClientID: "grafana", Role: "viewer"}},
 		Clients:     []domain.Client{{ID: "grafana", Label: "Grafana", Roles: []string{"user", "viewer"}}},
@@ -99,11 +101,10 @@ func TestGetAccess(t *testing.T) {
 	}}
 	res, err := web.New(uc).GetAccess(signedIn())
 	o, ok := res.(*oas.AccessOverview)
-	if err != nil || !ok || uc.actor != (app.Actor{ID: admin, SecondFactor: true}) {
+	if err != nil || !ok || uc.actor != asAdmin {
 		t.Fatalf("GetAccess = %#v, %v (actor %v)", res, err, uc.actor)
 	}
-	if len(o.Groups) != 2 || o.Groups[0].Name != "Family" || len(o.Groups[0].Members) != 1 || uuid.UUID(o.Groups[0].Members[0]) != ada ||
-		o.Groups[1].Members == nil || len(o.Groups[1].Members) != 0 {
+	if len(o.Groups) != 1 || o.Groups[0].Name != "Family" || len(o.Groups[0].Members) != 1 || uuid.UUID(o.Groups[0].Members[0]) != ada {
 		t.Fatalf("groups = %+v", o.Groups)
 	}
 	if len(o.Users) != 1 || o.Users[0].Email != "ada@example.org" || o.Users[0].Name != "Ada" || uuid.UUID(o.Users[0].ID) != ada {
@@ -117,67 +118,82 @@ func TestGetAccess(t *testing.T) {
 	}
 }
 
-func TestGroups(t *testing.T) {
+func TestAGroupWithNoMembersIsSentWithAnEmptyList(t *testing.T) {
+	uc := &useCases{overview: app.Overview{Groups: []domain.Group{{ID: family, Name: "Empty"}}}}
+	res, _ := web.New(uc).GetAccess(signedIn())
+	if g := res.(*oas.AccessOverview).Groups[0]; g.Members == nil || len(g.Members) != 0 {
+		t.Fatalf("members = %#v, want an empty list", g.Members)
+	}
+}
+
+func TestCreatingAGroupSendsTheNameAsTypedAndAnswersTheGroup(t *testing.T) {
 	uc := &useCases{group: domain.Group{ID: family, Name: "Family"}}
-	h := web.New(uc)
-	res, err := h.CreateGroup(signedIn(), &oas.GroupDraft{Name: " Family "})
+	res, err := web.New(uc).CreateGroup(signedIn(), &oas.GroupDraft{Name: " Family "})
 	g, ok := res.(*oas.Group)
-	if err != nil || !ok || g.Name != "Family" || uuid.UUID(g.ID) != family || g.Members == nil || uc.asked[0] != " Family " {
-		t.Fatalf("CreateGroup = %#v, %v", res, err)
-	}
-	if res, err := h.RenameGroup(signedIn(), &oas.GroupDraft{Name: "Kin"}, oas.RenameGroupParams{GroupId: oas.ID(family)}); err != nil {
-		t.Fatal(err)
-	} else if _, ok := res.(*oas.RenameGroupNoContent); !ok || uc.asked[1] != family || uc.asked[2] != "Kin" {
-		t.Fatalf("RenameGroup = %#v, asked %v", res, uc.asked)
-	}
-	if res, err := h.DeleteGroup(signedIn(), oas.DeleteGroupParams{GroupId: oas.ID(family)}); err != nil {
-		t.Fatal(err)
-	} else if _, ok := res.(*oas.DeleteGroupNoContent); !ok || uc.asked[3] != family || uc.actor != (app.Actor{ID: admin, SecondFactor: true}) {
-		t.Fatalf("DeleteGroup = %#v, asked %v", res, uc.asked)
+	if err != nil || !ok || g.Name != "Family" || uuid.UUID(g.ID) != family || g.Members == nil || uc.asked[0] != " Family " || uc.actor != asAdmin {
+		t.Fatalf("CreateGroup = %#v, %v, asked %v", res, err, uc.asked)
 	}
 }
 
-func TestMembersAndRoles(t *testing.T) {
+func TestRenamingAGroupSendsItsIDAndTheNewName(t *testing.T) {
 	uc := &useCases{}
-	h := web.New(uc)
-	m := domain.Membership{GroupID: family, UserID: ada}
-	a := domain.Assignment{GroupID: family, ClientID: "grafana", Role: "viewer"}
-	for name, call := range map[string]func() (any, any, error){
-		"AddMember": func() (any, any, error) {
-			res, err := h.AddMember(signedIn(), oas.AddMemberParams{GroupId: oas.ID(family), UserId: oas.ID(ada)})
-			_, ok := res.(*oas.AddMemberNoContent)
-			return ok, m, err
-		},
-		"RemoveMember": func() (any, any, error) {
-			res, err := h.RemoveMember(signedIn(), oas.RemoveMemberParams{GroupId: oas.ID(family), UserId: oas.ID(ada)})
-			_, ok := res.(*oas.RemoveMemberNoContent)
-			return ok, m, err
-		},
-		"AssignRole": func() (any, any, error) {
-			res, err := h.AssignRole(signedIn(), oas.AssignRoleParams{GroupId: oas.ID(family), ClientId: "grafana", Role: "viewer"})
-			_, ok := res.(*oas.AssignRoleNoContent)
-			return ok, a, err
-		},
-		"UnassignRole": func() (any, any, error) {
-			res, err := h.UnassignRole(signedIn(), oas.UnassignRoleParams{GroupId: oas.ID(family), ClientId: "grafana", Role: "viewer"})
-			_, ok := res.(*oas.UnassignRoleNoContent)
-			return ok, a, err
-		},
-		"SignOutUser": func() (any, any, error) {
-			res, err := h.SignOutUser(signedIn(), oas.SignOutUserParams{UserId: oas.ID(ada)})
-			_, ok := res.(*oas.SignOutUserNoContent)
-			return ok, ada, err
-		},
-	} {
-		uc.asked, uc.actor = nil, app.Actor{}
-		ok, want, err := call()
-		if err != nil || ok != true || len(uc.asked) != 1 || uc.asked[0] != want || uc.actor != (app.Actor{ID: admin, SecondFactor: true}) {
-			t.Errorf("%s = %v, %v; asked %v by %v", name, ok, err, uc.asked, uc.actor)
-		}
+	res, err := web.New(uc).RenameGroup(signedIn(), &oas.GroupDraft{Name: "Kin"}, oas.RenameGroupParams{GroupId: oas.ID(family)})
+	if _, ok := res.(*oas.RenameGroupNoContent); err != nil || !ok || uc.asked[0] != family || uc.asked[1] != "Kin" || uc.actor != asAdmin {
+		t.Fatalf("RenameGroup = %#v, %v, asked %v", res, err, uc.asked)
 	}
 }
 
-func TestRefusals(t *testing.T) {
+func TestDeletingAGroupSendsItsID(t *testing.T) {
+	uc := &useCases{}
+	res, err := web.New(uc).DeleteGroup(signedIn(), oas.DeleteGroupParams{GroupId: oas.ID(family)})
+	if _, ok := res.(*oas.DeleteGroupNoContent); err != nil || !ok || uc.asked[0] != family || uc.actor != asAdmin {
+		t.Fatalf("DeleteGroup = %#v, %v, asked %v", res, err, uc.asked)
+	}
+}
+
+func TestAddingAMemberSendsTheGroupAndThePerson(t *testing.T) {
+	uc := &useCases{}
+	res, err := web.New(uc).AddMember(signedIn(), oas.AddMemberParams{GroupId: oas.ID(family), UserId: oas.ID(ada)})
+	if _, ok := res.(*oas.AddMemberNoContent); err != nil || !ok || uc.asked[0] != (domain.Membership{GroupID: family, UserID: ada}) || uc.actor != asAdmin {
+		t.Fatalf("AddMember = %#v, %v, asked %v", res, err, uc.asked)
+	}
+}
+
+func TestRemovingAMemberSendsTheGroupAndThePerson(t *testing.T) {
+	uc := &useCases{}
+	res, err := web.New(uc).RemoveMember(signedIn(), oas.RemoveMemberParams{GroupId: oas.ID(family), UserId: oas.ID(ada)})
+	if _, ok := res.(*oas.RemoveMemberNoContent); err != nil || !ok || uc.asked[0] != (domain.Membership{GroupID: family, UserID: ada}) || uc.actor != asAdmin {
+		t.Fatalf("RemoveMember = %#v, %v, asked %v", res, err, uc.asked)
+	}
+}
+
+func TestGivingAnAppRoleSendsTheGroupClientAndRole(t *testing.T) {
+	uc := &useCases{}
+	res, err := web.New(uc).AssignRole(signedIn(), oas.AssignRoleParams{GroupId: oas.ID(family), ClientId: "grafana", Role: "viewer"})
+	want := domain.Assignment{GroupID: family, ClientID: "grafana", Role: "viewer"}
+	if _, ok := res.(*oas.AssignRoleNoContent); err != nil || !ok || uc.asked[0] != want || uc.actor != asAdmin {
+		t.Fatalf("AssignRole = %#v, %v, asked %v", res, err, uc.asked)
+	}
+}
+
+func TestTakingAnAppRoleSendsTheGroupClientAndRole(t *testing.T) {
+	uc := &useCases{}
+	res, err := web.New(uc).UnassignRole(signedIn(), oas.UnassignRoleParams{GroupId: oas.ID(family), ClientId: "grafana", Role: "viewer"})
+	want := domain.Assignment{GroupID: family, ClientID: "grafana", Role: "viewer"}
+	if _, ok := res.(*oas.UnassignRoleNoContent); err != nil || !ok || uc.asked[0] != want || uc.actor != asAdmin {
+		t.Fatalf("UnassignRole = %#v, %v, asked %v", res, err, uc.asked)
+	}
+}
+
+func TestSigningAUserOutSendsWhoToSignOut(t *testing.T) {
+	uc := &useCases{}
+	res, err := web.New(uc).SignOutUser(signedIn(), oas.SignOutUserParams{UserId: oas.ID(ada)})
+	if _, ok := res.(*oas.SignOutUserNoContent); err != nil || !ok || uc.asked[0] != ada || uc.actor != asAdmin {
+		t.Fatalf("SignOutUser = %#v, %v, asked %v", res, err, uc.asked)
+	}
+}
+
+func TestEachRefusalBecomesAProblemSayingWhatToDo(t *testing.T) {
 	for _, tc := range []struct {
 		err    error
 		status int
@@ -193,31 +209,46 @@ func TestRefusals(t *testing.T) {
 		{app.ErrUnknownClient, http.StatusUnprocessableEntity, "That app is not registered."},
 		{app.ErrUnknownRole, http.StatusUnprocessableEntity, "That app has no such role."},
 	} {
-		h := web.New(&useCases{err: tc.err})
-		ctx := signedIn()
-		gid := oas.ID(family)
-		calls := map[string]func() (any, error){
-			"GetAccess":   func() (any, error) { return h.GetAccess(ctx) },
-			"CreateGroup": func() (any, error) { return h.CreateGroup(ctx, &oas.GroupDraft{Name: "x"}) },
-			"RenameGroup": func() (any, error) {
-				return h.RenameGroup(ctx, &oas.GroupDraft{Name: "x"}, oas.RenameGroupParams{GroupId: gid})
-			},
-			"DeleteGroup":  func() (any, error) { return h.DeleteGroup(ctx, oas.DeleteGroupParams{GroupId: gid}) },
-			"AddMember":    func() (any, error) { return h.AddMember(ctx, oas.AddMemberParams{GroupId: gid}) },
-			"RemoveMember": func() (any, error) { return h.RemoveMember(ctx, oas.RemoveMemberParams{GroupId: gid}) },
-			"AssignRole":   func() (any, error) { return h.AssignRole(ctx, oas.AssignRoleParams{GroupId: gid}) },
-			"UnassignRole": func() (any, error) { return h.UnassignRole(ctx, oas.UnassignRoleParams{GroupId: gid}) },
-			"SignOutUser":  func() (any, error) { return h.SignOutUser(ctx, oas.SignOutUserParams{}) },
-		}
-		for name, call := range calls {
-			t.Run(name, func(t *testing.T) {
-				res, err := call()
-				wantProblem(t, res, err, tc.status, tc.detail)
-			})
-		}
+		t.Run(tc.err.Error(), func(t *testing.T) {
+			res, err := web.New(&useCases{err: tc.err}).GetAccess(signedIn())
+			wantProblem(t, res, err, tc.status, tc.detail)
+		})
 	}
-	h := web.New(&useCases{err: errBoom})
-	if _, err := h.GetAccess(signedIn()); !errors.Is(err, errBoom) {
-		t.Fatalf("an unexpected failure = %v, want it passed on as a 500", err)
+}
+
+func TestEveryOperationAnswersARefusalAsAProblem(t *testing.T) {
+	gid := oas.ID(family)
+	for _, op := range []struct {
+		name string
+		call func(h *web.Access) (any, error)
+	}{
+		{"reading the overview", func(h *web.Access) (any, error) { return h.GetAccess(signedIn()) }},
+		{"creating a Group", func(h *web.Access) (any, error) { return h.CreateGroup(signedIn(), &oas.GroupDraft{Name: "x"}) }},
+		{"renaming a Group", func(h *web.Access) (any, error) {
+			return h.RenameGroup(signedIn(), &oas.GroupDraft{Name: "x"}, oas.RenameGroupParams{GroupId: gid})
+		}},
+		{"deleting a Group", func(h *web.Access) (any, error) {
+			return h.DeleteGroup(signedIn(), oas.DeleteGroupParams{GroupId: gid})
+		}},
+		{"adding a member", func(h *web.Access) (any, error) { return h.AddMember(signedIn(), oas.AddMemberParams{GroupId: gid}) }},
+		{"removing a member", func(h *web.Access) (any, error) {
+			return h.RemoveMember(signedIn(), oas.RemoveMemberParams{GroupId: gid})
+		}},
+		{"giving an App Role", func(h *web.Access) (any, error) { return h.AssignRole(signedIn(), oas.AssignRoleParams{GroupId: gid}) }},
+		{"taking an App Role", func(h *web.Access) (any, error) {
+			return h.UnassignRole(signedIn(), oas.UnassignRoleParams{GroupId: gid})
+		}},
+		{"signing a User out", func(h *web.Access) (any, error) { return h.SignOutUser(signedIn(), oas.SignOutUserParams{}) }},
+	} {
+		t.Run(op.name, func(t *testing.T) {
+			res, err := op.call(web.New(&useCases{err: app.ErrNotAdmin}))
+			wantProblem(t, res, err, http.StatusForbidden, "Only Admins manage access.")
+		})
+	}
+}
+
+func TestAnUnexpectedFailureIsPassedOnForA500(t *testing.T) {
+	if _, err := web.New(&useCases{err: errBoom}).GetAccess(signedIn()); !errors.Is(err, errBoom) {
+		t.Fatalf("err = %v, want it passed on", err)
 	}
 }
