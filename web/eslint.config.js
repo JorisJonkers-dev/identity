@@ -1,6 +1,7 @@
 import tseslint from 'typescript-eslint'
 import pluginVue from 'eslint-plugin-vue'
 import vueA11y from 'eslint-plugin-vuejs-accessibility'
+import { playwrightStepsConfig } from '@jorisjonkers-dev/vue-web-commons/eslint-testing'
 
 export default tseslint.config(
   { ignores: ['dist/**', 'coverage/**', 'src/infrastructure/api/**', 'playwright-report/**', 'test-results/**'] },
@@ -30,4 +31,6 @@ export default tseslint.config(
     },
   },
   { files: ['eslint.config.js'], ...tseslint.configs.disableTypeChecked },
+  // A journey longer than a few actions names each stage with test.step (estate testing standards).
+  playwrightStepsConfig(),
 )

@@ -100,6 +100,23 @@ jobs:
       - name: End-to-end with axe
         run: mise exec -- task e2e
 
+  # A quarantined test must name its issue and run out within 14 days (estate testing standards).
+  quarantine:
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/quarantine-check.yml@v0.27.1
+
+  # Mutants that survive on the changed lines, as one pull request comment. A report: it never fails
+  # the build, so Pipeline Complete does not wait on it.
+  mutation:
+    needs: changes
+    if: ${{ github.event_name == 'pull_request' }}
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/mutation-report.yml@v0.27.1
+    permissions:
+      contents: read
+      pull-requests: write
+    with:
+      go-directory: ${{ fromJSON(needs.changes.outputs.run).go && '.' || '' }}
+      web-directory: ${{ fromJSON(needs.changes.outputs.run).web && 'web' || '' }}
+
   # The image builds need the Docker daemon the runner has, so they are not a task.
   images:
     name: Image (${{ matrix.image }})
@@ -132,7 +149,7 @@ jobs:
   pipeline-complete:
     name: Pipeline Complete
     if: ${{ always() }}
-    needs: [changes, check, e2e, images]
+    needs: [changes, check, e2e, images, quarantine]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
