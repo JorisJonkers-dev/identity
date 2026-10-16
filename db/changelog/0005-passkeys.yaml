@@ -1,0 +1,61 @@
+# Passkeys as a Second Factor (docs/adr/0015): each credential WebAuthn registered, kept as the
+# library's own record, a registration waiting for the browser, and a sign-in's WebAuthn ceremony.
+# A passkey's private key never leaves the authenticator; identity keeps only the public key.
+databaseChangeLog:
+  - changeSet:
+      id: 0005-create-passkeys
+      author: identity
+      changes:
+        - createTable:
+            tableName: passkeys
+            columns:
+              - column: {name: id, type: uuid, constraints: {primaryKey: true, nullable: false}}
+              - column:
+                  name: user_id
+                  type: uuid
+                  constraints: {nullable: false, foreignKeyName: passkeys_user_fk, references: users(id), deleteCascade: true}
+              - column: {name: label, type: text, constraints: {nullable: false}}
+              - column: {name: credential_id, type: bytea, constraints: {nullable: false, unique: true, uniqueConstraintName: passkeys_credential_id_key}}
+              - column: {name: credential, type: jsonb, constraints: {nullable: false}}
+              - column: {name: created_at, type: timestamptz, constraints: {nullable: false}}
+              - column: {name: last_used_at, type: timestamptz}
+        - createIndex:
+            tableName: passkeys
+            indexName: passkeys_user_idx
+            columns:
+              - column: {name: user_id}
+
+  - changeSet:
+      id: 0005-passkeys-checks
+      author: identity
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE passkeys ADD CONSTRAINT passkeys_label_length
+                CHECK (label = btrim(label) AND char_length(label) BETWEEN 1 AND 64)
+      rollback:
+        - sql:
+            sql: ALTER TABLE passkeys DROP CONSTRAINT passkeys_label_length
+
+  - changeSet:
+      id: 0005-create-passkey-enrolments
+      author: identity
+      changes:
+        - createTable:
+            tableName: passkey_enrolments
+            columns:
+              - column:
+                  name: user_id
+                  type: uuid
+                  constraints: {primaryKey: true, nullable: false, foreignKeyName: passkey_enrolments_user_fk, references: users(id), deleteCascade: true}
+              - column: {name: ceremony, type: bytea, constraints: {nullable: false}}
+              - column: {name: expires_at, type: timestamptz, constraints: {nullable: false}}
+
+  - changeSet:
+      id: 0005-challenges-passkey-ceremony
+      author: identity
+      changes:
+        - addColumn:
+            tableName: sign_in_challenges
+            columns:
+              - column: {name: passkey_ceremony, type: bytea}

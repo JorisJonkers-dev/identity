@@ -323,6 +323,119 @@ func TestTOTPFactorsAndEnrolments(t *testing.T) {
 	}
 }
 
+func TestPasskeys(t *testing.T) {
+	ctx := context.Background()
+	s, pool := open(t)
+	u := user(t)
+	_ = s.CreateUser(ctx, u)
+
+	if _, err := s.PasskeyEnrolment(ctx, u.ID); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("no enrolment = %v", err)
+	}
+	for _, c := range []string{"first", "second"} {
+		if err := s.SavePasskeyEnrolment(ctx, app.PasskeyEnrolment{UserID: u.ID, Ceremony: []byte(c), ExpiresAt: t0}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if e, err := s.PasskeyEnrolment(ctx, u.ID); err != nil || string(e.Ceremony) != "second" || !e.ExpiresAt.Equal(t0) {
+		t.Fatalf("a restarted enrolment = %+v, %v", e, err)
+	}
+	if err := s.DeletePasskeyEnrolment(ctx, u.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	label, _ := domain.NewFactorLabel("MacBook")
+	p := app.Passkey{ID: uuid.New(), UserID: u.ID, Label: label, CredentialID: []byte("cred"), Credential: []byte(`{"count": 0}`), CreatedAt: t0}
+	if err := s.CreatePasskey(ctx, p); err != nil {
+		t.Fatal(err)
+	}
+	twin := p
+	twin.ID = uuid.New()
+	if err := s.CreatePasskey(ctx, twin); !errors.Is(err, app.ErrInvalidPasskey) {
+		t.Fatalf("a credential id registered twice = %v", err)
+	}
+	if kept, err := s.UsePasskey(ctx, u.ID, app.NewPasskey{CredentialID: []byte("cred"), Credential: []byte(`{"count": 1}`)}, []byte(`{"count": 0}`), t0.Add(time.Minute)); !kept || err != nil {
+		t.Fatalf("UsePasskey = %v, %v", kept, err)
+	}
+	// A second sign-in checked against the old record loses.
+	if kept, err := s.UsePasskey(ctx, u.ID, app.NewPasskey{CredentialID: []byte("cred"), Credential: []byte(`{"count": 1}`)}, []byte(`{"count": 0}`), t0.Add(time.Minute)); kept || err != nil {
+		t.Fatalf("a stale UsePasskey = %v, %v", kept, err)
+	}
+	got, err := s.Passkeys(ctx, u.ID)
+	if err != nil || len(got) != 1 || got[0].Label != label || string(got[0].CredentialID) != "cred" ||
+		string(got[0].Credential) != `{"count": 1}` || got[0].LastUsedAt == nil || !got[0].LastUsedAt.Equal(t0.Add(time.Minute)) {
+		t.Fatalf("Passkeys = %+v, %v", got, err)
+	}
+	if had, err := s.DeletePasskey(ctx, p.ID, uuid.New()); err != nil || had {
+		t.Fatalf("deleting another User's passkey = %v, %v", had, err)
+	}
+	if had, err := s.DeletePasskey(ctx, p.ID, u.ID); err != nil || !had {
+		t.Fatalf("DeletePasskey = %v, %v", had, err)
+	}
+
+	// A sign-in's ceremony lives on its challenge, and a new sign-in clears it.
+	c := app.Challenge{TokenHash: []byte("c1"), UserID: u.ID, ExpiresAt: t0.Add(5 * time.Minute), WindowStartedAt: t0}
+	_ = s.SaveChallenge(ctx, c, t0.Add(-15*time.Minute))
+	if err := s.SetChallengeCeremony(ctx, c.TokenHash, []byte("ceremony"), t0); err != nil {
+		t.Fatal(err)
+	}
+	if id, ceremony, err := s.ChallengeCeremony(ctx, c.TokenHash, t0); err != nil || id != u.ID || string(ceremony) != "ceremony" {
+		t.Fatalf("ChallengeCeremony = %v, %q, %v", id, ceremony, err)
+	}
+	// A second request waits on the first one's lock, then finds the ceremony gone.
+	first, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := queries.New(first).TakeChallengeCeremony(ctx, queries.TakeChallengeCeremonyParams{TokenHash: c.TokenHash, Now: t0}); err != nil {
+		t.Fatal(err)
+	}
+	second := make(chan error, 1)
+	go func() {
+		_, _, err := s.TakeChallengeCeremony(ctx, c.TokenHash, t0)
+		second <- err
+	}()
+	time.Sleep(200 * time.Millisecond) // the second request is now waiting on the lock
+	if err := first.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-second; !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("the waiting request = %v, want the ceremony gone", err)
+	}
+	if _, _, err := s.TakeChallengeCeremony(ctx, c.TokenHash, t0); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("a taken ceremony taken again = %v", err)
+	}
+	if _, _, err := s.TakeChallengeCeremony(ctx, []byte("none"), t0); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("no challenge = %v", err)
+	}
+	if err := s.SetChallengeCeremony(ctx, c.TokenHash, []byte("ceremony"), t0); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetChallengeCeremony(ctx, c.TokenHash, []byte("late"), t0.Add(5*time.Minute)); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("a ceremony for an expired challenge = %v", err)
+	}
+	if _, _, err := s.ChallengeCeremony(ctx, c.TokenHash, t0.Add(5*time.Minute)); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("an expired challenge's ceremony = %v", err)
+	}
+	next := app.Challenge{TokenHash: []byte("c2"), UserID: u.ID, ExpiresAt: t0.Add(10 * time.Minute), WindowStartedAt: t0.Add(5 * time.Minute)}
+	_ = s.SaveChallenge(ctx, next, t0.Add(-10*time.Minute))
+	if _, ceremony, err := s.ChallengeCeremony(ctx, next.TokenHash, t0.Add(5*time.Minute)); err != nil || ceremony != nil {
+		t.Fatalf("a new sign-in kept the old ceremony: %q, %v", ceremony, err)
+	}
+
+	// A label the domain refuses, written behind its back, is an error, not a passkey.
+	_ = s.CreatePasskey(ctx, p)
+	if _, err := pool.Exec(ctx, `ALTER TABLE passkeys DROP CONSTRAINT passkeys_label_length`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE passkeys SET label = ' ' WHERE id = $1`, p.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Passkeys(ctx, u.ID); !errors.Is(err, domain.ErrInvalidLabel) {
+		t.Fatalf("a bad label = %v", err)
+	}
+}
+
 func TestFailuresOtherThanNotFoundPassThrough(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	s, _ := open(t)
@@ -333,5 +446,11 @@ func TestFailuresOtherThanNotFoundPassThrough(t *testing.T) {
 	}
 	if _, err := s.TOTPFactors(ctx, uuid.New()); err == nil {
 		t.Fatal("a cancelled factor list")
+	}
+	if _, err := s.Passkeys(ctx, uuid.New()); err == nil {
+		t.Fatal("a cancelled passkey list")
+	}
+	if _, _, err := s.TakeChallengeCeremony(ctx, []byte("x"), time.Now()); err == nil || errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("a cancelled take = %v", err)
 	}
 }

@@ -55,6 +55,7 @@ UPDATE sessions SET methods = $2 WHERE token_hash = $1;
 INSERT INTO sign_in_challenges (token_hash, user_id, expires_at, window_started_at) VALUES ($1, $2, $3, $4)
 ON CONFLICT (user_id) DO UPDATE SET
   token_hash = EXCLUDED.token_hash,
+  passkey_ceremony = NULL,
   expires_at = EXCLUDED.expires_at,
   attempts = CASE WHEN sign_in_challenges.window_started_at <= sqlc.arg(window_since) THEN 0 ELSE sign_in_challenges.attempts END,
   window_started_at = CASE WHEN sign_in_challenges.window_started_at <= sqlc.arg(window_since) THEN EXCLUDED.window_started_at ELSE sign_in_challenges.window_started_at END;
@@ -91,3 +92,48 @@ SELECT sealed_secret, expires_at FROM totp_enrolments WHERE user_id = $1;
 
 -- name: DeleteTOTPEnrolment :exec
 DELETE FROM totp_enrolments WHERE user_id = $1;
+
+-- name: PasskeysOfUser :many
+SELECT id, user_id, label, credential_id, credential, created_at, last_used_at FROM passkeys
+WHERE user_id = $1 ORDER BY created_at, id;
+
+-- name: CreatePasskey :exec
+INSERT INTO passkeys (id, user_id, label, credential_id, credential, created_at) VALUES ($1, $2, $3, $4, $5, $6);
+
+-- name: UsePasskey :execrows
+-- Keeps the signature counter and flags WebAuthn returned with the assertion, only if the record is
+-- still the one the assertion was checked against: of two sign-ins racing with one key, one wins.
+UPDATE passkeys SET credential = $3, last_used_at = $4
+WHERE user_id = $1 AND credential_id = $2 AND credential = sqlc.arg(previous)::jsonb;
+
+-- name: DeletePasskey :execrows
+DELETE FROM passkeys WHERE id = $1 AND user_id = $2;
+
+-- name: UpsertPasskeyEnrolment :exec
+INSERT INTO passkey_enrolments (user_id, ceremony, expires_at) VALUES ($1, $2, $3)
+ON CONFLICT (user_id) DO UPDATE SET ceremony = EXCLUDED.ceremony, expires_at = EXCLUDED.expires_at;
+
+-- name: PasskeyEnrolment :one
+SELECT ceremony, expires_at FROM passkey_enrolments WHERE user_id = $1;
+
+-- name: DeletePasskeyEnrolment :exec
+DELETE FROM passkey_enrolments WHERE user_id = $1;
+
+-- name: SetChallengeCeremony :execrows
+-- The WebAuthn ceremony a sign-in started; only an unexpired challenge takes one.
+UPDATE sign_in_challenges SET passkey_ceremony = $2 WHERE token_hash = $1 AND expires_at > $3;
+
+-- name: ChallengeCeremony :one
+SELECT user_id, passkey_ceremony FROM sign_in_challenges WHERE token_hash = $1 AND expires_at > $2;
+
+-- name: TakeChallengeCeremony :one
+-- Takes the ceremony a sign-in started in one statement: a second request waits on the row lock,
+-- then finds the ceremony gone, so only one request can use it.
+WITH taken AS (
+  SELECT t.token_hash AS taken_hash, t.user_id, t.passkey_ceremony FROM sign_in_challenges t
+  WHERE t.token_hash = sqlc.arg(token_hash) AND t.expires_at > sqlc.arg(now) AND t.passkey_ceremony IS NOT NULL
+  FOR UPDATE
+)
+UPDATE sign_in_challenges c SET passkey_ceremony = NULL
+FROM taken WHERE c.token_hash = taken.taken_hash AND c.passkey_ceremony IS NOT NULL
+RETURNING taken.user_id, taken.passkey_ceremony;

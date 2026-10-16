@@ -40,7 +40,9 @@ func findAuthorization(h http.Header, prefix string) (string, bool) {
 
 // operationRolesChallenge is a private map storing roles per operation.
 var operationRolesChallenge = map[string][]string{
-	CompleteSignInOperation: []string{},
+	CompleteSignInOperation:            []string{},
+	CompleteSignInWithPasskeyOperation: []string{},
+	PasskeyOptionsOperation:            []string{},
 }
 
 // GetRolesForChallenge returns the required roles for the given operation.
@@ -69,6 +71,7 @@ var operationRolesSession = map[string][]string{
 	AddMemberOperation:          []string{},
 	AssignRoleOperation:         []string{},
 	ChangePasswordOperation:     []string{},
+	ConfirmPasskeyOperation:     []string{},
 	ConfirmTOTPOperation:        []string{},
 	CreateGroupOperation:        []string{},
 	DeleteGroupOperation:        []string{},
@@ -79,6 +82,7 @@ var operationRolesSession = map[string][]string{
 	RemoveSecondFactorOperation: []string{},
 	RenameGroupOperation:        []string{},
 	SignOutOperation:            []string{},
+	StartPasskeyOperation:       []string{},
 	StartTOTPOperation:          []string{},
 	UnassignRoleOperation:       []string{},
 	UpdateProfileOperation:      []string{},

@@ -29,7 +29,9 @@ type useCases struct {
 	signedOut  string
 	authorised string
 	asked      []string
-	factors    []app.TOTPFactor
+	factors    []app.Factor
+	kinds      []string
+	kindsErr   error
 }
 
 func (u *useCases) SignUp(context.Context, string, string, string) error { return u.err }
@@ -53,8 +55,31 @@ func (u *useCases) CompleteSignIn(_ context.Context, challenge, code string) (st
 	return u.token, u.err
 }
 
-func (u *useCases) SecondFactors(context.Context, uuid.UUID) ([]app.TOTPFactor, error) {
+func (u *useCases) SecondFactors(context.Context, uuid.UUID) ([]app.Factor, error) {
 	return u.factors, u.err
+}
+
+func (u *useCases) ChallengeKinds(context.Context, string) ([]string, error) {
+	return u.kinds, u.kindsErr
+}
+
+func (u *useCases) PasskeyOptions(_ context.Context, challenge string) ([]byte, error) {
+	u.asked = append(u.asked, challenge)
+	return []byte(`{"publicKey":{}}`), u.err
+}
+
+func (u *useCases) CompleteSignInWithPasskey(_ context.Context, challenge string, response []byte) (string, error) {
+	u.asked = append(u.asked, challenge, string(response))
+	return u.token, u.err
+}
+
+func (u *useCases) StartPasskey(context.Context, uuid.UUID) ([]byte, error) {
+	return []byte(`{"publicKey":{"rp":{}}}`), u.err
+}
+
+func (u *useCases) ConfirmPasskey(_ context.Context, _ uuid.UUID, token, label string, response []byte, password string) error {
+	u.asked = append(u.asked, token, label, string(response), password)
+	return u.err
 }
 
 func (u *useCases) StartTOTP(context.Context, uuid.UUID) (app.TOTPSetup, error) {
@@ -66,7 +91,7 @@ func (u *useCases) ConfirmTOTP(_ context.Context, _ uuid.UUID, token, label, cod
 	return u.err
 }
 
-func (u *useCases) RemoveTOTP(_ context.Context, _, factor uuid.UUID, token, password string) error {
+func (u *useCases) RemoveFactor(_ context.Context, _, factor uuid.UUID, token, password string) error {
 	u.asked = append(u.asked, factor.String(), token, password)
 	return u.err
 }
@@ -287,11 +312,15 @@ func TestABusyServerSaysToTryAgain(t *testing.T) {
 }
 
 func TestSignInWithASecondFactorSetsAChallengeCookie(t *testing.T) {
-	h := web.New(&useCases{token: "chal", err: app.ErrSecondFactorNeeded}, admins{})
+	h := web.New(&useCases{token: "chal", err: app.ErrSecondFactorNeeded, kinds: []string{"totp", "passkey"}}, admins{})
 	res, err := h.SignIn(context.Background(), &oas.SignIn{Email: "a@b.c", Password: "pw"})
 	got, ok := res.(*oas.SecondFactorNeededHeaders)
-	if err != nil || !ok || got.Response.SecondFactor != oas.SecondFactorNeededSecondFactorTotp {
+	if err != nil || !ok || len(got.Response.Methods) != 2 || got.Response.Methods[1] != oas.SecondFactorKindPasskey {
 		t.Fatalf("SignIn = %#v, %v", res, err)
+	}
+	boom := errors.New("boom")
+	if _, err := web.New(&useCases{token: "chal", err: app.ErrSecondFactorNeeded, kindsErr: boom}, admins{}).SignIn(context.Background(), &oas.SignIn{}); !errors.Is(err, boom) {
+		t.Fatalf("SignIn when the kinds cannot be read = %v", err)
 	}
 	for _, part := range []string{"__Host-identity_challenge=chal", "Max-Age=300", "HttpOnly", "Secure", "SameSite=Lax"} {
 		if !strings.Contains(got.SetCookie, part) {
@@ -326,9 +355,9 @@ func TestSecondFactorsInTheProfile(t *testing.T) {
 	used := time.Date(2026, 10, 16, 18, 0, 0, 0, time.UTC)
 	label, _ := domain.NewFactorLabel("Phone")
 	id := uuid.New()
-	uc := &useCases{user: ada(t), methods: []string{"pwd", "otp"}, factors: []app.TOTPFactor{
-		{ID: id, Label: label, CreatedAt: time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC), LastUsedAt: &used},
-		{ID: uuid.New(), Label: label},
+	uc := &useCases{user: ada(t), methods: []string{"pwd", "otp"}, factors: []app.Factor{
+		{ID: id, Kind: app.KindTOTP, Label: label, CreatedAt: time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC), LastUsedAt: &used},
+		{ID: uuid.New(), Kind: app.KindPasskey, Label: label},
 	}}
 	h := web.New(uc, admins{})
 	ctx := signedIn(t, h)
@@ -342,7 +371,8 @@ func TestSecondFactorsInTheProfile(t *testing.T) {
 	res, err := h.ListSecondFactors(ctx)
 	list, ok := res.(*oas.SecondFactors)
 	if err != nil || !ok || len(list.Factors) != 2 || uuid.UUID(list.Factors[0].ID) != id || list.Factors[0].Label != "Phone" ||
-		list.Factors[0].Kind != oas.SecondFactorKindTotp || !list.Factors[0].LastUsedAt.Value.Equal(used) || list.Factors[1].LastUsedAt.Set {
+		list.Factors[0].Kind != oas.SecondFactorKindTotp || !list.Factors[0].LastUsedAt.Value.Equal(used) || list.Factors[1].LastUsedAt.Set ||
+		list.Factors[1].Kind != oas.SecondFactorKindPasskey {
 		t.Fatalf("ListSecondFactors = %#v, %v", res, err)
 	}
 	if res, err := h.StartTOTP(ctx); err != nil || res.(*oas.TOTPSetup).Secret != "SECRET" {
@@ -368,9 +398,9 @@ func TestSecondFactorRefusals(t *testing.T) {
 		status int
 		detail string
 	}{
-		{app.ErrInvalidToken, http.StatusUnprocessableEntity, "This setup has expired. Choose Add an authenticator app to get a new QR code."},
+		{app.ErrInvalidToken, http.StatusUnprocessableEntity, "This setup has expired. Start adding it again."},
 		{app.ErrInvalidCredentials, http.StatusUnprocessableEntity, "Your password is wrong. Enter it again."},
-		{app.ErrSecondFactorNeeded, http.StatusForbidden, "Sign out, then sign in again with an authenticator app to add another."},
+		{app.ErrSecondFactorNeeded, http.StatusForbidden, "Sign out, then sign in again with a passkey or authenticator app to add another."},
 		{domain.ErrInvalidLabel, http.StatusUnprocessableEntity, "Enter a name of 1 to 64 characters for this authenticator app."},
 		{app.ErrInvalidCode, http.StatusUnprocessableEntity, "That code is wrong or was already used. Enter the code your authenticator app shows now."},
 	} {
@@ -386,8 +416,8 @@ func TestSecondFactorRefusals(t *testing.T) {
 		detail string
 	}{
 		{app.ErrInvalidCredentials, http.StatusUnprocessableEntity, "Your password is wrong. Enter it again."},
-		{app.ErrNotFound, http.StatusNotFound, "That authenticator app is not on your account any more. Reload the page."},
-		{app.ErrSecondFactorNeeded, http.StatusForbidden, "Sign out, then sign in again with an authenticator app to remove one."},
+		{app.ErrNotFound, http.StatusNotFound, "That passkey or authenticator app is no longer on your account. Reload the page."},
+		{app.ErrSecondFactorNeeded, http.StatusForbidden, "Sign out, then sign in again with a passkey or authenticator app to remove one."},
 	} {
 		h := web.New(&useCases{user: ada(t)}, admins{})
 		c := ctx(h)
@@ -403,8 +433,8 @@ func TestSecondFactorRefusals(t *testing.T) {
 	if _, err := failing.StartTOTP(c); !errors.Is(err, boom) {
 		t.Errorf("StartTOTP = %v", err)
 	}
-	res, err := web.New(&useCases{err: app.ErrNoSealer}, admins{}).StartTOTP(c)
-	wantProblem(t, res, err, http.StatusServiceUnavailable, "Authenticator apps can't be used right now. Try again later.")
+	res, err := web.New(&useCases{err: app.ErrUnavailable}, admins{}).StartTOTP(c)
+	wantProblem(t, res, err, http.StatusServiceUnavailable, "Authenticator apps and passkeys can't be used right now. Try again later.")
 	if _, err := failing.ConfirmTOTP(c, &oas.TOTPConfirmation{}); !errors.Is(err, boom) {
 		t.Errorf("ConfirmTOTP = %v", err)
 	}
@@ -413,5 +443,66 @@ func TestSecondFactorRefusals(t *testing.T) {
 	}
 	if _, err := failing.CompleteSignIn(c, &oas.SecondFactorCode{}); !errors.Is(err, boom) {
 		t.Errorf("CompleteSignIn = %v", err)
+	}
+}
+
+func TestPasskeySignIn(t *testing.T) {
+	uc := &useCases{token: "sess"}
+	h := web.New(uc, admins{})
+	ctx, _ := h.HandleChallenge(context.Background(), oas.PasskeyOptionsOperation, oas.Challenge{APIKey: "chal"})
+	res, err := h.PasskeyOptions(ctx)
+	if err != nil || res.(*oas.PasskeyOptions).Options != `{"publicKey":{}}` || uc.asked[0] != "chal" {
+		t.Fatalf("PasskeyOptions = %#v, %v", res, err)
+	}
+	done, err := h.CompleteSignInWithPasskey(ctx, &oas.PasskeyAssertion{Response: `{"id":"x"}`})
+	if err != nil || !strings.HasPrefix(done.(*oas.CompleteSignInWithPasskeyNoContent).SetCookie, "__Host-identity_session=sess;") || uc.asked[2] != `{"id":"x"}` {
+		t.Fatalf("CompleteSignInWithPasskey = %#v, %v, asked %v", done, err, uc.asked)
+	}
+	expired := "This sign-in has expired, or too many wrong codes were entered. Sign in again, and after five wrong codes wait 15 minutes first."
+	h = web.New(&useCases{err: app.ErrInvalidToken}, admins{})
+	o, err := h.PasskeyOptions(ctx)
+	wantProblem(t, o, err, http.StatusUnauthorized, expired)
+	c, err := h.CompleteSignInWithPasskey(ctx, &oas.PasskeyAssertion{})
+	wantProblem(t, c, err, http.StatusUnauthorized, expired)
+	h = web.New(&useCases{err: app.ErrInvalidPasskey}, admins{})
+	c, err = h.CompleteSignInWithPasskey(ctx, &oas.PasskeyAssertion{})
+	wantProblem(t, c, err, http.StatusUnprocessableEntity, "Your passkey was not accepted. Try again, or sign in with another passkey or an authenticator app code.")
+	h = web.New(&useCases{err: app.ErrNoPasskeys}, admins{})
+	o, err = h.PasskeyOptions(ctx)
+	wantProblem(t, o, err, http.StatusUnprocessableEntity, "You have no passkey. Enter the code from your authenticator app instead.")
+}
+
+func TestAddingAPasskeyInTheProfile(t *testing.T) {
+	uc := &useCases{user: ada(t)}
+	h := web.New(uc, admins{})
+	ctx := signedIn(t, h)
+	res, err := h.StartPasskey(ctx)
+	if err != nil || res.(*oas.PasskeyOptions).Options != `{"publicKey":{"rp":{}}}` {
+		t.Fatalf("StartPasskey = %#v, %v", res, err)
+	}
+	if res, err := h.ConfirmPasskey(ctx, &oas.PasskeyConfirmation{Label: "MacBook", Response: "{}", Password: "pw"}); err != nil {
+		t.Fatal(err)
+	} else if _, ok := res.(*oas.ConfirmPasskeyNoContent); !ok || uc.asked[1] != "MacBook" || uc.asked[2] != "{}" || uc.asked[3] != "pw" {
+		t.Fatalf("ConfirmPasskey = %#v, asked %v", res, uc.asked)
+	}
+	for err, detail := range map[error]string{
+		app.ErrInvalidCredentials: "Your password is wrong. Enter it again.",
+		app.ErrInvalidPasskey:     "Your passkey was not accepted. Try again, or sign in with another passkey or an authenticator app code.",
+	} {
+		res, gotErr := web.New(&useCases{err: err}, admins{}).ConfirmPasskey(ctx, &oas.PasskeyConfirmation{})
+		wantProblem(t, res, gotErr, http.StatusUnprocessableEntity, detail)
+	}
+	boom := errors.New("boom")
+	if _, err := web.New(&useCases{err: boom}, admins{}).StartPasskey(ctx); !errors.Is(err, boom) {
+		t.Errorf("StartPasskey = %v", err)
+	}
+	if _, err := web.New(&useCases{err: boom}, admins{}).ConfirmPasskey(ctx, &oas.PasskeyConfirmation{}); !errors.Is(err, boom) {
+		t.Errorf("ConfirmPasskey = %v", err)
+	}
+	if _, err := web.New(&useCases{err: boom}, admins{}).PasskeyOptions(ctx); !errors.Is(err, boom) {
+		t.Errorf("PasskeyOptions = %v", err)
+	}
+	if _, err := web.New(&useCases{err: boom}, admins{}).CompleteSignInWithPasskey(ctx, &oas.PasskeyAssertion{}); !errors.Is(err, boom) {
+		t.Errorf("CompleteSignInWithPasskey = %v", err)
 	}
 }

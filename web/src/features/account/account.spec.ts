@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mountAt, problem, settle } from '../../app/testing'
 import { navigation } from '../../infrastructure/navigation'
+import { passkeys } from '../../infrastructure/passkeys'
 
 const profile = { email: 'ada@example.org', name: 'Ada', createdAt: '2026-10-15T12:00:00Z', admin: false, secondFactor: false }
 
@@ -90,7 +91,7 @@ describe('signing in', () => {
 
   it('asks for the code when the User has an authenticator app, then signs in', async () => {
     const { wrapper, router, requests } = await mountAt('/signin', {
-      'POST /api/v1/session': Response.json({ secondFactor: 'totp' }, { status: 202 }),
+      'POST /api/v1/session': Response.json({ methods: ['totp'] }, { status: 202 }),
       'POST /api/v1/session/second-factor': new Response(null, { status: 204 }),
       'GET /api/v1/profile': Response.json(profile),
     })
@@ -98,7 +99,8 @@ describe('signing in', () => {
     await wrapper.get('#signin-password').setValue('correct horse battery')
     await wrapper.get('form').trigger('submit')
     await settle()
-    expect(wrapper.get('h1').text()).toBe('Enter your code')
+    expect(wrapper.get('h1').text()).toBe("Confirm it's you")
+    expect(wrapper.text()).not.toContain('Use your passkey')
     expect(router.currentRoute.value.path).toBe('/signin')
     await wrapper.get('#signin-code').setValue('492 039')
     await wrapper.get('form').trigger('submit')
@@ -109,7 +111,7 @@ describe('signing in', () => {
 
   it('says when the code is wrong', async () => {
     const { wrapper } = await mountAt('/signin', {
-      'POST /api/v1/session': Response.json({ secondFactor: 'totp' }, { status: 202 }),
+      'POST /api/v1/session': Response.json({ methods: ['totp'] }, { status: 202 }),
       'POST /api/v1/session/second-factor': problem(422, 'That code is wrong or was already used.'),
     })
     await wrapper.get('#signin-email').setValue('ada@example.org')
@@ -120,6 +122,44 @@ describe('signing in', () => {
     await wrapper.get('form').trigger('submit')
     await settle()
     expect(wrapper.get('[role="alert"]').text()).toBe('That code is wrong or was already used.')
+  })
+
+  it('signs in with a passkey when the User has one', async () => {
+    const get = vi.spyOn(passkeys, 'get').mockResolvedValue('{"id":"cred-1"}')
+    const { wrapper, router, requests } = await mountAt('/signin', {
+      'POST /api/v1/session': Response.json({ methods: ['passkey'] }, { status: 202 }),
+      'POST /api/v1/session/passkey': Response.json({ options: '{"publicKey":{}}' }),
+      'POST /api/v1/session/passkey/assertion': new Response(null, { status: 204 }),
+      'GET /api/v1/profile': Response.json(profile),
+    })
+    await wrapper.get('#signin-email').setValue('ada@example.org')
+    await wrapper.get('#signin-password').setValue('correct horse battery')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(wrapper.find('#signin-code').exists()).toBe(false)
+    await wrapper.get('button[type="button"]').trigger('click')
+    await settle()
+    expect(get).toHaveBeenCalledWith('{"publicKey":{}}')
+    expect(requests.find((r) => r.key === 'POST /api/v1/session/passkey/assertion')?.body).toEqual({ response: '{"id":"cred-1"}' })
+    expect(router.currentRoute.value.path).toBe('/profile')
+    get.mockRestore()
+  })
+
+  it('says when the browser did not use the passkey', async () => {
+    const get = vi.spyOn(passkeys, 'get').mockRejectedValue(new Error('NotAllowedError'))
+    const { wrapper } = await mountAt('/signin', {
+      'POST /api/v1/session': Response.json({ methods: ['totp', 'passkey'] }, { status: 202 }),
+      'POST /api/v1/session/passkey': Response.json({ options: '{"publicKey":{}}' }),
+    })
+    await wrapper.get('#signin-email').setValue('ada@example.org')
+    await wrapper.get('#signin-password').setValue('correct horse battery')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(wrapper.find('#signin-code').exists()).toBe(true)
+    await wrapper.get('button[type="button"]').trigger('click')
+    await settle()
+    expect(wrapper.get('[role="alert"]').text()).toBe('Passkey sign-in did not finish. Try again, or enter a 6-digit code from your authenticator app.')
+    get.mockRestore()
   })
 
   it('says when the email or the password is wrong', async () => {

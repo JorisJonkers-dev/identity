@@ -41,10 +41,15 @@ type UseCases interface {
 	CompleteSignIn(ctx context.Context, challenge, code string) (string, error)
 	SignOut(ctx context.Context, token string) error
 	SignedIn(ctx context.Context, token string) (domain.User, app.Session, error)
-	SecondFactors(ctx context.Context, userID uuid.UUID) ([]app.TOTPFactor, error)
+	ChallengeKinds(ctx context.Context, challenge string) ([]string, error)
+	PasskeyOptions(ctx context.Context, challenge string) ([]byte, error)
+	CompleteSignInWithPasskey(ctx context.Context, challenge string, response []byte) (string, error)
+	SecondFactors(ctx context.Context, userID uuid.UUID) ([]app.Factor, error)
 	StartTOTP(ctx context.Context, userID uuid.UUID) (app.TOTPSetup, error)
 	ConfirmTOTP(ctx context.Context, userID uuid.UUID, sessionToken, label, code, password string) error
-	RemoveTOTP(ctx context.Context, userID, factorID uuid.UUID, sessionToken, password string) error
+	StartPasskey(ctx context.Context, userID uuid.UUID) ([]byte, error)
+	ConfirmPasskey(ctx context.Context, userID uuid.UUID, sessionToken, label string, response []byte, password string) error
+	RemoveFactor(ctx context.Context, userID, factorID uuid.UUID, sessionToken, password string) error
 	Rename(ctx context.Context, id uuid.UUID, name string) error
 	ChangePassword(ctx context.Context, id uuid.UUID, sessionToken, current, next string) error
 	User(ctx context.Context, id uuid.UUID) (domain.User, error)
@@ -120,9 +125,17 @@ func (h *Handler) ConfirmEmail(ctx context.Context, req *oas.Confirmation) (oas.
 func (h *Handler) SignIn(ctx context.Context, req *oas.SignIn) (oas.SignInRes, error) {
 	token, err := h.uc.SignIn(ctx, req.Email, string(req.Password))
 	if errors.Is(err, app.ErrSecondFactorNeeded) {
+		kinds, err := h.uc.ChallengeKinds(ctx, token)
+		if err != nil {
+			return nil, err
+		}
+		methods := make([]oas.SecondFactorKind, 0, len(kinds))
+		for _, k := range kinds {
+			methods = append(methods, oas.SecondFactorKind(k))
+		}
 		return &oas.SecondFactorNeededHeaders{
 			SetCookie: named(challengeCookie, token, challengeMaxAge).String(),
-			Response:  oas.SecondFactorNeeded{SecondFactor: oas.SecondFactorNeededSecondFactorTotp},
+			Response:  oas.SecondFactorNeeded{Methods: methods},
 		}, nil
 	}
 	if err != nil {
@@ -136,12 +149,75 @@ func (h *Handler) CompleteSignIn(ctx context.Context, req *oas.SecondFactorCode)
 	challenge, _ := ctx.Value(challengeKey{}).(string)
 	token, err := h.uc.CompleteSignIn(ctx, challenge, req.Code)
 	if errors.Is(err, app.ErrInvalidToken) {
-		return problem(http.StatusUnauthorized, "This sign-in has expired, or too many wrong codes were entered. Sign in again, and after five wrong codes wait 15 minutes first."), nil
+		return expiredSignIn(), nil
 	}
 	if err != nil {
 		return refusal(err)
 	}
 	return &oas.CompleteSignInNoContent{SetCookie: cookie(token, sessionMaxAge).String()}, nil
+}
+
+func expiredSignIn() *oas.ProblemStatusCode {
+	return problem(http.StatusUnauthorized, "This sign-in has expired, or too many wrong codes were entered. Sign in again, and after five wrong codes wait 15 minutes first.")
+}
+
+// PasskeyOptions implements passkeyOptions.
+func (h *Handler) PasskeyOptions(ctx context.Context) (oas.PasskeyOptionsRes, error) {
+	challenge, _ := ctx.Value(challengeKey{}).(string)
+	options, err := h.uc.PasskeyOptions(ctx, challenge)
+	switch {
+	case errors.Is(err, app.ErrInvalidToken):
+		return expiredSignIn(), nil
+	case err != nil:
+		return refusal(err)
+	}
+	return &oas.PasskeyOptions{Options: string(options)}, nil
+}
+
+// CompleteSignInWithPasskey implements completeSignInWithPasskey.
+func (h *Handler) CompleteSignInWithPasskey(ctx context.Context, req *oas.PasskeyAssertion) (oas.CompleteSignInWithPasskeyRes, error) {
+	challenge, _ := ctx.Value(challengeKey{}).(string)
+	token, err := h.uc.CompleteSignInWithPasskey(ctx, challenge, []byte(req.Response))
+	switch {
+	case errors.Is(err, app.ErrInvalidToken):
+		return expiredSignIn(), nil
+	case err != nil:
+		return refusal(err)
+	}
+	return &oas.CompleteSignInWithPasskeyNoContent{SetCookie: cookie(token, sessionMaxAge).String()}, nil
+}
+
+// StartPasskey implements startPasskey.
+func (h *Handler) StartPasskey(ctx context.Context) (oas.StartPasskeyRes, error) {
+	options, err := h.uc.StartPasskey(ctx, current(ctx).user.ID)
+	if err != nil {
+		return refusal(err)
+	}
+	return &oas.PasskeyOptions{Options: string(options)}, nil
+}
+
+// ConfirmPasskey implements confirmPasskey.
+func (h *Handler) ConfirmPasskey(ctx context.Context, req *oas.PasskeyConfirmation) (oas.ConfirmPasskeyRes, error) {
+	s := current(ctx)
+	err := h.uc.ConfirmPasskey(ctx, s.user.ID, s.token, req.Label, []byte(req.Response), string(req.Password))
+	if err != nil {
+		return enrolRefusal(err)
+	}
+	return &oas.ConfirmPasskeyNoContent{}, nil
+}
+
+// enrolRefusal answers a refused ConfirmTOTP or ConfirmPasskey.
+func enrolRefusal(err error) (*oas.ProblemStatusCode, error) {
+	switch {
+	case errors.Is(err, app.ErrInvalidToken):
+		return problem(http.StatusUnprocessableEntity, "This setup has expired. Start adding it again."), nil
+	case errors.Is(err, app.ErrInvalidCredentials):
+		return problem(http.StatusUnprocessableEntity, "Your password is wrong. Enter it again."), nil
+	case errors.Is(err, app.ErrSecondFactorNeeded):
+		return problem(http.StatusForbidden, "Sign out, then sign in again with a passkey or authenticator app to add another."), nil
+	default:
+		return refusal(err)
+	}
 }
 
 // ListSecondFactors implements listSecondFactors.
@@ -152,7 +228,7 @@ func (h *Handler) ListSecondFactors(ctx context.Context) (oas.ListSecondFactorsR
 	}
 	res := &oas.SecondFactors{Factors: make([]oas.SecondFactor, 0, len(factors))}
 	for _, f := range factors {
-		sf := oas.SecondFactor{ID: oas.ID(f.ID), Kind: oas.SecondFactorKindTotp, Label: f.Label.String(), CreatedAt: f.CreatedAt}
+		sf := oas.SecondFactor{ID: oas.ID(f.ID), Kind: oas.SecondFactorKind(f.Kind), Label: f.Label.String(), CreatedAt: f.CreatedAt}
 		if f.LastUsedAt != nil {
 			sf.LastUsedAt = oas.NewOptDateTime(*f.LastUsedAt)
 		}
@@ -174,15 +250,8 @@ func (h *Handler) StartTOTP(ctx context.Context) (oas.StartTOTPRes, error) {
 func (h *Handler) ConfirmTOTP(ctx context.Context, req *oas.TOTPConfirmation) (oas.ConfirmTOTPRes, error) {
 	s := current(ctx)
 	err := h.uc.ConfirmTOTP(ctx, s.user.ID, s.token, req.Label, req.Code, string(req.Password))
-	switch {
-	case errors.Is(err, app.ErrInvalidToken):
-		return problem(http.StatusUnprocessableEntity, "This setup has expired. Choose Add an authenticator app to get a new QR code."), nil
-	case errors.Is(err, app.ErrInvalidCredentials):
-		return problem(http.StatusUnprocessableEntity, "Your password is wrong. Enter it again."), nil
-	case errors.Is(err, app.ErrSecondFactorNeeded):
-		return problem(http.StatusForbidden, "Sign out, then sign in again with an authenticator app to add another."), nil
-	case err != nil:
-		return refusal(err)
+	if err != nil {
+		return enrolRefusal(err)
 	}
 	return &oas.ConfirmTOTPNoContent{}, nil
 }
@@ -190,14 +259,14 @@ func (h *Handler) ConfirmTOTP(ctx context.Context, req *oas.TOTPConfirmation) (o
 // RemoveSecondFactor implements removeSecondFactor.
 func (h *Handler) RemoveSecondFactor(ctx context.Context, req *oas.PasswordCheck, p oas.RemoveSecondFactorParams) (oas.RemoveSecondFactorRes, error) {
 	s := current(ctx)
-	err := h.uc.RemoveTOTP(ctx, s.user.ID, uuid.UUID(p.FactorId), s.token, string(req.Password))
+	err := h.uc.RemoveFactor(ctx, s.user.ID, uuid.UUID(p.FactorId), s.token, string(req.Password))
 	switch {
 	case errors.Is(err, app.ErrSecondFactorNeeded):
-		return problem(http.StatusForbidden, "Sign out, then sign in again with an authenticator app to remove one."), nil
+		return problem(http.StatusForbidden, "Sign out, then sign in again with a passkey or authenticator app to remove one."), nil
 	case errors.Is(err, app.ErrInvalidCredentials):
 		return problem(http.StatusUnprocessableEntity, "Your password is wrong. Enter it again."), nil
 	case errors.Is(err, app.ErrNotFound):
-		return problem(http.StatusNotFound, "That authenticator app is not on your account any more. Reload the page."), nil
+		return problem(http.StatusNotFound, "That passkey or authenticator app is no longer on your account. Reload the page."), nil
 	case err != nil:
 		return nil, err
 	}
@@ -272,8 +341,12 @@ func refusal(err error) (*oas.ProblemStatusCode, error) {
 		return problem(http.StatusUnprocessableEntity, "Enter a name of 1 to 64 characters for this authenticator app."), nil
 	case errors.Is(err, app.ErrInvalidCode):
 		return problem(http.StatusUnprocessableEntity, "That code is wrong or was already used. Enter the code your authenticator app shows now."), nil
-	case errors.Is(err, app.ErrNoSealer):
-		return problem(http.StatusServiceUnavailable, "Authenticator apps can't be used right now. Try again later."), nil
+	case errors.Is(err, app.ErrInvalidPasskey):
+		return problem(http.StatusUnprocessableEntity, "Your passkey was not accepted. Try again, or sign in with another passkey or an authenticator app code."), nil
+	case errors.Is(err, app.ErrNoPasskeys):
+		return problem(http.StatusUnprocessableEntity, "You have no passkey. Enter the code from your authenticator app instead."), nil
+	case errors.Is(err, app.ErrUnavailable):
+		return problem(http.StatusServiceUnavailable, "Authenticator apps and passkeys can't be used right now. Try again later."), nil
 	case errors.Is(err, app.ErrBusy):
 		return problem(http.StatusServiceUnavailable, "Too many people are signing in right now. Try again in a moment."), nil
 	default:

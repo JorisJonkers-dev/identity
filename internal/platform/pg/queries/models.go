@@ -48,6 +48,22 @@ type Membership struct {
 	UserID  uuid.UUID
 }
 
+type Passkey struct {
+	ID           uuid.UUID
+	UserID       uuid.UUID
+	Label        string
+	CredentialID []byte
+	Credential   []byte
+	CreatedAt    time.Time
+	LastUsedAt   *time.Time
+}
+
+type PasskeyEnrolment struct {
+	UserID    uuid.UUID
+	Ceremony  []byte
+	ExpiresAt time.Time
+}
+
 type Session struct {
 	TokenHash  []byte
 	UserID     uuid.UUID
@@ -64,6 +80,7 @@ type SignInChallenge struct {
 	Attempts        int32
 	ExpiresAt       time.Time
 	WindowStartedAt time.Time
+	PasskeyCeremony []byte
 }
 
 type Signup struct {

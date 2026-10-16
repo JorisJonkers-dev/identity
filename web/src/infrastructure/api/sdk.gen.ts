@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddMemberData, AddMemberErrors, AddMemberResponses, AssignRoleData, AssignRoleErrors, AssignRoleResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, CompleteSignInData, CompleteSignInErrors, CompleteSignInResponses, ConfirmEmailData, ConfirmEmailErrors, ConfirmEmailResponses, ConfirmTotpData, ConfirmTotpErrors, ConfirmTotpResponses, CreateGroupData, CreateGroupErrors, CreateGroupResponses, DeleteGroupData, DeleteGroupErrors, DeleteGroupResponses, GetAccessData, GetAccessErrors, GetAccessResponses, GetProfileData, GetProfileErrors, GetProfileResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListSecondFactorsData, ListSecondFactorsErrors, ListSecondFactorsResponses, RemoveMemberData, RemoveMemberErrors, RemoveMemberResponses, RemoveSecondFactorData, RemoveSecondFactorErrors, RemoveSecondFactorResponses, RenameGroupData, RenameGroupErrors, RenameGroupResponses, SignInData, SignInErrors, SignInResponses, SignOutData, SignOutErrors, SignOutResponses, SignUpData, SignUpErrors, SignUpResponses, StartTotpData, StartTotpErrors, StartTotpResponses, UnassignRoleData, UnassignRoleErrors, UnassignRoleResponses, UpdateProfileData, UpdateProfileErrors, UpdateProfileResponses } from './types.gen';
-import { zAddMemberPath, zAddMemberResponse, zAssignRolePath, zAssignRoleResponse, zChangePasswordBody, zChangePasswordResponse, zCompleteSignInBody, zCompleteSignInResponse, zConfirmEmailBody, zConfirmEmailResponse, zConfirmTotpBody, zConfirmTotpResponse, zCreateGroupBody, zCreateGroupResponse, zDeleteGroupPath, zDeleteGroupResponse, zGetAccessResponse, zGetProfileResponse, zGetVersionResponse, zListSecondFactorsResponse, zRemoveMemberPath, zRemoveMemberResponse, zRemoveSecondFactorBody, zRemoveSecondFactorPath, zRemoveSecondFactorResponse, zRenameGroupBody, zRenameGroupPath, zRenameGroupResponse, zSignInBody, zSignInResponse, zSignOutResponse, zSignUpBody, zStartTotpResponse, zUnassignRolePath, zUnassignRoleResponse, zUpdateProfileBody, zUpdateProfileResponse } from './zod.gen';
+import type { AddMemberData, AddMemberErrors, AddMemberResponses, AssignRoleData, AssignRoleErrors, AssignRoleResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, CompleteSignInData, CompleteSignInErrors, CompleteSignInResponses, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyErrors, CompleteSignInWithPasskeyResponses, ConfirmEmailData, ConfirmEmailErrors, ConfirmEmailResponses, ConfirmPasskeyData, ConfirmPasskeyErrors, ConfirmPasskeyResponses, ConfirmTotpData, ConfirmTotpErrors, ConfirmTotpResponses, CreateGroupData, CreateGroupErrors, CreateGroupResponses, DeleteGroupData, DeleteGroupErrors, DeleteGroupResponses, GetAccessData, GetAccessErrors, GetAccessResponses, GetProfileData, GetProfileErrors, GetProfileResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListSecondFactorsData, ListSecondFactorsErrors, ListSecondFactorsResponses, PasskeyOptionsData, PasskeyOptionsErrors, PasskeyOptionsResponses, RemoveMemberData, RemoveMemberErrors, RemoveMemberResponses, RemoveSecondFactorData, RemoveSecondFactorErrors, RemoveSecondFactorResponses, RenameGroupData, RenameGroupErrors, RenameGroupResponses, SignInData, SignInErrors, SignInResponses, SignOutData, SignOutErrors, SignOutResponses, SignUpData, SignUpErrors, SignUpResponses, StartPasskeyData, StartPasskeyErrors, StartPasskeyResponses, StartTotpData, StartTotpErrors, StartTotpResponses, UnassignRoleData, UnassignRoleErrors, UnassignRoleResponses, UpdateProfileData, UpdateProfileErrors, UpdateProfileResponses } from './types.gen';
+import { zAddMemberPath, zAddMemberResponse, zAssignRolePath, zAssignRoleResponse, zChangePasswordBody, zChangePasswordResponse, zCompleteSignInBody, zCompleteSignInResponse, zCompleteSignInWithPasskeyBody, zCompleteSignInWithPasskeyResponse, zConfirmEmailBody, zConfirmEmailResponse, zConfirmPasskeyBody, zConfirmPasskeyResponse, zConfirmTotpBody, zConfirmTotpResponse, zCreateGroupBody, zCreateGroupResponse, zDeleteGroupPath, zDeleteGroupResponse, zGetAccessResponse, zGetProfileResponse, zGetVersionResponse, zListSecondFactorsResponse, zPasskeyOptionsResponse, zRemoveMemberPath, zRemoveMemberResponse, zRemoveSecondFactorBody, zRemoveSecondFactorPath, zRemoveSecondFactorResponse, zRenameGroupBody, zRenameGroupPath, zRenameGroupResponse, zSignInBody, zSignInResponse, zSignOutResponse, zSignUpBody, zStartPasskeyResponse, zStartTotpResponse, zUnassignRolePath, zUnassignRoleResponse, zUpdateProfileBody, zUpdateProfileResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -216,7 +216,7 @@ export const completeSignIn = <ThrowOnError extends boolean = false>(options: Op
 /**
  * The signed-in User's Second Factors
  *
- * Every authenticator app the User enrolled.
+ * Every authenticator app and passkey the User added.
  */
 export const listSecondFactors = <ThrowOnError extends boolean = false>(options?: Options<ListSecondFactorsData, ThrowOnError>): RequestResult<ListSecondFactorsResponses, ListSecondFactorsErrors, ThrowOnError> => (options?.client ?? client).get<ListSecondFactorsResponses, ListSecondFactorsErrors, ThrowOnError>({
     requestValidator: async (data) => await z.object({
@@ -281,9 +281,101 @@ export const confirmTotp = <ThrowOnError extends boolean = false>(options: Optio
 });
 
 /**
+ * Start the passkey step of a sign-in
+ *
+ * Returns the WebAuthn options for the sign-in the challenge cookie names.
+ */
+export const passkeyOptions = <ThrowOnError extends boolean = false>(options?: Options<PasskeyOptionsData, ThrowOnError>): RequestResult<PasskeyOptionsResponses, PasskeyOptionsErrors, ThrowOnError> => (options?.client ?? client).post<PasskeyOptionsResponses, PasskeyOptionsErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zPasskeyOptionsResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_challenge',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/session/passkey',
+    ...options
+});
+
+/**
+ * Finish signing in with a passkey
+ *
+ * Checks the browser's passkey answer for the sign-in the challenge cookie names, and starts a session proved by password and passkey. A refused answer counts as a wrong code.
+ */
+export const completeSignInWithPasskey = <ThrowOnError extends boolean = false>(options: Options<CompleteSignInWithPasskeyData, ThrowOnError>): RequestResult<CompleteSignInWithPasskeyResponses, CompleteSignInWithPasskeyErrors, ThrowOnError> => (options.client ?? client).post<CompleteSignInWithPasskeyResponses, CompleteSignInWithPasskeyErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zCompleteSignInWithPasskeyBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zCompleteSignInWithPasskeyResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_challenge',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/session/passkey/assertion',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Start adding a passkey
+ *
+ * Returns the WebAuthn options to make a passkey, kept for ten minutes.
+ */
+export const startPasskey = <ThrowOnError extends boolean = false>(options?: Options<StartPasskeyData, ThrowOnError>): RequestResult<StartPasskeyResponses, StartPasskeyErrors, ThrowOnError> => (options?.client ?? client).post<StartPasskeyResponses, StartPasskeyErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zStartPasskeyResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/profile/second-factors/passkey',
+    ...options
+});
+
+/**
+ * Finish adding a passkey
+ *
+ * Keeps the passkey the browser made, given the User's password. A User who already has a Second Factor must be in a session that proved one. Every other session of the User's ends.
+ */
+export const confirmPasskey = <ThrowOnError extends boolean = false>(options: Options<ConfirmPasskeyData, ThrowOnError>): RequestResult<ConfirmPasskeyResponses, ConfirmPasskeyErrors, ThrowOnError> => (options.client ?? client).post<ConfirmPasskeyResponses, ConfirmPasskeyErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zConfirmPasskeyBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zConfirmPasskeyResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/profile/second-factors/passkey/confirmation',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Remove a Second Factor
  *
- * Removes one of the User's authenticator apps once they give their password, from a session that proved a Second Factor.
+ * Removes one of the User's authenticator apps or passkeys once they give their password, from a session that proved a Second Factor.
  */
 export const removeSecondFactor = <ThrowOnError extends boolean = false>(options: Options<RemoveSecondFactorData, ThrowOnError>): RequestResult<RemoveSecondFactorResponses, RemoveSecondFactorErrors, ThrowOnError> => (options.client ?? client).post<RemoveSecondFactorResponses, RemoveSecondFactorErrors, ThrowOnError>({
     requestValidator: async (data) => await z.object({

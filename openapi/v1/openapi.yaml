@@ -247,7 +247,7 @@ paths:
     get:
       operationId: listSecondFactors
       summary: The signed-in User's Second Factors
-      description: Every authenticator app the User enrolled.
+      description: Every authenticator app and passkey the User added.
       tags: [profile]
       responses:
         "200":
@@ -301,6 +301,93 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/session/passkey:
+    post:
+      operationId: passkeyOptions
+      summary: Start the passkey step of a sign-in
+      description: Returns the WebAuthn options for the sign-in the challenge cookie names.
+      tags: [account]
+      security:
+        - challenge: []
+      responses:
+        "200":
+          description: The options for navigator.credentials.get.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeyOptions"
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/session/passkey/assertion:
+    post:
+      operationId: completeSignInWithPasskey
+      summary: Finish signing in with a passkey
+      description: >-
+        Checks the browser's passkey answer for the sign-in the challenge cookie names, and starts
+        a session proved by password and passkey. A refused answer counts as a wrong code.
+      tags: [account]
+      security:
+        - challenge: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasskeyAssertion"
+      responses:
+        "204":
+          description: Signed in.
+          headers:
+            Set-Cookie:
+              description: The session cookie.
+              required: true
+              schema:
+                type: string
+                maxLength: 256
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/profile/second-factors/passkey:
+    post:
+      operationId: startPasskey
+      summary: Start adding a passkey
+      description: Returns the WebAuthn options to make a passkey, kept for ten minutes.
+      tags: [profile]
+      responses:
+        "200":
+          description: The options for navigator.credentials.create.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeyOptions"
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/profile/second-factors/passkey/confirmation:
+    post:
+      operationId: confirmPasskey
+      summary: Finish adding a passkey
+      description: >-
+        Keeps the passkey the browser made, given the User's password. A User who already has a
+        Second Factor must be in a session that proved one. Every other session of the User's ends.
+      tags: [profile]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasskeyConfirmation"
+      responses:
+        "204":
+          description: The passkey is a Second Factor of the User's.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /api/v1/profile/second-factors/{factorId}/removal:
     parameters:
       - name: factorId
@@ -313,8 +400,8 @@ paths:
       operationId: removeSecondFactor
       summary: Remove a Second Factor
       description: >-
-        Removes one of the User's authenticator apps once they give their password, from a session
-        that proved a Second Factor.
+        Removes one of the User's authenticator apps or passkeys once they give their password,
+        from a session that proved a Second Factor.
       tags: [profile]
       requestBody:
         required: true
@@ -756,12 +843,61 @@ components:
       description: The sign-in waits for a Second Factor.
       type: object
       additionalProperties: false
-      required: [secondFactor]
+      required: [methods]
       properties:
-        secondFactor:
+        methods:
+          type: array
+          minItems: 1
+          maxItems: 2
+          description: The kinds of Second Factor the User has, any of which finishes the sign-in.
+          items:
+            $ref: "#/components/schemas/SecondFactorKind"
+    SecondFactorKind:
+      description: An authenticator app or a passkey.
+      type: string
+      enum: [totp, passkey]
+    PasskeyOptions:
+      description: >-
+        WebAuthn options, as the JSON that PublicKeyCredential.parseCreationOptionsFromJSON or
+        parseRequestOptionsFromJSON reads from their publicKey member.
+      type: object
+      additionalProperties: false
+      required: [options]
+      properties:
+        options:
           type: string
-          enum: [totp]
-          description: Which kind of Second Factor to ask for.
+          maxLength: 16384
+          description: The options, as JSON.
+    PasskeyAssertion:
+      description: The browser's answer to a passkey sign-in, as PublicKeyCredential.toJSON gives it.
+      type: object
+      additionalProperties: false
+      required: [response]
+      properties:
+        response:
+          type: string
+          minLength: 1
+          maxLength: 16384
+          description: The credential, as JSON.
+    PasskeyConfirmation:
+      description: A name for the new passkey, the browser's answer, and the User's password.
+      type: object
+      additionalProperties: false
+      required: [label, response, password]
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 256
+          description: What to call it, 1 to 64 characters.
+          example: MacBook
+        response:
+          type: string
+          minLength: 1
+          maxLength: 16384
+          description: The new credential, as PublicKeyCredential.toJSON gives it.
+        password:
+          $ref: "#/components/schemas/Password"
     SecondFactorCode:
       description: A code from an authenticator app.
       type: object
@@ -783,9 +919,7 @@ components:
         id:
           $ref: "#/components/schemas/Id"
         kind:
-          type: string
-          enum: [totp]
-          description: An authenticator app.
+          $ref: "#/components/schemas/SecondFactorKind"
         label:
           type: string
           maxLength: 256

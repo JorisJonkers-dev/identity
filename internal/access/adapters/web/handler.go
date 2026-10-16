@@ -151,7 +151,7 @@ func refusal(err error) (*oas.ProblemStatusCode, error) {
 	case errors.Is(err, app.ErrNotAdmin):
 		return problem(http.StatusForbidden, "Only Admins manage access."), nil
 	case errors.Is(err, app.ErrSecondFactorNeeded):
-		return problem(http.StatusForbidden, "Sign out, then sign in again with an authenticator app to manage access. If you have none, add one on the Security page first."), nil
+		return problem(http.StatusForbidden, "Sign out, then sign in again with a passkey or authenticator app to manage access. If you have neither, add one on the Security page first."), nil
 	case errors.Is(err, app.ErrNotFound):
 		return problem(http.StatusNotFound, "That Group or person no longer exists. Reload the page."), nil
 	case errors.Is(err, app.ErrNameTaken):

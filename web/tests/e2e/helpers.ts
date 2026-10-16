@@ -73,10 +73,11 @@ export async function enrolTOTP(page: Page): Promise<string> {
   await page.goto('/security')
   await page.getByRole('button', { name: 'Add an authenticator app' }).click()
   const secret = (await page.locator('code').textContent()) ?? ''
-  await page.getByLabel('Name for this app').fill('Phone')
-  await page.getByLabel('6-digit code from your app').fill(totp(secret))
-  await page.getByLabel('Your password').fill('correct horse battery')
-  await page.getByRole('button', { name: 'Add authenticator app' }).click()
+  const form = page.getByRole('form', { name: 'Add an authenticator app' })
+  await form.getByLabel('Name for this app').fill('Phone')
+  await form.getByLabel('6-digit code from your app').fill(totp(secret))
+  await form.getByLabel('Your password').fill('correct horse battery')
+  await form.getByRole('button', { name: 'Add authenticator app' }).click()
   await expect(page.getByRole('status')).toContainText('Authenticator app added.')
   return secret
 }

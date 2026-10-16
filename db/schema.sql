@@ -41,6 +41,23 @@ CREATE TABLE public.memberships (
     user_id uuid NOT NULL
 );
 
+CREATE TABLE public.passkey_enrolments (
+    user_id uuid NOT NULL,
+    ceremony bytea NOT NULL,
+    expires_at timestamp with time zone NOT NULL
+);
+
+CREATE TABLE public.passkeys (
+    id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    label text NOT NULL,
+    credential_id bytea NOT NULL,
+    credential jsonb NOT NULL,
+    created_at timestamp with time zone NOT NULL,
+    last_used_at timestamp with time zone,
+    CONSTRAINT passkeys_label_length CHECK (((label = btrim(label)) AND ((char_length(label) >= 1) AND (char_length(label) <= 64))))
+);
+
 CREATE TABLE public.sessions (
     token_hash bytea NOT NULL,
     user_id uuid NOT NULL,
@@ -56,7 +73,8 @@ CREATE TABLE public.sign_in_challenges (
     user_id uuid NOT NULL,
     attempts integer DEFAULT 0 NOT NULL,
     expires_at timestamp with time zone NOT NULL,
-    window_started_at timestamp with time zone NOT NULL
+    window_started_at timestamp with time zone NOT NULL,
+    passkey_ceremony bytea
 );
 
 CREATE TABLE public.signups (
@@ -110,6 +128,15 @@ ALTER TABLE ONLY public.groups
 ALTER TABLE ONLY public.memberships
     ADD CONSTRAINT memberships_pkey PRIMARY KEY (group_id, user_id);
 
+ALTER TABLE ONLY public.passkey_enrolments
+    ADD CONSTRAINT passkey_enrolments_pkey PRIMARY KEY (user_id);
+
+ALTER TABLE ONLY public.passkeys
+    ADD CONSTRAINT passkeys_credential_id_key UNIQUE (credential_id);
+
+ALTER TABLE ONLY public.passkeys
+    ADD CONSTRAINT passkeys_pkey PRIMARY KEY (id);
+
 ALTER TABLE ONLY public.sessions
     ADD CONSTRAINT sessions_id_key UNIQUE (id);
 
@@ -147,6 +174,8 @@ CREATE UNIQUE INDEX groups_one_admins ON public.groups USING btree (admins) WHER
 
 CREATE INDEX memberships_user_idx ON public.memberships USING btree (user_id);
 
+CREATE INDEX passkeys_user_idx ON public.passkeys USING btree (user_id);
+
 CREATE INDEX sessions_user_idx ON public.sessions USING btree (user_id);
 
 CREATE INDEX sign_in_challenges_expires_at_idx ON public.sign_in_challenges USING btree (expires_at);
@@ -169,6 +198,12 @@ ALTER TABLE ONLY public.memberships
 
 ALTER TABLE ONLY public.memberships
     ADD CONSTRAINT memberships_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.passkey_enrolments
+    ADD CONSTRAINT passkey_enrolments_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.passkeys
+    ADD CONSTRAINT passkeys_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.sessions
     ADD CONSTRAINT sessions_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;

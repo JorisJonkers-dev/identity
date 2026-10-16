@@ -17,8 +17,16 @@ type CompleteSignInRes interface {
 	completeSignInRes()
 }
 
+type CompleteSignInWithPasskeyRes interface {
+	completeSignInWithPasskeyRes()
+}
+
 type ConfirmEmailRes interface {
 	confirmEmailRes()
+}
+
+type ConfirmPasskeyRes interface {
+	confirmPasskeyRes()
 }
 
 type ConfirmTOTPRes interface {
@@ -49,6 +57,10 @@ type ListSecondFactorsRes interface {
 	listSecondFactorsRes()
 }
 
+type PasskeyOptionsRes interface {
+	passkeyOptionsRes()
+}
+
 type RemoveMemberRes interface {
 	removeMemberRes()
 }
@@ -71,6 +83,10 @@ type SignOutRes interface {
 
 type SignUpRes interface {
 	signUpRes()
+}
+
+type StartPasskeyRes interface {
+	startPasskeyRes()
 }
 
 type StartTOTPRes interface {

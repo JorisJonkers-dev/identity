@@ -51,6 +51,16 @@ func (UnimplementedHandler) CompleteSignIn(ctx context.Context, req *SecondFacto
 	return r, ht.ErrNotImplemented
 }
 
+// CompleteSignInWithPasskey implements completeSignInWithPasskey operation.
+//
+// Checks the browser's passkey answer for the sign-in the challenge cookie names, and starts a session
+// proved by password and passkey. A refused answer counts as a wrong code.
+//
+// POST /api/v1/session/passkey/assertion
+func (UnimplementedHandler) CompleteSignInWithPasskey(ctx context.Context, req *PasskeyAssertion) (r CompleteSignInWithPasskeyRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // ConfirmEmail implements confirmEmail operation.
 //
 // Creates the User a sign-up describes, given the token from the mailed link and the password chosen
@@ -58,6 +68,16 @@ func (UnimplementedHandler) CompleteSignIn(ctx context.Context, req *SecondFacto
 //
 // POST /api/v1/confirmations
 func (UnimplementedHandler) ConfirmEmail(ctx context.Context, req *Confirmation) (r ConfirmEmailRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// ConfirmPasskey implements confirmPasskey operation.
+//
+// Keeps the passkey the browser made, given the User's password. A User who already has a Second
+// Factor must be in a session that proved one. Every other session of the User's ends.
+//
+// POST /api/v1/profile/second-factors/passkey/confirmation
+func (UnimplementedHandler) ConfirmPasskey(ctx context.Context, req *PasskeyConfirmation) (r ConfirmPasskeyRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -121,10 +141,19 @@ func (UnimplementedHandler) GetVersion(ctx context.Context) (r GetVersionRes, _ 
 
 // ListSecondFactors implements listSecondFactors operation.
 //
-// Every authenticator app the User enrolled.
+// Every authenticator app and passkey the User added.
 //
 // GET /api/v1/profile/second-factors
 func (UnimplementedHandler) ListSecondFactors(ctx context.Context) (r ListSecondFactorsRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// PasskeyOptions implements passkeyOptions operation.
+//
+// Returns the WebAuthn options for the sign-in the challenge cookie names.
+//
+// POST /api/v1/session/passkey
+func (UnimplementedHandler) PasskeyOptions(ctx context.Context) (r PasskeyOptionsRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -139,8 +168,8 @@ func (UnimplementedHandler) RemoveMember(ctx context.Context, params RemoveMembe
 
 // RemoveSecondFactor implements removeSecondFactor operation.
 //
-// Removes one of the User's authenticator apps once they give their password, from a session that
-// proved a Second Factor.
+// Removes one of the User's authenticator apps or passkeys once they give their password, from a
+// session that proved a Second Factor.
 //
 // POST /api/v1/profile/second-factors/{factorId}/removal
 func (UnimplementedHandler) RemoveSecondFactor(ctx context.Context, req *PasswordCheck, params RemoveSecondFactorParams) (r RemoveSecondFactorRes, _ error) {
@@ -182,6 +211,15 @@ func (UnimplementedHandler) SignOut(ctx context.Context) (r SignOutRes, _ error)
 //
 // POST /api/v1/signup
 func (UnimplementedHandler) SignUp(ctx context.Context, req *SignUp) (r SignUpRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// StartPasskey implements startPasskey operation.
+//
+// Returns the WebAuthn options to make a passkey, kept for ten minutes.
+//
+// POST /api/v1/profile/second-factors/passkey
+func (UnimplementedHandler) StartPasskey(ctx context.Context) (r StartPasskeyRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 

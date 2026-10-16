@@ -3,8 +3,8 @@
 import { queryOptions, type UseMutationOptions } from '@tanstack/vue-query';
 
 import { client } from '../client.gen';
-import { addMember, assignRole, changePassword, completeSignIn, confirmEmail, confirmTotp, createGroup, deleteGroup, getAccess, getProfile, getVersion, listSecondFactors, type Options, removeMember, removeSecondFactor, renameGroup, signIn, signOut, signUp, startTotp, unassignRole, updateProfile } from '../sdk.gen';
-import type { AddMemberData, AddMemberError, AddMemberResponse, AssignRoleData, AssignRoleError, AssignRoleResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CompleteSignInData, CompleteSignInError, CompleteSignInResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, ConfirmTotpData, ConfirmTotpError, ConfirmTotpResponse, CreateGroupData, CreateGroupError, CreateGroupResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, GetAccessData, GetAccessError, GetAccessResponse, GetProfileData, GetProfileError, GetProfileResponse, GetVersionData, GetVersionError, GetVersionResponse, ListSecondFactorsData, ListSecondFactorsError, ListSecondFactorsResponse, RemoveMemberData, RemoveMemberError, RemoveMemberResponse, RemoveSecondFactorData, RemoveSecondFactorError, RemoveSecondFactorResponse, RenameGroupData, RenameGroupError, RenameGroupResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutError, SignOutResponse, SignUpData, SignUpError, StartTotpData, StartTotpError, StartTotpResponse, UnassignRoleData, UnassignRoleError, UnassignRoleResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
+import { addMember, assignRole, changePassword, completeSignIn, completeSignInWithPasskey, confirmEmail, confirmPasskey, confirmTotp, createGroup, deleteGroup, getAccess, getProfile, getVersion, listSecondFactors, type Options, passkeyOptions, removeMember, removeSecondFactor, renameGroup, signIn, signOut, signUp, startPasskey, startTotp, unassignRole, updateProfile } from '../sdk.gen';
+import type { AddMemberData, AddMemberError, AddMemberResponse, AssignRoleData, AssignRoleError, AssignRoleResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CompleteSignInData, CompleteSignInError, CompleteSignInResponse, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyError, CompleteSignInWithPasskeyResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, ConfirmPasskeyData, ConfirmPasskeyError, ConfirmPasskeyResponse, ConfirmTotpData, ConfirmTotpError, ConfirmTotpResponse, CreateGroupData, CreateGroupError, CreateGroupResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, GetAccessData, GetAccessError, GetAccessResponse, GetProfileData, GetProfileError, GetProfileResponse, GetVersionData, GetVersionError, GetVersionResponse, ListSecondFactorsData, ListSecondFactorsError, ListSecondFactorsResponse, PasskeyOptionsData, PasskeyOptionsError, PasskeyOptionsResponse, RemoveMemberData, RemoveMemberError, RemoveMemberResponse, RemoveSecondFactorData, RemoveSecondFactorError, RemoveSecondFactorResponse, RenameGroupData, RenameGroupError, RenameGroupResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutError, SignOutResponse, SignUpData, SignUpError, StartPasskeyData, StartPasskeyError, StartPasskeyResponse, StartTotpData, StartTotpError, StartTotpResponse, UnassignRoleData, UnassignRoleError, UnassignRoleResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -217,7 +217,7 @@ export const listSecondFactorsQueryKey = (options?: Options<ListSecondFactorsDat
 /**
  * The signed-in User's Second Factors
  *
- * Every authenticator app the User enrolled.
+ * Every authenticator app and passkey the User added.
  */
 export const listSecondFactorsOptions = (options?: Options<ListSecondFactorsData>) => queryOptions<ListSecondFactorsResponse, ListSecondFactorsError, ListSecondFactorsResponse, ReturnType<typeof listSecondFactorsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -271,9 +271,85 @@ export const confirmTotpMutation = (options?: Partial<Options<ConfirmTotpData>>)
 };
 
 /**
+ * Start the passkey step of a sign-in
+ *
+ * Returns the WebAuthn options for the sign-in the challenge cookie names.
+ */
+export const passkeyOptionsMutation = (options?: Partial<Options<PasskeyOptionsData>>): UseMutationOptions<PasskeyOptionsResponse, PasskeyOptionsError, Options<PasskeyOptionsData>> => {
+    const mutationOptions: UseMutationOptions<PasskeyOptionsResponse, PasskeyOptionsError, Options<PasskeyOptionsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await passkeyOptions({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Finish signing in with a passkey
+ *
+ * Checks the browser's passkey answer for the sign-in the challenge cookie names, and starts a session proved by password and passkey. A refused answer counts as a wrong code.
+ */
+export const completeSignInWithPasskeyMutation = (options?: Partial<Options<CompleteSignInWithPasskeyData>>): UseMutationOptions<CompleteSignInWithPasskeyResponse, CompleteSignInWithPasskeyError, Options<CompleteSignInWithPasskeyData>> => {
+    const mutationOptions: UseMutationOptions<CompleteSignInWithPasskeyResponse, CompleteSignInWithPasskeyError, Options<CompleteSignInWithPasskeyData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await completeSignInWithPasskey({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Start adding a passkey
+ *
+ * Returns the WebAuthn options to make a passkey, kept for ten minutes.
+ */
+export const startPasskeyMutation = (options?: Partial<Options<StartPasskeyData>>): UseMutationOptions<StartPasskeyResponse, StartPasskeyError, Options<StartPasskeyData>> => {
+    const mutationOptions: UseMutationOptions<StartPasskeyResponse, StartPasskeyError, Options<StartPasskeyData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await startPasskey({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Finish adding a passkey
+ *
+ * Keeps the passkey the browser made, given the User's password. A User who already has a Second Factor must be in a session that proved one. Every other session of the User's ends.
+ */
+export const confirmPasskeyMutation = (options?: Partial<Options<ConfirmPasskeyData>>): UseMutationOptions<ConfirmPasskeyResponse, ConfirmPasskeyError, Options<ConfirmPasskeyData>> => {
+    const mutationOptions: UseMutationOptions<ConfirmPasskeyResponse, ConfirmPasskeyError, Options<ConfirmPasskeyData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await confirmPasskey({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
  * Remove a Second Factor
  *
- * Removes one of the User's authenticator apps once they give their password, from a session that proved a Second Factor.
+ * Removes one of the User's authenticator apps or passkeys once they give their password, from a session that proved a Second Factor.
  */
 export const removeSecondFactorMutation = (options?: Partial<Options<RemoveSecondFactorData>>): UseMutationOptions<RemoveSecondFactorResponse, RemoveSecondFactorError, Options<RemoveSecondFactorData>> => {
     const mutationOptions: UseMutationOptions<RemoveSecondFactorResponse, RemoveSecondFactorError, Options<RemoveSecondFactorData>> = {

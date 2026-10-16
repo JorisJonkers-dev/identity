@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -60,7 +61,45 @@ type TOTPSetup struct {
 }
 
 // ProvedSecondFactor reports whether a session's methods include a Second Factor.
-func ProvedSecondFactor(methods []string) bool { return slices.Contains(methods, methodOTP) }
+func ProvedSecondFactor(methods []string) bool {
+	return slices.Contains(methods, methodOTP) || slices.Contains(methods, methodPasskey)
+}
+
+// Factor is a Second Factor of either kind, as a User sees it.
+type Factor struct {
+	ID         uuid.UUID
+	Kind       string
+	Label      domain.FactorLabel
+	CreatedAt  time.Time
+	LastUsedAt *time.Time
+}
+
+// The kinds of Second Factor.
+const (
+	KindTOTP    = "totp"
+	KindPasskey = "passkey"
+)
+
+// SecondFactorKinds is which kinds of Second Factor a User has, authenticator apps first.
+func (s *Service) SecondFactorKinds(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	factors, err := s.SecondFactors(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	var kinds []string
+	for _, f := range factors {
+		if !slices.Contains(kinds, f.Kind) {
+			kinds = append(kinds, f.Kind)
+		}
+	}
+	slices.SortFunc(kinds, func(a, b string) int { return strings.Compare(b, a) })
+	return kinds, nil
+}
+
+func (s *Service) hasSecondFactor(ctx context.Context, userID uuid.UUID) (bool, error) {
+	factors, err := s.SecondFactors(ctx, userID)
+	return len(factors) > 0, err
+}
 
 func (s *Service) challenge(ctx context.Context, userID uuid.UUID) (string, error) {
 	token, hash, err := s.token()
@@ -120,9 +159,25 @@ func (s *Service) CompleteSignIn(ctx context.Context, challenge, code string) (s
 	return "", ErrInvalidCode
 }
 
-// SecondFactors lists a User's authenticators.
-func (s *Service) SecondFactors(ctx context.Context, userID uuid.UUID) ([]TOTPFactor, error) {
-	return s.store.TOTPFactors(ctx, userID)
+// SecondFactors lists a User's authenticator apps and passkeys, oldest first.
+func (s *Service) SecondFactors(ctx context.Context, userID uuid.UUID) ([]Factor, error) {
+	apps, err := s.store.TOTPFactors(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	keys, err := s.store.Passkeys(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Factor, 0, len(apps)+len(keys))
+	for _, f := range apps {
+		out = append(out, Factor{ID: f.ID, Kind: KindTOTP, Label: f.Label, CreatedAt: f.CreatedAt, LastUsedAt: f.LastUsedAt})
+	}
+	for _, k := range keys {
+		out = append(out, Factor{ID: k.ID, Kind: KindPasskey, Label: k.Label, CreatedAt: k.CreatedAt, LastUsedAt: k.LastUsedAt})
+	}
+	slices.SortStableFunc(out, func(a, b Factor) int { return a.CreatedAt.Compare(b.CreatedAt) })
+	return out, nil
 }
 
 // StartTOTP makes a secret for a new authenticator, kept sealed until its first code confirms it.
@@ -193,12 +248,16 @@ func (s *Service) ConfirmTOTP(ctx context.Context, userID uuid.UUID, sessionToke
 	if err := s.store.DeleteTOTPEnrolment(ctx, userID); err != nil {
 		return err
 	}
+	return s.proved(ctx, userID, sessionToken, methodOTP)
+}
+
+// proved marks the session as proved by method, and ends every other session: sessions made with
+// the password alone would outlive the new Second Factor, as they do not a password change.
+func (s *Service) proved(ctx context.Context, userID uuid.UUID, sessionToken, method string) error {
 	hash := hashOf(sessionToken)
-	if err := s.store.SetSessionMethods(ctx, hash, []string{methodPassword, methodOTP}); err != nil {
+	if err := s.store.SetSessionMethods(ctx, hash, []string{methodPassword, method}); err != nil {
 		return err
 	}
-	// Sessions made with the password alone would outlive the new Second Factor; they end here, as
-	// they do when the password changes.
 	return s.store.DeleteOtherSessions(ctx, userID, hash)
 }
 
@@ -208,8 +267,8 @@ func (s *Service) mayEnrol(ctx context.Context, userID uuid.UUID, sessionToken, 
 	if err := s.checkPassword(ctx, userID, password); err != nil {
 		return err
 	}
-	factors, err := s.store.TOTPFactors(ctx, userID)
-	if err != nil || len(factors) == 0 {
+	has, err := s.hasSecondFactor(ctx, userID)
+	if err != nil || !has {
 		return err
 	}
 	return s.provedSecondFactor(ctx, sessionToken)
@@ -227,10 +286,10 @@ func (s *Service) provedSecondFactor(ctx context.Context, sessionToken string) e
 	return nil
 }
 
-// RemoveTOTP deletes one of a User's authenticators. It needs the password and a session that
+// RemoveFactor deletes one of a User's authenticator apps or passkeys. It needs the password and a session that
 // proved a Second Factor, so neither a session left open from before the User enrolled nor a
 // known password alone can take the Second Factor away.
-func (s *Service) RemoveTOTP(ctx context.Context, userID, factorID uuid.UUID, sessionToken, password string) error {
+func (s *Service) RemoveFactor(ctx context.Context, userID, factorID uuid.UUID, sessionToken, password string) error {
 	if err := s.checkPassword(ctx, userID, password); err != nil {
 		return err
 	}
@@ -238,6 +297,10 @@ func (s *Service) RemoveTOTP(ctx context.Context, userID, factorID uuid.UUID, se
 		return err
 	}
 	had, err := s.store.DeleteTOTPFactor(ctx, factorID, userID)
+	if err != nil || had {
+		return err
+	}
+	had, err = s.store.DeletePasskey(ctx, factorID, userID)
 	if err != nil {
 		return err
 	}
@@ -265,7 +328,7 @@ func (s *Service) checkPassword(ctx context.Context, userID uuid.UUID, password 
 
 func (s *Service) sealerOrErr() (Sealer, error) {
 	if s.sealer == nil {
-		return nil, ErrNoSealer
+		return nil, ErrUnavailable
 	}
 	return s.sealer, nil
 }

@@ -38,8 +38,36 @@ func encodeCompleteSignInRequest(
 	return nil
 }
 
+func encodeCompleteSignInWithPasskeyRequest(
+	req *PasskeyAssertion,
+	r *http.Request,
+) error {
+	const contentType = "application/json"
+	e := new(jx.Encoder)
+	{
+		req.Encode(e)
+	}
+	encoded := e.Bytes()
+	ht.SetBody(r, bytes.NewReader(encoded), contentType)
+	return nil
+}
+
 func encodeConfirmEmailRequest(
 	req *Confirmation,
+	r *http.Request,
+) error {
+	const contentType = "application/json"
+	e := new(jx.Encoder)
+	{
+		req.Encode(e)
+	}
+	encoded := e.Bytes()
+	ht.SetBody(r, bytes.NewReader(encoded), contentType)
+	return nil
+}
+
+func encodeConfirmPasskeyRequest(
+	req *PasskeyConfirmation,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"

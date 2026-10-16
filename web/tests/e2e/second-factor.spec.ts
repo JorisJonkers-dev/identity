@@ -12,7 +12,7 @@ test('a User adds an authenticator app, and signing in then asks for its code', 
   await page.getByLabel('Email', { exact: true }).fill(email)
   await page.getByLabel('Password', { exact: true }).fill('correct horse battery')
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Enter your code')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText("Confirm it's you")
   await expectAccessible(page)
 
   await page.getByLabel('6-digit code').fill('000000')

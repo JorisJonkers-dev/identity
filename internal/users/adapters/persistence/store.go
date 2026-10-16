@@ -206,6 +206,88 @@ func (s *Store) DeleteTOTPEnrolment(ctx context.Context, userID uuid.UUID) error
 	return s.q.DeleteTOTPEnrolment(ctx, userID)
 }
 
+func (s *Store) Passkeys(ctx context.Context, userID uuid.UUID) ([]app.Passkey, error) {
+	rows, err := s.q.PasskeysOfUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	keys := make([]app.Passkey, 0, len(rows))
+	for _, r := range rows {
+		label, err := domain.NewFactorLabel(r.Label)
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, app.Passkey{
+			ID: r.ID, UserID: r.UserID, Label: label, CredentialID: r.CredentialID, Credential: r.Credential,
+			CreatedAt: r.CreatedAt, LastUsedAt: r.LastUsedAt,
+		})
+	}
+	return keys, nil
+}
+
+func (s *Store) CreatePasskey(ctx context.Context, p app.Passkey) error {
+	err := s.q.CreatePasskey(ctx, queries.CreatePasskeyParams{
+		ID: p.ID, UserID: p.UserID, Label: p.Label.String(), CredentialID: p.CredentialID, Credential: p.Credential, CreatedAt: p.CreatedAt,
+	})
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {
+		return app.ErrInvalidPasskey
+	}
+	return err
+}
+
+func (s *Store) UsePasskey(ctx context.Context, userID uuid.UUID, used app.NewPasskey, previous []byte, at time.Time) (bool, error) {
+	n, err := s.q.UsePasskey(ctx, queries.UsePasskeyParams{
+		UserID: userID, CredentialID: used.CredentialID, Credential: used.Credential, LastUsedAt: &at, Previous: previous,
+	})
+	return n == 1, err
+}
+
+func (s *Store) TakeChallengeCeremony(ctx context.Context, hash []byte, now time.Time) (uuid.UUID, []byte, error) {
+	r, err := s.q.TakeChallengeCeremony(ctx, queries.TakeChallengeCeremonyParams{TokenHash: hash, Now: now})
+	if err != nil {
+		return uuid.Nil, nil, notFound(err)
+	}
+	return r.UserID, r.PasskeyCeremony, nil
+}
+
+func (s *Store) DeletePasskey(ctx context.Context, id, userID uuid.UUID) (bool, error) {
+	n, err := s.q.DeletePasskey(ctx, queries.DeletePasskeyParams{ID: id, UserID: userID})
+	return n == 1, err
+}
+
+func (s *Store) SavePasskeyEnrolment(ctx context.Context, e app.PasskeyEnrolment) error {
+	return s.q.UpsertPasskeyEnrolment(ctx, queries.UpsertPasskeyEnrolmentParams{UserID: e.UserID, Ceremony: e.Ceremony, ExpiresAt: e.ExpiresAt})
+}
+
+func (s *Store) PasskeyEnrolment(ctx context.Context, userID uuid.UUID) (app.PasskeyEnrolment, error) {
+	r, err := s.q.PasskeyEnrolment(ctx, userID)
+	if err != nil {
+		return app.PasskeyEnrolment{}, notFound(err)
+	}
+	return app.PasskeyEnrolment{UserID: userID, Ceremony: r.Ceremony, ExpiresAt: r.ExpiresAt}, nil
+}
+
+func (s *Store) DeletePasskeyEnrolment(ctx context.Context, userID uuid.UUID) error {
+	return s.q.DeletePasskeyEnrolment(ctx, userID)
+}
+
+func (s *Store) ChallengeCeremony(ctx context.Context, hash []byte, now time.Time) (uuid.UUID, []byte, error) {
+	r, err := s.q.ChallengeCeremony(ctx, queries.ChallengeCeremonyParams{TokenHash: hash, ExpiresAt: now})
+	if err != nil {
+		return uuid.Nil, nil, notFound(err)
+	}
+	return r.UserID, r.PasskeyCeremony, nil
+}
+
+func (s *Store) SetChallengeCeremony(ctx context.Context, hash, ceremony []byte, now time.Time) error {
+	n, err := s.q.SetChallengeCeremony(ctx, queries.SetChallengeCeremonyParams{TokenHash: hash, PasskeyCeremony: ceremony, ExpiresAt: now})
+	if err == nil && n == 0 {
+		return app.ErrNotFound
+	}
+	return err
+}
+
 func notFound(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return app.ErrNotFound

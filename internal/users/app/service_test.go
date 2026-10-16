@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -26,15 +27,135 @@ type store struct {
 	challenges map[string]*challenge
 	factors    []app.TOTPFactor
 	enrolments map[uuid.UUID]app.TOTPEnrolment
+	passkeys   []app.Passkey
+	pending    map[uuid.UUID]app.PasskeyEnrolment
 	fail       map[string]error
 	touches    int
 	// stale makes UseTOTPStep lose to another sign-in that used the step first.
 	stale bool
+	// passkeyReads fails Passkeys from the read after this many, when set.
+	passkeyReads *int
 }
 
 type challenge struct {
 	app.Challenge
 	attempts int
+	ceremony []byte
+}
+
+func (s *store) Passkeys(_ context.Context, userID uuid.UUID) ([]app.Passkey, error) {
+	if err := s.fail["Passkeys"]; err != nil {
+		return nil, err
+	}
+	if s.passkeyReads != nil {
+		if *s.passkeyReads == 0 {
+			return nil, errors.New("passkeys unreadable")
+		}
+		*s.passkeyReads--
+	}
+	var out []app.Passkey
+	for _, p := range s.passkeys {
+		if p.UserID == userID {
+			out = append(out, p)
+		}
+	}
+	return out, nil
+}
+
+func (s *store) CreatePasskey(_ context.Context, p app.Passkey) error {
+	if err := s.fail["CreatePasskey"]; err != nil {
+		return err
+	}
+	s.passkeys = append(s.passkeys, p)
+	return nil
+}
+
+func (s *store) UsePasskey(_ context.Context, userID uuid.UUID, used app.NewPasskey, previous []byte, at time.Time) (bool, error) {
+	if err := s.fail["UsePasskey"]; err != nil {
+		return false, err
+	}
+	for i, p := range s.passkeys {
+		if p.UserID == userID && string(p.CredentialID) == string(used.CredentialID) && string(p.Credential) == string(previous) {
+			s.passkeys[i].Credential, s.passkeys[i].LastUsedAt = used.Credential, &at
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (s *store) TakeChallengeCeremony(ctx context.Context, hash []byte, now time.Time) (uuid.UUID, []byte, error) {
+	if err := s.fail["TakeChallengeCeremony"]; err != nil {
+		return uuid.Nil, nil, err
+	}
+	userID, ceremony, err := s.ChallengeCeremony(ctx, hash, now)
+	if err != nil || ceremony == nil {
+		return uuid.Nil, nil, app.ErrNotFound
+	}
+	s.challenges[string(hash)].ceremony = nil
+	return userID, ceremony, nil
+}
+
+func (s *store) DeletePasskey(_ context.Context, id, userID uuid.UUID) (bool, error) {
+	if err := s.fail["DeletePasskey"]; err != nil {
+		return false, err
+	}
+	for i, p := range s.passkeys {
+		if p.ID == id && p.UserID == userID {
+			s.passkeys = append(s.passkeys[:i], s.passkeys[i+1:]...)
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (s *store) SavePasskeyEnrolment(_ context.Context, e app.PasskeyEnrolment) error {
+	if err := s.fail["SavePasskeyEnrolment"]; err != nil {
+		return err
+	}
+	s.pending[e.UserID] = e
+	return nil
+}
+
+func (s *store) PasskeyEnrolment(_ context.Context, userID uuid.UUID) (app.PasskeyEnrolment, error) {
+	if err := s.fail["PasskeyEnrolment"]; err != nil {
+		return app.PasskeyEnrolment{}, err
+	}
+	e, ok := s.pending[userID]
+	if !ok {
+		return app.PasskeyEnrolment{}, app.ErrNotFound
+	}
+	return e, nil
+}
+
+func (s *store) DeletePasskeyEnrolment(_ context.Context, userID uuid.UUID) error {
+	if err := s.fail["DeletePasskeyEnrolment"]; err != nil {
+		return err
+	}
+	delete(s.pending, userID)
+	return nil
+}
+
+func (s *store) ChallengeCeremony(_ context.Context, hash []byte, now time.Time) (uuid.UUID, []byte, error) {
+	if err := s.fail["ChallengeCeremony"]; err != nil {
+		return uuid.Nil, nil, err
+	}
+	c, ok := s.challenges[string(hash)]
+	if !ok || !now.Before(c.ExpiresAt) {
+		return uuid.Nil, nil, app.ErrNotFound
+	}
+	return c.UserID, c.ceremony, nil
+}
+
+func (s *store) SetChallengeCeremony(_ context.Context, hash, ceremony []byte, now time.Time) error {
+	if err := s.fail["SetChallengeCeremony"]; err != nil {
+		return err
+	}
+	c, ok := s.challenges[string(hash)]
+	if !ok || !now.Before(c.ExpiresAt) {
+		return app.ErrNotFound
+	}
+	c.ceremony = ceremony
+	return nil
 }
 
 func newStore() *store {
@@ -44,6 +165,7 @@ func newStore() *store {
 		sessions:   map[string]app.Session{},
 		challenges: map[string]*challenge{},
 		enrolments: map[uuid.UUID]app.TOTPEnrolment{},
+		pending:    map[uuid.UUID]app.PasskeyEnrolment{},
 		fail:       map[string]error{},
 	}
 }
@@ -376,6 +498,51 @@ func (s *sealer) Open(_ context.Context, c string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(strings.TrimPrefix(c, "vault:v1:"))
 }
 
+// webAuthn stands in for the ceremonies: a registration answer is "made:" plus its ceremony, and a
+// login answer "signed:" plus its ceremony and the credential id it signs with.
+type webAuthn struct {
+	n         int
+	failBegin error
+	// staleUse runs after a login checks out, as a racing sign-in's write would.
+	staleUse func()
+}
+
+func (w *webAuthn) BeginRegistration(u app.PasskeyUser) ([]byte, []byte, error) {
+	return []byte(`{"publicKey":{}}`), []byte("reg-" + u.ID.String()), w.failBegin
+}
+
+func (w *webAuthn) FinishRegistration(_ app.PasskeyUser, ceremony, response []byte) (app.NewPasskey, error) {
+	if string(response) != "made:"+string(ceremony) {
+		return app.NewPasskey{}, errors.New("refused")
+	}
+	w.n++
+	id := fmt.Sprintf("cred-%d", w.n)
+	return app.NewPasskey{CredentialID: []byte(id), Credential: []byte(`{"id":"` + id + `","count":0}`)}, nil
+}
+
+func (w *webAuthn) BeginLogin(u app.PasskeyUser) ([]byte, []byte, error) {
+	return []byte(`{"publicKey":{}}`), []byte("login-" + u.ID.String()), w.failBegin
+}
+
+func (w *webAuthn) FinishLogin(u app.PasskeyUser, ceremony, response []byte) (app.NewPasskey, error) {
+	ceremonyPart, credID, _ := strings.Cut(strings.TrimPrefix(string(response), "signed:"), "|")
+	if ceremonyPart != string(ceremony) {
+		return app.NewPasskey{}, errors.New("refused")
+	}
+	if credID == "ghost" {
+		return app.NewPasskey{CredentialID: []byte("ghost")}, nil
+	}
+	for _, c := range u.Credentials {
+		if strings.Contains(string(c), `"`+credID+`"`) {
+			if w.staleUse != nil {
+				w.staleUse()
+			}
+			return app.NewPasskey{CredentialID: []byte(credID), Credential: []byte(`{"id":"` + credID + `","count":1}`)}, nil
+		}
+	}
+	return app.NewPasskey{}, errors.New("unknown credential")
+}
+
 // admins names the Admins; err fails every check.
 type admins struct {
 	ids map[uuid.UUID]bool
@@ -390,6 +557,7 @@ type fixture struct {
 	hasher *hasher
 	mailer *mailer
 	sealer *sealer
+	wa     *webAuthn
 	admins *admins
 	now    time.Time
 	// dry makes every read of randomness fail.
@@ -397,7 +565,7 @@ type fixture struct {
 }
 
 func newFixture() *fixture {
-	f := &fixture{store: newStore(), hasher: &hasher{}, mailer: &mailer{}, sealer: &sealer{}, admins: &admins{ids: map[uuid.UUID]bool{}}, now: t0}
+	f := &fixture{store: newStore(), hasher: &hasher{}, mailer: &mailer{}, sealer: &sealer{}, wa: &webAuthn{}, admins: &admins{ids: map[uuid.UUID]bool{}}, now: t0}
 	// A reader that never runs out gives every token a distinct value.
 	var n byte
 	random := readerFunc(func(p []byte) (int, error) {
@@ -411,7 +579,7 @@ func newFixture() *fixture {
 		return len(p), nil
 	})
 	f.Service = app.New(f.store, f.hasher, f.mailer, func() time.Time { return f.now }, random, "https://auth.test",
-		app.WithSealer(f.sealer), app.WithAdmins(f.admins))
+		app.WithSealer(f.sealer), app.WithWebAuthn(f.wa), app.WithAdmins(f.admins))
 	return f
 }
 
