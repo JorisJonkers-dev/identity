@@ -1,0 +1,104 @@
+# Access (docs/adr/0004): Users belong to Groups, and an Assignment gives a Group one App Role on
+# one Client. Clients live in the cluster, so an Assignment names its Client by id and outlives a
+# Removed Client. The admins Group is made here; it manages access and holds no Assignment.
+databaseChangeLog:
+  - changeSet:
+      id: 0003-create-groups
+      author: identity
+      changes:
+        - createTable:
+            tableName: groups
+            columns:
+              - column: {name: id, type: uuid, defaultValueComputed: gen_random_uuid(), constraints: {primaryKey: true, nullable: false}}
+              - column: {name: name, type: text, constraints: {nullable: false}}
+              - column: {name: admins, type: boolean, defaultValueBoolean: false, constraints: {nullable: false}}
+              - column: {name: created_at, type: timestamptz, defaultValueComputed: now(), constraints: {nullable: false}}
+
+  - changeSet:
+      id: 0003-groups-rules
+      author: identity
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE groups ADD CONSTRAINT groups_name_length
+                CHECK (name = btrim(name) AND char_length(name) BETWEEN 1 AND 64);
+              CREATE UNIQUE INDEX groups_name_key ON groups (lower(name));
+              CREATE UNIQUE INDEX groups_one_admins ON groups (admins) WHERE admins
+      rollback:
+        - sql:
+            sql: >-
+              DROP INDEX groups_one_admins;
+              DROP INDEX groups_name_key;
+              ALTER TABLE groups DROP CONSTRAINT groups_name_length
+
+  - changeSet:
+      id: 0003-admins-group
+      author: identity
+      changes:
+        - sql:
+            sql: INSERT INTO groups (name, admins) VALUES ('admins', true)
+      rollback:
+        - sql:
+            sql: DELETE FROM groups WHERE admins
+
+  - changeSet:
+      id: 0003-create-memberships
+      author: identity
+      changes:
+        - createTable:
+            tableName: memberships
+            columns:
+              - column:
+                  name: group_id
+                  type: uuid
+                  constraints: {nullable: false, foreignKeyName: memberships_group_fk, references: groups(id), deleteCascade: true}
+              - column:
+                  name: user_id
+                  type: uuid
+                  constraints: {nullable: false, foreignKeyName: memberships_user_fk, references: users(id), deleteCascade: true}
+        - addPrimaryKey:
+            tableName: memberships
+            columnNames: group_id, user_id
+            constraintName: memberships_pkey
+        - createIndex:
+            tableName: memberships
+            indexName: memberships_user_idx
+            columns:
+              - column: {name: user_id}
+
+  - changeSet:
+      id: 0003-create-assignments
+      author: identity
+      changes:
+        - createTable:
+            tableName: assignments
+            columns:
+              - column:
+                  name: group_id
+                  type: uuid
+                  constraints: {nullable: false, foreignKeyName: assignments_group_fk, references: groups(id), deleteCascade: true}
+              - column: {name: client_id, type: text, constraints: {nullable: false}}
+              - column: {name: role, type: text, constraints: {nullable: false}}
+        - addPrimaryKey:
+            tableName: assignments
+            columnNames: group_id, client_id, role
+            constraintName: assignments_pkey
+        - createIndex:
+            tableName: assignments
+            indexName: assignments_client_idx
+            columns:
+              - column: {name: client_id}
+
+  # The same shapes the Client object allows (deploy/crd).
+  - changeSet:
+      id: 0003-assignments-checks
+      author: identity
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE assignments
+                ADD CONSTRAINT assignments_client_id_length CHECK (char_length(client_id) BETWEEN 1 AND 253),
+                ADD CONSTRAINT assignments_role_shape CHECK (role ~ '^[a-z][a-z0-9-]{0,62}$')
+      rollback:
+        - sql:
+            sql: ALTER TABLE assignments DROP CONSTRAINT assignments_client_id_length, DROP CONSTRAINT assignments_role_shape

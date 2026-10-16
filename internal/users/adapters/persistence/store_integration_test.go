@@ -65,6 +65,10 @@ func TestUsers(t *testing.T) {
 		t.Fatalf("an unknown id: %v", err)
 	}
 
+	if all, err := s.Users(ctx); err != nil || len(all) != 1 || all[0].ID != u.ID {
+		t.Fatalf("Users = %+v, %v", all, err)
+	}
+
 	newName, _ := domain.NewName("Ada King")
 	if err := s.UpdateName(ctx, u.ID, newName); err != nil {
 		t.Fatal(err)
@@ -91,6 +95,9 @@ func TestARowTheDomainRefusesIsAnError(t *testing.T) {
 	}
 	if _, err := s.UserByID(ctx, id); !errors.Is(err, domain.ErrInvalidEmail) {
 		t.Fatalf("UserByID = %v, want ErrInvalidEmail", err)
+	}
+	if _, err := s.Users(ctx); !errors.Is(err, domain.ErrInvalidEmail) {
+		t.Fatalf("Users = %v, want ErrInvalidEmail", err)
 	}
 }
 

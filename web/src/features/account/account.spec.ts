@@ -1,50 +1,8 @@
-import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
-import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createMemoryHistory } from 'vue-router'
-import App from '../../app/App.vue'
-import { createAppRouter } from '../../app/router'
-import { configureApi } from '../../infrastructure/http'
+import { mountAt, problem, settle } from '../../app/testing'
 import { navigation } from '../../infrastructure/navigation'
 
-type Answer = Response | (() => Response) | (() => Promise<Response>)
-
-function problem(status: number, detail: string): Response {
-  return new Response(JSON.stringify({ type: 'about:blank', title: 'Problem', status, detail }), {
-    status,
-    headers: { 'Content-Type': 'application/problem+json' },
-  })
-}
-
-const profile = { email: 'ada@example.org', name: 'Ada', createdAt: '2026-10-15T12:00:00Z' }
-
-/** Mounts the app at path, answering each "METHOD /path" from answers and recording the requests. */
-async function mountAt(path: string, answers: Record<string, Answer>) {
-  const requests: { key: string; body: unknown }[] = []
-  const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const request = input instanceof Request ? input : new Request(input, init)
-    const key = `${request.method} ${new URL(request.url).pathname}`
-    const text = await request.text()
-    requests.push({ key, body: text ? (JSON.parse(text) as unknown) : null })
-    const answer = answers[key]
-    if (!answer) return problem(404, `no answer for ${key}`)
-    return typeof answer === 'function' ? answer() : answer.clone()
-  })
-  configureApi({ baseUrl: 'http://app.test', fetch })
-  const router = createAppRouter(createMemoryHistory())
-  await router.push(path)
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  const wrapper = mount(App, { global: { plugins: [router, [VueQueryPlugin, { queryClient }]] } })
-  await router.isReady()
-  await settle()
-  return { wrapper, router, requests }
-}
-
-async function settle() {
-  await flushPromises()
-  await vi.dynamicImportSettled()
-  await flushPromises()
-}
+const profile = { email: 'ada@example.org', name: 'Ada', createdAt: '2026-10-15T12:00:00Z', admin: false }
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -162,11 +120,17 @@ describe('the profile', () => {
       },
     })
     expect(wrapper.get('dl').text()).toContain('ada@example.org')
+    expect(wrapper.find('a[href="/access"]').exists()).toBe(false)
     await wrapper.get('#profile-name').setValue('Ada King')
     await wrapper.findAll('form')[0]?.trigger('submit')
     await settle()
     expect(requests.find((r) => r.key === 'PATCH /api/v1/profile')?.body).toEqual({ name: 'Ada King' })
     expect(wrapper.get('dl').text()).toContain('Ada King')
+  })
+
+  it('offers an Admin the access page', async () => {
+    const { wrapper } = await mountAt('/profile', { 'GET /api/v1/profile': Response.json({ ...profile, admin: true }) })
+    expect(wrapper.get('a[href="/access"]').text()).toBe('Manage access')
   })
 
   it('shows a refused rename', async () => {

@@ -35,6 +35,7 @@ function submitPassword() {
         <dt>Email</dt>
         <dd>{{ profile.email }}</dd>
       </dl>
+      <p v-if="profile.admin"><RouterLink to="/access">Manage access</RouterLink></p>
 
       <form aria-labelledby="rename-title" @submit.prevent="submitName">
         <h2 id="rename-title">Change your name</h2>

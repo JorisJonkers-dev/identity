@@ -52,6 +52,10 @@ export type SignIn = {
  * The signed-in User.
  */
 export type Profile = {
+    /**
+     * Whether the User is an Admin, who manages access. An Admin holds no App Role by being one.
+     */
+    admin: boolean;
     email: Email;
     /**
      * What the User is called.
@@ -79,6 +83,108 @@ export type ProfileUpdate = {
 export type PasswordChange = {
     current: Password;
     next: Password;
+};
+
+/**
+ * An id.
+ */
+export type Id = string;
+
+/**
+ * A Client's id, the name of its Client object.
+ */
+export type ClientId = string;
+
+/**
+ * An App Role a Client declares.
+ */
+export type AppRole = string;
+
+/**
+ * What a Group is called.
+ */
+export type GroupDraft = {
+    /**
+     * The Group's name, 1 to 64 characters.
+     */
+    name: string;
+};
+
+/**
+ * A named set of Users.
+ */
+export type Group = {
+    id: Id;
+    /**
+     * What the Group is called.
+     */
+    name: string;
+    /**
+     * Whether this is the admins Group, whose members are Admins and which holds no App Role.
+     */
+    admins: boolean;
+    /**
+     * The Users in the Group.
+     */
+    members: Array<Id>;
+};
+
+/**
+ * A User, as the access page lists one.
+ */
+export type Person = {
+    id: Id;
+    email: Email;
+    /**
+     * What the User is called.
+     */
+    name: string;
+};
+
+/**
+ * A Client in the cluster, with the App Roles it declares.
+ */
+export type AccessClient = {
+    id: ClientId;
+    /**
+     * What the Launcher calls it, or its id when it has no label.
+     */
+    label: string;
+    /**
+     * The App Roles it declares, user first.
+     */
+    roles: Array<AppRole>;
+};
+
+/**
+ * A Group holding one App Role on one Client.
+ */
+export type Assignment = {
+    groupId: Id;
+    clientId: ClientId;
+    role: AppRole;
+};
+
+/**
+ * Every Group with its members, every User, every Client in the cluster, and every Assignment, including those on Removed Clients, which give no access while it is away.
+ */
+export type AccessOverview = {
+    /**
+     * The admins Group first, then by name.
+     */
+    groups: Array<Group>;
+    /**
+     * Every User, by name.
+     */
+    users: Array<Person>;
+    /**
+     * Every Client in the cluster, by label.
+     */
+    clients: Array<AccessClient>;
+    /**
+     * Every Assignment.
+     */
+    assignments: Array<Assignment>;
 };
 
 /**
@@ -112,6 +218,26 @@ export type Problem = {
      */
     detail?: string;
 };
+
+/**
+ * The Group.
+ */
+export type GroupId = Id;
+
+/**
+ * The User.
+ */
+export type UserId = Id;
+
+/**
+ * The Client, by its id.
+ */
+export type ClientId2 = ClientId;
+
+/**
+ * The App Role.
+ */
+export type Role = AppRole;
 
 export type GetVersionData = {
     body?: never;
@@ -342,3 +468,289 @@ export type ChangePasswordResponses = {
 };
 
 export type ChangePasswordResponse = ChangePasswordResponses[keyof ChangePasswordResponses];
+
+export type GetAccessData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/access';
+};
+
+export type GetAccessErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type GetAccessError = GetAccessErrors[keyof GetAccessErrors];
+
+export type GetAccessResponses = {
+    /**
+     * The access overview.
+     */
+    200: AccessOverview;
+};
+
+export type GetAccessResponse = GetAccessResponses[keyof GetAccessResponses];
+
+export type CreateGroupData = {
+    body: GroupDraft;
+    path?: never;
+    query?: never;
+    url: '/api/v1/access/groups';
+};
+
+export type CreateGroupErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type CreateGroupError = CreateGroupErrors[keyof CreateGroupErrors];
+
+export type CreateGroupResponses = {
+    /**
+     * The new Group.
+     */
+    201: Group;
+};
+
+export type CreateGroupResponse = CreateGroupResponses[keyof CreateGroupResponses];
+
+export type DeleteGroupData = {
+    body?: never;
+    path: {
+        /**
+         * The Group.
+         */
+        groupId: Id;
+    };
+    query?: never;
+    url: '/api/v1/access/groups/{groupId}';
+};
+
+export type DeleteGroupErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type DeleteGroupError = DeleteGroupErrors[keyof DeleteGroupErrors];
+
+export type DeleteGroupResponses = {
+    /**
+     * Deleted.
+     */
+    204: void;
+};
+
+export type DeleteGroupResponse = DeleteGroupResponses[keyof DeleteGroupResponses];
+
+export type RenameGroupData = {
+    body: GroupDraft;
+    path: {
+        /**
+         * The Group.
+         */
+        groupId: Id;
+    };
+    query?: never;
+    url: '/api/v1/access/groups/{groupId}';
+};
+
+export type RenameGroupErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type RenameGroupError = RenameGroupErrors[keyof RenameGroupErrors];
+
+export type RenameGroupResponses = {
+    /**
+     * Renamed.
+     */
+    204: void;
+};
+
+export type RenameGroupResponse = RenameGroupResponses[keyof RenameGroupResponses];
+
+export type RemoveMemberData = {
+    body?: never;
+    path: {
+        /**
+         * The Group.
+         */
+        groupId: Id;
+        /**
+         * The User.
+         */
+        userId: Id;
+    };
+    query?: never;
+    url: '/api/v1/access/groups/{groupId}/members/{userId}';
+};
+
+export type RemoveMemberErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type RemoveMemberError = RemoveMemberErrors[keyof RemoveMemberErrors];
+
+export type RemoveMemberResponses = {
+    /**
+     * The User is not a member.
+     */
+    204: void;
+};
+
+export type RemoveMemberResponse = RemoveMemberResponses[keyof RemoveMemberResponses];
+
+export type AddMemberData = {
+    body?: never;
+    path: {
+        /**
+         * The Group.
+         */
+        groupId: Id;
+        /**
+         * The User.
+         */
+        userId: Id;
+    };
+    query?: never;
+    url: '/api/v1/access/groups/{groupId}/members/{userId}';
+};
+
+export type AddMemberErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type AddMemberError = AddMemberErrors[keyof AddMemberErrors];
+
+export type AddMemberResponses = {
+    /**
+     * The User is a member.
+     */
+    204: void;
+};
+
+export type AddMemberResponse = AddMemberResponses[keyof AddMemberResponses];
+
+export type UnassignRoleData = {
+    body?: never;
+    path: {
+        /**
+         * The Group.
+         */
+        groupId: Id;
+        /**
+         * The Client, by its id.
+         */
+        clientId: ClientId;
+        /**
+         * The App Role.
+         */
+        role: AppRole;
+    };
+    query?: never;
+    url: '/api/v1/access/groups/{groupId}/roles/{clientId}/{role}';
+};
+
+export type UnassignRoleErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type UnassignRoleError = UnassignRoleErrors[keyof UnassignRoleErrors];
+
+export type UnassignRoleResponses = {
+    /**
+     * The Group does not hold the App Role.
+     */
+    204: void;
+};
+
+export type UnassignRoleResponse = UnassignRoleResponses[keyof UnassignRoleResponses];
+
+export type AssignRoleData = {
+    body?: never;
+    path: {
+        /**
+         * The Group.
+         */
+        groupId: Id;
+        /**
+         * The Client, by its id.
+         */
+        clientId: ClientId;
+        /**
+         * The App Role.
+         */
+        role: AppRole;
+    };
+    query?: never;
+    url: '/api/v1/access/groups/{groupId}/roles/{clientId}/{role}';
+};
+
+export type AssignRoleErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type AssignRoleError = AssignRoleErrors[keyof AssignRoleErrors];
+
+export type AssignRoleResponses = {
+    /**
+     * The Group holds the App Role.
+     */
+    204: void;
+};
+
+export type AssignRoleResponse = AssignRoleResponses[keyof AssignRoleResponses];

@@ -8,6 +8,19 @@ import (
 
 // Handler handles operations described by OpenAPI v3 specification.
 type Handler interface {
+	// AddMember implements addMember operation.
+	//
+	// Adding a member twice changes nothing. Admins only.
+	//
+	// PUT /api/v1/access/groups/{groupId}/members/{userId}
+	AddMember(ctx context.Context, params AddMemberParams) (AddMemberRes, error)
+	// AssignRole implements assignRole operation.
+	//
+	// Makes an Assignment. The Client must be in the cluster and declare the App Role, and the admins
+	// Group holds none. Assigning twice changes nothing. Admins only.
+	//
+	// PUT /api/v1/access/groups/{groupId}/roles/{clientId}/{role}
+	AssignRole(ctx context.Context, params AssignRoleParams) (AssignRoleRes, error)
 	// ChangePassword implements changePassword operation.
 	//
 	// Replaces the password after checking the current one.
@@ -21,6 +34,25 @@ type Handler interface {
 	//
 	// POST /api/v1/confirmations
 	ConfirmEmail(ctx context.Context, req *Confirmation) (ConfirmEmailRes, error)
+	// CreateGroup implements createGroup operation.
+	//
+	// Makes an empty Group. Names are unique whatever their case. Admins only.
+	//
+	// POST /api/v1/access/groups
+	CreateGroup(ctx context.Context, req *GroupDraft) (CreateGroupRes, error)
+	// DeleteGroup implements deleteGroup operation.
+	//
+	// Deletes a Group with its memberships and Assignments. The admins Group cannot be deleted. Admins
+	// only.
+	//
+	// DELETE /api/v1/access/groups/{groupId}
+	DeleteGroup(ctx context.Context, params DeleteGroupParams) (DeleteGroupRes, error)
+	// GetAccess implements getAccess operation.
+	//
+	// Everything the access page shows, in one read. Admins only.
+	//
+	// GET /api/v1/access
+	GetAccess(ctx context.Context) (GetAccessRes, error)
 	// GetProfile implements getProfile operation.
 	//
 	// Who is signed in.
@@ -34,6 +66,18 @@ type Handler interface {
 	//
 	// GET /api/v1/version
 	GetVersion(ctx context.Context) (GetVersionRes, error)
+	// RemoveMember implements removeMember operation.
+	//
+	// The admins Group always keeps one member. Admins only.
+	//
+	// DELETE /api/v1/access/groups/{groupId}/members/{userId}
+	RemoveMember(ctx context.Context, params RemoveMemberParams) (RemoveMemberRes, error)
+	// RenameGroup implements renameGroup operation.
+	//
+	// No token carries a Group's name, so renaming one changes nothing for any app. Admins only.
+	//
+	// PATCH /api/v1/access/groups/{groupId}
+	RenameGroup(ctx context.Context, req *GroupDraft, params RenameGroupParams) (RenameGroupRes, error)
 	// SignIn implements signIn operation.
 	//
 	// Checks an email and a password and starts a Single sign-on session in a host-only cookie. A wrong
@@ -54,6 +98,12 @@ type Handler interface {
 	//
 	// POST /api/v1/signup
 	SignUp(ctx context.Context, req *SignUp) (SignUpRes, error)
+	// UnassignRole implements unassignRole operation.
+	//
+	// Removes an Assignment, also one on a Removed Client. Admins only.
+	//
+	// DELETE /api/v1/access/groups/{groupId}/roles/{clientId}/{role}
+	UnassignRole(ctx context.Context, params UnassignRoleParams) (UnassignRoleRes, error)
 	// UpdateProfile implements updateProfile operation.
 	//
 	// Changes what the User is called.

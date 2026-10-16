@@ -41,3 +41,6 @@ DELETE FROM sessions WHERE user_id = $1 AND token_hash <> $2;
 -- name: DeleteSessionsOfUser :exec
 -- Signing out from any Client signs out everywhere (docs/adr/0007).
 DELETE FROM sessions WHERE user_id = $1;
+
+-- name: ListUsers :many
+SELECT id, email, name, password_hash, created_at FROM users ORDER BY lower(name), email;

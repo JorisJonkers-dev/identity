@@ -5,16 +5,166 @@ package oas
 import (
 	"fmt"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func (s *ProblemStatusCode) Error() string {
 	return fmt.Sprintf("code %d: %+v", s.StatusCode, s.Response)
 }
 
+// A Client in the cluster, with the App Roles it declares.
+// Ref: #/components/schemas/AccessClient
+type AccessClient struct {
+	ID ClientId `json:"id"`
+	// What the Launcher calls it, or its id when it has no label.
+	Label string `json:"label"`
+	// The App Roles it declares, user first.
+	Roles []AppRole `json:"roles"`
+}
+
+// GetID returns the value of ID.
+func (s *AccessClient) GetID() ClientId {
+	return s.ID
+}
+
+// GetLabel returns the value of Label.
+func (s *AccessClient) GetLabel() string {
+	return s.Label
+}
+
+// GetRoles returns the value of Roles.
+func (s *AccessClient) GetRoles() []AppRole {
+	return s.Roles
+}
+
+// SetID sets the value of ID.
+func (s *AccessClient) SetID(val ClientId) {
+	s.ID = val
+}
+
+// SetLabel sets the value of Label.
+func (s *AccessClient) SetLabel(val string) {
+	s.Label = val
+}
+
+// SetRoles sets the value of Roles.
+func (s *AccessClient) SetRoles(val []AppRole) {
+	s.Roles = val
+}
+
+// Every Group with its members, every User, every Client in the cluster, and every Assignment,
+// including those on Removed Clients, which give no access while it is away.
+// Ref: #/components/schemas/AccessOverview
+type AccessOverview struct {
+	// The admins Group first, then by name.
+	Groups []Group `json:"groups"`
+	// Every User, by name.
+	Users []Person `json:"users"`
+	// Every Client in the cluster, by label.
+	Clients []AccessClient `json:"clients"`
+	// Every Assignment.
+	Assignments []Assignment `json:"assignments"`
+}
+
+// GetGroups returns the value of Groups.
+func (s *AccessOverview) GetGroups() []Group {
+	return s.Groups
+}
+
+// GetUsers returns the value of Users.
+func (s *AccessOverview) GetUsers() []Person {
+	return s.Users
+}
+
+// GetClients returns the value of Clients.
+func (s *AccessOverview) GetClients() []AccessClient {
+	return s.Clients
+}
+
+// GetAssignments returns the value of Assignments.
+func (s *AccessOverview) GetAssignments() []Assignment {
+	return s.Assignments
+}
+
+// SetGroups sets the value of Groups.
+func (s *AccessOverview) SetGroups(val []Group) {
+	s.Groups = val
+}
+
+// SetUsers sets the value of Users.
+func (s *AccessOverview) SetUsers(val []Person) {
+	s.Users = val
+}
+
+// SetClients sets the value of Clients.
+func (s *AccessOverview) SetClients(val []AccessClient) {
+	s.Clients = val
+}
+
+// SetAssignments sets the value of Assignments.
+func (s *AccessOverview) SetAssignments(val []Assignment) {
+	s.Assignments = val
+}
+
+func (*AccessOverview) getAccessRes() {}
+
+// AddMemberNoContent is response for AddMember operation.
+type AddMemberNoContent struct{}
+
+func (*AddMemberNoContent) addMemberRes() {}
+
+type AppRole string
+
+// AssignRoleNoContent is response for AssignRole operation.
+type AssignRoleNoContent struct{}
+
+func (*AssignRoleNoContent) assignRoleRes() {}
+
+// A Group holding one App Role on one Client.
+// Ref: #/components/schemas/Assignment
+type Assignment struct {
+	GroupId  ID       `json:"groupId"`
+	ClientId ClientId `json:"clientId"`
+	Role     AppRole  `json:"role"`
+}
+
+// GetGroupId returns the value of GroupId.
+func (s *Assignment) GetGroupId() ID {
+	return s.GroupId
+}
+
+// GetClientId returns the value of ClientId.
+func (s *Assignment) GetClientId() ClientId {
+	return s.ClientId
+}
+
+// GetRole returns the value of Role.
+func (s *Assignment) GetRole() AppRole {
+	return s.Role
+}
+
+// SetGroupId sets the value of GroupId.
+func (s *Assignment) SetGroupId(val ID) {
+	s.GroupId = val
+}
+
+// SetClientId sets the value of ClientId.
+func (s *Assignment) SetClientId(val ClientId) {
+	s.ClientId = val
+}
+
+// SetRole sets the value of Role.
+func (s *Assignment) SetRole(val AppRole) {
+	s.Role = val
+}
+
 // ChangePasswordNoContent is response for ChangePassword operation.
 type ChangePasswordNoContent struct{}
 
 func (*ChangePasswordNoContent) changePasswordRes() {}
+
+type ClientId string
 
 // ConfirmEmailNoContent is response for ConfirmEmail operation.
 type ConfirmEmailNoContent struct{}
@@ -50,7 +200,85 @@ func (s *Confirmation) SetToken(val string) {
 	s.Token = val
 }
 
+// DeleteGroupNoContent is response for DeleteGroup operation.
+type DeleteGroupNoContent struct{}
+
+func (*DeleteGroupNoContent) deleteGroupRes() {}
+
 type Email string
+
+// A named set of Users.
+// Ref: #/components/schemas/Group
+type Group struct {
+	ID ID `json:"id"`
+	// What the Group is called.
+	Name string `json:"name"`
+	// Whether this is the admins Group, whose members are Admins and which holds no App Role.
+	Admins bool `json:"admins"`
+	// The Users in the Group.
+	Members []ID `json:"members"`
+}
+
+// GetID returns the value of ID.
+func (s *Group) GetID() ID {
+	return s.ID
+}
+
+// GetName returns the value of Name.
+func (s *Group) GetName() string {
+	return s.Name
+}
+
+// GetAdmins returns the value of Admins.
+func (s *Group) GetAdmins() bool {
+	return s.Admins
+}
+
+// GetMembers returns the value of Members.
+func (s *Group) GetMembers() []ID {
+	return s.Members
+}
+
+// SetID sets the value of ID.
+func (s *Group) SetID(val ID) {
+	s.ID = val
+}
+
+// SetName sets the value of Name.
+func (s *Group) SetName(val string) {
+	s.Name = val
+}
+
+// SetAdmins sets the value of Admins.
+func (s *Group) SetAdmins(val bool) {
+	s.Admins = val
+}
+
+// SetMembers sets the value of Members.
+func (s *Group) SetMembers(val []ID) {
+	s.Members = val
+}
+
+func (*Group) createGroupRes() {}
+
+// What a Group is called.
+// Ref: #/components/schemas/GroupDraft
+type GroupDraft struct {
+	// The Group's name, 1 to 64 characters.
+	Name string `json:"name"`
+}
+
+// GetName returns the value of Name.
+func (s *GroupDraft) GetName() string {
+	return s.Name
+}
+
+// SetName sets the value of Name.
+func (s *GroupDraft) SetName(val string) {
+	s.Name = val
+}
+
+type ID uuid.UUID
 
 // NewOptString returns new OptString with value set to v.
 func NewOptString(v string) OptString {
@@ -125,6 +353,45 @@ func (s *PasswordChange) SetCurrent(val Password) {
 // SetNext sets the value of Next.
 func (s *PasswordChange) SetNext(val Password) {
 	s.Next = val
+}
+
+// A User, as the access page lists one.
+// Ref: #/components/schemas/Person
+type Person struct {
+	ID    ID    `json:"id"`
+	Email Email `json:"email"`
+	// What the User is called.
+	Name string `json:"name"`
+}
+
+// GetID returns the value of ID.
+func (s *Person) GetID() ID {
+	return s.ID
+}
+
+// GetEmail returns the value of Email.
+func (s *Person) GetEmail() Email {
+	return s.Email
+}
+
+// GetName returns the value of Name.
+func (s *Person) GetName() string {
+	return s.Name
+}
+
+// SetID sets the value of ID.
+func (s *Person) SetID(val ID) {
+	s.ID = val
+}
+
+// SetEmail sets the value of Email.
+func (s *Person) SetEmail(val Email) {
+	s.Email = val
+}
+
+// SetName sets the value of Name.
+func (s *Person) SetName(val string) {
+	s.Name = val
 }
 
 // An RFC 9457 problem detail.
@@ -206,23 +473,38 @@ func (s *ProblemStatusCode) SetResponse(val Problem) {
 	s.Response = val
 }
 
+func (*ProblemStatusCode) addMemberRes()      {}
+func (*ProblemStatusCode) assignRoleRes()     {}
 func (*ProblemStatusCode) changePasswordRes() {}
 func (*ProblemStatusCode) confirmEmailRes()   {}
+func (*ProblemStatusCode) createGroupRes()    {}
+func (*ProblemStatusCode) deleteGroupRes()    {}
+func (*ProblemStatusCode) getAccessRes()      {}
 func (*ProblemStatusCode) getProfileRes()     {}
 func (*ProblemStatusCode) getVersionRes()     {}
+func (*ProblemStatusCode) removeMemberRes()   {}
+func (*ProblemStatusCode) renameGroupRes()    {}
 func (*ProblemStatusCode) signInRes()         {}
 func (*ProblemStatusCode) signOutRes()        {}
 func (*ProblemStatusCode) signUpRes()         {}
+func (*ProblemStatusCode) unassignRoleRes()   {}
 func (*ProblemStatusCode) updateProfileRes()  {}
 
 // The signed-in User.
 // Ref: #/components/schemas/Profile
 type Profile struct {
+	// Whether the User is an Admin, who manages access. An Admin holds no App Role by being one.
+	Admin bool  `json:"admin"`
 	Email Email `json:"email"`
 	// What the User is called.
 	Name string `json:"name"`
 	// When the User signed up.
 	CreatedAt time.Time `json:"createdAt"`
+}
+
+// GetAdmin returns the value of Admin.
+func (s *Profile) GetAdmin() bool {
+	return s.Admin
 }
 
 // GetEmail returns the value of Email.
@@ -238,6 +520,11 @@ func (s *Profile) GetName() string {
 // GetCreatedAt returns the value of CreatedAt.
 func (s *Profile) GetCreatedAt() time.Time {
 	return s.CreatedAt
+}
+
+// SetAdmin sets the value of Admin.
+func (s *Profile) SetAdmin(val bool) {
+	s.Admin = val
 }
 
 // SetEmail sets the value of Email.
@@ -274,6 +561,16 @@ func (s *ProfileUpdate) GetName() string {
 func (s *ProfileUpdate) SetName(val string) {
 	s.Name = val
 }
+
+// RemoveMemberNoContent is response for RemoveMember operation.
+type RemoveMemberNoContent struct{}
+
+func (*RemoveMemberNoContent) removeMemberRes() {}
+
+// RenameGroupNoContent is response for RenameGroup operation.
+type RenameGroupNoContent struct{}
+
+func (*RenameGroupNoContent) renameGroupRes() {}
 
 type Session struct {
 	APIKey string
@@ -405,6 +702,11 @@ func (s *SignUp) SetPassword(val Password) {
 type SignUpAccepted struct{}
 
 func (*SignUpAccepted) signUpRes() {}
+
+// UnassignRoleNoContent is response for UnassignRole operation.
+type UnassignRoleNoContent struct{}
+
+func (*UnassignRoleNoContent) unassignRoleRes() {}
 
 // The running build.
 // Ref: #/components/schemas/Version

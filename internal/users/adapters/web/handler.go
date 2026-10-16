@@ -12,6 +12,7 @@ import (
 
 	"github.com/JorisJonkers-dev/identity/internal/platform/httpx"
 	"github.com/JorisJonkers-dev/identity/internal/platform/oas"
+	"github.com/JorisJonkers-dev/identity/internal/platform/principal"
 	"github.com/JorisJonkers-dev/identity/internal/users/app"
 	"github.com/JorisJonkers-dev/identity/internal/users/domain"
 )
@@ -38,13 +39,19 @@ type UseCases interface {
 	User(ctx context.Context, id uuid.UUID) (domain.User, error)
 }
 
-// Handler implements the users operations and the session security scheme.
-type Handler struct {
-	uc UseCases
+// Admins tells whether a User is an Admin, for the Profile to say so.
+type Admins interface {
+	IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error)
 }
 
-// New returns a Handler calling uc.
-func New(uc UseCases) *Handler { return &Handler{uc: uc} }
+// Handler implements the users operations and the session security scheme.
+type Handler struct {
+	uc     UseCases
+	admins Admins
+}
+
+// New returns a Handler calling uc, asking admins who is an Admin.
+func New(uc UseCases, admins Admins) *Handler { return &Handler{uc: uc, admins: admins} }
 
 type signedIn struct {
 	user  domain.User
@@ -59,6 +66,7 @@ func (h *Handler) HandleSession(ctx context.Context, _ oas.OperationName, t oas.
 	if err != nil {
 		return ctx, err
 	}
+	ctx = principal.With(ctx, u.ID)
 	return context.WithValue(ctx, signedInKey{}, signedIn{user: u, token: t.APIKey}), nil
 }
 
@@ -107,7 +115,7 @@ func (h *Handler) SignOut(ctx context.Context) (oas.SignOutRes, error) {
 
 // GetProfile implements getProfile.
 func (h *Handler) GetProfile(ctx context.Context) (oas.GetProfileRes, error) {
-	return profile(current(ctx).user), nil
+	return h.profile(ctx, current(ctx).user)
 }
 
 // UpdateProfile implements updateProfile.
@@ -120,7 +128,7 @@ func (h *Handler) UpdateProfile(ctx context.Context, req *oas.ProfileUpdate) (oa
 	if err != nil {
 		return nil, err
 	}
-	return profile(u), nil
+	return h.profile(ctx, u)
 }
 
 // ChangePassword implements changePassword.
@@ -136,8 +144,12 @@ func (h *Handler) ChangePassword(ctx context.Context, req *oas.PasswordChange) (
 	return &oas.ChangePasswordNoContent{}, nil
 }
 
-func profile(u domain.User) *oas.Profile {
-	return &oas.Profile{Email: oas.Email(u.Email.String()), Name: u.Name.String(), CreatedAt: u.CreatedAt}
+func (h *Handler) profile(ctx context.Context, u domain.User) (*oas.Profile, error) {
+	admin, err := h.admins.IsAdmin(ctx, u.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &oas.Profile{Email: oas.Email(u.Email.String()), Name: u.Name.String(), CreatedAt: u.CreatedAt, Admin: admin}, nil
 }
 
 // refusal answers a rule the caller broke with a problem saying which, and passes anything else on

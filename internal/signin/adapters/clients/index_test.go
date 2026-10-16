@@ -3,6 +3,7 @@ package clients_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/JorisJonkers-dev/identity/internal/signin/adapters/clients"
@@ -49,5 +50,22 @@ func TestRemovingAClientLeavesAHostAnotherNowHolds(t *testing.T) {
 	x.Remove("old")
 	if c, err := x.ClientForHost(ctx, "app.jorisjonkers.dev"); err != nil || c.ID != "new" {
 		t.Fatalf("ClientForHost = %+v, %v", c, err)
+	}
+}
+
+func TestAllListsThePresentClientsByLabel(t *testing.T) {
+	x := clients.NewIndex()
+	x.Put(domain.Client{ID: "b", Host: "b.jorisjonkers.dev", Label: "Vault"})
+	x.Put(domain.Client{ID: "a", Host: "a.jorisjonkers.dev", Label: "grafana"})
+	x.Put(domain.Client{ID: "d", Host: "d.jorisjonkers.dev"})
+	x.Put(domain.Client{ID: "c", Host: "c.jorisjonkers.dev"})
+	x.Put(domain.Client{ID: "gone", Host: "gone.jorisjonkers.dev", Label: "Gone"})
+	x.Remove("gone")
+	var ids []string
+	for _, c := range x.All() {
+		ids = append(ids, c.ID)
+	}
+	if want := []string{"c", "d", "a", "b"}; !slices.Equal(ids, want) {
+		t.Fatalf("All = %v, want %v", ids, want)
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JorisJonkers-dev/identity/internal/platform/oas"
+	"github.com/JorisJonkers-dev/identity/internal/platform/principal"
 	"github.com/JorisJonkers-dev/identity/internal/users/adapters/web"
 	"github.com/JorisJonkers-dev/identity/internal/users/app"
 	"github.com/JorisJonkers-dev/identity/internal/users/domain"
@@ -56,6 +57,14 @@ func (u *useCases) ChangePassword(_ context.Context, id uuid.UUID, token, curren
 
 func (u *useCases) User(context.Context, uuid.UUID) (domain.User, error) { return u.user, u.userErr }
 
+// admins names who is an Admin; err makes every check fail.
+type admins struct {
+	ids map[uuid.UUID]bool
+	err error
+}
+
+func (a admins) IsAdmin(_ context.Context, id uuid.UUID) (bool, error) { return a.ids[id], a.err }
+
 func ada(t *testing.T) domain.User {
 	t.Helper()
 	e, _ := domain.NewEmail("ada@example.org")
@@ -86,7 +95,7 @@ func wantProblem(t *testing.T, res any, err error, status int, detail string) {
 
 func TestSignUpAndConfirm(t *testing.T) {
 	uc := &useCases{}
-	h := web.New(uc)
+	h := web.New(uc, admins{})
 	ctx := context.Background()
 	if res, err := h.SignUp(ctx, &oas.SignUp{Email: "a@b.c", Name: "Ada", Password: "pw"}); err != nil {
 		t.Fatal(err)
@@ -112,7 +121,7 @@ func TestEveryRefusalIsAProblemSayingWhatToFix(t *testing.T) {
 		app.ErrInvalidCredentials: {http.StatusUnauthorized, "The email or the password is wrong."},
 	}
 	for err, want := range cases {
-		h := web.New(&useCases{err: err})
+		h := web.New(&useCases{err: err}, admins{})
 		res, gotErr := h.SignUp(context.Background(), &oas.SignUp{})
 		wantProblem(t, res, gotErr, want.status, want.detail)
 	}
@@ -120,7 +129,7 @@ func TestEveryRefusalIsAProblemSayingWhatToFix(t *testing.T) {
 
 func TestAnUnexpectedFailurePassesOnForA500(t *testing.T) {
 	boom := errors.New("boom")
-	h := web.New(&useCases{err: boom})
+	h := web.New(&useCases{err: boom}, admins{})
 	ctx := context.Background()
 	if _, err := h.SignUp(ctx, &oas.SignUp{}); !errors.Is(err, boom) {
 		t.Errorf("SignUp err = %v", err)
@@ -143,7 +152,7 @@ func TestAnUnexpectedFailurePassesOnForA500(t *testing.T) {
 }
 
 func TestSignInSetsAHostOnlySessionCookie(t *testing.T) {
-	h := web.New(&useCases{token: "tok"})
+	h := web.New(&useCases{token: "tok"}, admins{})
 	res, err := h.SignIn(context.Background(), &oas.SignIn{Email: "a@b.c", Password: "pw"})
 	if err != nil {
 		t.Fatal(err)
@@ -161,7 +170,7 @@ func TestSignInSetsAHostOnlySessionCookie(t *testing.T) {
 
 func TestSignOutEndsThisSessionAndClearsTheCookie(t *testing.T) {
 	uc := &useCases{user: ada(t)}
-	h := web.New(uc)
+	h := web.New(uc, admins{})
 	res, err := h.SignOut(signedIn(t, h, "tok"))
 	if err != nil || uc.signedOut != "tok" {
 		t.Fatalf("SignOut = %v, ended %q", err, uc.signedOut)
@@ -173,7 +182,7 @@ func TestSignOutEndsThisSessionAndClearsTheCookie(t *testing.T) {
 
 func TestHandleSessionRefusesWhatAuthenticateRefuses(t *testing.T) {
 	uc := &useCases{err: app.ErrNoSession}
-	if _, err := web.New(uc).HandleSession(context.Background(), oas.GetProfileOperation, oas.Session{APIKey: "x"}); !errors.Is(err, app.ErrNoSession) {
+	if _, err := web.New(uc, admins{}).HandleSession(context.Background(), oas.GetProfileOperation, oas.Session{APIKey: "x"}); !errors.Is(err, app.ErrNoSession) {
 		t.Fatalf("err = %v", err)
 	}
 	if uc.authorised != "x" {
@@ -184,13 +193,24 @@ func TestHandleSessionRefusesWhatAuthenticateRefuses(t *testing.T) {
 func TestProfile(t *testing.T) {
 	u := ada(t)
 	uc := &useCases{user: u}
-	h := web.New(uc)
+	h := web.New(uc, admins{})
 	ctx := signedIn(t, h, "tok")
 
 	res, err := h.GetProfile(ctx)
 	p, ok := res.(*oas.Profile)
-	if err != nil || !ok || p.Email != "ada@example.org" || p.Name != "Ada" || !p.CreatedAt.Equal(u.CreatedAt) {
+	if err != nil || !ok || p.Email != "ada@example.org" || p.Name != "Ada" || !p.CreatedAt.Equal(u.CreatedAt) || p.Admin {
 		t.Fatalf("GetProfile = %#v, %v", res, err)
+	}
+	if principal.From(ctx) != u.ID {
+		t.Fatalf("the session handler left %v as the principal, want %v", principal.From(ctx), u.ID)
+	}
+	admin := web.New(uc, admins{ids: map[uuid.UUID]bool{u.ID: true}})
+	if res, err := admin.GetProfile(ctx); err != nil || !res.(*oas.Profile).Admin {
+		t.Fatalf("an Admin's Profile = %#v, %v", res, err)
+	}
+	boom := errors.New("boom")
+	if _, err := web.New(uc, admins{err: boom}).GetProfile(ctx); !errors.Is(err, boom) {
+		t.Fatalf("a failing admin check: %v", err)
 	}
 
 	if res, err := h.UpdateProfile(ctx, &oas.ProfileUpdate{Name: "Ada King"}); err != nil || uc.renamed != "Ada King" {
@@ -208,7 +228,7 @@ func TestProfile(t *testing.T) {
 }
 
 func TestConfirmWithTheWrongPasswordSaysSo(t *testing.T) {
-	h := web.New(&useCases{err: app.ErrInvalidCredentials})
+	h := web.New(&useCases{err: app.ErrInvalidCredentials}, admins{})
 	res, err := h.ConfirmEmail(context.Background(), &oas.Confirmation{Token: "t", Password: "wrong"})
 	wantProblem(t, res, err, http.StatusUnprocessableEntity, "That is not the password you signed up with.")
 }
@@ -216,7 +236,7 @@ func TestConfirmWithTheWrongPasswordSaysSo(t *testing.T) {
 func TestChangePassword(t *testing.T) {
 	u := ada(t)
 	uc := &useCases{user: u}
-	h := web.New(uc)
+	h := web.New(uc, admins{})
 	ctx := signedIn(t, h, "tok")
 
 	res, err := h.ChangePassword(ctx, &oas.PasswordChange{Current: "old", Next: "new"})
@@ -235,7 +255,7 @@ func TestChangePassword(t *testing.T) {
 }
 
 func TestABusyServerSaysToTryAgain(t *testing.T) {
-	h := web.New(&useCases{err: app.ErrBusy})
+	h := web.New(&useCases{err: app.ErrBusy}, admins{})
 	res, err := h.SignIn(context.Background(), &oas.SignIn{})
 	wantProblem(t, res, err, http.StatusServiceUnavailable, "Too many sign-ins at once. Try again in a moment.")
 }

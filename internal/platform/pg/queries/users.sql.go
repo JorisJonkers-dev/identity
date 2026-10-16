@@ -124,6 +124,36 @@ func (q *Queries) DeleteSignup(ctx context.Context, tokenHash []byte) error {
 	return err
 }
 
+const listUsers = `-- name: ListUsers :many
+SELECT id, email, name, password_hash, created_at FROM users ORDER BY lower(name), email
+`
+
+func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
+	rows, err := q.db.Query(ctx, listUsers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []User{}
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Name,
+			&i.PasswordHash,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const sessionByHash = `-- name: SessionByHash :one
 SELECT token_hash, id, user_id, created_at, last_seen_at, expires_at FROM sessions WHERE token_hash = $1
 `

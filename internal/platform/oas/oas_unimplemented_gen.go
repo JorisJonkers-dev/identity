@@ -13,6 +13,25 @@ type UnimplementedHandler struct{}
 
 var _ Handler = UnimplementedHandler{}
 
+// AddMember implements addMember operation.
+//
+// Adding a member twice changes nothing. Admins only.
+//
+// PUT /api/v1/access/groups/{groupId}/members/{userId}
+func (UnimplementedHandler) AddMember(ctx context.Context, params AddMemberParams) (r AddMemberRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// AssignRole implements assignRole operation.
+//
+// Makes an Assignment. The Client must be in the cluster and declare the App Role, and the admins
+// Group holds none. Assigning twice changes nothing. Admins only.
+//
+// PUT /api/v1/access/groups/{groupId}/roles/{clientId}/{role}
+func (UnimplementedHandler) AssignRole(ctx context.Context, params AssignRoleParams) (r AssignRoleRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // ChangePassword implements changePassword operation.
 //
 // Replaces the password after checking the current one.
@@ -32,6 +51,34 @@ func (UnimplementedHandler) ConfirmEmail(ctx context.Context, req *Confirmation)
 	return r, ht.ErrNotImplemented
 }
 
+// CreateGroup implements createGroup operation.
+//
+// Makes an empty Group. Names are unique whatever their case. Admins only.
+//
+// POST /api/v1/access/groups
+func (UnimplementedHandler) CreateGroup(ctx context.Context, req *GroupDraft) (r CreateGroupRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// DeleteGroup implements deleteGroup operation.
+//
+// Deletes a Group with its memberships and Assignments. The admins Group cannot be deleted. Admins
+// only.
+//
+// DELETE /api/v1/access/groups/{groupId}
+func (UnimplementedHandler) DeleteGroup(ctx context.Context, params DeleteGroupParams) (r DeleteGroupRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// GetAccess implements getAccess operation.
+//
+// Everything the access page shows, in one read. Admins only.
+//
+// GET /api/v1/access
+func (UnimplementedHandler) GetAccess(ctx context.Context) (r GetAccessRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // GetProfile implements getProfile operation.
 //
 // Who is signed in.
@@ -48,6 +95,24 @@ func (UnimplementedHandler) GetProfile(ctx context.Context) (r GetProfileRes, _ 
 //
 // GET /api/v1/version
 func (UnimplementedHandler) GetVersion(ctx context.Context) (r GetVersionRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// RemoveMember implements removeMember operation.
+//
+// The admins Group always keeps one member. Admins only.
+//
+// DELETE /api/v1/access/groups/{groupId}/members/{userId}
+func (UnimplementedHandler) RemoveMember(ctx context.Context, params RemoveMemberParams) (r RemoveMemberRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// RenameGroup implements renameGroup operation.
+//
+// No token carries a Group's name, so renaming one changes nothing for any app. Admins only.
+//
+// PATCH /api/v1/access/groups/{groupId}
+func (UnimplementedHandler) RenameGroup(ctx context.Context, req *GroupDraft, params RenameGroupParams) (r RenameGroupRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -77,6 +142,15 @@ func (UnimplementedHandler) SignOut(ctx context.Context) (r SignOutRes, _ error)
 //
 // POST /api/v1/signup
 func (UnimplementedHandler) SignUp(ctx context.Context, req *SignUp) (r SignUpRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// UnassignRole implements unassignRole operation.
+//
+// Removes an Assignment, also one on a Removed Client. Admins only.
+//
+// DELETE /api/v1/access/groups/{groupId}/roles/{clientId}/{role}
+func (UnimplementedHandler) UnassignRole(ctx context.Context, params UnassignRoleParams) (r UnassignRoleRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 

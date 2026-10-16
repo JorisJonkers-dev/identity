@@ -53,6 +53,13 @@ test('a person signs up, confirms by mail, signs in, sees their profile and sign
   await expect(page.getByRole('definition').filter({ hasText: email })).toBeVisible()
   await expectAccessible(page)
 
+  // A new User is no Admin: the access page refuses them, and the Profile does not offer it.
+  await expect(page.getByRole('link', { name: 'Manage access' })).toHaveCount(0)
+  await page.goto('/access')
+  await expect(page.getByRole('alert')).toHaveText('Only Admins manage access.')
+  await expectAccessible(page)
+  await page.goto('/profile')
+
   const cookie = (await page.context().cookies()).find((c) => c.name === '__Host-identity_session')
   expect(cookie?.httpOnly).toBe(true)
   expect(cookie?.sameSite).toBe('Lax')
@@ -61,7 +68,7 @@ test('a person signs up, confirms by mail, signs in, sees their profile and sign
   await expect(page).toHaveURL('/signin')
   await page.goto('/profile')
   await expect(page.getByRole('alert')).toBeVisible()
-  expect(errors.filter((e) => !e.includes('401'))).toEqual([])
+  expect(errors.filter((e) => !e.includes('401') && !e.includes('403'))).toEqual([])
 })
 
 test('a wrong password is refused with the same answer as an unknown email', async ({ page }) => {
@@ -70,4 +77,10 @@ test('a wrong password is refused with the same answer as an unknown email', asy
   await page.getByLabel('Password', { exact: true }).fill('wrong password!!')
   await page.getByRole('button', { name: 'Sign in' }).click()
   await expect(page.getByRole('alert')).toHaveText('The email or the password is wrong.')
+})
+
+test('the no-access page says why an app did not open', async ({ page }) => {
+  await page.goto('/no-access')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('No access to this app yet')
+  await expectAccessible(page)
 })

@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JorisJonkers-dev/identity/internal/platform/pg/queries"
@@ -40,3 +41,8 @@ func (s *Store) Ping(ctx context.Context) error {
 
 // Queries returns the generated queries, for the persistence adapters.
 func (s *Store) Queries() *queries.Queries { return queries.New(s.pool) }
+
+// InTx runs fn in one transaction, which commits when fn returns nil and rolls back otherwise.
+func (s *Store) InTx(ctx context.Context, fn func(*queries.Queries) error) error {
+	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error { return fn(queries.New(tx)) })
+}

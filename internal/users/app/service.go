@@ -61,6 +61,8 @@ type Store interface {
 	CreateUser(ctx context.Context, u domain.User) error
 	UserByEmail(ctx context.Context, e domain.Email) (domain.User, error)
 	UserByID(ctx context.Context, id uuid.UUID) (domain.User, error)
+	// Users is every User, by name.
+	Users(ctx context.Context) ([]domain.User, error)
 	UpdateName(ctx context.Context, id uuid.UUID, n domain.Name) error
 	UpdatePasswordHash(ctx context.Context, id uuid.UUID, hash string) error
 	CreateSignup(ctx context.Context, s Signup) error
@@ -302,6 +304,11 @@ func (s *Service) SignOut(ctx context.Context, token string) error {
 // User returns a User by id.
 func (s *Service) User(ctx context.Context, id uuid.UUID) (domain.User, error) {
 	return s.store.UserByID(ctx, id)
+}
+
+// Users returns every User, by name.
+func (s *Service) Users(ctx context.Context) ([]domain.User, error) {
+	return s.store.Users(ctx)
 }
 
 // Rename changes a User's name.

@@ -24,6 +24,10 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 
+	"github.com/JorisJonkers-dev/identity/internal/access/adapters/catalog"
+	"github.com/JorisJonkers-dev/identity/internal/access/adapters/people"
+	accesspersistence "github.com/JorisJonkers-dev/identity/internal/access/adapters/persistence"
+	accessapp "github.com/JorisJonkers-dev/identity/internal/access/app"
 	"github.com/JorisJonkers-dev/identity/internal/platform/httpapi"
 	"github.com/JorisJonkers-dev/identity/internal/platform/mail"
 	"github.com/JorisJonkers-dev/identity/internal/platform/passwords"
@@ -83,15 +87,16 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 	defer store.Close()
 
 	users := app.New(persistence.New(store.Queries()), passwords.NewArgon2id(maxConcurrentHashes, hashWait), cfg.mailer, time.Now, rand.Reader, cfg.publicURL)
-	api, err := httpapi.New(logger, version, users)
-	if err != nil {
-		return err
-	}
 	index, synced, err := watchClients(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
-	provider, err := oidcProvider(cfg, store, users, index, logger)
+	access := accessapp.New(accesspersistence.New(store.Queries(), store), catalog.New(index), people.New(users), rand.Reader)
+	api, err := httpapi.New(logger, version, users, access)
+	if err != nil {
+		return err
+	}
+	provider, err := oidcProvider(cfg, store, users, access, index, logger)
 	if err != nil {
 		return err
 	}
@@ -137,12 +142,12 @@ func watchClients(ctx context.Context, cfg config, logger *slog.Logger) (*client
 
 // oidcProvider is the OIDC Provider over the sign-in context. It signs with a key made at start-up
 // until keys are kept (identity#30).
-func oidcProvider(cfg config, store *pg.Store, users *app.Service, index *clients.Index, logger *slog.Logger) (http.Handler, error) {
+func oidcProvider(cfg config, store *pg.Store, users *app.Service, access *accessapp.Service, index *clients.Index, logger *slog.Logger) (http.Handler, error) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, err
 	}
-	svc := signinapp.New(signinpersistence.New(store.Queries()), index, accounts.New(users), time.Now, rand.Reader)
+	svc := signinapp.New(signinpersistence.New(store.Queries()), index, accounts.New(users), access, time.Now, rand.Reader)
 	return signinoidc.New(signinoidc.Config{
 		Issuer:        cfg.publicURL,
 		Insecure:      strings.HasPrefix(cfg.publicURL, "http://"),

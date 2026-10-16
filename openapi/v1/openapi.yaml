@@ -25,6 +25,10 @@ tags:
     description: Signing up, confirming an email, and signing in and out.
   - name: profile
     description: What a signed-in User may change about themselves.
+  - name: access
+    description: >-
+      Groups, their members, and the App Roles each Group holds on each Client. Only Admins may
+      read or change any of it, and being an Admin gives no App Role (docs/adr/0004).
 paths:
   /api/v1/version:
     get:
@@ -194,6 +198,138 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/access:
+    get:
+      operationId: getAccess
+      summary: Groups, Users, Clients and Assignments
+      description: Everything the access page shows, in one read. Admins only.
+      tags: [access]
+      responses:
+        "200":
+          description: The access overview.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccessOverview"
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/access/groups:
+    post:
+      operationId: createGroup
+      summary: Make a Group
+      description: Makes an empty Group. Names are unique whatever their case. Admins only.
+      tags: [access]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GroupDraft"
+      responses:
+        "201":
+          description: The new Group.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Group"
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/access/groups/{groupId}:
+    parameters:
+      - $ref: "#/components/parameters/GroupId"
+    patch:
+      operationId: renameGroup
+      summary: Rename a Group
+      description: No token carries a Group's name, so renaming one changes nothing for any app. Admins only.
+      tags: [access]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GroupDraft"
+      responses:
+        "204":
+          description: Renamed.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: deleteGroup
+      summary: Delete a Group
+      description: Deletes a Group with its memberships and Assignments. The admins Group cannot be deleted. Admins only.
+      tags: [access]
+      responses:
+        "204":
+          description: Deleted.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/access/groups/{groupId}/members/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/GroupId"
+      - $ref: "#/components/parameters/UserId"
+    put:
+      operationId: addMember
+      summary: Put a User in a Group
+      description: Adding a member twice changes nothing. Admins only.
+      tags: [access]
+      responses:
+        "204":
+          description: The User is a member.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: removeMember
+      summary: Take a User out of a Group
+      description: The admins Group always keeps one member. Admins only.
+      tags: [access]
+      responses:
+        "204":
+          description: The User is not a member.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/access/groups/{groupId}/roles/{clientId}/{role}:
+    parameters:
+      - $ref: "#/components/parameters/GroupId"
+      - $ref: "#/components/parameters/ClientId"
+      - $ref: "#/components/parameters/Role"
+    put:
+      operationId: assignRole
+      summary: Give a Group an App Role on a Client
+      description: >-
+        Makes an Assignment. The Client must be in the cluster and declare the App Role, and the
+        admins Group holds none. Assigning twice changes nothing. Admins only.
+      tags: [access]
+      responses:
+        "204":
+          description: The Group holds the App Role.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: unassignRole
+      summary: Take an App Role from a Group
+      description: Removes an Assignment, also one on a Removed Client. Admins only.
+      tags: [access]
+      responses:
+        "204":
+          description: The Group does not hold the App Role.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
   securitySchemes:
     session:
@@ -203,6 +339,35 @@ components:
       description: >-
         The Single sign-on session, set by signIn as a host-only, HttpOnly, Secure, SameSite=Lax
         cookie. The API takes JSON bodies only, so a cross-site form cannot post to it.
+  parameters:
+    GroupId:
+      name: groupId
+      in: path
+      required: true
+      description: The Group.
+      schema:
+        $ref: "#/components/schemas/Id"
+    UserId:
+      name: userId
+      in: path
+      required: true
+      description: The User.
+      schema:
+        $ref: "#/components/schemas/Id"
+    ClientId:
+      name: clientId
+      in: path
+      required: true
+      description: The Client, by its id.
+      schema:
+        $ref: "#/components/schemas/ClientId"
+    Role:
+      name: role
+      in: path
+      required: true
+      description: The App Role.
+      schema:
+        $ref: "#/components/schemas/AppRole"
   responses:
     Problem:
       description: An RFC 9457 problem.
@@ -274,8 +439,11 @@ components:
       description: The signed-in User.
       type: object
       additionalProperties: false
-      required: [email, name, createdAt]
+      required: [email, name, createdAt, admin]
       properties:
+        admin:
+          type: boolean
+          description: Whether the User is an Admin, who manages access. An Admin holds no App Role by being one.
         email:
           $ref: "#/components/schemas/Email"
         name:
@@ -311,6 +479,138 @@ components:
           $ref: "#/components/schemas/Password"
         next:
           $ref: "#/components/schemas/Password"
+    Id:
+      description: An id.
+      type: string
+      format: uuid
+      maxLength: 36
+      example: 0b6f4a52-6a8f-4b8e-9d55-6f0b0f2d6e11
+    ClientId:
+      description: A Client's id, the name of its Client object.
+      type: string
+      minLength: 1
+      maxLength: 253
+      pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+      example: grafana
+    AppRole:
+      description: An App Role a Client declares.
+      type: string
+      minLength: 1
+      maxLength: 63
+      pattern: "^[a-z][a-z0-9-]*$"
+      example: editor
+    GroupDraft:
+      description: What a Group is called.
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 256
+          description: The Group's name, 1 to 64 characters.
+          example: Family
+    Group:
+      description: A named set of Users.
+      type: object
+      additionalProperties: false
+      required: [id, name, admins, members]
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        name:
+          type: string
+          maxLength: 256
+          description: What the Group is called.
+          example: Family
+        admins:
+          type: boolean
+          description: Whether this is the admins Group, whose members are Admins and which holds no App Role.
+        members:
+          type: array
+          maxItems: 100000
+          description: The Users in the Group.
+          items:
+            $ref: "#/components/schemas/Id"
+    Person:
+      description: A User, as the access page lists one.
+      type: object
+      additionalProperties: false
+      required: [id, email, name]
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        email:
+          $ref: "#/components/schemas/Email"
+        name:
+          type: string
+          maxLength: 400
+          description: What the User is called.
+          example: Ada Lovelace
+    AccessClient:
+      description: A Client in the cluster, with the App Roles it declares.
+      type: object
+      additionalProperties: false
+      required: [id, label, roles]
+      properties:
+        id:
+          $ref: "#/components/schemas/ClientId"
+        label:
+          type: string
+          maxLength: 253
+          description: What the Launcher calls it, or its id when it has no label.
+          example: Grafana
+        roles:
+          type: array
+          maxItems: 64
+          description: The App Roles it declares, user first.
+          items:
+            $ref: "#/components/schemas/AppRole"
+    Assignment:
+      description: A Group holding one App Role on one Client.
+      type: object
+      additionalProperties: false
+      required: [groupId, clientId, role]
+      properties:
+        groupId:
+          $ref: "#/components/schemas/Id"
+        clientId:
+          $ref: "#/components/schemas/ClientId"
+        role:
+          $ref: "#/components/schemas/AppRole"
+    AccessOverview:
+      description: >-
+        Every Group with its members, every User, every Client in the cluster, and every
+        Assignment, including those on Removed Clients, which give no access while it is away.
+      type: object
+      additionalProperties: false
+      required: [groups, users, clients, assignments]
+      properties:
+        groups:
+          type: array
+          maxItems: 10000
+          description: The admins Group first, then by name.
+          items:
+            $ref: "#/components/schemas/Group"
+        users:
+          type: array
+          maxItems: 100000
+          description: Every User, by name.
+          items:
+            $ref: "#/components/schemas/Person"
+        clients:
+          type: array
+          maxItems: 10000
+          description: Every Client in the cluster, by label.
+          items:
+            $ref: "#/components/schemas/AccessClient"
+        assignments:
+          type: array
+          maxItems: 1000000
+          description: Every Assignment.
+          items:
+            $ref: "#/components/schemas/Assignment"
     Version:
       description: The running build.
       type: object
