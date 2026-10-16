@@ -5,13 +5,13 @@ import { useLauncher } from '../composables/useLauncher'
 import { useVersion } from '../composables/useVersion'
 
 const { version, loadError: versionError } = useVersion()
-const { apps, isLoading, signedOut, loadError, admin } = useLauncher()
+const { apps, isLoading, loadError, admin } = useLauncher()
 // Apps whose icon failed to load show their label's first letter instead.
 const broken = reactive(new Set<string>())
 </script>
 
 <template>
-  <section v-if="!isLoading && !signedOut && !loadError" aria-labelledby="home-title">
+  <section v-if="apps" aria-labelledby="home-title">
     <h1 id="home-title">Your apps</h1>
     <nav aria-label="Your account" class="links">
       <RouterLink to="/profile">Your profile</RouterLink>

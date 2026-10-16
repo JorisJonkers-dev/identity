@@ -11,7 +11,8 @@ export function useLauncher() {
   const signedIn = computed(() => query.isSuccess.value)
   const profile = useQuery(computed(() => ({ ...getProfileOptions(), retry: false, enabled: signedIn.value })))
   return {
-    apps: computed(() => query.data.value?.apps ?? []),
+    // Set once the apps are read: the Launcher shows only for a signed-in User.
+    apps: computed(() => query.data.value?.apps),
     isLoading: query.isPending,
     signedOut,
     loadError: computed(() => (query.error.value && !signedOut.value ? describeError(query.error.value) : null)),
