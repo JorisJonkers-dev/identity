@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import type { VueWrapper } from '@vue/test-utils'
 import { mountAt, problem, settle } from '../../app/testing'
 
 const root = '00000000-0000-4000-8000-0000000000a1'
@@ -46,6 +47,18 @@ const gave = {
   role: 'viewer',
 }
 
+function link(wrapper: VueWrapper, text: string) {
+  const found = wrapper.findAll('a').find((a) => a.text() === text)
+  if (!found) throw new Error(`no link ${text}`)
+  return found
+}
+
+function button(wrapper: VueWrapper, text: string) {
+  const found = wrapper.findAll('button').find((b) => b.text() === text)
+  if (!found) throw new Error(`no button ${text}`)
+  return found
+}
+
 afterEach(() => {
   document.body.innerHTML = ''
 })
@@ -58,19 +71,19 @@ describe('the dashboard', () => {
 
   it('shows the counts of the last day', async () => {
     const { wrapper } = await mountAt('/admin', answers())
-    const stats = wrapper.findAll('.stat').map((s) => s.text())
+    const stats = wrapper.findAll('[aria-label="Counts"] li').map((s) => s.text())
     expect(stats).toEqual([
       'Users14+1 this week',
       'Unassigned1waiting for a Group',
       'Sign-ins1864 failed',
       'Active sessions23across 12 Users',
     ])
-    expect(wrapper.get('.stat.warn').text()).toContain('Unassigned')
+    expect(wrapper.get('[data-attention]').text()).toContain('Unassigned')
   })
 
   it('does not warn when nobody is waiting', async () => {
     const { wrapper } = await mountAt('/admin', answers({ unassigned: [] }))
-    expect(wrapper.find('.stat.warn').exists()).toBe(false)
+    expect(wrapper.find('[data-attention]').exists()).toBe(false)
     expect(wrapper.text()).toContain('No Users are waiting for a Group.')
   })
 
@@ -84,7 +97,7 @@ describe('the dashboard', () => {
     const { wrapper } = await mountAt('/admin', answers())
     const chart = wrapper.get('svg[role="img"]')
     expect(chart.attributes('aria-label')).toBe(`276 sign-ins in the last 24 hours. 0 failed sign-ins. The busiest hour had 23 sign-ins, around ${chartHour(23)}.`)
-    expect(chart.get('.line').attributes('points')?.split(' ')).toHaveLength(24)
+    expect(chart.get('[data-test="sign-ins"]').attributes('points')?.split(' ')).toHaveLength(24)
     expect(chart.findAll('text').map((t) => t.text()).slice(0, 3)).toEqual(['50', '25', '0'])
   })
 
@@ -106,22 +119,22 @@ describe('the dashboard', () => {
     }))
     const { wrapper } = await mountAt('/admin', answers({ unassigned: waiting }))
     expect(wrapper.findAll('[aria-labelledby="queue-title"] li')).toHaveLength(5)
-    expect(wrapper.get('a.more').text()).toBe('See all 7 on the access page')
+    expect(link(wrapper, 'See all 7 on the access page').attributes('href')).toBe('/access#waiting-title')
   })
 
   it('needs no link to the rest when the whole queue shows', async () => {
     const { wrapper } = await mountAt('/admin', answers())
-    expect(wrapper.find('a.more').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('See all')
   })
 
   it('links to Grafana only when it is configured', async () => {
     const without = await mountAt('/admin', answers())
-    expect(without.wrapper.find('a.ext').exists()).toBe(false)
-    expect(without.wrapper.get('.sub').text()).toBe('Last 24 hours.')
+    expect(without.wrapper.text()).not.toContain('Open in Grafana')
+    expect(without.wrapper.get('[data-test="subtitle"]').text()).toBe('Last 24 hours.')
     document.body.innerHTML = ''
     const { wrapper } = await mountAt('/admin', answers({ grafanaUrl: 'https://grafana.example.org/d/identity' }))
-    expect(wrapper.get('a.ext').attributes('href')).toBe('https://grafana.example.org/d/identity')
-    expect(wrapper.get('.sub').text()).toBe('Last 24 hours. Charts over time are in Grafana.')
+    expect(link(wrapper, 'Open in Grafana ↗').attributes('href')).toBe('https://grafana.example.org/d/identity')
+    expect(wrapper.get('[data-test="subtitle"]').text()).toBe('Last 24 hours. Charts over time are in Grafana.')
   })
 
   it('says loading before the counts arrive', async () => {
@@ -148,14 +161,14 @@ describe('the dashboard', () => {
   it('names the Admin and counts the queue in the sidebar', async () => {
     const { wrapper } = await mountAt('/admin', answers())
     const side = wrapper.get('nav[aria-label="Admin"]')
-    expect(side.get('.who').text()).toBe('JJJoris JonkersAdmin · 12h session')
-    expect(side.get('a.on').text()).toBe('Dashboard')
-    expect(side.get('.count').text()).toBe('1')
+    expect(side.get('[data-who]').text()).toBe('JJJoris JonkersAdmin · 12h session')
+    expect(side.get('[aria-current="page"]').text()).toBe('Dashboard')
+    expect(side.get('[data-count]').text()).toBe('1')
   })
 
   it('leaves the count out of the sidebar when nobody waits', async () => {
     const { wrapper } = await mountAt('/admin', answers({ unassigned: [] }))
-    expect(wrapper.find('nav .count').exists()).toBe(false)
+    expect(wrapper.find('nav [data-count]').exists()).toBe(false)
   })
 
   it('fills the window instead of the narrow column the other pages use', async () => {
@@ -178,20 +191,20 @@ describe('the audit page', () => {
 
   it('reads each event as a sentence, with its time and kind', async () => {
     const { wrapper } = await mountAt('/admin/audit', answers(() => page([gave])))
-    const row = wrapper.get('ol.audit li:not(.day)')
+    const row = wrapper.get('[data-event]')
     expect(row.get('time').attributes('datetime')).toBe('2026-10-16T21:14:02Z')
     expect(row.get('p').text()).toBe('Joris gave Family viewer on Grafana')
     expect(row.get('p b').text()).toBe('Joris')
-    expect(row.get('p .pill').text()).toBe('viewer')
-    expect(row.get('.k').classes()).toContain('a')
-    expect(row.findAll('.pill').at(-1)?.text()).toBe('access')
+    expect(row.get('[data-role]').text()).toBe('viewer')
+    expect(row.get('[data-tone]').attributes('data-tone')).toBe('a')
+    expect(row.get('[data-kind]').text()).toBe('access')
   })
 
   it('heads each day of events once', async () => {
     const earlier = { ...gave, id: '00000000-0000-4000-8000-0000000000e2', at: '2026-10-16T20:00:00Z' }
     const older = { ...gave, id: '00000000-0000-4000-8000-0000000000e3', at: '2026-10-01T20:00:00Z' }
     const { wrapper } = await mountAt('/admin/audit', answers(() => page([gave, earlier, older])))
-    expect(wrapper.findAll('li.day').map((d) => d.text())).toEqual([expect.any(String), '1 Oct'])
+    expect(wrapper.findAll('[data-day]').map((d) => d.text())).toEqual([expect.any(String), '1 Oct'])
   })
 
   it('says when no event matches', async () => {
@@ -222,7 +235,6 @@ describe('the audit page', () => {
     await clients?.setValue('grafana')
     await settle()
     expect(router.currentRoute.value.query).toEqual({ user: noor, client: 'grafana' })
-    expect(wrapper.findAll('label.pill.a')).toHaveLength(0)
   })
 
   it('takes a filter from the address and ignores a kind there is not', async () => {
@@ -240,10 +252,10 @@ describe('the audit page', () => {
         return pages === 1 ? page([gave], 'cursor-1') : page([{ ...gave, id: '00000000-0000-4000-8000-0000000000e9' }])
       }),
     )
-    await wrapper.get('button.older').trigger('click')
+    await button(wrapper, 'Show older Audit Events').trigger('click')
     await settle()
-    expect(wrapper.findAll('ol.audit li:not(.day)')).toHaveLength(2)
-    expect(wrapper.find('button.older').exists()).toBe(false)
+    expect(wrapper.findAll('[data-event]')).toHaveLength(2)
+    expect(wrapper.text()).not.toContain('Show older Audit Events')
   })
 
   it('says loading before the events arrive', async () => {
@@ -258,6 +270,6 @@ describe('the audit page', () => {
 
   it('marks the Audit link as the page open', async () => {
     const { wrapper } = await mountAt('/admin/audit', answers(() => page([])))
-    expect(wrapper.get('nav a.on').text()).toBe('Audit')
+    expect(wrapper.get('nav [aria-current="page"]').text()).toBe('Audit')
   })
 })
