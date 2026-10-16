@@ -136,7 +136,7 @@ func (e *Env) SignedUp(t *testing.T, email string) *Browser {
 }
 
 // Admin is a Browser of an Admin whose session proved a Second Factor: a User signed up as email,
-// put in the admins Group, who added an authenticator app.
+// put in the admins Group, who added an authenticator app and signed in again with its code.
 func (e *Env) Admin(t *testing.T, email string) *Browser {
 	t.Helper()
 	b := e.SignedUp(t, email)
@@ -149,6 +149,15 @@ func (e *Env) Admin(t *testing.T, email string) *Browser {
 	}
 	b.Call(t, http.MethodPost, "/api/v1/profile/second-factors/totp/confirmation",
 		map[string]string{"label": "Phone", "code": code, "password": Password}, http.StatusNoContent, nil)
+	// Signing in again as an Admin is what caps the session at 12 hours; the code that added the app
+	// is spent, so the next step's code proves it.
+	b.Call(t, http.MethodDelete, "/api/v1/session", nil, http.StatusNoContent, nil)
+	b.Call(t, http.MethodPost, "/api/v1/session", map[string]string{"email": email, "password": Password}, http.StatusAccepted, nil)
+	next, err := totp.GenerateCode(setup.Secret, time.Now().Add(30*time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b.Call(t, http.MethodPost, "/api/v1/session/second-factor", map[string]string{"code": next}, http.StatusNoContent, nil)
 	return b
 }
 
