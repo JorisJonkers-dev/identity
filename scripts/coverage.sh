@@ -65,25 +65,33 @@ rsync -a --exclude node_modules --exclude .git --exclude bin --exclude "$out" ./
 module=$(go list -m)
 
 # Branch mode counts each branch taken; condition mode counts each operand of && and || both ways.
+# Each package is instrumented and tested on its own, so they run side by side, one per CPU.
+jobs=$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)
 gobco_total() {
   mode=$1
   shift
+  reports=$(mktemp -d "$copy/.gobco-$mode.XXXXXX")
+  for package in $unit; do echo "${package#"$module"/}"; done |
+    xargs -P "$jobs" -I{} sh -c 'cd "$1" && go tool gobco $2 "./$3" >"$4/$(echo "$3" | tr / _).txt" 2>&1' _ "$copy" "$*" {} "$reports"
   taken=0
   total=0
-  for package in $unit; do
-    report=$(cd "$copy" && go tool gobco "$@" "./${package#"$module"/}")
-    echo "$report" >&2
-    counted=$(echo "$report" | sed -n "s/^$mode coverage: \([0-9]*\)\/\([0-9]*\)\$/\1 \2/p")
+  for report in "$reports"/*.txt; do
+    cat "$report" >&2
+    counted=$(sed -n "s/^$mode coverage: \([0-9]*\)\/\([0-9]*\)\$/\1 \2/p" "$report")
+    if [ -z "$counted" ]; then
+      echo "gobco reported no $mode coverage for $report" >&2
+      return 1
+    fi
     taken=$((taken + ${counted% *}))
     total=$((total + ${counted#* }))
   done
   echo "$taken $total"
 }
 
-counted=$(gobco_total Branch -branch)
+counted=$(gobco_total Branch -branch) || exit 1
 branches_taken=${counted% *}
 branches=${counted#* }
-counted=$(gobco_total Condition)
+counted=$(gobco_total Condition) || exit 1
 conditions_taken=${counted% *}
 conditions=${counted#* }
 
