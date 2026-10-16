@@ -1,8 +1,9 @@
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { flushPromises, mount } from '@vue/test-utils'
-import { vi } from 'vitest'
+import { expect, vi } from 'vitest'
 import { createMemoryHistory } from 'vue-router'
 import { configureApi } from '../infrastructure/http'
+import { checkStub } from './contract'
 import App from './App.vue'
 import { createAppRouter } from './router'
 
@@ -26,7 +27,9 @@ export async function mountAt(path: string, answers: Record<string, Answer>) {
     requests.push({ key, body: text ? (JSON.parse(text) as unknown) : null })
     const answer = answers[key]
     if (!answer) return problem(404, `no answer for ${key}`)
-    return typeof answer === 'function' ? answer() : answer.clone()
+    const response = typeof answer === 'function' ? await answer() : answer.clone()
+    await keepsTheContract(request.method, new URL(request.url).pathname, response)
+    return response
   })
   configureApi({ baseUrl: 'http://app.test', fetch })
   const router = createAppRouter(createMemoryHistory())
@@ -36,6 +39,17 @@ export async function mountAt(path: string, answers: Record<string, Answer>) {
   await router.isReady()
   await settle()
   return { wrapper, router, requests }
+}
+
+/**
+ * Fails the running test, without stopping it, when a stub answers what the server never would.
+ * The page may swallow the bad answer, so the failure cannot rest on what the page shows.
+ */
+async function keepsTheContract(method: string, path: string, response: Response) {
+  const text = await response.clone().text()
+  const mediaType = response.headers.get('Content-Type')?.split(';')[0] ?? null
+  const violation = checkStub(method, path, response.status, text ? mediaType : null, text ? (JSON.parse(text) as unknown) : null)
+  expect.soft(violation, `the stub for ${method} ${path} disagrees with the contract`).toBeNull()
 }
 
 export async function settle() {
