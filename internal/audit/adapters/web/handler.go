@@ -6,7 +6,9 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"math"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -23,13 +25,63 @@ import (
 // UseCases is what the adapter needs from the application layer.
 type UseCases interface {
 	List(ctx context.Context, actor app.Actor, f domain.Filter) (app.Page, error)
+	Dashboard(ctx context.Context, actor app.Actor) (app.Dashboard, error)
 }
 
-// Audit implements listAuditEvents.
-type Audit struct{ uc UseCases }
+// Audit implements listAuditEvents and getDashboard.
+type Audit struct {
+	uc      UseCases
+	grafana *url.URL
+}
 
-// New returns an Audit calling uc.
-func New(uc UseCases) *Audit { return &Audit{uc: uc} }
+// New returns an Audit calling uc. grafana, when not nil, is where the dashboard links for charts
+// over time.
+func New(uc UseCases, grafana *url.URL) *Audit { return &Audit{uc: uc, grafana: grafana} }
+
+// GetDashboard implements getDashboard.
+func (h *Audit) GetDashboard(ctx context.Context) (oas.GetDashboardRes, error) {
+	d, err := h.uc.Dashboard(ctx, actor(ctx))
+	if err != nil {
+		return refusal(err)
+	}
+	res := &oas.Dashboard{
+		Users: count(d.Users), UsersThisWeek: count(d.UsersThisWeek),
+		Unassigned: make([]oas.WaitingUser, 0, len(d.Unassigned)),
+		SignIns:    count(d.SignIns), FailedSignIns: count(d.FailedSignIns),
+		Hours:          make([]oas.SignInHour, 0, len(d.Hours)),
+		ActiveSessions: count(d.ActiveSessions), SessionUsers: count(d.SessionUsers),
+	}
+	for _, p := range d.Unassigned {
+		res.Unassigned = append(res.Unassigned, oas.WaitingUser{ID: oas.ID(p.ID), Email: oas.Email(p.Email), Name: p.Name, ConfirmedAt: p.CreatedAt})
+	}
+	for _, hr := range d.Hours {
+		res.Hours = append(res.Hours, oas.SignInHour{At: hr.At, SignIns: count(hr.SignIns), Failed: count(hr.Failed)})
+	}
+	if h.grafana != nil {
+		res.GrafanaUrl = oas.NewOptURI(*h.grafana)
+	}
+	return res, nil
+}
+
+// count is n as the contract's Count, which no count here comes near the limit of.
+func count(n int) oas.Count { return oas.Count(min(n, math.MaxInt32)) } //nolint:gosec // capped at MaxInt32 first
+
+func actor(ctx context.Context) app.Actor {
+	p := principal.From(ctx)
+	return app.Actor{ID: p.UserID, SecondFactor: p.SecondFactor}
+}
+
+// refusal answers a reader who is not allowed with why, and passes anything else on.
+func refusal(err error) (*oas.ProblemStatusCode, error) {
+	switch {
+	case errors.Is(err, app.ErrNotAdmin):
+		return problem(http.StatusForbidden, "Only Admins can see this page."), nil
+	case errors.Is(err, app.ErrSecondFactorNeeded):
+		return problem(http.StatusForbidden, "This page needs a Second Factor. If you have a passkey or authenticator app, sign out and sign in again with it. If you have neither, add a Second Factor on the Security page first, then sign out and sign in again."), nil
+	default:
+		return nil, err
+	}
+}
 
 // ListAuditEvents implements listAuditEvents.
 func (h *Audit) ListAuditEvents(ctx context.Context, params oas.ListAuditEventsParams) (oas.ListAuditEventsRes, error) {
@@ -41,19 +93,13 @@ func (h *Audit) ListAuditEvents(ctx context.Context, params oas.ListAuditEventsP
 	if before, ok := params.Before.Get(); ok {
 		c, ok := decode(string(before))
 		if !ok {
-			return problem(http.StatusBadRequest, "That page no longer exists. Reload the page."), nil
+			return problem(http.StatusBadRequest, "The list has changed since this page loaded. Reload the page to see the current list."), nil
 		}
 		f.Before = c
 	}
-	p := principal.From(ctx)
-	page, err := h.uc.List(ctx, app.Actor{ID: p.UserID, SecondFactor: p.SecondFactor}, f)
-	switch {
-	case errors.Is(err, app.ErrNotAdmin):
-		return problem(http.StatusForbidden, "Only Admins read the audit log."), nil
-	case errors.Is(err, app.ErrSecondFactorNeeded):
-		return problem(http.StatusForbidden, "Sign out, then sign in again with a passkey or authenticator app to read the audit log. If you have neither, add one on the Security page first."), nil
-	case err != nil:
-		return nil, err
+	page, err := h.uc.List(ctx, actor(ctx), f)
+	if err != nil {
+		return refusal(err)
 	}
 	res := &oas.AuditPage{Events: make([]oas.AuditEvent, 0, len(page.Entries))}
 	for _, e := range page.Entries {

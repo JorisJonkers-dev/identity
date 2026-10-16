@@ -22,6 +22,7 @@ var (
 	admin   = uuid.MustParse("00000000-0000-4000-8000-0000000000a1")
 	ada     = uuid.MustParse("00000000-0000-4000-8000-0000000000a2")
 	gone    = uuid.MustParse("00000000-0000-4000-8000-0000000000a3")
+	bob     = uuid.MustParse("00000000-0000-4000-8000-0000000000a4")
 	asAdmin = app.Actor{ID: admin, SecondFactor: true}
 )
 
@@ -31,7 +32,14 @@ type store struct {
 	limit  int
 	filter domain.Filter
 	cutoff time.Time
+	hours  []app.Hour
+	since  time.Time
 	fail   map[string]error
+}
+
+func (s *store) SignInsByHour(_ context.Context, since time.Time) ([]app.Hour, error) {
+	s.since = since
+	return s.hours, s.fail["SignInsByHour"]
 }
 
 func (s *store) Append(_ context.Context, e domain.Event) error {
@@ -60,10 +68,24 @@ type admins struct{ err error }
 
 func (a admins) IsAdmin(_ context.Context, id uuid.UUID) (bool, error) { return id == admin, a.err }
 
-type directory struct{ err error }
+// directory knows Root, who joined a month ago, and Ada and Bob, who joined this week and wait
+// for a Group; fail makes the named method return its error.
+type directory struct{ fail map[string]error }
 
 func (d directory) People(context.Context) ([]app.Person, error) {
-	return []app.Person{{ID: admin, Name: "Root", Email: "root@example.org"}, {ID: ada, Name: "Ada", Email: "ada@example.org"}}, d.err
+	return []app.Person{
+		{ID: admin, Name: "Root", Email: "root@example.org", CreatedAt: t0.Add(-30 * 24 * time.Hour)},
+		{ID: ada, Name: "Ada", Email: "ada@example.org", CreatedAt: t0.Add(-2 * 24 * time.Hour)},
+		{ID: bob, Name: "Bob", Email: "bob@example.org", CreatedAt: t0.Add(-time.Hour)},
+	}, d.fail["People"]
+}
+
+func (d directory) Unassigned(context.Context) ([]uuid.UUID, error) {
+	return []uuid.UUID{ada, bob}, d.fail["Unassigned"]
+}
+
+func (d directory) ActiveSessions(context.Context) (sessions, users int, err error) {
+	return 5, 2, d.fail["ActiveSessions"]
 }
 
 func (directory) ClientLabel(_ context.Context, id string) string { return strings.ToUpper(id) }
@@ -245,7 +267,7 @@ func TestAListingFailsWithWhatItReads(t *testing.T) {
 		},
 		"the events": func(f *fixture) { f.store.fail["List"] = errBoom },
 		"the people": func(f *fixture) {
-			f.Service = app.New(f.store, admins{}, directory{err: errBoom}, slog.New(slog.DiscardHandler), time.Now, readerFunc(counting()))
+			f.Service = app.New(f.store, admins{}, directory{fail: map[string]error{"People": errBoom}}, slog.New(slog.DiscardHandler), time.Now, readerFunc(counting()))
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

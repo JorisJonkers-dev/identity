@@ -45,6 +45,10 @@ type GetAccessRes interface {
 	getAccessRes()
 }
 
+type GetDashboardRes interface {
+	getDashboardRes()
+}
+
 type GetLauncherRes interface {
 	getLauncherRes()
 }

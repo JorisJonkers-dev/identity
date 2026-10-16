@@ -1,5 +1,6 @@
 import { writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import tailwindcss from '@tailwindcss/vite'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig, type Plugin } from 'vitest/config'
 
@@ -17,7 +18,7 @@ const keepDist: Plugin = {
 }
 
 export default defineConfig({
-  plugins: [vue(), keepDist],
+  plugins: [vue(), tailwindcss(), keepDist],
   server: { proxy },
   test: {
     environment: 'jsdom',

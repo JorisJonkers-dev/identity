@@ -15,3 +15,13 @@ LIMIT sqlc.arg(max);
 
 -- name: DeleteAuditEventsBefore :execrows
 DELETE FROM audit_events WHERE at < $1;
+
+-- name: CountSignInsByHour :many
+-- Sign-ins to the Identity Provider itself, and failed ones, per hour since a time.
+SELECT date_trunc('hour', at)::timestamptz AS hour,
+       count(*) FILTER (WHERE action = 'signed-in') AS signed_in,
+       count(*) FILTER (WHERE action = 'sign-in-failed') AS failed
+FROM audit_events
+WHERE kind = 'sign-in' AND client_id IS NULL AND at >= $1
+GROUP BY 1
+ORDER BY 1;

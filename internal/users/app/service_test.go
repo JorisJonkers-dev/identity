@@ -409,6 +409,18 @@ func (s *store) SessionByHash(_ context.Context, hash []byte) (app.Session, erro
 	return sess, nil
 }
 
+// CountActiveSessions counts the sessions unexpired at now, and the Users holding them.
+func (s *store) CountActiveSessions(_ context.Context, now time.Time) (sessions, users int, err error) {
+	holders := map[uuid.UUID]bool{}
+	for _, sess := range s.sessions {
+		if now.Before(sess.ExpiresAt) {
+			sessions++
+			holders[sess.UserID] = true
+		}
+	}
+	return sessions, len(holders), s.fail["CountActiveSessions"]
+}
+
 func (s *store) SessionByID(_ context.Context, id uuid.UUID) (app.Session, error) {
 	if err := s.fail["SessionByID"]; err != nil {
 		return app.Session{}, err
@@ -1250,5 +1262,20 @@ func TestVouchChecksASessionByItsID(t *testing.T) {
 	f.store.fail["SessionByID"] = boom
 	if _, _, err := f.Vouch(ctx, sess.ID); !errors.Is(err, boom) {
 		t.Fatalf("a failing store = %v", err)
+	}
+}
+
+func TestActiveSessionsCountsOnlyLiveSessionsAndWhoseTheyAre(t *testing.T) {
+	f := newFixture()
+	f.signedUp(t, "a@b.c")
+	f.signedUp(t, "b@b.c")
+	ctx := context.Background()
+	_, _ = f.SignIn(ctx, "a@b.c", pw)
+	_, _ = f.SignIn(ctx, "a@b.c", pw)
+	_, _ = f.SignIn(ctx, "b@b.c", pw)
+	f.now = t0.Add(31 * 24 * time.Hour)
+	_, _ = f.SignIn(ctx, "b@b.c", pw)
+	if sessions, users, err := f.ActiveSessions(ctx); err != nil || sessions != 1 || users != 1 {
+		t.Fatalf("ActiveSessions = %d across %d, %v", sessions, users, err)
 	}
 }

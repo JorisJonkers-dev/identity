@@ -10,6 +10,7 @@
 // apps: identity signs in to Vault with VAULT_TOKEN, or as VAULT_ROLE (identity) through the
 // Kubernetes auth method; VAULT_TRANSIT_MOUNT (transit) and VAULT_TOTP_KEY (identity-totp) name the
 // key. Outside a cluster, CLIENTS_FILE names a YAML file of Client objects for a local run.
+// GRAFANA_URL, an https address, is where the Admin dashboard links for charts over time.
 package main
 
 import (
@@ -19,6 +20,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -83,7 +85,7 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 	if err != nil {
 		return err
 	}
-	built := assembly.Config{Store: store, PublicURL: cfg.publicURL, Mailer: cfg.mailer, Index: index, Synced: synced, Logger: logger, Version: version}
+	built := assembly.Config{Store: store, PublicURL: cfg.publicURL, Mailer: cfg.mailer, Index: index, Synced: synced, Grafana: cfg.grafana, Logger: logger, Version: version}
 	if sealer, ok := cfg.vault.sealer(); ok {
 		built.Sealer = sealer
 	} else {
@@ -189,6 +191,8 @@ type config struct {
 	// clientsFile holds Client objects for a run outside a cluster.
 	clientsFile string
 	vault       vaultConfig
+	// grafana is where the dashboard links for charts over time; nil when unset.
+	grafana *url.URL
 }
 
 // or is value, or fallback when value is empty.
@@ -235,6 +239,13 @@ func readConfig(getenv func(string) string) (config, error) {
 	}
 	if cfg.metricsAddr == "" {
 		cfg.metricsAddr = defaultMetricsAddr
+	}
+	if raw := getenv("GRAFANA_URL"); raw != "" {
+		u, err := url.Parse(raw)
+		if err != nil || u.Scheme != "https" || u.Host == "" {
+			return config{}, fmt.Errorf("GRAFANA_URL %q is not an https address", raw)
+		}
+		cfg.grafana = u
 	}
 	switch tlsMode := getenv("SMTP_TLS"); tlsMode {
 	case "", "required":

@@ -82,6 +82,13 @@ type Handler interface {
 	//
 	// GET /api/v1/access
 	GetAccess(ctx context.Context) (GetAccessRes, error)
+	// GetDashboard implements getDashboard operation.
+	//
+	// Users, the Unassigned queue, sign-ins and failed sign-ins over the last 24 hours, and live sessions.
+	// Admins only, from a session that proved a Second Factor.
+	//
+	// GET /api/v1/dashboard
+	GetDashboard(ctx context.Context) (GetDashboardRes, error)
 	// GetLauncher implements getLauncher operation.
 	//
 	// One entry per Client the User holds an App Role on, sorted by label. Icons are served from

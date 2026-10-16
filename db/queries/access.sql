@@ -63,3 +63,7 @@ SELECT count(*) FROM memberships m JOIN groups g ON g.id = m.group_id WHERE g.ad
 -- name: CountUnassigned :one
 -- Confirmed Users in no Group, the admins Group included (docs/adr/0005).
 SELECT count(*) FROM users u WHERE NOT EXISTS (SELECT 1 FROM memberships m WHERE m.user_id = u.id);
+
+-- name: ListUnassigned :many
+-- The Users CountUnassigned counts.
+SELECT u.id FROM users u WHERE NOT EXISTS (SELECT 1 FROM memberships m WHERE m.user_id = u.id);

@@ -55,10 +55,10 @@ type Access interface {
 
 // New returns the API's http.Handler, serving every path the contract declares under /api.
 // The users adapter is also the session security handler.
-func New(logger *slog.Logger, version string, users usersweb.UseCases, access Access, audit auditweb.UseCases, launcher launcherweb.UseCases) (http.Handler, error) {
+func New(logger *slog.Logger, version string, users usersweb.UseCases, access Access, audit *auditweb.Audit, launcher launcherweb.UseCases) (http.Handler, error) {
 	h := usersweb.New(users, access)
 	srv, err := oas.NewServer(
-		&api{Handler: h, Access: accessweb.New(access), Audit: auditweb.New(audit), Launcher: launcherweb.NewLauncher(launcher), logger: logger, version: version},
+		&api{Handler: h, Access: accessweb.New(access), Audit: audit, Launcher: launcherweb.NewLauncher(launcher), logger: logger, version: version},
 		h,
 		oas.WithErrorHandler(writeError),
 		oas.WithNotFound(func(w http.ResponseWriter, _ *http.Request) {

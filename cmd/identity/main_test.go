@@ -145,3 +145,30 @@ func TestAFailedPruneIsPassedOn(t *testing.T) {
 		t.Fatalf("prune = %v", err)
 	}
 }
+
+func TestTheDashboardLinksToTheGrafanaURLGiven(t *testing.T) {
+	vars := complete()
+	vars["GRAFANA_URL"] = "https://grafana.example.org/d/identity"
+	cfg, err := readConfig(env(vars))
+	if err != nil || cfg.grafana == nil || cfg.grafana.String() != vars["GRAFANA_URL"] {
+		t.Fatalf("grafana = %v, %v", cfg.grafana, err)
+	}
+}
+
+func TestWithoutAGrafanaURLTheDashboardLinksNowhere(t *testing.T) {
+	if cfg, err := readConfig(env(complete())); err != nil || cfg.grafana != nil {
+		t.Fatalf("grafana = %v, %v", cfg.grafana, err)
+	}
+}
+
+func TestAGrafanaURLThatIsNotHTTPSIsRefused(t *testing.T) {
+	for _, raw := range []string{"http://grafana.example.org", "https://", "::not a url"} {
+		t.Run(raw, func(t *testing.T) {
+			vars := complete()
+			vars["GRAFANA_URL"] = raw
+			if _, err := readConfig(env(vars)); err == nil || !strings.Contains(err.Error(), "GRAFANA_URL") {
+				t.Fatalf("readConfig = %v", err)
+			}
+		})
+	}
+}

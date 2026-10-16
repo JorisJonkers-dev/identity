@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddMemberData, AddMemberErrors, AddMemberResponses, AssignRoleData, AssignRoleErrors, AssignRoleResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, CompleteSignInData, CompleteSignInErrors, CompleteSignInResponses, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyErrors, CompleteSignInWithPasskeyResponses, ConfirmEmailData, ConfirmEmailErrors, ConfirmEmailResponses, ConfirmPasskeyData, ConfirmPasskeyErrors, ConfirmPasskeyResponses, ConfirmTotpData, ConfirmTotpErrors, ConfirmTotpResponses, CreateGroupData, CreateGroupErrors, CreateGroupResponses, DeleteGroupData, DeleteGroupErrors, DeleteGroupResponses, GetAccessData, GetAccessErrors, GetAccessResponses, GetLauncherData, GetLauncherErrors, GetLauncherResponses, GetProfileData, GetProfileErrors, GetProfileResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListAuditEventsData, ListAuditEventsErrors, ListAuditEventsResponses, ListSecondFactorsData, ListSecondFactorsErrors, ListSecondFactorsResponses, PasskeyOptionsData, PasskeyOptionsErrors, PasskeyOptionsResponses, RemoveMemberData, RemoveMemberErrors, RemoveMemberResponses, RemoveSecondFactorData, RemoveSecondFactorErrors, RemoveSecondFactorResponses, RenameGroupData, RenameGroupErrors, RenameGroupResponses, SignInData, SignInErrors, SignInResponses, SignOutData, SignOutErrors, SignOutResponses, SignOutUserData, SignOutUserErrors, SignOutUserResponses, SignUpData, SignUpErrors, SignUpResponses, StartPasskeyData, StartPasskeyErrors, StartPasskeyResponses, StartTotpData, StartTotpErrors, StartTotpResponses, UnassignRoleData, UnassignRoleErrors, UnassignRoleResponses, UpdateProfileData, UpdateProfileErrors, UpdateProfileResponses } from './types.gen';
-import { zAddMemberPath, zAddMemberResponse, zAssignRolePath, zAssignRoleResponse, zChangePasswordBody, zChangePasswordResponse, zCompleteSignInBody, zCompleteSignInResponse, zCompleteSignInWithPasskeyBody, zCompleteSignInWithPasskeyResponse, zConfirmEmailBody, zConfirmEmailResponse, zConfirmPasskeyBody, zConfirmPasskeyResponse, zConfirmTotpBody, zConfirmTotpResponse, zCreateGroupBody, zCreateGroupResponse, zDeleteGroupPath, zDeleteGroupResponse, zGetAccessResponse, zGetLauncherResponse, zGetProfileResponse, zGetVersionResponse, zListAuditEventsQuery, zListAuditEventsResponse, zListSecondFactorsResponse, zPasskeyOptionsResponse, zRemoveMemberPath, zRemoveMemberResponse, zRemoveSecondFactorBody, zRemoveSecondFactorPath, zRemoveSecondFactorResponse, zRenameGroupBody, zRenameGroupPath, zRenameGroupResponse, zSignInBody, zSignInResponse, zSignOutResponse, zSignOutUserPath, zSignOutUserResponse, zSignUpBody, zStartPasskeyResponse, zStartTotpResponse, zUnassignRolePath, zUnassignRoleResponse, zUpdateProfileBody, zUpdateProfileResponse } from './zod.gen';
+import type { AddMemberData, AddMemberErrors, AddMemberResponses, AssignRoleData, AssignRoleErrors, AssignRoleResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, CompleteSignInData, CompleteSignInErrors, CompleteSignInResponses, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyErrors, CompleteSignInWithPasskeyResponses, ConfirmEmailData, ConfirmEmailErrors, ConfirmEmailResponses, ConfirmPasskeyData, ConfirmPasskeyErrors, ConfirmPasskeyResponses, ConfirmTotpData, ConfirmTotpErrors, ConfirmTotpResponses, CreateGroupData, CreateGroupErrors, CreateGroupResponses, DeleteGroupData, DeleteGroupErrors, DeleteGroupResponses, GetAccessData, GetAccessErrors, GetAccessResponses, GetDashboardData, GetDashboardErrors, GetDashboardResponses, GetLauncherData, GetLauncherErrors, GetLauncherResponses, GetProfileData, GetProfileErrors, GetProfileResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListAuditEventsData, ListAuditEventsErrors, ListAuditEventsResponses, ListSecondFactorsData, ListSecondFactorsErrors, ListSecondFactorsResponses, PasskeyOptionsData, PasskeyOptionsErrors, PasskeyOptionsResponses, RemoveMemberData, RemoveMemberErrors, RemoveMemberResponses, RemoveSecondFactorData, RemoveSecondFactorErrors, RemoveSecondFactorResponses, RenameGroupData, RenameGroupErrors, RenameGroupResponses, SignInData, SignInErrors, SignInResponses, SignOutData, SignOutErrors, SignOutResponses, SignOutUserData, SignOutUserErrors, SignOutUserResponses, SignUpData, SignUpErrors, SignUpResponses, StartPasskeyData, StartPasskeyErrors, StartPasskeyResponses, StartTotpData, StartTotpErrors, StartTotpResponses, UnassignRoleData, UnassignRoleErrors, UnassignRoleResponses, UpdateProfileData, UpdateProfileErrors, UpdateProfileResponses } from './types.gen';
+import { zAddMemberPath, zAddMemberResponse, zAssignRolePath, zAssignRoleResponse, zChangePasswordBody, zChangePasswordResponse, zCompleteSignInBody, zCompleteSignInResponse, zCompleteSignInWithPasskeyBody, zCompleteSignInWithPasskeyResponse, zConfirmEmailBody, zConfirmEmailResponse, zConfirmPasskeyBody, zConfirmPasskeyResponse, zConfirmTotpBody, zConfirmTotpResponse, zCreateGroupBody, zCreateGroupResponse, zDeleteGroupPath, zDeleteGroupResponse, zGetAccessResponse, zGetDashboardResponse, zGetLauncherResponse, zGetProfileResponse, zGetVersionResponse, zListAuditEventsQuery, zListAuditEventsResponse, zListSecondFactorsResponse, zPasskeyOptionsResponse, zRemoveMemberPath, zRemoveMemberResponse, zRemoveSecondFactorBody, zRemoveSecondFactorPath, zRemoveSecondFactorResponse, zRenameGroupBody, zRenameGroupPath, zRenameGroupResponse, zSignInBody, zSignInResponse, zSignOutResponse, zSignOutUserPath, zSignOutUserResponse, zSignUpBody, zStartPasskeyResponse, zStartTotpResponse, zUnassignRolePath, zUnassignRoleResponse, zUpdateProfileBody, zUpdateProfileResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -633,5 +633,26 @@ export const listAuditEvents = <ThrowOnError extends boolean = false>(options?: 
             type: 'apiKey'
         }],
     url: '/api/v1/audit',
+    ...options
+});
+
+/**
+ * How things stand
+ *
+ * Users, the Unassigned queue, sign-ins and failed sign-ins over the last 24 hours, and live sessions. Admins only, from a session that proved a Second Factor.
+ */
+export const getDashboard = <ThrowOnError extends boolean = false>(options?: Options<GetDashboardData, ThrowOnError>): RequestResult<GetDashboardResponses, GetDashboardErrors, ThrowOnError> => (options?.client ?? client).get<GetDashboardResponses, GetDashboardErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zGetDashboardResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/dashboard',
     ...options
 });

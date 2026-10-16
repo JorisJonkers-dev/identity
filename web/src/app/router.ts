@@ -13,6 +13,9 @@ export function createAppRouter(history: RouterHistory = createWebHistory()): Ro
       { path: '/security', name: 'security', component: () => import('../features/security/components/SecurityPage.vue') },
       { path: '/access', name: 'access', component: () => import('../features/access/components/AccessPage.vue') },
       { path: '/no-access', name: 'no-access', component: () => import('../features/access/components/NoAccessPage.vue') },
+      // The admin pages fill the window, with their own sidebar.
+      { path: '/admin', name: 'dashboard', meta: { wide: true }, component: () => import('../features/admin/components/DashboardPage.vue') },
+      { path: '/admin/audit', name: 'audit', meta: { wide: true }, component: () => import('../features/admin/components/AuditPage.vue') },
       { path: '/:rest(.*)*', redirect: '/' },
     ],
   })

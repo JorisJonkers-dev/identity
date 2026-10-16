@@ -756,6 +756,117 @@ func (s *Confirmation) SetToken(val string) {
 	s.Token = val
 }
 
+type Count int32
+
+// How things stand.
+// Ref: #/components/schemas/Dashboard
+type Dashboard struct {
+	Users         Count `json:"users"`
+	UsersThisWeek Count `json:"usersThisWeek"`
+	// The Users waiting for a Group, the newest first.
+	Unassigned    []WaitingUser `json:"unassigned"`
+	SignIns       Count         `json:"signIns"`
+	FailedSignIns Count         `json:"failedSignIns"`
+	// The last 24 hours, oldest first.
+	Hours          []SignInHour `json:"hours"`
+	ActiveSessions Count        `json:"activeSessions"`
+	SessionUsers   Count        `json:"sessionUsers"`
+	// Where the charts over time are, when Grafana is configured.
+	GrafanaUrl OptURI `json:"grafanaUrl"`
+}
+
+// GetUsers returns the value of Users.
+func (s *Dashboard) GetUsers() Count {
+	return s.Users
+}
+
+// GetUsersThisWeek returns the value of UsersThisWeek.
+func (s *Dashboard) GetUsersThisWeek() Count {
+	return s.UsersThisWeek
+}
+
+// GetUnassigned returns the value of Unassigned.
+func (s *Dashboard) GetUnassigned() []WaitingUser {
+	return s.Unassigned
+}
+
+// GetSignIns returns the value of SignIns.
+func (s *Dashboard) GetSignIns() Count {
+	return s.SignIns
+}
+
+// GetFailedSignIns returns the value of FailedSignIns.
+func (s *Dashboard) GetFailedSignIns() Count {
+	return s.FailedSignIns
+}
+
+// GetHours returns the value of Hours.
+func (s *Dashboard) GetHours() []SignInHour {
+	return s.Hours
+}
+
+// GetActiveSessions returns the value of ActiveSessions.
+func (s *Dashboard) GetActiveSessions() Count {
+	return s.ActiveSessions
+}
+
+// GetSessionUsers returns the value of SessionUsers.
+func (s *Dashboard) GetSessionUsers() Count {
+	return s.SessionUsers
+}
+
+// GetGrafanaUrl returns the value of GrafanaUrl.
+func (s *Dashboard) GetGrafanaUrl() OptURI {
+	return s.GrafanaUrl
+}
+
+// SetUsers sets the value of Users.
+func (s *Dashboard) SetUsers(val Count) {
+	s.Users = val
+}
+
+// SetUsersThisWeek sets the value of UsersThisWeek.
+func (s *Dashboard) SetUsersThisWeek(val Count) {
+	s.UsersThisWeek = val
+}
+
+// SetUnassigned sets the value of Unassigned.
+func (s *Dashboard) SetUnassigned(val []WaitingUser) {
+	s.Unassigned = val
+}
+
+// SetSignIns sets the value of SignIns.
+func (s *Dashboard) SetSignIns(val Count) {
+	s.SignIns = val
+}
+
+// SetFailedSignIns sets the value of FailedSignIns.
+func (s *Dashboard) SetFailedSignIns(val Count) {
+	s.FailedSignIns = val
+}
+
+// SetHours sets the value of Hours.
+func (s *Dashboard) SetHours(val []SignInHour) {
+	s.Hours = val
+}
+
+// SetActiveSessions sets the value of ActiveSessions.
+func (s *Dashboard) SetActiveSessions(val Count) {
+	s.ActiveSessions = val
+}
+
+// SetSessionUsers sets the value of SessionUsers.
+func (s *Dashboard) SetSessionUsers(val Count) {
+	s.SessionUsers = val
+}
+
+// SetGrafanaUrl sets the value of GrafanaUrl.
+func (s *Dashboard) SetGrafanaUrl(val OptURI) {
+	s.GrafanaUrl = val
+}
+
+func (*Dashboard) getDashboardRes() {}
+
 // DeleteGroupNoContent is response for DeleteGroup operation.
 type DeleteGroupNoContent struct{}
 
@@ -1437,6 +1548,52 @@ func (o OptString) Or(d string) string {
 	return d
 }
 
+// NewOptURI returns new OptURI with value set to v.
+func NewOptURI(v url.URL) OptURI {
+	return OptURI{
+		Value: v,
+		Set:   true,
+	}
+}
+
+// OptURI is optional url.URL.
+type OptURI struct {
+	Value url.URL
+	Set   bool
+}
+
+// IsSet returns true if OptURI was set.
+func (o OptURI) IsSet() bool { return o.Set }
+
+// Reset unsets value.
+func (o *OptURI) Reset() {
+	var v url.URL
+	o.Value = v
+	o.Set = false
+}
+
+// SetTo sets value to v.
+func (o *OptURI) SetTo(v url.URL) {
+	o.Set = true
+	o.Value = v
+}
+
+// Get returns value and boolean that denotes whether value was set.
+func (o OptURI) Get() (v url.URL, ok bool) {
+	if !o.Set {
+		return v, false
+	}
+	return o.Value, true
+}
+
+// Or returns value if set, or given parameter if does not.
+func (o OptURI) Or(d url.URL) url.URL {
+	if v, ok := o.Get(); ok {
+		return v
+	}
+	return d
+}
+
 // The browser's answer to a passkey sign-in, as PublicKeyCredential.toJSON gives it.
 // Ref: #/components/schemas/PasskeyAssertion
 type PasskeyAssertion struct {
@@ -1689,6 +1846,7 @@ func (*ProblemStatusCode) confirmTOTPRes()               {}
 func (*ProblemStatusCode) createGroupRes()               {}
 func (*ProblemStatusCode) deleteGroupRes()               {}
 func (*ProblemStatusCode) getAccessRes()                 {}
+func (*ProblemStatusCode) getDashboardRes()              {}
 func (*ProblemStatusCode) getLauncherRes()               {}
 func (*ProblemStatusCode) getProfileRes()                {}
 func (*ProblemStatusCode) getVersionRes()                {}
@@ -2046,6 +2204,45 @@ func (s *SignIn) SetPassword(val Password) {
 	s.Password = val
 }
 
+// Sign-ins to the Identity Provider in one hour.
+// Ref: #/components/schemas/SignInHour
+type SignInHour struct {
+	// When the hour starts.
+	At      time.Time `json:"at"`
+	SignIns Count     `json:"signIns"`
+	Failed  Count     `json:"failed"`
+}
+
+// GetAt returns the value of At.
+func (s *SignInHour) GetAt() time.Time {
+	return s.At
+}
+
+// GetSignIns returns the value of SignIns.
+func (s *SignInHour) GetSignIns() Count {
+	return s.SignIns
+}
+
+// GetFailed returns the value of Failed.
+func (s *SignInHour) GetFailed() Count {
+	return s.Failed
+}
+
+// SetAt sets the value of At.
+func (s *SignInHour) SetAt(val time.Time) {
+	s.At = val
+}
+
+// SetSignIns sets the value of SignIns.
+func (s *SignInHour) SetSignIns(val Count) {
+	s.SignIns = val
+}
+
+// SetFailed sets the value of Failed.
+func (s *SignInHour) SetFailed(val Count) {
+	s.Failed = val
+}
+
 // SignInNoContent is response for SignIn operation.
 type SignInNoContent struct {
 	SetCookie string
@@ -2224,3 +2421,52 @@ func (s *Version) SetVersion(val string) {
 }
 
 func (*Version) getVersionRes() {}
+
+// A User waiting for a Group, and when they confirmed their email.
+// Ref: #/components/schemas/WaitingUser
+type WaitingUser struct {
+	ID          ID        `json:"id"`
+	Email       Email     `json:"email"`
+	Name        string    `json:"name"`
+	ConfirmedAt time.Time `json:"confirmedAt"`
+}
+
+// GetID returns the value of ID.
+func (s *WaitingUser) GetID() ID {
+	return s.ID
+}
+
+// GetEmail returns the value of Email.
+func (s *WaitingUser) GetEmail() Email {
+	return s.Email
+}
+
+// GetName returns the value of Name.
+func (s *WaitingUser) GetName() string {
+	return s.Name
+}
+
+// GetConfirmedAt returns the value of ConfirmedAt.
+func (s *WaitingUser) GetConfirmedAt() time.Time {
+	return s.ConfirmedAt
+}
+
+// SetID sets the value of ID.
+func (s *WaitingUser) SetID(val ID) {
+	s.ID = val
+}
+
+// SetEmail sets the value of Email.
+func (s *WaitingUser) SetEmail(val Email) {
+	s.Email = val
+}
+
+// SetName sets the value of Name.
+func (s *WaitingUser) SetName(val string) {
+	s.Name = val
+}
+
+// SetConfirmedAt sets the value of ConfirmedAt.
+func (s *WaitingUser) SetConfirmedAt(val time.Time) {
+	s.ConfirmedAt = val
+}

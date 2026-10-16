@@ -52,6 +52,11 @@ func (s *Store) UserByID(ctx context.Context, id uuid.UUID) (domain.User, error)
 	return toUser(row.ID, row.Email, row.Name, row.PasswordHash, row.CreatedAt)
 }
 
+func (s *Store) CountActiveSessions(ctx context.Context, now time.Time) (sessions, users int, err error) {
+	r, err := s.q.CountActiveSessions(ctx, now)
+	return int(r.Sessions), int(r.Users), err
+}
+
 func (s *Store) Users(ctx context.Context) ([]domain.User, error) {
 	rows, err := s.q.ListUsers(ctx)
 	if err != nil {

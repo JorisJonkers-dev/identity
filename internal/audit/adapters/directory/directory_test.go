@@ -3,7 +3,9 @@ package directory_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -21,13 +23,21 @@ type users struct {
 
 func (u users) Users(context.Context) ([]usersdomain.User, error) { return u.list, u.err }
 
+func (u users) ActiveSessions(context.Context) (sessions, users int, err error) { return 3, 2, u.err }
+
+type access struct{ ids []uuid.UUID }
+
+func (a access) UnassignedUsers(context.Context) ([]uuid.UUID, error) { return a.ids, nil }
+
+var joined = time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+
 func TestPeopleAreUsersByNameAndEmail(t *testing.T) {
 	t.Parallel()
 	e, _ := usersdomain.NewEmail("ada@example.org")
 	n, _ := usersdomain.NewName("Ada")
 	id := uuid.New()
-	got, err := directory.New(users{list: []usersdomain.User{{ID: id, Email: e, Name: n, PasswordHash: "h"}}}, clients.NewIndex()).People(context.Background())
-	if err != nil || len(got) != 1 || got[0] != (app.Person{ID: id, Name: "Ada", Email: "ada@example.org"}) {
+	got, err := directory.New(users{list: []usersdomain.User{{ID: id, Email: e, Name: n, PasswordHash: "h", CreatedAt: joined}}}, access{}, clients.NewIndex()).People(context.Background())
+	if err != nil || len(got) != 1 || got[0] != (app.Person{ID: id, Name: "Ada", Email: "ada@example.org", CreatedAt: joined}) {
 		t.Fatalf("People = %+v, %v", got, err)
 	}
 }
@@ -35,7 +45,7 @@ func TestPeopleAreUsersByNameAndEmail(t *testing.T) {
 func TestPeopleFailWhenTheUsersDo(t *testing.T) {
 	t.Parallel()
 	boom := errors.New("boom")
-	if _, err := directory.New(users{err: boom}, clients.NewIndex()).People(context.Background()); !errors.Is(err, boom) {
+	if _, err := directory.New(users{err: boom}, access{}, clients.NewIndex()).People(context.Background()); !errors.Is(err, boom) {
 		t.Fatalf("People = %v", err)
 	}
 }
@@ -45,7 +55,7 @@ func TestAClientIsCalledByItsLabelOrElseItsID(t *testing.T) {
 	index := clients.NewIndex()
 	index.Put(signindomain.Client{ID: "grafana", SignIn: signindomain.Native, Host: "grafana.test", Label: "Grafana", Roles: []string{"user"}})
 	index.Put(signindomain.Client{ID: "backup", SignIn: signindomain.Token, Roles: []string{"user"}})
-	d := directory.New(users{}, index)
+	d := directory.New(users{}, access{}, index)
 	for id, want := range map[string]string{"grafana": "Grafana", "backup": "backup", "gone": "gone"} {
 		t.Run(id, func(t *testing.T) {
 			t.Parallel()
@@ -53,5 +63,20 @@ func TestAClientIsCalledByItsLabelOrElseItsID(t *testing.T) {
 				t.Fatalf("label = %q, want %q", got, want)
 			}
 		})
+	}
+}
+
+func TestTheUnassignedComeFromAccess(t *testing.T) {
+	t.Parallel()
+	id := uuid.New()
+	if got, err := directory.New(users{}, access{ids: []uuid.UUID{id}}, clients.NewIndex()).Unassigned(context.Background()); err != nil || !slices.Equal(got, []uuid.UUID{id}) {
+		t.Fatalf("Unassigned = %v, %v", got, err)
+	}
+}
+
+func TestActiveSessionsComeFromTheUsers(t *testing.T) {
+	t.Parallel()
+	if sessions, holders, err := directory.New(users{}, access{}, clients.NewIndex()).ActiveSessions(context.Background()); err != nil || sessions != 3 || holders != 2 {
+		t.Fatalf("ActiveSessions = %d, %d, %v", sessions, holders, err)
 	}
 }

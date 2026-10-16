@@ -76,6 +76,7 @@ var operationRolesSession = map[string][]string{
 	CreateGroupOperation:        []string{},
 	DeleteGroupOperation:        []string{},
 	GetAccessOperation:          []string{},
+	GetDashboardOperation:       []string{},
 	GetLauncherOperation:        []string{},
 	GetProfileOperation:         []string{},
 	ListAuditEventsOperation:    []string{},

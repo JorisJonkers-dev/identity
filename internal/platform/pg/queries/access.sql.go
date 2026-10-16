@@ -229,6 +229,31 @@ func (q *Queries) ListMemberships(ctx context.Context) ([]Membership, error) {
 	return items, nil
 }
 
+const listUnassigned = `-- name: ListUnassigned :many
+SELECT u.id FROM users u WHERE NOT EXISTS (SELECT 1 FROM memberships m WHERE m.user_id = u.id)
+`
+
+// The Users CountUnassigned counts.
+func (q *Queries) ListUnassigned(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listUnassigned)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []uuid.UUID{}
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockGroup = `-- name: LockGroup :one
 SELECT admins FROM groups WHERE id = $1 FOR UPDATE
 `

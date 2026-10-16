@@ -43,6 +43,8 @@ export default defineConfig({
         // The compose dev-mode Vault and its fixed root token, which only a local run has.
         VAULT_ADDR: 'http://localhost:28200',
         VAULT_TOKEN: 'dev-only-root',
+        // Only linked from the dashboard; tests/e2e/admin.spec.ts never follows it.
+        GRAFANA_URL: 'https://grafana.example.org/d/identity',
       },
     },
   ],

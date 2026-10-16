@@ -15,9 +15,9 @@ import (
 )
 
 var (
-	ErrNotAdmin = errors.New("only Admins read the audit log")
+	ErrNotAdmin = errors.New("only Admins read the audit log and the dashboard")
 	// ErrSecondFactorNeeded is an Admin whose session did not prove a Second Factor.
-	ErrSecondFactorNeeded = errors.New("the audit log is read only from a session proved with a Second Factor")
+	ErrSecondFactorNeeded = errors.New("the audit log and the dashboard are read only from a session proved with a Second Factor")
 )
 
 const (
@@ -33,6 +33,15 @@ type Store interface {
 	List(ctx context.Context, f domain.Filter, limit int) ([]domain.Event, error)
 	// DeleteBefore removes events older than t and reports how many.
 	DeleteBefore(ctx context.Context, t time.Time) (int64, error)
+	// SignInsByHour counts sign-ins to the Identity Provider and failed ones, per hour that has
+	// any, since a time.
+	SignInsByHour(ctx context.Context, since time.Time) ([]Hour, error)
+}
+
+// Hour is the sign-ins and failed sign-ins in the hour that starts At.
+type Hour struct {
+	At              time.Time
+	SignIns, Failed int
 }
 
 // Admins tells who is an Admin.
@@ -40,15 +49,20 @@ type Admins interface {
 	IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error)
 }
 
-// Person is a User as the audit log names them.
+// Person is a User as the audit log names them, and when they confirmed their email.
 type Person struct {
 	ID          uuid.UUID
 	Name, Email string
+	CreatedAt   time.Time
 }
 
-// Directory names the Users and Clients events refer to.
+// Directory names the Users and Clients events refer to, and counts what the dashboard shows.
 type Directory interface {
 	People(ctx context.Context) ([]Person, error)
+	// Unassigned is the Users in no Group.
+	Unassigned(ctx context.Context) ([]uuid.UUID, error)
+	// ActiveSessions is how many Single sign-on sessions are live, and how many Users hold them.
+	ActiveSessions(ctx context.Context) (sessions, users int, err error)
 	// ClientLabel is what a Client is called, or its id when it is gone.
 	ClientLabel(ctx context.Context, id string) string
 }
@@ -130,18 +144,26 @@ func attrs(e domain.Event) []slog.Attr {
 	return a
 }
 
+// admin lets an Admin through, and only from a session that proved a Second Factor.
+func (s *Service) admin(ctx context.Context, actor Actor) error {
+	admin, err := s.admins.IsAdmin(ctx, actor.ID)
+	if err != nil {
+		return err
+	}
+	if !admin {
+		return ErrNotAdmin
+	}
+	if !actor.SecondFactor {
+		return ErrSecondFactorNeeded
+	}
+	return nil
+}
+
 // List returns a page of events matching f, newest first, to an Admin whose session proved a
 // Second Factor.
 func (s *Service) List(ctx context.Context, actor Actor, f domain.Filter) (Page, error) {
-	admin, err := s.admins.IsAdmin(ctx, actor.ID)
-	if err != nil {
+	if err := s.admin(ctx, actor); err != nil {
 		return Page{}, err
-	}
-	if !admin {
-		return Page{}, ErrNotAdmin
-	}
-	if !actor.SecondFactor {
-		return Page{}, ErrSecondFactorNeeded
 	}
 	events, err := s.store.List(ctx, f, pageSize+1)
 	if err != nil {

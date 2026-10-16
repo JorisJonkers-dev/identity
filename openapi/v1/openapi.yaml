@@ -631,6 +631,25 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/dashboard:
+    get:
+      operationId: getDashboard
+      summary: How things stand
+      description: >-
+        Users, the Unassigned queue, sign-ins and failed sign-ins over the last 24 hours, and live
+        sessions. Admins only, from a session that proved a Second Factor.
+      tags: [audit]
+      responses:
+        "200":
+          description: The dashboard.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dashboard"
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
   securitySchemes:
     challenge:
@@ -774,6 +793,80 @@ components:
           type: string
           enum: [password, second-factor, no-access]
           description: Why a sign-in failed.
+    Count:
+      description: A count.
+      type: integer
+      format: int32
+      minimum: 0
+      maximum: 2147483647
+    WaitingUser:
+      description: A User waiting for a Group, and when they confirmed their email.
+      type: object
+      additionalProperties: false
+      required: [id, email, name, confirmedAt]
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        email:
+          $ref: "#/components/schemas/Email"
+        name:
+          type: string
+          maxLength: 400
+        confirmedAt:
+          type: string
+          format: date-time
+          maxLength: 64
+    SignInHour:
+      description: Sign-ins to the Identity Provider in one hour.
+      type: object
+      additionalProperties: false
+      required: [at, signIns, failed]
+      properties:
+        at:
+          type: string
+          format: date-time
+          maxLength: 64
+          description: When the hour starts.
+        signIns:
+          $ref: "#/components/schemas/Count"
+        failed:
+          $ref: "#/components/schemas/Count"
+    Dashboard:
+      description: How things stand.
+      type: object
+      additionalProperties: false
+      required: [users, usersThisWeek, unassigned, signIns, failedSignIns, hours, activeSessions, sessionUsers]
+      properties:
+        users:
+          $ref: "#/components/schemas/Count"
+        usersThisWeek:
+          $ref: "#/components/schemas/Count"
+        unassigned:
+          type: array
+          maxItems: 10000
+          description: The Users waiting for a Group, the newest first.
+          items:
+            $ref: "#/components/schemas/WaitingUser"
+        signIns:
+          $ref: "#/components/schemas/Count"
+        failedSignIns:
+          $ref: "#/components/schemas/Count"
+        hours:
+          type: array
+          minItems: 24
+          maxItems: 24
+          description: The last 24 hours, oldest first.
+          items:
+            $ref: "#/components/schemas/SignInHour"
+        activeSessions:
+          $ref: "#/components/schemas/Count"
+        sessionUsers:
+          $ref: "#/components/schemas/Count"
+        grafanaUrl:
+          type: string
+          format: uri
+          maxLength: 2048
+          description: Where the charts over time are, when Grafana is configured.
     AuditPage:
       description: One page of Audit Events, newest first.
       type: object

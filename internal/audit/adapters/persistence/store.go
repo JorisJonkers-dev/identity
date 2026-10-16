@@ -50,6 +50,18 @@ func (s *Store) List(ctx context.Context, f domain.Filter, limit int) ([]domain.
 	return events, nil
 }
 
+func (s *Store) SignInsByHour(ctx context.Context, since time.Time) ([]app.Hour, error) {
+	rows, err := s.q.CountSignInsByHour(ctx, since)
+	if err != nil {
+		return nil, err
+	}
+	hours := make([]app.Hour, 0, len(rows))
+	for _, r := range rows {
+		hours = append(hours, app.Hour{At: r.Hour, SignIns: int(r.SignedIn), Failed: int(r.Failed)})
+	}
+	return hours, nil
+}
+
 func (s *Store) DeleteBefore(ctx context.Context, t time.Time) (int64, error) {
 	return s.q.DeleteAuditEventsBefore(ctx, t)
 }
