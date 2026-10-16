@@ -42,6 +42,10 @@ Contract-first Go + Vue from `template-go-vue`. `task check` and `task e2e` are 
 - **The schema moves only through `db/changelog/`.** liquibase-runner applies it from
   `Dockerfile.migration`; the binary never migrates. Every changeset must roll back
   ([0010](docs/adr/0010-migrations-run-through-liquibase-runner.md)). After changing it, `task gen`.
+- **Behaviours are tested over HTTP.** An integration test of a user-visible behaviour starts
+  identity with `itest.Start`, the routes `assembly` builds over HTTPS with Postgres, Vault and
+  Mailpit, and drives it through a `Browser` (`SignedUp`, `Admin`, `Call`). Tests follow the estate
+  [testing standards](https://github.com/JorisJonkers-dev/workspace/blob/main/docs/testing-standards.md).
 - **CI runs only what a diff reaches.** `.github/buckets.yml` maps paths to jobs; a new file
   type or top-level file needs a bucket (or none, to run everything) and a fixture, or the
   `changes` job's self-test fails.
