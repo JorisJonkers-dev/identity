@@ -90,6 +90,7 @@ type Service struct {
 	access   Access
 	logouts  Logouts
 	audit    Audit
+	tokens   PersonalTokens
 	now      func() time.Time
 	random   io.Reader
 }

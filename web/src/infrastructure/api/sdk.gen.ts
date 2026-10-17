@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddMemberData, AddMemberErrors, AddMemberResponses, AssignRoleData, AssignRoleErrors, AssignRoleResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, CompleteSignInData, CompleteSignInErrors, CompleteSignInResponses, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyErrors, CompleteSignInWithPasskeyResponses, ConfirmEmailData, ConfirmEmailErrors, ConfirmEmailResponses, ConfirmPasskeyData, ConfirmPasskeyErrors, ConfirmPasskeyResponses, ConfirmTotpData, ConfirmTotpErrors, ConfirmTotpResponses, CreateGroupData, CreateGroupErrors, CreateGroupResponses, DeleteGroupData, DeleteGroupErrors, DeleteGroupResponses, GetAccessData, GetAccessErrors, GetAccessResponses, GetDashboardData, GetDashboardErrors, GetDashboardResponses, GetLauncherData, GetLauncherErrors, GetLauncherResponses, GetProfileData, GetProfileErrors, GetProfileResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListAuditEventsData, ListAuditEventsErrors, ListAuditEventsResponses, ListSecondFactorsData, ListSecondFactorsErrors, ListSecondFactorsResponses, PasskeyOptionsData, PasskeyOptionsErrors, PasskeyOptionsResponses, RemoveMemberData, RemoveMemberErrors, RemoveMemberResponses, RemoveSecondFactorData, RemoveSecondFactorErrors, RemoveSecondFactorResponses, RenameGroupData, RenameGroupErrors, RenameGroupResponses, SignInData, SignInErrors, SignInResponses, SignOutData, SignOutErrors, SignOutResponses, SignOutUserData, SignOutUserErrors, SignOutUserResponses, SignUpData, SignUpErrors, SignUpResponses, StartPasskeyData, StartPasskeyErrors, StartPasskeyResponses, StartTotpData, StartTotpErrors, StartTotpResponses, UnassignRoleData, UnassignRoleErrors, UnassignRoleResponses, UpdateProfileData, UpdateProfileErrors, UpdateProfileResponses } from './types.gen';
-import { zAddMemberPath, zAddMemberResponse, zAssignRolePath, zAssignRoleResponse, zChangePasswordBody, zChangePasswordResponse, zCompleteSignInBody, zCompleteSignInResponse, zCompleteSignInWithPasskeyBody, zCompleteSignInWithPasskeyResponse, zConfirmEmailBody, zConfirmEmailResponse, zConfirmPasskeyBody, zConfirmPasskeyResponse, zConfirmTotpBody, zConfirmTotpResponse, zCreateGroupBody, zCreateGroupResponse, zDeleteGroupPath, zDeleteGroupResponse, zGetAccessResponse, zGetDashboardResponse, zGetLauncherResponse, zGetProfileResponse, zGetVersionResponse, zListAuditEventsQuery, zListAuditEventsResponse, zListSecondFactorsResponse, zPasskeyOptionsResponse, zRemoveMemberPath, zRemoveMemberResponse, zRemoveSecondFactorBody, zRemoveSecondFactorPath, zRemoveSecondFactorResponse, zRenameGroupBody, zRenameGroupPath, zRenameGroupResponse, zSignInBody, zSignInResponse, zSignOutResponse, zSignOutUserPath, zSignOutUserResponse, zSignUpBody, zStartPasskeyResponse, zStartTotpResponse, zUnassignRolePath, zUnassignRoleResponse, zUpdateProfileBody, zUpdateProfileResponse } from './zod.gen';
+import type { AddMemberData, AddMemberErrors, AddMemberResponses, AssignRoleData, AssignRoleErrors, AssignRoleResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, CompleteSignInData, CompleteSignInErrors, CompleteSignInResponses, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyErrors, CompleteSignInWithPasskeyResponses, ConfirmEmailData, ConfirmEmailErrors, ConfirmEmailResponses, ConfirmPasskeyData, ConfirmPasskeyErrors, ConfirmPasskeyResponses, ConfirmTotpData, ConfirmTotpErrors, ConfirmTotpResponses, CreateGroupData, CreateGroupErrors, CreateGroupResponses, DeleteGroupData, DeleteGroupErrors, DeleteGroupResponses, GetAccessData, GetAccessErrors, GetAccessResponses, GetDashboardData, GetDashboardErrors, GetDashboardResponses, GetLauncherData, GetLauncherErrors, GetLauncherResponses, GetProfileData, GetProfileErrors, GetProfileResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListAuditEventsData, ListAuditEventsErrors, ListAuditEventsResponses, ListMyTokensData, ListMyTokensErrors, ListMyTokensResponses, ListSecondFactorsData, ListSecondFactorsErrors, ListSecondFactorsResponses, ListUserTokensData, ListUserTokensErrors, ListUserTokensResponses, MintTokenData, MintTokenErrors, MintTokenResponses, PasskeyOptionsData, PasskeyOptionsErrors, PasskeyOptionsResponses, RemoveMemberData, RemoveMemberErrors, RemoveMemberResponses, RemoveSecondFactorData, RemoveSecondFactorErrors, RemoveSecondFactorResponses, RenameGroupData, RenameGroupErrors, RenameGroupResponses, RevokeMyTokenData, RevokeMyTokenErrors, RevokeMyTokenResponses, RevokeUserTokenData, RevokeUserTokenErrors, RevokeUserTokenResponses, SignInData, SignInErrors, SignInResponses, SignOutData, SignOutErrors, SignOutResponses, SignOutUserData, SignOutUserErrors, SignOutUserResponses, SignUpData, SignUpErrors, SignUpResponses, StartPasskeyData, StartPasskeyErrors, StartPasskeyResponses, StartTotpData, StartTotpErrors, StartTotpResponses, UnassignRoleData, UnassignRoleErrors, UnassignRoleResponses, UpdateProfileData, UpdateProfileErrors, UpdateProfileResponses } from './types.gen';
+import { zAddMemberPath, zAddMemberResponse, zAssignRolePath, zAssignRoleResponse, zChangePasswordBody, zChangePasswordResponse, zCompleteSignInBody, zCompleteSignInResponse, zCompleteSignInWithPasskeyBody, zCompleteSignInWithPasskeyResponse, zConfirmEmailBody, zConfirmEmailResponse, zConfirmPasskeyBody, zConfirmPasskeyResponse, zConfirmTotpBody, zConfirmTotpResponse, zCreateGroupBody, zCreateGroupResponse, zDeleteGroupPath, zDeleteGroupResponse, zGetAccessResponse, zGetDashboardResponse, zGetLauncherResponse, zGetProfileResponse, zGetVersionResponse, zListAuditEventsQuery, zListAuditEventsResponse, zListMyTokensResponse, zListSecondFactorsResponse, zListUserTokensPath, zListUserTokensResponse, zMintTokenBody, zMintTokenResponse, zPasskeyOptionsResponse, zRemoveMemberPath, zRemoveMemberResponse, zRemoveSecondFactorBody, zRemoveSecondFactorPath, zRemoveSecondFactorResponse, zRenameGroupBody, zRenameGroupPath, zRenameGroupResponse, zRevokeMyTokenPath, zRevokeMyTokenResponse, zRevokeUserTokenPath, zRevokeUserTokenResponse, zSignInBody, zSignInResponse, zSignOutResponse, zSignOutUserPath, zSignOutUserResponse, zSignUpBody, zStartPasskeyResponse, zStartTotpResponse, zUnassignRolePath, zUnassignRoleResponse, zUpdateProfileBody, zUpdateProfileResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -654,5 +654,114 @@ export const getDashboard = <ThrowOnError extends boolean = false>(options?: Opt
             type: 'apiKey'
         }],
     url: '/api/v1/dashboard',
+    ...options
+});
+
+/**
+ * My Personal Tokens
+ *
+ * The signed-in User's tokens, newest first, and the Clients they may mint one for.
+ */
+export const listMyTokens = <ThrowOnError extends boolean = false>(options?: Options<ListMyTokensData, ThrowOnError>): RequestResult<ListMyTokensResponses, ListMyTokensErrors, ThrowOnError> => (options?.client ?? client).get<ListMyTokensResponses, ListMyTokensErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zListMyTokensResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/profile/tokens',
+    ...options
+});
+
+/**
+ * Mint a Personal Token
+ *
+ * Makes a token for one Client the User holds an App Role on, lasting 30, 90 or 365 days. The answer carries the token itself, once; identity keeps only its hash.
+ */
+export const mintToken = <ThrowOnError extends boolean = false>(options: Options<MintTokenData, ThrowOnError>): RequestResult<MintTokenResponses, MintTokenErrors, ThrowOnError> => (options.client ?? client).post<MintTokenResponses, MintTokenErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zMintTokenBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zMintTokenResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/profile/tokens',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Revoke one of my Personal Tokens
+ *
+ * The token is refused from now on. Revoking it twice changes nothing.
+ */
+export const revokeMyToken = <ThrowOnError extends boolean = false>(options: Options<RevokeMyTokenData, ThrowOnError>): RequestResult<RevokeMyTokenResponses, RevokeMyTokenErrors, ThrowOnError> => (options.client ?? client).delete<RevokeMyTokenResponses, RevokeMyTokenErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zRevokeMyTokenPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zRevokeMyTokenResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/profile/tokens/{patId}',
+    ...options
+});
+
+/**
+ * A User's Personal Tokens
+ *
+ * Admins only, from a session that proved a Second Factor.
+ */
+export const listUserTokens = <ThrowOnError extends boolean = false>(options: Options<ListUserTokensData, ThrowOnError>): RequestResult<ListUserTokensResponses, ListUserTokensErrors, ThrowOnError> => (options.client ?? client).get<ListUserTokensResponses, ListUserTokensErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zListUserTokensPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zListUserTokensResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/access/users/{userId}/tokens',
+    ...options
+});
+
+/**
+ * Revoke a User's Personal Token
+ *
+ * Admins only, from a session that proved a Second Factor. Revoking it twice changes nothing.
+ */
+export const revokeUserToken = <ThrowOnError extends boolean = false>(options: Options<RevokeUserTokenData, ThrowOnError>): RequestResult<RevokeUserTokenResponses, RevokeUserTokenErrors, ThrowOnError> => (options.client ?? client).delete<RevokeUserTokenResponses, RevokeUserTokenErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zRevokeUserTokenPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zRevokeUserTokenResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/access/users/{userId}/tokens/{patId}',
     ...options
 });

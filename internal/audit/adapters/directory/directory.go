@@ -18,6 +18,11 @@ type Users interface {
 	ActiveSessions(ctx context.Context) (sessions, users int, err error)
 }
 
+// Tokens is what the Directory needs from the tokens context.
+type Tokens interface {
+	ExpiringSoon(ctx context.Context) (int, error)
+}
+
 // Access is what the Directory needs from the access context.
 type Access interface {
 	UnassignedUsers(ctx context.Context) ([]uuid.UUID, error)
@@ -32,12 +37,17 @@ type Index interface {
 type Directory struct {
 	users  Users
 	access Access
+	tokens Tokens
 	index  Index
 }
 
-// New returns a Directory over the three.
-func New(users Users, access Access, index Index) *Directory {
-	return &Directory{users: users, access: access, index: index}
+// New returns a Directory over the four.
+func New(users Users, access Access, tokens Tokens, index Index) *Directory {
+	return &Directory{users: users, access: access, tokens: tokens, index: index}
+}
+
+func (d *Directory) TokensExpiring(ctx context.Context) (int, error) {
+	return d.tokens.ExpiringSoon(ctx)
 }
 
 var _ app.Directory = (*Directory)(nil)

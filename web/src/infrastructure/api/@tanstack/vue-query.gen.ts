@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/vue-query';
 
 import { client } from '../client.gen';
-import { addMember, assignRole, changePassword, completeSignIn, completeSignInWithPasskey, confirmEmail, confirmPasskey, confirmTotp, createGroup, deleteGroup, getAccess, getDashboard, getLauncher, getProfile, getVersion, listAuditEvents, listSecondFactors, type Options, passkeyOptions, removeMember, removeSecondFactor, renameGroup, signIn, signOut, signOutUser, signUp, startPasskey, startTotp, unassignRole, updateProfile } from '../sdk.gen';
-import type { AddMemberData, AddMemberError, AddMemberResponse, AssignRoleData, AssignRoleError, AssignRoleResponse, AuditCursor, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CompleteSignInData, CompleteSignInError, CompleteSignInResponse, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyError, CompleteSignInWithPasskeyResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, ConfirmPasskeyData, ConfirmPasskeyError, ConfirmPasskeyResponse, ConfirmTotpData, ConfirmTotpError, ConfirmTotpResponse, CreateGroupData, CreateGroupError, CreateGroupResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, GetAccessData, GetAccessError, GetAccessResponse, GetDashboardData, GetDashboardError, GetDashboardResponse, GetLauncherData, GetLauncherError, GetLauncherResponse, GetProfileData, GetProfileError, GetProfileResponse, GetVersionData, GetVersionError, GetVersionResponse, ListAuditEventsData, ListAuditEventsError, ListAuditEventsResponse, ListSecondFactorsData, ListSecondFactorsError, ListSecondFactorsResponse, PasskeyOptionsData, PasskeyOptionsError, PasskeyOptionsResponse, RemoveMemberData, RemoveMemberError, RemoveMemberResponse, RemoveSecondFactorData, RemoveSecondFactorError, RemoveSecondFactorResponse, RenameGroupData, RenameGroupError, RenameGroupResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutError, SignOutResponse, SignOutUserData, SignOutUserError, SignOutUserResponse, SignUpData, SignUpError, StartPasskeyData, StartPasskeyError, StartPasskeyResponse, StartTotpData, StartTotpError, StartTotpResponse, UnassignRoleData, UnassignRoleError, UnassignRoleResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
+import { addMember, assignRole, changePassword, completeSignIn, completeSignInWithPasskey, confirmEmail, confirmPasskey, confirmTotp, createGroup, deleteGroup, getAccess, getDashboard, getLauncher, getProfile, getVersion, listAuditEvents, listMyTokens, listSecondFactors, listUserTokens, mintToken, type Options, passkeyOptions, removeMember, removeSecondFactor, renameGroup, revokeMyToken, revokeUserToken, signIn, signOut, signOutUser, signUp, startPasskey, startTotp, unassignRole, updateProfile } from '../sdk.gen';
+import type { AddMemberData, AddMemberError, AddMemberResponse, AssignRoleData, AssignRoleError, AssignRoleResponse, AuditCursor, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CompleteSignInData, CompleteSignInError, CompleteSignInResponse, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyError, CompleteSignInWithPasskeyResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, ConfirmPasskeyData, ConfirmPasskeyError, ConfirmPasskeyResponse, ConfirmTotpData, ConfirmTotpError, ConfirmTotpResponse, CreateGroupData, CreateGroupError, CreateGroupResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, GetAccessData, GetAccessError, GetAccessResponse, GetDashboardData, GetDashboardError, GetDashboardResponse, GetLauncherData, GetLauncherError, GetLauncherResponse, GetProfileData, GetProfileError, GetProfileResponse, GetVersionData, GetVersionError, GetVersionResponse, ListAuditEventsData, ListAuditEventsError, ListAuditEventsResponse, ListMyTokensData, ListMyTokensError, ListMyTokensResponse, ListSecondFactorsData, ListSecondFactorsError, ListSecondFactorsResponse, ListUserTokensData, ListUserTokensError, ListUserTokensResponse, MintTokenData, MintTokenError, MintTokenResponse, PasskeyOptionsData, PasskeyOptionsError, PasskeyOptionsResponse, RemoveMemberData, RemoveMemberError, RemoveMemberResponse, RemoveSecondFactorData, RemoveSecondFactorError, RemoveSecondFactorResponse, RenameGroupData, RenameGroupError, RenameGroupResponse, RevokeMyTokenData, RevokeMyTokenError, RevokeMyTokenResponse, RevokeUserTokenData, RevokeUserTokenError, RevokeUserTokenResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutError, SignOutResponse, SignOutUserData, SignOutUserError, SignOutUserResponse, SignUpData, SignUpError, StartPasskeyData, StartPasskeyError, StartPasskeyResponse, StartTotpData, StartTotpError, StartTotpResponse, UnassignRoleData, UnassignRoleError, UnassignRoleResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -657,3 +657,100 @@ export const getDashboardOptions = (options?: Options<GetDashboardData>) => quer
     },
     queryKey: getDashboardQueryKey(options)
 });
+
+export const listMyTokensQueryKey = (options?: Options<ListMyTokensData>) => createQueryKey('listMyTokens', options);
+
+/**
+ * My Personal Tokens
+ *
+ * The signed-in User's tokens, newest first, and the Clients they may mint one for.
+ */
+export const listMyTokensOptions = (options?: Options<ListMyTokensData>) => queryOptions<ListMyTokensResponse, ListMyTokensError, ListMyTokensResponse, ReturnType<typeof listMyTokensQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listMyTokens({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listMyTokensQueryKey(options)
+});
+
+/**
+ * Mint a Personal Token
+ *
+ * Makes a token for one Client the User holds an App Role on, lasting 30, 90 or 365 days. The answer carries the token itself, once; identity keeps only its hash.
+ */
+export const mintTokenMutation = (options?: Partial<Options<MintTokenData>>): UseMutationOptions<MintTokenResponse, MintTokenError, Options<MintTokenData>> => {
+    const mutationOptions: UseMutationOptions<MintTokenResponse, MintTokenError, Options<MintTokenData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await mintToken({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Revoke one of my Personal Tokens
+ *
+ * The token is refused from now on. Revoking it twice changes nothing.
+ */
+export const revokeMyTokenMutation = (options?: Partial<Options<RevokeMyTokenData>>): UseMutationOptions<RevokeMyTokenResponse, RevokeMyTokenError, Options<RevokeMyTokenData>> => {
+    const mutationOptions: UseMutationOptions<RevokeMyTokenResponse, RevokeMyTokenError, Options<RevokeMyTokenData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await revokeMyToken({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listUserTokensQueryKey = (options: Options<ListUserTokensData>) => createQueryKey('listUserTokens', options);
+
+/**
+ * A User's Personal Tokens
+ *
+ * Admins only, from a session that proved a Second Factor.
+ */
+export const listUserTokensOptions = (options: Options<ListUserTokensData>) => queryOptions<ListUserTokensResponse, ListUserTokensError, ListUserTokensResponse, ReturnType<typeof listUserTokensQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listUserTokens({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listUserTokensQueryKey(options)
+});
+
+/**
+ * Revoke a User's Personal Token
+ *
+ * Admins only, from a session that proved a Second Factor. Revoking it twice changes nothing.
+ */
+export const revokeUserTokenMutation = (options?: Partial<Options<RevokeUserTokenData>>): UseMutationOptions<RevokeUserTokenResponse, RevokeUserTokenError, Options<RevokeUserTokenData>> => {
+    const mutationOptions: UseMutationOptions<RevokeUserTokenResponse, RevokeUserTokenError, Options<RevokeUserTokenData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await revokeUserToken({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};

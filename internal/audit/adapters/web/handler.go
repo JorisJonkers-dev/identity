@@ -50,6 +50,7 @@ func (h *Audit) GetDashboard(ctx context.Context) (oas.GetDashboardRes, error) {
 		SignIns:    count(d.SignIns), FailedSignIns: count(d.FailedSignIns),
 		Hours:          make([]oas.SignInHour, 0, len(d.Hours)),
 		ActiveSessions: count(d.ActiveSessions), SessionUsers: count(d.SessionUsers),
+		TokensExpiring: count(d.TokensExpiring),
 	}
 	for _, p := range d.Unassigned {
 		res.Unassigned = append(res.Unassigned, oas.WaitingUser{ID: oas.ID(p.ID), Email: oas.Email(p.Email), Name: p.Name, ConfirmedAt: p.CreatedAt})

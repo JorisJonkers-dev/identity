@@ -41,6 +41,13 @@ func TestTheDashboardCountsLiveSessionsAndWhoseTheyAre(t *testing.T) {
 	}
 }
 
+func TestTheDashboardCountsTokensCloseToTheirEnd(t *testing.T) {
+	t.Parallel()
+	if d := dashboard(t, newFixture(counting())); d.TokensExpiring != 3 {
+		t.Fatalf("tokens expiring %d", d.TokensExpiring)
+	}
+}
+
 func TestTheDashboardReadsSignInsFromTheStartOfTheHour23HoursAgo(t *testing.T) {
 	t.Parallel()
 	f := newFixture(counting())
@@ -84,7 +91,7 @@ func TestOnlyAnAdminSeesTheDashboard(t *testing.T) {
 
 func TestTheDashboardFailsWithWhatItReads(t *testing.T) {
 	t.Parallel()
-	for _, method := range []string{"People", "Unassigned", "ActiveSessions", "SignInsByHour"} {
+	for _, method := range []string{"People", "Unassigned", "ActiveSessions", "TokensExpiring", "SignInsByHour"} {
 		t.Run(method, func(t *testing.T) {
 			t.Parallel()
 			f := newFixture(counting())

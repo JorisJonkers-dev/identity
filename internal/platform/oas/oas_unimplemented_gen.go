@@ -169,12 +169,40 @@ func (UnimplementedHandler) ListAuditEvents(ctx context.Context, params ListAudi
 	return r, ht.ErrNotImplemented
 }
 
+// ListMyTokens implements listMyTokens operation.
+//
+// The signed-in User's tokens, newest first, and the Clients they may mint one for.
+//
+// GET /api/v1/profile/tokens
+func (UnimplementedHandler) ListMyTokens(ctx context.Context) (r ListMyTokensRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // ListSecondFactors implements listSecondFactors operation.
 //
 // Every authenticator app and passkey the User added.
 //
 // GET /api/v1/profile/second-factors
 func (UnimplementedHandler) ListSecondFactors(ctx context.Context) (r ListSecondFactorsRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// ListUserTokens implements listUserTokens operation.
+//
+// Admins only, from a session that proved a Second Factor.
+//
+// GET /api/v1/access/users/{userId}/tokens
+func (UnimplementedHandler) ListUserTokens(ctx context.Context, params ListUserTokensParams) (r ListUserTokensRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// MintToken implements mintToken operation.
+//
+// Makes a token for one Client the User holds an App Role on, lasting 30, 90 or 365 days. The answer
+// carries the token itself, once; identity keeps only its hash.
+//
+// POST /api/v1/profile/tokens
+func (UnimplementedHandler) MintToken(ctx context.Context, req *TokenDraft) (r MintTokenRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -212,6 +240,24 @@ func (UnimplementedHandler) RemoveSecondFactor(ctx context.Context, req *Passwor
 //
 // PATCH /api/v1/access/groups/{groupId}
 func (UnimplementedHandler) RenameGroup(ctx context.Context, req *GroupDraft, params RenameGroupParams) (r RenameGroupRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// RevokeMyToken implements revokeMyToken operation.
+//
+// The token is refused from now on. Revoking it twice changes nothing.
+//
+// DELETE /api/v1/profile/tokens/{patId}
+func (UnimplementedHandler) RevokeMyToken(ctx context.Context, params RevokeMyTokenParams) (r RevokeMyTokenRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// RevokeUserToken implements revokeUserToken operation.
+//
+// Admins only, from a session that proved a Second Factor. Revoking it twice changes nothing.
+//
+// DELETE /api/v1/access/users/{userId}/tokens/{patId}
+func (UnimplementedHandler) RevokeUserToken(ctx context.Context, params RevokeUserTokenParams) (r RevokeUserTokenRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 

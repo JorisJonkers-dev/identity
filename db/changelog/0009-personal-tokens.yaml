@@ -1,0 +1,32 @@
+# Personal Tokens (docs/adr/0008, 0017): a bearer credential a User mints for one Client, kept only
+# as its SHA-256 hash. A token ends with its User.
+databaseChangeLog:
+  - changeSet:
+      id: 0009-create-personal-tokens
+      author: identity
+      changes:
+        - createTable:
+            tableName: personal_tokens
+            columns:
+              - column: {name: id, type: uuid, constraints: {primaryKey: true, nullable: false}}
+              - column:
+                  name: user_id
+                  type: uuid
+                  constraints: {nullable: false, foreignKeyName: personal_tokens_user_fk, references: users(id), deleteCascade: true}
+              - column: {name: client_id, type: text, constraints: {nullable: false}}
+              - column: {name: name, type: text, constraints: {nullable: false}}
+              - column: {name: token_hash, type: bytea, constraints: {nullable: false, unique: true, uniqueConstraintName: personal_tokens_hash_key}}
+              - column: {name: created_at, type: timestamptz, constraints: {nullable: false}}
+              - column: {name: expires_at, type: timestamptz, constraints: {nullable: false}}
+              - column: {name: revoked_at, type: timestamptz}
+              - column: {name: last_used_at, type: timestamptz}
+        - createIndex:
+            tableName: personal_tokens
+            indexName: personal_tokens_user_idx
+            columns:
+              - column: {name: user_id}
+        - createIndex:
+            tableName: personal_tokens
+            indexName: personal_tokens_expires_at_idx
+            columns:
+              - column: {name: expires_at}

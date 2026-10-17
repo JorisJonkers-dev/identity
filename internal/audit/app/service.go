@@ -63,6 +63,8 @@ type Directory interface {
 	Unassigned(ctx context.Context) ([]uuid.UUID, error)
 	// ActiveSessions is how many Single sign-on sessions are live, and how many Users hold them.
 	ActiveSessions(ctx context.Context) (sessions, users int, err error)
+	// TokensExpiring is how many live Personal Tokens end within seven days.
+	TokensExpiring(ctx context.Context) (int, error)
 	// ClientLabel is what a Client is called, or its id when it is gone.
 	ClientLabel(ctx context.Context, id string) string
 }

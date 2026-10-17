@@ -41,7 +41,12 @@ import (
 	"github.com/JorisJonkers-dev/identity/internal/signin/adapters/clients"
 	signinoidc "github.com/JorisJonkers-dev/identity/internal/signin/adapters/oidc"
 	signinpersistence "github.com/JorisJonkers-dev/identity/internal/signin/adapters/persistence"
+	signintokens "github.com/JorisJonkers-dev/identity/internal/signin/adapters/tokens"
 	signinapp "github.com/JorisJonkers-dev/identity/internal/signin/app"
+	tokenscontexts "github.com/JorisJonkers-dev/identity/internal/tokens/adapters/contexts"
+	tokenspersistence "github.com/JorisJonkers-dev/identity/internal/tokens/adapters/persistence"
+	tokensweb "github.com/JorisJonkers-dev/identity/internal/tokens/adapters/web"
+	tokensapp "github.com/JorisJonkers-dev/identity/internal/tokens/app"
 	"github.com/JorisJonkers-dev/identity/internal/users/adapters/passkeys"
 	"github.com/JorisJonkers-dev/identity/internal/users/adapters/persistence"
 	usersweb "github.com/JorisJonkers-dev/identity/internal/users/adapters/web"
@@ -112,17 +117,6 @@ func New(cfg Config) (*Identity, error) {
 	q := cfg.Store.Queries()
 	users := app.New(persistence.New(q), passwords.NewArgon2id(maxConcurrentHashes, hashWait), cfg.Mailer, time.Now, rand.Reader, cfg.PublicURL, opts...)
 	access = accessapp.New(accesspersistence.New(q, cfg.Store), catalog.New(cfg.Index), people.New(users), recorder, rand.Reader)
-	audit = auditapp.New(auditpersistence.New(q), admins, directory.New(users, access, cfg.Index), cfg.Logger, time.Now, rand.Reader)
-	launcherContexts := launchercontexts.New(cfg.Index, access)
-	transport := cfg.IconTransport
-	if transport == nil {
-		transport = http.DefaultTransport
-	}
-	launcher := launcherapp.New(launcherContexts, launcherContexts, launcherfetch.New(transport, iconTimeout), time.Now)
-	api, err := httpapi.New(cfg.Logger, cfg.Version, users, access, auditweb.New(audit, cfg.Grafana), launcher)
-	if err != nil {
-		return nil, err
-	}
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, err
@@ -130,6 +124,20 @@ func New(cfg Config) (*Identity, error) {
 	ring := signinoidc.NewRing(key)
 	logouts := signinoidc.NewLogouts(cfg.PublicURL, ring, &http.Client{}, cfg.Logger, time.Now)
 	signIn := signinapp.New(signinpersistence.New(q), cfg.Index, accounts.New(users), access, logouts, recorder, time.Now, rand.Reader)
+	tokenContexts := tokenscontexts.New(signIn, access, cfg.Index)
+	tokens := tokensapp.New(tokenspersistence.New(q), tokenContexts, tokenContexts, admins, recorder, time.Now, rand.Reader)
+	signIn.SetPersonalTokens(signintokens.New(tokens))
+	audit = auditapp.New(auditpersistence.New(q), admins, directory.New(users, access, tokens, cfg.Index), cfg.Logger, time.Now, rand.Reader)
+	launcherContexts := launchercontexts.New(cfg.Index, access)
+	transport := cfg.IconTransport
+	if transport == nil {
+		transport = http.DefaultTransport
+	}
+	launcher := launcherapp.New(launcherContexts, launcherContexts, launcherfetch.New(transport, iconTimeout), time.Now)
+	api, err := httpapi.New(cfg.Logger, cfg.Version, users, access, auditweb.New(audit, cfg.Grafana), launcher, tokensweb.New(tokens))
+	if err != nil {
+		return nil, err
+	}
 	provider, err := signinoidc.New(signinoidc.Config{
 		Issuer:        cfg.PublicURL,
 		Insecure:      strings.HasPrefix(cfg.PublicURL, "http://"),

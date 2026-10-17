@@ -771,6 +771,7 @@ type Dashboard struct {
 	Hours          []SignInHour `json:"hours"`
 	ActiveSessions Count        `json:"activeSessions"`
 	SessionUsers   Count        `json:"sessionUsers"`
+	TokensExpiring Count        `json:"tokensExpiring"`
 	// Where the charts over time are, when Grafana is configured.
 	GrafanaUrl OptURI `json:"grafanaUrl"`
 }
@@ -813,6 +814,11 @@ func (s *Dashboard) GetActiveSessions() Count {
 // GetSessionUsers returns the value of SessionUsers.
 func (s *Dashboard) GetSessionUsers() Count {
 	return s.SessionUsers
+}
+
+// GetTokensExpiring returns the value of TokensExpiring.
+func (s *Dashboard) GetTokensExpiring() Count {
+	return s.TokensExpiring
 }
 
 // GetGrafanaUrl returns the value of GrafanaUrl.
@@ -858,6 +864,11 @@ func (s *Dashboard) SetActiveSessions(val Count) {
 // SetSessionUsers sets the value of SessionUsers.
 func (s *Dashboard) SetSessionUsers(val Count) {
 	s.SessionUsers = val
+}
+
+// SetTokensExpiring sets the value of TokensExpiring.
+func (s *Dashboard) SetTokensExpiring(val Count) {
+	s.TokensExpiring = val
 }
 
 // SetGrafanaUrl sets the value of GrafanaUrl.
@@ -1041,6 +1052,65 @@ func (s *LauncherApp) SetIconUrl(val OptString) {
 func (s *LauncherApp) SetRoles(val []AppRole) {
 	s.Roles = val
 }
+
+// A new token, and its secret, which is shown only here.
+// Ref: #/components/schemas/MintedToken
+type MintedToken struct {
+	Token PersonalToken `json:"token"`
+	// The bearer token. identity keeps only its hash.
+	Secret string `json:"secret"`
+}
+
+// GetToken returns the value of Token.
+func (s *MintedToken) GetToken() PersonalToken {
+	return s.Token
+}
+
+// GetSecret returns the value of Secret.
+func (s *MintedToken) GetSecret() string {
+	return s.Secret
+}
+
+// SetToken sets the value of Token.
+func (s *MintedToken) SetToken(val PersonalToken) {
+	s.Token = val
+}
+
+// SetSecret sets the value of Secret.
+func (s *MintedToken) SetSecret(val string) {
+	s.Secret = val
+}
+
+func (*MintedToken) mintTokenRes() {}
+
+// The signed-in User's tokens, and the Clients they may mint one for.
+// Ref: #/components/schemas/MyTokens
+type MyTokens struct {
+	Tokens  []PersonalToken `json:"tokens"`
+	Clients []TokenClient   `json:"clients"`
+}
+
+// GetTokens returns the value of Tokens.
+func (s *MyTokens) GetTokens() []PersonalToken {
+	return s.Tokens
+}
+
+// GetClients returns the value of Clients.
+func (s *MyTokens) GetClients() []TokenClient {
+	return s.Clients
+}
+
+// SetTokens sets the value of Tokens.
+func (s *MyTokens) SetTokens(val []PersonalToken) {
+	s.Tokens = val
+}
+
+// SetClients sets the value of Clients.
+func (s *MyTokens) SetClients(val []TokenClient) {
+	s.Clients = val
+}
+
+func (*MyTokens) listMyTokensRes() {}
 
 // NewOptAppRole returns new OptAppRole with value set to v.
 func NewOptAppRole(v AppRole) OptAppRole {
@@ -1756,6 +1826,145 @@ func (s *Person) SetName(val string) {
 	s.Name = val
 }
 
+// A Personal Token, without its secret.
+// Ref: #/components/schemas/PersonalToken
+type PersonalToken struct {
+	ID         ID          `json:"id"`
+	Name       string      `json:"name"`
+	Client     TokenClient `json:"client"`
+	CreatedAt  time.Time   `json:"createdAt"`
+	ExpiresAt  time.Time   `json:"expiresAt"`
+	LastUsedAt OptDateTime `json:"lastUsedAt"`
+	// Expiring is a live token that ends within seven days.
+	State PersonalTokenState `json:"state"`
+}
+
+// GetID returns the value of ID.
+func (s *PersonalToken) GetID() ID {
+	return s.ID
+}
+
+// GetName returns the value of Name.
+func (s *PersonalToken) GetName() string {
+	return s.Name
+}
+
+// GetClient returns the value of Client.
+func (s *PersonalToken) GetClient() TokenClient {
+	return s.Client
+}
+
+// GetCreatedAt returns the value of CreatedAt.
+func (s *PersonalToken) GetCreatedAt() time.Time {
+	return s.CreatedAt
+}
+
+// GetExpiresAt returns the value of ExpiresAt.
+func (s *PersonalToken) GetExpiresAt() time.Time {
+	return s.ExpiresAt
+}
+
+// GetLastUsedAt returns the value of LastUsedAt.
+func (s *PersonalToken) GetLastUsedAt() OptDateTime {
+	return s.LastUsedAt
+}
+
+// GetState returns the value of State.
+func (s *PersonalToken) GetState() PersonalTokenState {
+	return s.State
+}
+
+// SetID sets the value of ID.
+func (s *PersonalToken) SetID(val ID) {
+	s.ID = val
+}
+
+// SetName sets the value of Name.
+func (s *PersonalToken) SetName(val string) {
+	s.Name = val
+}
+
+// SetClient sets the value of Client.
+func (s *PersonalToken) SetClient(val TokenClient) {
+	s.Client = val
+}
+
+// SetCreatedAt sets the value of CreatedAt.
+func (s *PersonalToken) SetCreatedAt(val time.Time) {
+	s.CreatedAt = val
+}
+
+// SetExpiresAt sets the value of ExpiresAt.
+func (s *PersonalToken) SetExpiresAt(val time.Time) {
+	s.ExpiresAt = val
+}
+
+// SetLastUsedAt sets the value of LastUsedAt.
+func (s *PersonalToken) SetLastUsedAt(val OptDateTime) {
+	s.LastUsedAt = val
+}
+
+// SetState sets the value of State.
+func (s *PersonalToken) SetState(val PersonalTokenState) {
+	s.State = val
+}
+
+// Expiring is a live token that ends within seven days.
+type PersonalTokenState string
+
+const (
+	PersonalTokenStateActive   PersonalTokenState = "active"
+	PersonalTokenStateExpiring PersonalTokenState = "expiring"
+	PersonalTokenStateExpired  PersonalTokenState = "expired"
+	PersonalTokenStateRevoked  PersonalTokenState = "revoked"
+)
+
+// AllValues returns all PersonalTokenState values.
+func (PersonalTokenState) AllValues() []PersonalTokenState {
+	return []PersonalTokenState{
+		PersonalTokenStateActive,
+		PersonalTokenStateExpiring,
+		PersonalTokenStateExpired,
+		PersonalTokenStateRevoked,
+	}
+}
+
+// MarshalText implements encoding.TextMarshaler.
+func (s PersonalTokenState) MarshalText() ([]byte, error) {
+	switch s {
+	case PersonalTokenStateActive:
+		return []byte(s), nil
+	case PersonalTokenStateExpiring:
+		return []byte(s), nil
+	case PersonalTokenStateExpired:
+		return []byte(s), nil
+	case PersonalTokenStateRevoked:
+		return []byte(s), nil
+	default:
+		return nil, errors.Errorf("invalid value: %q", s)
+	}
+}
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (s *PersonalTokenState) UnmarshalText(data []byte) error {
+	switch PersonalTokenState(data) {
+	case PersonalTokenStateActive:
+		*s = PersonalTokenStateActive
+		return nil
+	case PersonalTokenStateExpiring:
+		*s = PersonalTokenStateExpiring
+		return nil
+	case PersonalTokenStateExpired:
+		*s = PersonalTokenStateExpired
+		return nil
+	case PersonalTokenStateRevoked:
+		*s = PersonalTokenStateRevoked
+		return nil
+	default:
+		return errors.Errorf("invalid value: %q", data)
+	}
+}
+
 // An RFC 9457 problem detail.
 // Ref: #/components/schemas/Problem
 type Problem struct {
@@ -1851,11 +2060,16 @@ func (*ProblemStatusCode) getLauncherRes()               {}
 func (*ProblemStatusCode) getProfileRes()                {}
 func (*ProblemStatusCode) getVersionRes()                {}
 func (*ProblemStatusCode) listAuditEventsRes()           {}
+func (*ProblemStatusCode) listMyTokensRes()              {}
 func (*ProblemStatusCode) listSecondFactorsRes()         {}
+func (*ProblemStatusCode) listUserTokensRes()            {}
+func (*ProblemStatusCode) mintTokenRes()                 {}
 func (*ProblemStatusCode) passkeyOptionsRes()            {}
 func (*ProblemStatusCode) removeMemberRes()              {}
 func (*ProblemStatusCode) removeSecondFactorRes()        {}
 func (*ProblemStatusCode) renameGroupRes()               {}
+func (*ProblemStatusCode) revokeMyTokenRes()             {}
+func (*ProblemStatusCode) revokeUserTokenRes()           {}
 func (*ProblemStatusCode) signInRes()                    {}
 func (*ProblemStatusCode) signOutRes()                   {}
 func (*ProblemStatusCode) signOutUserRes()               {}
@@ -1963,6 +2177,16 @@ func (*RemoveSecondFactorNoContent) removeSecondFactorRes() {}
 type RenameGroupNoContent struct{}
 
 func (*RenameGroupNoContent) renameGroupRes() {}
+
+// RevokeMyTokenNoContent is response for RevokeMyToken operation.
+type RevokeMyTokenNoContent struct{}
+
+func (*RevokeMyTokenNoContent) revokeMyTokenRes() {}
+
+// RevokeUserTokenNoContent is response for RevokeUserToken operation.
+type RevokeUserTokenNoContent struct{}
+
+func (*RevokeUserTokenNoContent) revokeUserTokenRes() {}
 
 // One of a User's Second Factors.
 // Ref: #/components/schemas/SecondFactor
@@ -2397,6 +2621,106 @@ func (s *TOTPSetup) SetURI(val string) {
 }
 
 func (*TOTPSetup) startTOTPRes() {}
+
+// A Client a token is for.
+// Ref: #/components/schemas/TokenClient
+type TokenClient struct {
+	ID    ClientId `json:"id"`
+	Label string   `json:"label"`
+}
+
+// GetID returns the value of ID.
+func (s *TokenClient) GetID() ClientId {
+	return s.ID
+}
+
+// GetLabel returns the value of Label.
+func (s *TokenClient) GetLabel() string {
+	return s.Label
+}
+
+// SetID sets the value of ID.
+func (s *TokenClient) SetID(val ClientId) {
+	s.ID = val
+}
+
+// SetLabel sets the value of Label.
+func (s *TokenClient) SetLabel(val string) {
+	s.Label = val
+}
+
+// A token to mint.
+// Ref: #/components/schemas/TokenDraft
+type TokenDraft struct {
+	Name     string         `json:"name"`
+	ClientId ClientId       `json:"clientId"`
+	Days     TokenDraftDays `json:"days"`
+}
+
+// GetName returns the value of Name.
+func (s *TokenDraft) GetName() string {
+	return s.Name
+}
+
+// GetClientId returns the value of ClientId.
+func (s *TokenDraft) GetClientId() ClientId {
+	return s.ClientId
+}
+
+// GetDays returns the value of Days.
+func (s *TokenDraft) GetDays() TokenDraftDays {
+	return s.Days
+}
+
+// SetName sets the value of Name.
+func (s *TokenDraft) SetName(val string) {
+	s.Name = val
+}
+
+// SetClientId sets the value of ClientId.
+func (s *TokenDraft) SetClientId(val ClientId) {
+	s.ClientId = val
+}
+
+// SetDays sets the value of Days.
+func (s *TokenDraft) SetDays(val TokenDraftDays) {
+	s.Days = val
+}
+
+type TokenDraftDays int32
+
+const (
+	TokenDraftDays30  TokenDraftDays = 30
+	TokenDraftDays90  TokenDraftDays = 90
+	TokenDraftDays365 TokenDraftDays = 365
+)
+
+// AllValues returns all TokenDraftDays values.
+func (TokenDraftDays) AllValues() []TokenDraftDays {
+	return []TokenDraftDays{
+		TokenDraftDays30,
+		TokenDraftDays90,
+		TokenDraftDays365,
+	}
+}
+
+// A User's tokens, newest first.
+// Ref: #/components/schemas/TokenList
+type TokenList struct {
+	Tokens []PersonalToken `json:"tokens"`
+}
+
+// GetTokens returns the value of Tokens.
+func (s *TokenList) GetTokens() []PersonalToken {
+	return s.Tokens
+}
+
+// SetTokens sets the value of Tokens.
+func (s *TokenList) SetTokens(val []PersonalToken) {
+	s.Tokens = val
+}
+
+func (*TokenList) listUserTokensRes() {}
 
 // UnassignRoleNoContent is response for UnassignRole operation.
 type UnassignRoleNoContent struct{}

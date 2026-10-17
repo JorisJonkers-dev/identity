@@ -720,6 +720,79 @@ func decodeListAuditEventsParams(args [0]string, argsEscaped bool, r *http.Reque
 	return params, nil
 }
 
+// ListUserTokensParams is parameters of listUserTokens operation.
+type ListUserTokensParams struct {
+	// The User.
+	UserId ID
+}
+
+func unpackListUserTokensParams(packed middleware.Parameters) (params ListUserTokensParams) {
+	{
+		key := middleware.ParameterKey{
+			Name: "userId",
+			In:   "path",
+		}
+		params.UserId = packed[key].(ID)
+	}
+	return params
+}
+
+func decodeListUserTokensParams(args [1]string, argsEscaped bool, r *http.Request) (params ListUserTokensParams, _ error) {
+	// Decode path: userId.
+	if err := func() error {
+		param := args[0]
+		if argsEscaped {
+			unescaped, err := url.PathUnescape(args[0])
+			if err != nil {
+				return errors.Wrap(err, "unescape path")
+			}
+			param = unescaped
+		}
+		if len(param) > 0 {
+			d := uri.NewPathDecoder(uri.PathDecoderConfig{
+				Param:   "userId",
+				Value:   param,
+				Style:   uri.PathStyleSimple,
+				Explode: false,
+			})
+
+			if err := func() error {
+				var paramsDotUserIdVal uuid.UUID
+				if err := func() error {
+					val, err := d.DecodeValue()
+					if err != nil {
+						return err
+					}
+
+					c, err := conv.ToUUID(val)
+					if err != nil {
+						return err
+					}
+
+					paramsDotUserIdVal = c
+					return nil
+				}(); err != nil {
+					return err
+				}
+				params.UserId = ID(paramsDotUserIdVal)
+				return nil
+			}(); err != nil {
+				return err
+			}
+		} else {
+			return validate.ErrFieldRequired
+		}
+		return nil
+	}(); err != nil {
+		return params, &ogenerrors.DecodeParamError{
+			Name: "userId",
+			In:   "path",
+			Err:  err,
+		}
+	}
+	return params, nil
+}
+
 // RemoveMemberParams is parameters of removeMember operation.
 type RemoveMemberParams struct {
 	// The Group.
@@ -993,6 +1066,213 @@ func decodeRenameGroupParams(args [1]string, argsEscaped bool, r *http.Request) 
 	}(); err != nil {
 		return params, &ogenerrors.DecodeParamError{
 			Name: "groupId",
+			In:   "path",
+			Err:  err,
+		}
+	}
+	return params, nil
+}
+
+// RevokeMyTokenParams is parameters of revokeMyToken operation.
+type RevokeMyTokenParams struct {
+	// The Personal Token.
+	PatId ID
+}
+
+func unpackRevokeMyTokenParams(packed middleware.Parameters) (params RevokeMyTokenParams) {
+	{
+		key := middleware.ParameterKey{
+			Name: "patId",
+			In:   "path",
+		}
+		params.PatId = packed[key].(ID)
+	}
+	return params
+}
+
+func decodeRevokeMyTokenParams(args [1]string, argsEscaped bool, r *http.Request) (params RevokeMyTokenParams, _ error) {
+	// Decode path: patId.
+	if err := func() error {
+		param := args[0]
+		if argsEscaped {
+			unescaped, err := url.PathUnescape(args[0])
+			if err != nil {
+				return errors.Wrap(err, "unescape path")
+			}
+			param = unescaped
+		}
+		if len(param) > 0 {
+			d := uri.NewPathDecoder(uri.PathDecoderConfig{
+				Param:   "patId",
+				Value:   param,
+				Style:   uri.PathStyleSimple,
+				Explode: false,
+			})
+
+			if err := func() error {
+				var paramsDotPatIdVal uuid.UUID
+				if err := func() error {
+					val, err := d.DecodeValue()
+					if err != nil {
+						return err
+					}
+
+					c, err := conv.ToUUID(val)
+					if err != nil {
+						return err
+					}
+
+					paramsDotPatIdVal = c
+					return nil
+				}(); err != nil {
+					return err
+				}
+				params.PatId = ID(paramsDotPatIdVal)
+				return nil
+			}(); err != nil {
+				return err
+			}
+		} else {
+			return validate.ErrFieldRequired
+		}
+		return nil
+	}(); err != nil {
+		return params, &ogenerrors.DecodeParamError{
+			Name: "patId",
+			In:   "path",
+			Err:  err,
+		}
+	}
+	return params, nil
+}
+
+// RevokeUserTokenParams is parameters of revokeUserToken operation.
+type RevokeUserTokenParams struct {
+	// The User.
+	UserId ID
+	// The Personal Token.
+	PatId ID
+}
+
+func unpackRevokeUserTokenParams(packed middleware.Parameters) (params RevokeUserTokenParams) {
+	{
+		key := middleware.ParameterKey{
+			Name: "userId",
+			In:   "path",
+		}
+		params.UserId = packed[key].(ID)
+	}
+	{
+		key := middleware.ParameterKey{
+			Name: "patId",
+			In:   "path",
+		}
+		params.PatId = packed[key].(ID)
+	}
+	return params
+}
+
+func decodeRevokeUserTokenParams(args [2]string, argsEscaped bool, r *http.Request) (params RevokeUserTokenParams, _ error) {
+	// Decode path: userId.
+	if err := func() error {
+		param := args[0]
+		if argsEscaped {
+			unescaped, err := url.PathUnescape(args[0])
+			if err != nil {
+				return errors.Wrap(err, "unescape path")
+			}
+			param = unescaped
+		}
+		if len(param) > 0 {
+			d := uri.NewPathDecoder(uri.PathDecoderConfig{
+				Param:   "userId",
+				Value:   param,
+				Style:   uri.PathStyleSimple,
+				Explode: false,
+			})
+
+			if err := func() error {
+				var paramsDotUserIdVal uuid.UUID
+				if err := func() error {
+					val, err := d.DecodeValue()
+					if err != nil {
+						return err
+					}
+
+					c, err := conv.ToUUID(val)
+					if err != nil {
+						return err
+					}
+
+					paramsDotUserIdVal = c
+					return nil
+				}(); err != nil {
+					return err
+				}
+				params.UserId = ID(paramsDotUserIdVal)
+				return nil
+			}(); err != nil {
+				return err
+			}
+		} else {
+			return validate.ErrFieldRequired
+		}
+		return nil
+	}(); err != nil {
+		return params, &ogenerrors.DecodeParamError{
+			Name: "userId",
+			In:   "path",
+			Err:  err,
+		}
+	}
+	// Decode path: patId.
+	if err := func() error {
+		param := args[1]
+		if argsEscaped {
+			unescaped, err := url.PathUnescape(args[1])
+			if err != nil {
+				return errors.Wrap(err, "unescape path")
+			}
+			param = unescaped
+		}
+		if len(param) > 0 {
+			d := uri.NewPathDecoder(uri.PathDecoderConfig{
+				Param:   "patId",
+				Value:   param,
+				Style:   uri.PathStyleSimple,
+				Explode: false,
+			})
+
+			if err := func() error {
+				var paramsDotPatIdVal uuid.UUID
+				if err := func() error {
+					val, err := d.DecodeValue()
+					if err != nil {
+						return err
+					}
+
+					c, err := conv.ToUUID(val)
+					if err != nil {
+						return err
+					}
+
+					paramsDotPatIdVal = c
+					return nil
+				}(); err != nil {
+					return err
+				}
+				params.PatId = ID(paramsDotPatIdVal)
+				return nil
+			}(); err != nil {
+				return err
+			}
+		} else {
+			return validate.ErrFieldRequired
+		}
+		return nil
+	}(); err != nil {
+		return params, &ogenerrors.DecodeParamError{
+			Name: "patId",
 			In:   "path",
 			Err:  err,
 		}

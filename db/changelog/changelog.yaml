@@ -26,3 +26,6 @@ databaseChangeLog:
   - include:
       file: 0008-audit-events.yaml
       relativeToChangelogFile: true
+  - include:
+      file: 0009-personal-tokens.yaml
+      relativeToChangelogFile: true

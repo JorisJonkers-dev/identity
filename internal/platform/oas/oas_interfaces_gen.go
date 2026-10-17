@@ -65,8 +65,20 @@ type ListAuditEventsRes interface {
 	listAuditEventsRes()
 }
 
+type ListMyTokensRes interface {
+	listMyTokensRes()
+}
+
 type ListSecondFactorsRes interface {
 	listSecondFactorsRes()
+}
+
+type ListUserTokensRes interface {
+	listUserTokensRes()
+}
+
+type MintTokenRes interface {
+	mintTokenRes()
 }
 
 type PasskeyOptionsRes interface {
@@ -83,6 +95,14 @@ type RemoveSecondFactorRes interface {
 
 type RenameGroupRes interface {
 	renameGroupRes()
+}
+
+type RevokeMyTokenRes interface {
+	revokeMyTokenRes()
+}
+
+type RevokeUserTokenRes interface {
+	revokeUserTokenRes()
 }
 
 type SignInRes interface {

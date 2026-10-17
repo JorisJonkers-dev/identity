@@ -88,6 +88,10 @@ func (d directory) ActiveSessions(context.Context) (sessions, users int, err err
 	return 5, 2, d.fail["ActiveSessions"]
 }
 
+func (d directory) TokensExpiring(context.Context) (int, error) {
+	return 3, d.fail["TokensExpiring"]
+}
+
 func (directory) ClientLabel(_ context.Context, id string) string { return strings.ToUpper(id) }
 
 type fixture struct {

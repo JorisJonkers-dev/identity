@@ -89,6 +89,18 @@ CREATE TABLE public.passkeys (
     CONSTRAINT passkeys_label_length CHECK (((label = btrim(label)) AND ((char_length(label) >= 1) AND (char_length(label) <= 64))))
 );
 
+CREATE TABLE public.personal_tokens (
+    id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    client_id text NOT NULL,
+    name text NOT NULL,
+    token_hash bytea NOT NULL,
+    created_at timestamp with time zone NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    revoked_at timestamp with time zone,
+    last_used_at timestamp with time zone
+);
+
 CREATE TABLE public.session_clients (
     session_id uuid NOT NULL,
     client_id text NOT NULL
@@ -182,6 +194,12 @@ ALTER TABLE ONLY public.passkeys
 ALTER TABLE ONLY public.passkeys
     ADD CONSTRAINT passkeys_pkey PRIMARY KEY (id);
 
+ALTER TABLE ONLY public.personal_tokens
+    ADD CONSTRAINT personal_tokens_hash_key UNIQUE (token_hash);
+
+ALTER TABLE ONLY public.personal_tokens
+    ADD CONSTRAINT personal_tokens_pkey PRIMARY KEY (id);
+
 ALTER TABLE ONLY public.session_clients
     ADD CONSTRAINT session_clients_pkey PRIMARY KEY (session_id, client_id);
 
@@ -236,6 +254,10 @@ CREATE INDEX memberships_user_idx ON public.memberships USING btree (user_id);
 
 CREATE INDEX passkeys_user_idx ON public.passkeys USING btree (user_id);
 
+CREATE INDEX personal_tokens_expires_at_idx ON public.personal_tokens USING btree (expires_at);
+
+CREATE INDEX personal_tokens_user_idx ON public.personal_tokens USING btree (user_id);
+
 CREATE INDEX sessions_user_idx ON public.sessions USING btree (user_id);
 
 CREATE INDEX sign_in_challenges_expires_at_idx ON public.sign_in_challenges USING btree (expires_at);
@@ -270,6 +292,9 @@ ALTER TABLE ONLY public.passkey_enrolments
 
 ALTER TABLE ONLY public.passkeys
     ADD CONSTRAINT passkeys_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.personal_tokens
+    ADD CONSTRAINT personal_tokens_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.sessions
     ADD CONSTRAINT sessions_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;

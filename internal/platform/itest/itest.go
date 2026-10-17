@@ -135,6 +135,49 @@ func (e *Env) Logs(t *testing.T) []map[string]any {
 	return lines
 }
 
+// Introspect asks /oidc/introspect about token as the Client clientID, authenticating with its
+// secret, the way a Client's API checks a bearer token it was given (docs/adr/0017).
+func (e *Env) Introspect(t *testing.T, clientID, secret, token string) map[string]any {
+	t.Helper()
+	form := url.Values{"token": {token}}
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "https://"+Host+"/oidc/introspect", strings.NewReader(form.Encode()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetBasicAuth(url.QueryEscape(clientID), url.QueryEscape(secret))
+	res, err := e.Browser().client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	raw, _ := io.ReadAll(res.Body)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("introspect = %d %s", res.StatusCode, raw)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+// Userinfo is the status /oidc/userinfo answers for a bearer token.
+func (e *Env) Userinfo(t *testing.T, token string) int {
+	t.Helper()
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://"+Host+"/oidc/userinfo", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	res, err := e.Browser().client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = res.Body.Close()
+	return res.StatusCode
+}
+
 // Queries reaches the test's database directly, to set up what no request can, such as an event
 // a year old.
 func (e *Env) Queries() *queries.Queries { return e.db.Queries() }
