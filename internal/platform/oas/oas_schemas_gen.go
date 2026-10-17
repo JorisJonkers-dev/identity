@@ -1829,9 +1829,11 @@ func (s *Person) SetName(val string) {
 // A Personal Token, without its secret.
 // Ref: #/components/schemas/PersonalToken
 type PersonalToken struct {
-	ID         ID          `json:"id"`
-	Name       string      `json:"name"`
-	Client     TokenClient `json:"client"`
+	ID     ID          `json:"id"`
+	Name   string      `json:"name"`
+	Client TokenClient `json:"client"`
+	// The App Roles the token's User holds on its Client now, which is all it carries.
+	Roles      []AppRole   `json:"roles"`
 	CreatedAt  time.Time   `json:"createdAt"`
 	ExpiresAt  time.Time   `json:"expiresAt"`
 	LastUsedAt OptDateTime `json:"lastUsedAt"`
@@ -1852,6 +1854,11 @@ func (s *PersonalToken) GetName() string {
 // GetClient returns the value of Client.
 func (s *PersonalToken) GetClient() TokenClient {
 	return s.Client
+}
+
+// GetRoles returns the value of Roles.
+func (s *PersonalToken) GetRoles() []AppRole {
+	return s.Roles
 }
 
 // GetCreatedAt returns the value of CreatedAt.
@@ -1887,6 +1894,11 @@ func (s *PersonalToken) SetName(val string) {
 // SetClient sets the value of Client.
 func (s *PersonalToken) SetClient(val TokenClient) {
 	s.Client = val
+}
+
+// SetRoles sets the value of Roles.
+func (s *PersonalToken) SetRoles(val []AppRole) {
+	s.Roles = val
 }
 
 // SetCreatedAt sets the value of CreatedAt.

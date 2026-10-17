@@ -77,7 +77,7 @@ func (c *Contexts) Bearer(ctx context.Context, secret, clientID string) (app.Per
 	if err != nil {
 		return app.Person{}, nil, err
 	}
-	return app.Person{UserID: u.ID, Email: u.Email.String(), Name: u.Name.String()}, t.Roles, nil
+	return app.Person{UserID: u.ID, Email: u.Email.String(), Name: u.Name.String(), SessionID: t.ID}, t.Roles, nil
 }
 
 // GatedClient is the Client a host belongs to when the Gate signs in for it; a host with none, or

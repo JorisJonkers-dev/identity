@@ -280,6 +280,15 @@ func TestTheAppsToMintForFailWhenTheRolesCannotBeRead(t *testing.T) {
 	}
 }
 
+func TestATokenCarriesTheRolesItsUserHoldsOnItsClientNow(t *testing.T) {
+	f := newFixture()
+	m := f.minted(t)
+	f.contexts.held["grafana"] = []string{"editor", "viewer"}
+	if roles, err := f.RolesOf(context.Background(), m.Token); err != nil || !slices.Equal(roles, []string{"editor", "viewer"}) {
+		t.Fatalf("RolesOf = %v, %v", roles, err)
+	}
+}
+
 func TestATokensClientIsCalledByItsLabel(t *testing.T) {
 	if got := newFixture().Label(context.Background(), "grafana"); got != "Grafana" {
 		t.Fatalf("label = %q", got)
@@ -303,6 +312,19 @@ func TestAUserRevokesTheirTokenAndItIsRecorded(t *testing.T) {
 	}
 	if want := []audit.Event{{Action: audit.TokenRevoked, User: ada, Client: "grafana"}}; !slices.Equal(*f.events, want) {
 		t.Fatalf("events = %+v", *f.events)
+	}
+}
+
+func TestRevokingATokenSaysWhichOnceSoItsCachedChecksCanGo(t *testing.T) {
+	f := newFixture()
+	m := f.minted(t)
+	var told []uuid.UUID
+	f.OnRevoked(func(_ context.Context, id uuid.UUID) { told = append(told, id) })
+	for range 2 {
+		_ = f.RevokeMine(context.Background(), ada, m.Token.ID)
+	}
+	if !slices.Equal(told, []uuid.UUID{m.Token.ID}) {
+		t.Fatalf("told %v", told)
 	}
 }
 

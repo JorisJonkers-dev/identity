@@ -203,12 +203,52 @@ export const zTokenClient = z.object({
 });
 
 /**
+ * A token to mint.
+ */
+export const zTokenDraft = z.object({
+    name: z.string().min(1).max(64),
+    clientId: zClientId,
+    days: z.union([
+        z.literal(30),
+        z.literal(90),
+        z.literal(365)
+    ])
+});
+
+/**
+ * An App Role a Client declares.
+ */
+export const zAppRole = z.string().min(1).max(63).regex(/^[a-z][a-z0-9-]*$/);
+
+/**
+ * One Audit Event.
+ */
+export const zAuditEvent = z.object({
+    id: zId,
+    at: z.iso.datetime({ offset: true }).max(64),
+    kind: zAuditKind,
+    action: zAuditAction,
+    actor: zAuditPerson.optional(),
+    user: zAuditPerson.optional(),
+    client: zAuditClient.optional(),
+    groupName: z.string().max(64).optional(),
+    role: zAppRole.optional(),
+    email: z.string().max(320).optional(),
+    reason: z.enum([
+        'password',
+        'second-factor',
+        'no-access'
+    ]).optional()
+});
+
+/**
  * A Personal Token, without its secret.
  */
 export const zPersonalToken = z.object({
     id: zId,
     name: z.string().max(64),
     client: zTokenClient,
+    roles: z.array(zAppRole).max(100),
     createdAt: z.iso.datetime({ offset: true }).max(64),
     expiresAt: z.iso.datetime({ offset: true }).max(64),
     lastUsedAt: z.iso.datetime({ offset: true }).max(64).optional(),
@@ -236,50 +276,11 @@ export const zMyTokens = z.object({
 });
 
 /**
- * A token to mint.
- */
-export const zTokenDraft = z.object({
-    name: z.string().min(1).max(64),
-    clientId: zClientId,
-    days: z.union([
-        z.literal(30),
-        z.literal(90),
-        z.literal(365)
-    ])
-});
-
-/**
  * A new token, and its secret, which is shown only here.
  */
 export const zMintedToken = z.object({
     token: zPersonalToken,
     secret: z.string().max(128)
-});
-
-/**
- * An App Role a Client declares.
- */
-export const zAppRole = z.string().min(1).max(63).regex(/^[a-z][a-z0-9-]*$/);
-
-/**
- * One Audit Event.
- */
-export const zAuditEvent = z.object({
-    id: zId,
-    at: z.iso.datetime({ offset: true }).max(64),
-    kind: zAuditKind,
-    action: zAuditAction,
-    actor: zAuditPerson.optional(),
-    user: zAuditPerson.optional(),
-    client: zAuditClient.optional(),
-    groupName: z.string().max(64).optional(),
-    role: zAppRole.optional(),
-    email: z.string().max(320).optional(),
-    reason: z.enum([
-        'password',
-        'second-factor',
-        'no-access'
-    ]).optional()
 });
 
 /**

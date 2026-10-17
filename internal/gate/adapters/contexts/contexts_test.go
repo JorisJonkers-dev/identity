@@ -36,7 +36,10 @@ func (s signIn) Roles(context.Context, uuid.UUID, string) ([]string, error) {
 
 // adaID holds the live Personal Token idpat_live; idpat_revoked is not active, and idpat_broken
 // fails its check.
-var adaID = uuid.MustParse("00000000-0000-4000-8000-0000000000a1")
+var (
+	adaID    = uuid.MustParse("00000000-0000-4000-8000-0000000000a1")
+	adaToken = uuid.MustParse("00000000-0000-4000-8000-0000000000c1")
+)
 
 func (signIn) ResolvePersonalToken(_ context.Context, secret string) (string, string, bool) {
 	id, ok := map[string]string{"idpat_live": "pat-live", "idpat_revoked": "pat-revoked", "idpat_broken": "pat-broken"}[secret]
@@ -46,7 +49,7 @@ func (signIn) ResolvePersonalToken(_ context.Context, secret string) (string, st
 func (signIn) CheckPersonalToken(_ context.Context, tokenID, _ string) (signinapp.PersonalToken, error) {
 	switch tokenID {
 	case "pat-live":
-		return signinapp.PersonalToken{UserID: adaID, Roles: []string{"viewer"}}, nil
+		return signinapp.PersonalToken{ID: adaToken, UserID: adaID, Roles: []string{"viewer"}}, nil
 	case "pat-revoked":
 		return signinapp.PersonalToken{}, signinapp.ErrInactive
 	}
@@ -140,7 +143,8 @@ func TestALivePersonalTokenAnswersItsUserAndRoles(t *testing.T) {
 	name, _ := usersdomain.NewName("Ada")
 	c := contexts.New(signIn{}, users{user: usersdomain.User{ID: adaID, Email: email, Name: name}})
 	p, roles, err := c.Bearer(context.Background(), "idpat_live", "stats")
-	if err != nil || p != (app.Person{UserID: adaID, Email: "ada@example.org", Name: "Ada"}) || len(roles) != 1 || roles[0] != "viewer" {
+	// The token stands where a session would, so revoking it can drop its cached checks.
+	if err != nil || p != (app.Person{UserID: adaID, Email: "ada@example.org", Name: "Ada", SessionID: adaToken}) || len(roles) != 1 || roles[0] != "viewer" {
 		t.Fatalf("Bearer = %+v, %v, %v", p, roles, err)
 	}
 }

@@ -45,7 +45,8 @@ type Client struct {
 	Host  string
 }
 
-// Person is a signed-in User, and the Single sign-on session that vouches for them.
+// Person is a signed-in User, and what vouches for them: their Single sign-on session, or, for a
+// request carrying a Personal Token, that token, so revoking it can Forget its cached checks.
 type Person struct {
 	UserID    uuid.UUID
 	Email     string
@@ -166,7 +167,7 @@ func (s *Service) CheckBearer(ctx context.Context, host, secret string) (Verdict
 		if err != nil {
 			return Verdict{}, uuid.Nil, err
 		}
-		return Verdict{UserID: p.UserID, Email: p.Email, Name: p.Name, Roles: roles}, uuid.Nil, nil
+		return Verdict{UserID: p.UserID, Email: p.Email, Name: p.Name, Roles: roles}, p.SessionID, nil
 	})
 }
 
@@ -237,9 +238,9 @@ func (s *Service) check(ctx context.Context, host string, hash []byte) (Verdict,
 	return v, gs.SessionID, err
 }
 
-// Forget drops the cached checks of ended Single sign-on sessions, so a sign-out reaches every
-// gated host at once rather than when the cache runs out. On other replicas the cache's ttl still
-// bounds it.
+// Forget drops the cached checks of ended Single sign-on sessions and revoked Personal Tokens, by
+// their ids, so the end reaches every gated host at once rather than when the cache runs out. On
+// other replicas the cache's ttl still bounds it.
 func (s *Service) Forget(sessionIDs []uuid.UUID) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

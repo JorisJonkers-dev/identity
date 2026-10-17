@@ -74,6 +74,10 @@ export type PersonalToken = {
     id: Id;
     name: string;
     client: TokenClient;
+    /**
+     * The App Roles the token's User holds on its Client now, which is all it carries.
+     */
+    roles: Array<AppRole>;
     createdAt: string;
     expiresAt: string;
     lastUsedAt?: string;

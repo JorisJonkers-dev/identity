@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/JorisJonkers-dev/identity/internal/gate/app"
 )
 
@@ -84,6 +86,17 @@ func TestAPersonalTokensAnswerIsKeptForTheCachesTTL(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	if len(tk.asked) != 2 {
+		t.Fatalf("asked %d times, want 2", len(tk.asked))
+	}
+}
+
+func TestARevokedPersonalTokensCachedCheckIsForgotten(t *testing.T) {
+	f := newFixture()
+	tk := withTokens(f)
+	_, _ = f.CheckBearer(context.Background(), stats.Host, "idpat_ada")
+	f.Forget([]uuid.UUID{ada.SessionID})
+	_, _ = f.CheckBearer(context.Background(), stats.Host, "idpat_ada")
 	if len(tk.asked) != 2 {
 		t.Fatalf("asked %d times, want 2", len(tk.asked))
 	}

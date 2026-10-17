@@ -3721,6 +3721,14 @@ func (s *PersonalToken) encodeFields(e *jx.Encoder) {
 		s.Client.Encode(e)
 	}
 	{
+		e.FieldStart("roles")
+		e.ArrStart()
+		for _, elem := range s.Roles {
+			elem.Encode(e)
+		}
+		e.ArrEnd()
+	}
+	{
 		e.FieldStart("createdAt")
 		json.EncodeDateTime(e, s.CreatedAt)
 	}
@@ -3740,14 +3748,15 @@ func (s *PersonalToken) encodeFields(e *jx.Encoder) {
 	}
 }
 
-var jsonFieldsNameOfPersonalToken = [7]string{
+var jsonFieldsNameOfPersonalToken = [8]string{
 	0: "id",
 	1: "name",
 	2: "client",
-	3: "createdAt",
-	4: "expiresAt",
-	5: "lastUsedAt",
-	6: "state",
+	3: "roles",
+	4: "createdAt",
+	5: "expiresAt",
+	6: "lastUsedAt",
+	7: "state",
 }
 
 // Decode decodes PersonalToken from json.
@@ -3791,8 +3800,26 @@ func (s *PersonalToken) Decode(d *jx.Decoder) error {
 			}(); err != nil {
 				return errors.Wrap(err, "decode field \"client\"")
 			}
-		case "createdAt":
+		case "roles":
 			requiredBitSet[0] |= 1 << 3
+			if err := func() error {
+				s.Roles = make([]AppRole, 0)
+				if err := d.Arr(func(d *jx.Decoder) error {
+					var elem AppRole
+					if err := elem.Decode(d); err != nil {
+						return err
+					}
+					s.Roles = append(s.Roles, elem)
+					return nil
+				}); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"roles\"")
+			}
+		case "createdAt":
+			requiredBitSet[0] |= 1 << 4
 			if err := func() error {
 				v, err := json.DecodeDateTime(d)
 				s.CreatedAt = v
@@ -3804,7 +3831,7 @@ func (s *PersonalToken) Decode(d *jx.Decoder) error {
 				return errors.Wrap(err, "decode field \"createdAt\"")
 			}
 		case "expiresAt":
-			requiredBitSet[0] |= 1 << 4
+			requiredBitSet[0] |= 1 << 5
 			if err := func() error {
 				v, err := json.DecodeDateTime(d)
 				s.ExpiresAt = v
@@ -3826,7 +3853,7 @@ func (s *PersonalToken) Decode(d *jx.Decoder) error {
 				return errors.Wrap(err, "decode field \"lastUsedAt\"")
 			}
 		case "state":
-			requiredBitSet[0] |= 1 << 6
+			requiredBitSet[0] |= 1 << 7
 			if err := func() error {
 				if err := s.State.Decode(d); err != nil {
 					return err
@@ -3845,7 +3872,7 @@ func (s *PersonalToken) Decode(d *jx.Decoder) error {
 	// Validate required fields.
 	var failures []validate.FieldError
 	for i, mask := range [1]uint8{
-		0b01011111,
+		0b10111111,
 	} {
 		if result := (requiredBitSet[i] & mask) ^ mask; result != 0 {
 			// Mask only required fields and check equality to mask using XOR.

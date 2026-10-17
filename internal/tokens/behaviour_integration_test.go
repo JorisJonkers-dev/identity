@@ -96,7 +96,7 @@ func TestAUserSeesTheirTokensWithoutTheirSecretAndTheAppsTheyMayMintFor(t *testi
 		Clients []struct{ ID, Label string }
 	}
 	w.ada.Call(t, http.MethodGet, "/api/v1/profile/tokens", nil, http.StatusOK, &mine)
-	if len(mine.Tokens) != 1 || mine.Tokens[0]["id"] != m.Token.ID || mine.Tokens[0]["secret"] != nil {
+	if len(mine.Tokens) != 1 || mine.Tokens[0]["id"] != m.Token.ID || mine.Tokens[0]["secret"] != nil || !slices.Equal(mine.Tokens[0]["roles"].([]any), []any{"viewer"}) {
 		t.Fatalf("tokens = %+v", mine.Tokens)
 	}
 	if len(mine.Clients) != 1 || mine.Clients[0].ID != "grafana" {
