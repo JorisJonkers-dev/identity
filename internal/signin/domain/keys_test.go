@@ -60,11 +60,16 @@ func TestAKeyIsPublishedForSevenDaysAfterItStopsSigning(t *testing.T) {
 	}
 }
 
-func TestTheCurrentKeyIsTheOneThatStartedLast(t *testing.T) {
+func TestTheCurrentKeyIsTheOneThatStartedLastInWhateverOrder(t *testing.T) {
 	t.Parallel()
 	old, next := key("old", t0), key("next", t0.Add(time.Hour))
-	if got, ok := domain.Current([]domain.SigningKey{next, old}, t0.Add(2*time.Hour)); !ok || got.ID != "next" {
-		t.Fatalf("current = %+v, %v", got, ok)
+	for name, keys := range map[string][]domain.SigningKey{"newest first": {next, old}, "oldest first": {old, next}} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			if got, ok := domain.Current(keys, t0.Add(2*time.Hour)); !ok || got.ID != "next" {
+				t.Fatalf("current = %+v, %v", got, ok)
+			}
+		})
 	}
 }
 
