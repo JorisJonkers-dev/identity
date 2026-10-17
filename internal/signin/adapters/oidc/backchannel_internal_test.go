@@ -49,7 +49,7 @@ func TestALogoutTokenIsSignedAndNamesTheSession(t *testing.T) {
 	if typ := signed.Signatures[0].Protected.ExtraHeaders["typ"]; typ != "logout+jwt" {
 		t.Fatalf("typ = %v", typ)
 	}
-	if kid := signed.Signatures[0].Protected.KeyID; kid != keyID(&testKey().PublicKey) {
+	if kid := signed.Signatures[0].Protected.KeyID; kid != domain.KeyID(&testKey().PublicKey) {
 		t.Fatalf("kid = %q", kid)
 	}
 	payload, err := signed.Verify(&testKey().PublicKey)

@@ -1,0 +1,35 @@
+# The Provider's signing keys and its own sealing secret (docs/adr/0013), shared by every replica
+# and kept across restarts. A private half or a secret is stored only as Vault transit ciphertext;
+# a key's public half is public and kept as it is.
+databaseChangeLog:
+  - changeSet:
+      id: 0010-create-signing-keys
+      author: identity
+      changes:
+        - createTable:
+            tableName: signing_keys
+            columns:
+              - column: {name: id, type: text, constraints: {primaryKey: true, nullable: false}}
+              # PKIX DER of the RSA public key.
+              - column: {name: public_key, type: bytea, constraints: {nullable: false}}
+              # Vault transit ciphertext of the PKCS #8 private key.
+              - column: {name: sealed_private, type: text, constraints: {nullable: false}}
+              - column: {name: signs_from, type: timestamptz, constraints: {nullable: false}}
+              - column: {name: signs_until, type: timestamptz, constraints: {nullable: false}}
+        - createIndex:
+            tableName: signing_keys
+            indexName: signing_keys_signs_until_idx
+            columns:
+              - column: {name: signs_until}
+
+  - changeSet:
+      id: 0010-create-sealed-secrets
+      author: identity
+      changes:
+        - createTable:
+            tableName: sealed_secrets
+            columns:
+              - column: {name: name, type: text, constraints: {primaryKey: true, nullable: false}}
+              # Vault transit ciphertext.
+              - column: {name: sealed, type: text, constraints: {nullable: false}}
+              - column: {name: created_at, type: timestamptz, constraints: {nullable: false}}

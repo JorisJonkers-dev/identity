@@ -99,11 +99,13 @@ func Start(t *testing.T, cs ...signindomain.Client) *Env {
 	}
 	logs := &logBuffer{}
 	logger := slog.New(slog.NewJSONHandler(logs, nil))
-	built, err := assembly.New(assembly.Config{
+	transit := vault.NewTransit(shared.vaultAddr, "transit", vault.Token(vaultToken), &http.Client{Timeout: 5 * time.Second})
+	built, err := assembly.New(t.Context(), assembly.Config{
 		Store:     store,
 		PublicURL: "https://" + Host,
 		Mailer:    mail.SMTP{Addr: shared.smtpAddr, From: "identity@" + Host},
-		Sealer:    vault.NewTransit(shared.vaultAddr, "transit", vault.Token(vaultToken), &http.Client{Timeout: 5 * time.Second}).Key("identity-totp"),
+		Sealer:    transit.Key("identity-totp"),
+		KeySealer: transit.Key("identity-signing"),
 		Index:     index,
 		Synced:    func() bool { return true },
 		Logger:    logger,
@@ -386,6 +388,14 @@ func get(t *testing.T, target string, out any) {
 	}
 }
 
+// Vault is the dev-mode Vault the test binary shares, with the transit keys identity uses, and its
+// root token, for a test that starts identity from its environment.
+func Vault(t *testing.T) (addr, token string) {
+	t.Helper()
+	started(t)
+	return shared.vaultAddr, vaultToken
+}
+
 // started starts Vault, with its transit key, and Mailpit, once for the test binary.
 func started(t *testing.T) {
 	t.Helper()
@@ -410,6 +420,7 @@ func start(ctx context.Context) error {
 	for _, step := range []struct{ path, body string }{
 		{"/v1/sys/mounts/transit", `{"type":"transit"}`},
 		{"/v1/transit/keys/identity-totp", `{}`},
+		{"/v1/transit/keys/identity-signing", `{}`},
 	} {
 		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, shared.vaultAddr+step.path, strings.NewReader(step.body))
 		req.Header.Set("X-Vault-Token", vaultToken)

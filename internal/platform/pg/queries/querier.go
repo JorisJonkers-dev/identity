@@ -36,7 +36,9 @@ type Querier interface {
 	CreateGroup(ctx context.Context, arg CreateGroupParams) error
 	CreatePasskey(ctx context.Context, arg CreatePasskeyParams) error
 	CreatePersonalToken(ctx context.Context, arg CreatePersonalTokenParams) error
+	CreateSealedSecret(ctx context.Context, arg CreateSealedSecretParams) error
 	CreateSession(ctx context.Context, arg CreateSessionParams) error
+	CreateSigningKey(ctx context.Context, arg CreateSigningKeyParams) error
 	CreateSignup(ctx context.Context, arg CreateSignupParams) error
 	CreateTOTPFactor(ctx context.Context, arg CreateTOTPFactorParams) error
 	CreateUser(ctx context.Context, arg CreateUserParams) error
@@ -50,6 +52,8 @@ type Querier interface {
 	DeleteOtherSessions(ctx context.Context, arg DeleteOtherSessionsParams) ([]uuid.UUID, error)
 	DeletePasskey(ctx context.Context, arg DeletePasskeyParams) (int64, error)
 	DeletePasskeyEnrolment(ctx context.Context, userID uuid.UUID) error
+	// A key no token can still need: it stopped signing before a time.
+	DeleteSigningKeysEndedBefore(ctx context.Context, signsUntil time.Time) error
 	DeleteSignup(ctx context.Context, tokenHash []byte) error
 	DeleteTOTPEnrolment(ctx context.Context, userID uuid.UUID) error
 	DeleteTOTPFactor(ctx context.Context, arg DeleteTOTPFactorParams) (int64, error)
@@ -62,11 +66,15 @@ type Querier interface {
 	ListGroups(ctx context.Context) ([]ListGroupsRow, error)
 	ListMemberships(ctx context.Context) ([]Membership, error)
 	ListPersonalTokens(ctx context.Context, userID uuid.UUID) ([]ListPersonalTokensRow, error)
+	ListSigningKeys(ctx context.Context) ([]SigningKey, error)
 	// The Users CountUnassigned counts.
 	ListUnassigned(ctx context.Context) ([]uuid.UUID, error)
 	ListUsers(ctx context.Context) ([]User, error)
 	// Holds the Group until the transaction ends, so two removals cannot both see the other member.
 	LockGroup(ctx context.Context, id uuid.UUID) (bool, error)
+	// Held until the transaction ends, so of two replicas starting together one makes the key and the
+	// other reads it.
+	LockKeys(ctx context.Context) error
 	PasskeyEnrolment(ctx context.Context, userID uuid.UUID) (PasskeyEnrolmentRow, error)
 	PasskeysOfUser(ctx context.Context, userID uuid.UUID) ([]Passkey, error)
 	PersonalTokenByHash(ctx context.Context, tokenHash []byte) (PersonalTokenByHashRow, error)
@@ -83,6 +91,7 @@ type Querier interface {
 	RolesOf(ctx context.Context, arg RolesOfParams) ([]string, error)
 	// A request gets one code; a second is refused.
 	SaveAuthCode(ctx context.Context, arg SaveAuthCodeParams) (int64, error)
+	SealedSecret(ctx context.Context, name string) (string, error)
 	SessionByHash(ctx context.Context, tokenHash []byte) (SessionByHashRow, error)
 	SessionByID(ctx context.Context, id uuid.UUID) (SessionByIDRow, error)
 	// The WebAuthn ceremony a sign-in started; only an unexpired challenge takes one.

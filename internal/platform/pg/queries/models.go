@@ -108,6 +108,12 @@ type PersonalToken struct {
 	LastUsedAt *time.Time
 }
 
+type SealedSecret struct {
+	Name      string
+	Sealed    string
+	CreatedAt time.Time
+}
+
 type Session struct {
 	TokenHash  []byte
 	UserID     uuid.UUID
@@ -130,6 +136,14 @@ type SignInChallenge struct {
 	ExpiresAt       time.Time
 	WindowStartedAt time.Time
 	PasskeyCeremony []byte
+}
+
+type SigningKey struct {
+	ID            string
+	PublicKey     []byte
+	SealedPrivate string
+	SignsFrom     time.Time
+	SignsUntil    time.Time
 }
 
 type Signup struct {

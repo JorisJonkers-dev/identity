@@ -3,13 +3,13 @@
 //
 // With arguments it runs an admin command instead; see command.
 //
-// Environment: DATABASE_URL, PUBLIC_URL (where mailed links point), SMTP_ADDR and MAIL_FROM are
-// required; SMTP_USERNAME and SMTP_PASSWORD sign in to the mail server; SMTP_TLS is "required"
-// (the default) or "none", which only a local run against Mailpit may use; ADDR defaults to :8080,
-// and METRICS_ADDR, which serves only /metrics, to :9090. VAULT_ADDR lets Users add authenticator
-// apps: identity signs in to Vault with VAULT_TOKEN, or as VAULT_ROLE (identity) through the
-// Kubernetes auth method; VAULT_TRANSIT_MOUNT (transit) and VAULT_TOTP_KEY (identity-totp) name the
-// key. Outside a cluster, CLIENTS_FILE names a YAML file of Client objects for a local run.
+// Environment: DATABASE_URL, PUBLIC_URL (where mailed links point), SMTP_ADDR, MAIL_FROM and
+// VAULT_ADDR are required; SMTP_USERNAME and SMTP_PASSWORD sign in to the mail server; SMTP_TLS is
+// "required" (the default) or "none", which only a local run against Mailpit may use; ADDR defaults
+// to :8080, and METRICS_ADDR, which serves only /metrics, to :9090. identity signs in to Vault with
+// VAULT_TOKEN, or as VAULT_ROLE (identity) through the Kubernetes auth method; under
+// VAULT_TRANSIT_MOUNT (transit), VAULT_SIGNING_KEY (identity-signing) seals the signing keys and
+// VAULT_TOTP_KEY (identity-totp) the authenticator apps' secrets (docs/adr/0013). Outside a cluster, CLIENTS_FILE names a YAML file of Client objects for a local run.
 // GRAFANA_URL, an https address, is where the Admin dashboard links for charts over time.
 package main
 
@@ -48,6 +48,8 @@ const (
 	defaultMetricsAddr = ":9090"
 	// Audit Events older than a year are removed this often, by every replica.
 	pruneInterval = time.Hour
+	// Each replica reads the signing keys this often, so a new key signs on time everywhere.
+	keysInterval = time.Hour
 )
 
 func main() {
@@ -86,12 +88,9 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 		return err
 	}
 	built := assembly.Config{Store: store, PublicURL: cfg.publicURL, Mailer: cfg.mailer, Index: index, Synced: synced, Grafana: cfg.grafana, Logger: logger, Version: version}
-	if sealer, ok := cfg.vault.sealer(); ok {
-		built.Sealer = sealer
-	} else {
-		logger.Warn("VAULT_ADDR is not set: no authenticator apps")
-	}
-	identity, err := assembly.New(built)
+	transit := cfg.vault.transit()
+	built.Sealer, built.KeySealer = transit.Key(cfg.vault.totpKey), transit.Key(cfg.vault.signingKey)
+	identity, err := assembly.New(ctx, built)
 	if err != nil {
 		return err
 	}
@@ -111,6 +110,9 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 	go schedule.Every(ctx, pruneInterval, prune(identity.Prune, logger), func(err error) {
 		logger.ErrorContext(ctx, "audit events not pruned", "error", err)
 	})
+	go schedule.Every(ctx, keysInterval, identity.RefreshKeys, func(err error) {
+		logger.ErrorContext(ctx, "signing keys not refreshed", "error", err)
+	})
 	return server.New(logger, version, identity.Routes).Serve(ctx, ln)
 }
 
@@ -125,23 +127,20 @@ func prune(job func(context.Context) (int64, error), logger *slog.Logger) func(c
 	}
 }
 
-// vaultConfig reaches Vault's transit engine, which seals TOTP secrets (docs/adr/0013).
+// vaultConfig reaches Vault's transit engine, which seals the signing keys and TOTP secrets
+// (docs/adr/0013).
 type vaultConfig struct {
-	addr, token, role, authMount, jwtPath, transitMount, totpKey string
+	addr, token, role, authMount, jwtPath, transitMount, totpKey, signingKey string
 }
 
-// sealer is the TOTP key, or false when no Vault is configured. A token signs in directly, for a
-// local dev-mode Vault; without one identity signs in with its service account.
-func (v vaultConfig) sealer() (vault.Key, bool) {
-	if v.addr == "" {
-		return vault.Key{}, false
-	}
+// transit is Vault's transit engine. A token signs in directly, for a local dev-mode Vault;
+// without one identity signs in with its service account.
+func (v vaultConfig) transit() *vault.Transit {
 	login := vault.Kubernetes(v.authMount, v.role, v.jwtPath)
 	if v.token != "" {
 		login = vault.Token(v.token)
 	}
-	client := &http.Client{Timeout: vaultTimeout}
-	return vault.NewTransit(v.addr, v.transitMount, login, client).Key(v.totpKey), true
+	return vault.NewTransit(v.addr, v.transitMount, login, &http.Client{Timeout: vaultTimeout})
 }
 
 const vaultTimeout = 5 * time.Second
@@ -221,7 +220,7 @@ func readConfig(getenv func(string) string) (config, error) {
 		inCluster:   getenv("KUBERNETES_SERVICE_HOST") != "",
 		clientsFile: getenv("CLIENTS_FILE"),
 		vault: vaultConfig{
-			addr: getenv("VAULT_ADDR"), token: getenv("VAULT_TOKEN"),
+			addr: need("VAULT_ADDR"), token: getenv("VAULT_TOKEN"), signingKey: or(getenv("VAULT_SIGNING_KEY"), "identity-signing"),
 			role: or(getenv("VAULT_ROLE"), "identity"), authMount: or(getenv("VAULT_AUTH_MOUNT"), "kubernetes"),
 			jwtPath:      or(getenv("VAULT_JWT_PATH"), "/var/run/secrets/kubernetes.io/serviceaccount/token"),
 			transitMount: or(getenv("VAULT_TRANSIT_MOUNT"), "transit"), totpKey: or(getenv("VAULT_TOTP_KEY"), "identity-totp"),

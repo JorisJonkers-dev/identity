@@ -22,6 +22,7 @@ func complete() map[string]string {
 		"PUBLIC_URL":   "https://auth.test/",
 		"SMTP_ADDR":    "127.0.0.1:1",
 		"MAIL_FROM":    "identity@auth.test",
+		"VAULT_ADDR":   "http://127.0.0.1:1",
 	}
 }
 
@@ -97,30 +98,36 @@ func TestPromotingAgainstAnUnreachableDatabaseFails(t *testing.T) {
 	}
 }
 
-func TestVaultIsOptionalAndSignsInAsConfigured(t *testing.T) {
+func TestVaultIsRequired(t *testing.T) {
+	vars := complete()
+	delete(vars, "VAULT_ADDR")
+	if _, err := readConfig(env(vars)); err == nil || !strings.Contains(err.Error(), "VAULT_ADDR") {
+		t.Fatalf("readConfig = %v", err)
+	}
+}
+
+func TestVaultSignsInAsTheServiceAccountWithTheTransitKeysNamed(t *testing.T) {
 	cfg, err := readConfig(env(complete()))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := cfg.vault.sealer(); ok {
-		t.Fatal("a sealer without VAULT_ADDR")
-	}
 	if v := cfg.vault; v.role != "identity" || v.authMount != "kubernetes" || v.transitMount != "transit" || v.totpKey != "identity-totp" ||
-		v.jwtPath != "/var/run/secrets/kubernetes.io/serviceaccount/token" {
+		v.signingKey != "identity-signing" || v.jwtPath != "/var/run/secrets/kubernetes.io/serviceaccount/token" {
 		t.Fatalf("Vault defaults = %+v", v)
 	}
+}
+
+func TestVaultIsReachedWithATokenOrTheServiceAccount(t *testing.T) {
 	for _, token := range []string{"", "dev-root"} {
-		vars := complete()
-		vars["VAULT_ADDR"], vars["VAULT_TOKEN"], vars["VAULT_JWT_PATH"] = "http://127.0.0.1:1", token, "/no/such/token"
-		cfg, _ := readConfig(env(vars))
-		sealer, ok := cfg.vault.sealer()
-		if !ok {
-			t.Fatal("no sealer with VAULT_ADDR")
-		}
-		// Neither reaches a Vault: the token fails to connect, the service account fails to read.
-		if _, err := sealer.Seal(t.Context(), []byte("x")); err == nil {
-			t.Errorf("sealed against nothing with token %q", token)
-		}
+		t.Run("token "+token, func(t *testing.T) {
+			vars := complete()
+			vars["VAULT_TOKEN"], vars["VAULT_JWT_PATH"] = token, "/no/such/token"
+			cfg, _ := readConfig(env(vars))
+			// Neither reaches a Vault: the token fails to connect, the service account fails to read.
+			if _, err := cfg.vault.transit().Key("identity-signing").Seal(t.Context(), []byte("x")); err == nil {
+				t.Errorf("sealed against nothing with token %q", token)
+			}
+		})
 	}
 }
 

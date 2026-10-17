@@ -48,7 +48,7 @@ services:
     environment:
       VAULT_ADDR: http://vault:8200
       VAULT_TOKEN: dev-only-root
-    entrypoint: ["sh", "-c", "vault secrets list | grep -q '^transit/' || vault secrets enable transit; vault write -f transit/keys/identity-totp"]
+    entrypoint: ["sh", "-c", "vault secrets list | grep -q '^transit/' || vault secrets enable transit; vault write -f transit/keys/identity-totp; vault write -f transit/keys/identity-signing"]
     depends_on:
       vault:
         condition: service_healthy
