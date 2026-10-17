@@ -60,6 +60,65 @@ export type AuditEvent = {
 };
 
 /**
+ * A Client a token is for.
+ */
+export type TokenClient = {
+    id: ClientId;
+    label: string;
+};
+
+/**
+ * A Personal Token, without its secret.
+ */
+export type PersonalToken = {
+    id: Id;
+    name: string;
+    client: TokenClient;
+    createdAt: string;
+    expiresAt: string;
+    lastUsedAt?: string;
+    /**
+     * expiring is a live token that ends within seven days.
+     */
+    state: 'active' | 'expiring' | 'expired' | 'revoked';
+};
+
+/**
+ * A User's tokens, newest first.
+ */
+export type TokenList = {
+    tokens: Array<PersonalToken>;
+};
+
+/**
+ * The signed-in User's tokens, and the Clients they may mint one for.
+ */
+export type MyTokens = {
+    tokens: Array<PersonalToken>;
+    clients: Array<TokenClient>;
+};
+
+/**
+ * A token to mint.
+ */
+export type TokenDraft = {
+    name: string;
+    clientId: ClientId;
+    days: 30 | 90 | 365;
+};
+
+/**
+ * A new token, and its secret, which is shown only here.
+ */
+export type MintedToken = {
+    token: PersonalToken;
+    /**
+     * The bearer token. identity keeps only its hash.
+     */
+    secret: string;
+};
+
+/**
  * A count.
  */
 export type Count = number;
@@ -129,6 +188,7 @@ export type Dashboard = {
     ];
     activeSessions: Count;
     sessionUsers: Count;
+    tokensExpiring: Count;
     /**
      * Where the charts over time are, when Grafana is configured.
      */
@@ -536,6 +596,11 @@ export type UserId = Id;
  * The Client, by its id.
  */
 export type ClientId2 = ClientId;
+
+/**
+ * The Personal Token.
+ */
+export type PatId = Id;
 
 /**
  * The App Role.
@@ -1465,3 +1530,167 @@ export type GetDashboardResponses = {
 };
 
 export type GetDashboardResponse = GetDashboardResponses[keyof GetDashboardResponses];
+
+export type ListMyTokensData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/profile/tokens';
+};
+
+export type ListMyTokensErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type ListMyTokensError = ListMyTokensErrors[keyof ListMyTokensErrors];
+
+export type ListMyTokensResponses = {
+    /**
+     * The User's tokens.
+     */
+    200: MyTokens;
+};
+
+export type ListMyTokensResponse = ListMyTokensResponses[keyof ListMyTokensResponses];
+
+export type MintTokenData = {
+    body: TokenDraft;
+    path?: never;
+    query?: never;
+    url: '/api/v1/profile/tokens';
+};
+
+export type MintTokenErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type MintTokenError = MintTokenErrors[keyof MintTokenErrors];
+
+export type MintTokenResponses = {
+    /**
+     * The new token, with its secret.
+     */
+    201: MintedToken;
+};
+
+export type MintTokenResponse = MintTokenResponses[keyof MintTokenResponses];
+
+export type RevokeMyTokenData = {
+    body?: never;
+    path: {
+        /**
+         * The Personal Token.
+         */
+        patId: Id;
+    };
+    query?: never;
+    url: '/api/v1/profile/tokens/{patId}';
+};
+
+export type RevokeMyTokenErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type RevokeMyTokenError = RevokeMyTokenErrors[keyof RevokeMyTokenErrors];
+
+export type RevokeMyTokenResponses = {
+    /**
+     * Revoked.
+     */
+    204: void;
+};
+
+export type RevokeMyTokenResponse = RevokeMyTokenResponses[keyof RevokeMyTokenResponses];
+
+export type ListUserTokensData = {
+    body?: never;
+    path: {
+        /**
+         * The User.
+         */
+        userId: Id;
+    };
+    query?: never;
+    url: '/api/v1/access/users/{userId}/tokens';
+};
+
+export type ListUserTokensErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type ListUserTokensError = ListUserTokensErrors[keyof ListUserTokensErrors];
+
+export type ListUserTokensResponses = {
+    /**
+     * The User's tokens, newest first.
+     */
+    200: TokenList;
+};
+
+export type ListUserTokensResponse = ListUserTokensResponses[keyof ListUserTokensResponses];
+
+export type RevokeUserTokenData = {
+    body?: never;
+    path: {
+        /**
+         * The User.
+         */
+        userId: Id;
+        /**
+         * The Personal Token.
+         */
+        patId: Id;
+    };
+    query?: never;
+    url: '/api/v1/access/users/{userId}/tokens/{patId}';
+};
+
+export type RevokeUserTokenErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type RevokeUserTokenError = RevokeUserTokenErrors[keyof RevokeUserTokenErrors];
+
+export type RevokeUserTokenResponses = {
+    /**
+     * Revoked.
+     */
+    204: void;
+};
+
+export type RevokeUserTokenResponse = RevokeUserTokenResponses[keyof RevokeUserTokenResponses];

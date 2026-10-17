@@ -96,6 +96,18 @@ type PasskeyEnrolment struct {
 	ExpiresAt time.Time
 }
 
+type PersonalToken struct {
+	ID         uuid.UUID
+	UserID     uuid.UUID
+	ClientID   string
+	Name       string
+	TokenHash  []byte
+	CreatedAt  time.Time
+	ExpiresAt  time.Time
+	RevokedAt  *time.Time
+	LastUsedAt *time.Time
+}
+
 type Session struct {
 	TokenHash  []byte
 	UserID     uuid.UUID

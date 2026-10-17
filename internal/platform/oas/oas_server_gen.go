@@ -116,12 +116,31 @@ type Handler interface {
 	//
 	// GET /api/v1/audit
 	ListAuditEvents(ctx context.Context, params ListAuditEventsParams) (ListAuditEventsRes, error)
+	// ListMyTokens implements listMyTokens operation.
+	//
+	// The signed-in User's tokens, newest first, and the Clients they may mint one for.
+	//
+	// GET /api/v1/profile/tokens
+	ListMyTokens(ctx context.Context) (ListMyTokensRes, error)
 	// ListSecondFactors implements listSecondFactors operation.
 	//
 	// Every authenticator app and passkey the User added.
 	//
 	// GET /api/v1/profile/second-factors
 	ListSecondFactors(ctx context.Context) (ListSecondFactorsRes, error)
+	// ListUserTokens implements listUserTokens operation.
+	//
+	// Admins only, from a session that proved a Second Factor.
+	//
+	// GET /api/v1/access/users/{userId}/tokens
+	ListUserTokens(ctx context.Context, params ListUserTokensParams) (ListUserTokensRes, error)
+	// MintToken implements mintToken operation.
+	//
+	// Makes a token for one Client the User holds an App Role on, lasting 30, 90 or 365 days. The answer
+	// carries the token itself, once; identity keeps only its hash.
+	//
+	// POST /api/v1/profile/tokens
+	MintToken(ctx context.Context, req *TokenDraft) (MintTokenRes, error)
 	// PasskeyOptions implements passkeyOptions operation.
 	//
 	// Returns the WebAuthn options for the sign-in the challenge cookie names.
@@ -147,6 +166,18 @@ type Handler interface {
 	//
 	// PATCH /api/v1/access/groups/{groupId}
 	RenameGroup(ctx context.Context, req *GroupDraft, params RenameGroupParams) (RenameGroupRes, error)
+	// RevokeMyToken implements revokeMyToken operation.
+	//
+	// The token is refused from now on. Revoking it twice changes nothing.
+	//
+	// DELETE /api/v1/profile/tokens/{patId}
+	RevokeMyToken(ctx context.Context, params RevokeMyTokenParams) (RevokeMyTokenRes, error)
+	// RevokeUserToken implements revokeUserToken operation.
+	//
+	// Admins only, from a session that proved a Second Factor. Revoking it twice changes nothing.
+	//
+	// DELETE /api/v1/access/users/{userId}/tokens/{patId}
+	RevokeUserToken(ctx context.Context, params RevokeUserTokenParams) (RevokeUserTokenRes, error)
 	// SignIn implements signIn operation.
 	//
 	// Checks an email and a password and starts a Single sign-on session in a host-only cookie. A wrong

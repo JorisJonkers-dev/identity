@@ -24,6 +24,8 @@ type Querier interface {
 	CountActiveSessions(ctx context.Context, expiresAt time.Time) (CountActiveSessionsRow, error)
 	CountAdmins(ctx context.Context) (int64, error)
 	CountMembers(ctx context.Context, groupID uuid.UUID) (int64, error)
+	// Live tokens that expire after now and before a time.
+	CountPersonalTokensExpiring(ctx context.Context, arg CountPersonalTokensExpiringParams) (int64, error)
 	// Sign-ins to the Identity Provider itself, and failed ones, per hour since a time.
 	CountSignInsByHour(ctx context.Context, at time.Time) ([]CountSignInsByHourRow, error)
 	// Confirmed Users in no Group, the admins Group included (docs/adr/0005).
@@ -33,6 +35,7 @@ type Querier interface {
 	CreateGateSession(ctx context.Context, arg CreateGateSessionParams) error
 	CreateGroup(ctx context.Context, arg CreateGroupParams) error
 	CreatePasskey(ctx context.Context, arg CreatePasskeyParams) error
+	CreatePersonalToken(ctx context.Context, arg CreatePersonalTokenParams) error
 	CreateSession(ctx context.Context, arg CreateSessionParams) error
 	CreateSignup(ctx context.Context, arg CreateSignupParams) error
 	CreateTOTPFactor(ctx context.Context, arg CreateTOTPFactorParams) error
@@ -58,6 +61,7 @@ type Querier interface {
 	ListAuditEvents(ctx context.Context, arg ListAuditEventsParams) ([]AuditEvent, error)
 	ListGroups(ctx context.Context) ([]ListGroupsRow, error)
 	ListMemberships(ctx context.Context) ([]Membership, error)
+	ListPersonalTokens(ctx context.Context, userID uuid.UUID) ([]ListPersonalTokensRow, error)
 	// The Users CountUnassigned counts.
 	ListUnassigned(ctx context.Context) ([]uuid.UUID, error)
 	ListUsers(ctx context.Context) ([]User, error)
@@ -65,10 +69,14 @@ type Querier interface {
 	LockGroup(ctx context.Context, id uuid.UUID) (bool, error)
 	PasskeyEnrolment(ctx context.Context, userID uuid.UUID) (PasskeyEnrolmentRow, error)
 	PasskeysOfUser(ctx context.Context, userID uuid.UUID) ([]Passkey, error)
+	PersonalTokenByHash(ctx context.Context, tokenHash []byte) (PersonalTokenByHashRow, error)
+	PersonalTokenByID(ctx context.Context, id uuid.UUID) (PersonalTokenByIDRow, error)
 	// Readiness: the database answers a query, not only a connection.
 	Ping(ctx context.Context) (int32, error)
 	RemoveMember(ctx context.Context, arg RemoveMemberParams) (int64, error)
 	RenameGroup(ctx context.Context, arg RenameGroupParams) (int64, error)
+	// Revokes a User's token once; a second revocation, or another User's token, changes nothing.
+	RevokePersonalToken(ctx context.Context, arg RevokePersonalTokenParams) (int64, error)
 	// Every App Role a User holds, per Client: the union over their Groups (docs/adr/0004).
 	RolesByClient(ctx context.Context, userID uuid.UUID) ([]RolesByClientRow, error)
 	// A User's App Roles on a Client: the union over their Groups (docs/adr/0004).
@@ -96,6 +104,8 @@ type Querier interface {
 	TakeGateCode(ctx context.Context, codeHash []byte) (TakeGateCodeRow, error)
 	// The Clients the ended sessions signed into, removed as they are read.
 	TakeSessionClients(ctx context.Context, sessionIds []uuid.UUID) ([]SessionClient, error)
+	// A token's last use is written at most once a minute, not on every check.
+	TouchPersonalToken(ctx context.Context, arg TouchPersonalTokenParams) error
 	TouchSession(ctx context.Context, arg TouchSessionParams) error
 	Unassign(ctx context.Context, arg UnassignParams) (int64, error)
 	UpdateUserName(ctx context.Context, arg UpdateUserNameParams) error

@@ -31,6 +31,10 @@ tags:
     description: >-
       Groups, their members, and the App Roles each Group holds on each Client. Only Admins may
       read or change any of it, and being an Admin gives no App Role (docs/adr/0004).
+  - name: tokens
+    description: >-
+      Personal Tokens: bearer credentials a User mints for one Client, checked by the Client at
+      /oidc/introspect (docs/adr/0017). A token never carries more than the User's App Roles there.
   - name: audit
     description: >-
       Audit Events: sign-ins, failed sign-ins, and changes to Users, Groups and Assignments, kept
@@ -650,6 +654,97 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/profile/tokens:
+    get:
+      operationId: listMyTokens
+      summary: My Personal Tokens
+      description: The signed-in User's tokens, newest first, and the Clients they may mint one for.
+      tags: [tokens]
+      responses:
+        "200":
+          description: The User's tokens.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyTokens"
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: mintToken
+      summary: Mint a Personal Token
+      description: >-
+        Makes a token for one Client the User holds an App Role on, lasting 30, 90 or 365 days. The
+        answer carries the token itself, once; identity keeps only its hash.
+      tags: [tokens]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenDraft"
+      responses:
+        "201":
+          description: The new token, with its secret.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MintedToken"
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/profile/tokens/{patId}:
+    parameters:
+      - $ref: "#/components/parameters/PatId"
+    delete:
+      operationId: revokeMyToken
+      summary: Revoke one of my Personal Tokens
+      description: The token is refused from now on. Revoking it twice changes nothing.
+      tags: [tokens]
+      responses:
+        "204":
+          description: Revoked.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/access/users/{userId}/tokens:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      operationId: listUserTokens
+      summary: A User's Personal Tokens
+      description: Admins only, from a session that proved a Second Factor.
+      tags: [tokens]
+      responses:
+        "200":
+          description: The User's tokens, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenList"
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/access/users/{userId}/tokens/{patId}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+      - $ref: "#/components/parameters/PatId"
+    delete:
+      operationId: revokeUserToken
+      summary: Revoke a User's Personal Token
+      description: Admins only, from a session that proved a Second Factor. Revoking it twice changes nothing.
+      tags: [tokens]
+      responses:
+        "204":
+          description: Revoked.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
   securitySchemes:
     challenge:
@@ -688,6 +783,13 @@ components:
       description: The Client, by its id.
       schema:
         $ref: "#/components/schemas/ClientId"
+    PatId:
+      name: patId
+      in: path
+      required: true
+      description: The Personal Token.
+      schema:
+        $ref: "#/components/schemas/Id"
     Role:
       name: role
       in: path
@@ -793,6 +895,104 @@ components:
           type: string
           enum: [password, second-factor, no-access]
           description: Why a sign-in failed.
+    TokenClient:
+      description: A Client a token is for.
+      type: object
+      additionalProperties: false
+      required: [id, label]
+      properties:
+        id:
+          $ref: "#/components/schemas/ClientId"
+        label:
+          type: string
+          maxLength: 200
+    PersonalToken:
+      description: A Personal Token, without its secret.
+      type: object
+      additionalProperties: false
+      required: [id, name, client, createdAt, expiresAt, state]
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        name:
+          type: string
+          maxLength: 64
+        client:
+          $ref: "#/components/schemas/TokenClient"
+        createdAt:
+          type: string
+          format: date-time
+          maxLength: 64
+        expiresAt:
+          type: string
+          format: date-time
+          maxLength: 64
+        lastUsedAt:
+          type: string
+          format: date-time
+          maxLength: 64
+        state:
+          type: string
+          enum: [active, expiring, expired, revoked]
+          description: expiring is a live token that ends within seven days.
+    TokenList:
+      description: A User's tokens, newest first.
+      type: object
+      additionalProperties: false
+      required: [tokens]
+      properties:
+        tokens:
+          type: array
+          maxItems: 1000
+          items:
+            $ref: "#/components/schemas/PersonalToken"
+    MyTokens:
+      description: The signed-in User's tokens, and the Clients they may mint one for.
+      type: object
+      additionalProperties: false
+      required: [tokens, clients]
+      properties:
+        tokens:
+          type: array
+          maxItems: 1000
+          items:
+            $ref: "#/components/schemas/PersonalToken"
+        clients:
+          type: array
+          maxItems: 1000
+          items:
+            $ref: "#/components/schemas/TokenClient"
+    TokenDraft:
+      description: A token to mint.
+      type: object
+      additionalProperties: false
+      required: [name, clientId, days]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          example: backup-script
+        clientId:
+          $ref: "#/components/schemas/ClientId"
+        days:
+          type: integer
+          format: int32
+          minimum: 30
+          maximum: 365
+          enum: [30, 90, 365]
+    MintedToken:
+      description: A new token, and its secret, which is shown only here.
+      type: object
+      additionalProperties: false
+      required: [token, secret]
+      properties:
+        token:
+          $ref: "#/components/schemas/PersonalToken"
+        secret:
+          type: string
+          maxLength: 128
+          description: The bearer token. identity keeps only its hash.
     Count:
       description: A count.
       type: integer
@@ -835,7 +1035,7 @@ components:
       description: How things stand.
       type: object
       additionalProperties: false
-      required: [users, usersThisWeek, unassigned, signIns, failedSignIns, hours, activeSessions, sessionUsers]
+      required: [users, usersThisWeek, unassigned, signIns, failedSignIns, hours, activeSessions, sessionUsers, tokensExpiring]
       properties:
         users:
           $ref: "#/components/schemas/Count"
@@ -861,6 +1061,8 @@ components:
         activeSessions:
           $ref: "#/components/schemas/Count"
         sessionUsers:
+          $ref: "#/components/schemas/Count"
+        tokensExpiring:
           $ref: "#/components/schemas/Count"
         grafanaUrl:
           type: string

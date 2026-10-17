@@ -194,7 +194,11 @@ func (s *storage) SetUserinfoFromRequest(ctx context.Context, info *oidc.UserInf
 }
 
 // SetUserinfoFromToken answers userinfo for a verified access token: the User's own email and name.
-func (s *storage) SetUserinfoFromToken(ctx context.Context, info *oidc.UserInfo, _, subject, _ string) error {
+func (s *storage) SetUserinfoFromToken(ctx context.Context, info *oidc.UserInfo, tokenID, subject, _ string) error {
+	// A Personal Token is checked by its Client at introspection, never answered here (docs/adr/0017).
+	if app.IsPersonalToken(tokenID) {
+		return s.fail(ctx, app.ErrInactive)
+	}
 	claims, err := s.claims(ctx, subject)
 	if err != nil {
 		return err
@@ -205,11 +209,32 @@ func (s *storage) SetUserinfoFromToken(ctx context.Context, info *oidc.UserInfo,
 }
 
 func (s *storage) SetIntrospectionFromToken(ctx context.Context, resp *oidc.IntrospectionResponse, tokenID, subject, clientID string) error {
+	if app.IsPersonalToken(tokenID) {
+		return s.introspectPersonalToken(ctx, resp, tokenID, clientID)
+	}
 	info := new(oidc.UserInfo)
 	if err := s.SetUserinfoFromToken(ctx, info, tokenID, subject, clientID); err != nil {
 		return err
 	}
 	resp.SetUserInfo(info)
+	return nil
+}
+
+// introspectPersonalToken answers a Client's check of a Personal Token: active only for that
+// Client, while live, with the App Roles its User holds there now (docs/adr/0017).
+func (s *storage) introspectPersonalToken(ctx context.Context, resp *oidc.IntrospectionResponse, tokenID, clientID string) error {
+	t, err := s.svc.CheckPersonalToken(ctx, tokenID, clientID)
+	if err != nil {
+		return s.fail(ctx, err)
+	}
+	claims, err := s.claims(ctx, t.UserID.String())
+	if err != nil {
+		return err
+	}
+	resp.Subject, resp.ClientID, resp.Audience, resp.TokenType = t.UserID.String(), clientID, oidc.Audience{clientID}, "Bearer"
+	resp.IssuedAt, resp.Expiration = oidc.FromTime(t.CreatedAt), oidc.FromTime(t.ExpiresAt)
+	resp.Email, resp.EmailVerified, resp.Name = claims.Email, true, claims.Name
+	resp.Claims = map[string]any{"roles": t.Roles}
 	return nil
 }
 

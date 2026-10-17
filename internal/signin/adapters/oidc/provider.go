@@ -47,6 +47,7 @@ func New(cfg Config, svc *app.Service, ring *Ring, logger *slog.Logger, now func
 			op.NewEndpoint("/oidc/revoke"), op.NewEndpoint("/oidc/end_session"), op.NewEndpoint("/oidc/keys"),
 		),
 		op.WithCustomIntrospectionEndpoint(op.NewEndpoint("/oidc/introspect")),
+		op.WithCrypto(newCrypto(cryptoKey, svc.ResolvePersonalToken)),
 	}
 	if cfg.Insecure {
 		opts = append(opts, op.WithAllowInsecure())

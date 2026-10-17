@@ -192,11 +192,11 @@ func TestTheDashboardCarriesItsCounts(t *testing.T) {
 		hours[i] = app.Hour{At: t0.Add(time.Duration(i) * time.Hour), SignIns: i, Failed: i % 2}
 	}
 	uc := &useCases{dashboard: app.Dashboard{
-		Users: 14, UsersThisWeek: 1, SignIns: 186, FailedSignIns: 4, Hours: hours, ActiveSessions: 23, SessionUsers: 12,
+		Users: 14, UsersThisWeek: 1, SignIns: 186, FailedSignIns: 4, Hours: hours, ActiveSessions: 23, SessionUsers: 12, TokensExpiring: 3,
 		Unassigned: []app.Person{{ID: ada, Name: "Noor Bakker", Email: "noor@example.org", CreatedAt: t0}},
 	}}
 	d := getDashboard(t, uc, nil).(*oas.Dashboard)
-	if d.Users != 14 || d.UsersThisWeek != 1 || d.SignIns != 186 || d.FailedSignIns != 4 || d.ActiveSessions != 23 || d.SessionUsers != 12 {
+	if d.Users != 14 || d.UsersThisWeek != 1 || d.SignIns != 186 || d.FailedSignIns != 4 || d.ActiveSessions != 23 || d.SessionUsers != 12 || d.TokensExpiring != 3 {
 		t.Fatalf("dashboard = %+v", d)
 	}
 	if len(d.Unassigned) != 1 || d.Unassigned[0] != (oas.WaitingUser{ID: oas.ID(ada), Email: "noor@example.org", Name: "Noor Bakker", ConfirmedAt: t0}) {

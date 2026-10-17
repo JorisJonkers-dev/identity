@@ -177,6 +177,7 @@ export const zDashboard = z.object({
     ]),
     activeSessions: zCount,
     sessionUsers: zCount,
+    tokensExpiring: zCount,
     grafanaUrl: z.url().max(2048).optional()
 });
 
@@ -191,6 +192,68 @@ export const zClientId = z.string().min(1).max(253).regex(/^[a-z0-9]([-a-z0-9.]*
 export const zAuditClient = z.object({
     id: zClientId,
     label: z.string().max(200)
+});
+
+/**
+ * A Client a token is for.
+ */
+export const zTokenClient = z.object({
+    id: zClientId,
+    label: z.string().max(200)
+});
+
+/**
+ * A Personal Token, without its secret.
+ */
+export const zPersonalToken = z.object({
+    id: zId,
+    name: z.string().max(64),
+    client: zTokenClient,
+    createdAt: z.iso.datetime({ offset: true }).max(64),
+    expiresAt: z.iso.datetime({ offset: true }).max(64),
+    lastUsedAt: z.iso.datetime({ offset: true }).max(64).optional(),
+    state: z.enum([
+        'active',
+        'expiring',
+        'expired',
+        'revoked'
+    ])
+});
+
+/**
+ * A User's tokens, newest first.
+ */
+export const zTokenList = z.object({
+    tokens: z.array(zPersonalToken).max(1000)
+});
+
+/**
+ * The signed-in User's tokens, and the Clients they may mint one for.
+ */
+export const zMyTokens = z.object({
+    tokens: z.array(zPersonalToken).max(1000),
+    clients: z.array(zTokenClient).max(1000)
+});
+
+/**
+ * A token to mint.
+ */
+export const zTokenDraft = z.object({
+    name: z.string().min(1).max(64),
+    clientId: zClientId,
+    days: z.union([
+        z.literal(30),
+        z.literal(90),
+        z.literal(365)
+    ])
+});
+
+/**
+ * A new token, and its secret, which is shown only here.
+ */
+export const zMintedToken = z.object({
+    token: zPersonalToken,
+    secret: z.string().max(128)
 });
 
 /**
@@ -417,6 +480,11 @@ export const zUserId = zId;
 export const zClientId2 = zClientId;
 
 /**
+ * The Personal Token.
+ */
+export const zPatId = zId;
+
+/**
  * The App Role.
  */
 export const zRole = zAppRole;
@@ -629,3 +697,43 @@ export const zListAuditEventsResponse = zAuditPage;
  * The dashboard.
  */
 export const zGetDashboardResponse = zDashboard;
+
+/**
+ * The User's tokens.
+ */
+export const zListMyTokensResponse = zMyTokens;
+
+export const zMintTokenBody = zTokenDraft;
+
+/**
+ * The new token, with its secret.
+ */
+export const zMintTokenResponse = zMintedToken;
+
+export const zRevokeMyTokenPath = z.object({
+    patId: zId
+});
+
+/**
+ * Revoked.
+ */
+export const zRevokeMyTokenResponse = z.void();
+
+export const zListUserTokensPath = z.object({
+    userId: zId
+});
+
+/**
+ * The User's tokens, newest first.
+ */
+export const zListUserTokensResponse = zTokenList;
+
+export const zRevokeUserTokenPath = z.object({
+    userId: zId,
+    patId: zId
+});
+
+/**
+ * Revoked.
+ */
+export const zRevokeUserTokenResponse = z.void();
