@@ -19,6 +19,7 @@ function dashboard(over: Record<string, unknown> = {}) {
     hours: Array.from({ length: 24 }, (_, i) => ({ at: new Date(hourStart + i * 3600000).toISOString(), signIns: i, failed: 0 })),
     activeSessions: 23,
     sessionUsers: 12,
+    tokensExpiring: 3,
     ...over,
   })
 }
