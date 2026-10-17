@@ -76,6 +76,16 @@ func (s *store) SessionByHash(_ context.Context, hash []byte) (app.Session, erro
 
 type clients map[string]app.Client
 
+// backupHost is a token Client's host: it takes Personal Tokens and has no sign-in page.
+const backupHost = "backup.jorisjonkers.dev"
+
+func (c clients) BearerClient(ctx context.Context, host string) (app.Client, error) {
+	if host == backupHost {
+		return app.Client{ID: "backup", Host: backupHost}, nil
+	}
+	return c.GatedClient(ctx, host)
+}
+
 func (c clients) GatedClient(_ context.Context, host string) (app.Client, error) {
 	if host == "broken.jorisjonkers.dev" {
 		return app.Client{}, errBoom

@@ -20,8 +20,8 @@ var errBoom = errors.New("boom")
 
 // useCases answers with what a test sets and records what it was asked.
 type useCases struct {
-	checkErr, startErr, finishErr, clientErr, stateErr error
-	asked                                              []string
+	checkErr, bearerErr, startErr, finishErr, clientErr, stateErr error
+	asked                                                         []string
 }
 
 func (u *useCases) Client(_ context.Context, host string) (app.Client, error) {
@@ -31,6 +31,11 @@ func (u *useCases) Client(_ context.Context, host string) (app.Client, error) {
 func (u *useCases) Check(_ context.Context, host, cookie string) (app.Verdict, error) {
 	u.asked = append(u.asked, host, cookie)
 	return app.Verdict{UserID: uuid.MustParse("00000000-0000-4000-8000-0000000000a1"), Email: "ada@example.org", Roles: []string{"user", "viewer"}}, u.checkErr
+}
+
+func (u *useCases) CheckBearer(_ context.Context, host, secret string) (app.Verdict, error) {
+	u.asked = append(u.asked, host, secret)
+	return app.Verdict{UserID: uuid.MustParse("00000000-0000-4000-8000-0000000000a1"), Email: "ada@example.org", Roles: []string{"viewer"}}, u.bearerErr
 }
 
 func (u *useCases) Start(_ context.Context, sso, host, state, back string) (string, error) {

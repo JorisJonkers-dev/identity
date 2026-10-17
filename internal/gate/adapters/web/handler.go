@@ -36,6 +36,7 @@ const (
 type UseCases interface {
 	Client(ctx context.Context, host string) (app.Client, error)
 	Check(ctx context.Context, host, cookie string) (app.Verdict, error)
+	CheckBearer(ctx context.Context, host, secret string) (app.Verdict, error)
 	Start(ctx context.Context, ssoToken, host, state, returnPath string) (string, error)
 	Finish(ctx context.Context, host, code, state string) (string, string, error)
 	NewState() (string, error)
@@ -93,13 +94,16 @@ func New(uc UseCases, cfg Config, logger *slog.Logger) (http.Handler, error) {
 // check answers forwardAuth: 200 with the User's headers, or the page the browser should see.
 func (h *Handler) check(w http.ResponseWriter, r *http.Request) {
 	host := r.Header.Get("X-Forwarded-Host")
+	if secret, ok := personalToken(r); ok {
+		h.bearer(w, r, host, secret)
+		return
+	}
 	v, err := h.uc.Check(r.Context(), host, cookie(r, sessionCookie))
 	switch {
 	case err == nil:
-		w.Header().Set("X-Auth-Request-User", v.UserID.String())
-		w.Header().Set("X-Auth-Request-Email", v.Email)
-		w.Header().Set("X-Auth-Request-Roles", strings.Join(v.Roles, ","))
-		w.WriteHeader(http.StatusOK)
+		allow(w, v)
+	case errors.Is(err, app.ErrBearerNeeded):
+		unauthorized(w, `Bearer realm="`+host+`"`)
 	case errors.Is(err, app.ErrNoSignIn):
 		h.signInPage(w, r, host)
 	case errors.Is(err, app.ErrNoAccess):
@@ -109,6 +113,45 @@ func (h *Handler) check(w http.ResponseWriter, r *http.Request) {
 	default:
 		h.fail(w, r, err)
 	}
+}
+
+// bearer answers forwardAuth for a request carrying a Personal Token. A script reads the answer,
+// not a person, so a refusal is a bare 401 that says the token is not good, never a sign-in page.
+func (h *Handler) bearer(w http.ResponseWriter, r *http.Request, host, secret string) {
+	v, err := h.uc.CheckBearer(r.Context(), host, secret)
+	switch {
+	case err == nil:
+		allow(w, v)
+	case errors.Is(err, app.ErrNoSignIn), errors.Is(err, app.ErrNoAccess):
+		unauthorized(w, `Bearer realm="`+host+`", error="invalid_token"`)
+	case errors.Is(err, app.ErrUnknownHost):
+		h.page(w, http.StatusForbidden, "unknown", nil)
+	default:
+		h.fail(w, r, err)
+	}
+}
+
+func allow(w http.ResponseWriter, v app.Verdict) {
+	w.Header().Set("X-Auth-Request-User", v.UserID.String())
+	w.Header().Set("X-Auth-Request-Email", v.Email)
+	w.Header().Set("X-Auth-Request-Roles", strings.Join(v.Roles, ","))
+	w.WriteHeader(http.StatusOK)
+}
+
+func unauthorized(w http.ResponseWriter, challenge string) {
+	w.Header().Set("WWW-Authenticate", challenge)
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusUnauthorized)
+}
+
+// personalToken is the Personal Token a request carries as its bearer token. Any other bearer
+// token is the app's own and is left alone (docs/adr/0017).
+func personalToken(r *http.Request) (string, bool) {
+	scheme, secret, ok := strings.Cut(r.Header.Get("Authorization"), " ")
+	if !ok || !strings.EqualFold(scheme, "Bearer") || !strings.HasPrefix(secret, "idpat_") {
+		return "", false
+	}
+	return secret, true
 }
 
 // signInPage is the one-button page a visitor without the host's cookie sees. It sets the state

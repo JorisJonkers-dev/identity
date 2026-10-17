@@ -26,6 +26,8 @@ var (
 	ErrNoAccess    = errors.New("no App Role on this Client")
 	ErrInvalidCode = errors.New("the sign-in code is wrong, used or expired")
 	ErrNotFound    = errors.New("not found")
+	// ErrBearerNeeded is a request to a token host without a Personal Token: it has no sign-in page.
+	ErrBearerNeeded = errors.New("this host takes only Personal Tokens")
 )
 
 const (
@@ -78,6 +80,15 @@ type Session struct {
 // Clients finds gated Clients by host: ErrUnknownHost for a host with none, or one not gated.
 type Clients interface {
 	GatedClient(ctx context.Context, host string) (Client, error)
+	// BearerClient is the gated or token Client a host belongs to, which takes Personal Tokens;
+	// ErrUnknownHost for any other.
+	BearerClient(ctx context.Context, host string) (Client, error)
+}
+
+// Tokens checks a Personal Token for a Client (docs/adr/0017): the User it acts for and the App
+// Roles they hold there now; ErrNoSignIn for one that is not active.
+type Tokens interface {
+	Bearer(ctx context.Context, secret, clientID string) (Person, []string, error)
 }
 
 // Roles is the App Roles a User holds on a Client that it declares.
@@ -114,6 +125,7 @@ type Service struct {
 	clients  Clients
 	roles    Roles
 	accounts Accounts
+	tokens   Tokens
 	audit    Audit
 	now      func() time.Time
 	random   io.Reader
@@ -134,6 +146,30 @@ func New(store Store, clients Clients, roles Roles, accounts Accounts, audit Aud
 	return &Service{store: store, clients: clients, roles: roles, accounts: accounts, audit: audit, now: now, random: random, ttl: ttl, cache: map[string]cached{}}
 }
 
+// SetTokens lets gated and token hosts take Personal Tokens; until it is called, none does. It is
+// set once, before the Gate serves.
+func (s *Service) SetTokens(t Tokens) { s.tokens = t }
+
+// CheckBearer answers Traefik for a request carrying a Personal Token, on a gated or a token host.
+// Its answer is cached as a cookie's is, so a revoked token reaches a host within the cache's ttl.
+func (s *Service) CheckBearer(ctx context.Context, host, secret string) (Verdict, error) {
+	key := "bearer\x00" + host + "\x00" + string(hashOf(secret))
+	return s.cached(key, func() (Verdict, uuid.UUID, error) {
+		client, err := s.clients.BearerClient(ctx, host)
+		if err != nil {
+			return Verdict{}, uuid.Nil, err
+		}
+		if s.tokens == nil {
+			return Verdict{}, uuid.Nil, ErrNoSignIn
+		}
+		p, roles, err := s.tokens.Bearer(ctx, secret, client.ID)
+		if err != nil {
+			return Verdict{}, uuid.Nil, err
+		}
+		return Verdict{UserID: p.UserID, Email: p.Email, Name: p.Name, Roles: roles}, uuid.Nil, nil
+	})
+}
+
 // Client is the gated Client a host belongs to.
 func (s *Service) Client(ctx context.Context, host string) (Client, error) {
 	return s.clients.GatedClient(ctx, host)
@@ -143,13 +179,25 @@ func (s *Service) Client(ctx context.Context, host string) (Client, error) {
 // kept for the cache's ttl, so most requests touch nothing but memory.
 func (s *Service) Check(ctx context.Context, host, cookie string) (Verdict, error) {
 	if cookie == "" {
-		if _, err := s.clients.GatedClient(ctx, host); err != nil {
+		_, err := s.clients.GatedClient(ctx, host)
+		if errors.Is(err, ErrUnknownHost) {
+			if _, bearer := s.clients.BearerClient(ctx, host); bearer == nil {
+				return Verdict{}, ErrBearerNeeded
+			}
+		}
+		if err != nil {
 			return Verdict{}, err
 		}
 		return Verdict{}, ErrNoSignIn
 	}
 	hash := hashOf(cookie)
-	key := host + "\x00" + string(hash)
+	return s.cached(host+"\x00"+string(hash), func() (Verdict, uuid.UUID, error) { return s.check(ctx, host, hash) })
+}
+
+// cached answers a check from memory while its answer is fresh, and keeps a fresh answer for ttl,
+// with the Single sign-on session it came from, so Forget can drop it: an allowed User, or a
+// refusal for want of a sign-in or an App Role. Any other failure is asked again next time.
+func (s *Service) cached(key string, check func() (Verdict, uuid.UUID, error)) (Verdict, error) {
 	now := s.now()
 	s.mu.RLock()
 	c, ok := s.cache[key]
@@ -157,7 +205,7 @@ func (s *Service) Check(ctx context.Context, host, cookie string) (Verdict, erro
 	if ok && now.Before(c.until) {
 		return c.verdict, c.err
 	}
-	v, session, err := s.check(ctx, host, hash)
+	v, session, err := check()
 	if err == nil || errors.Is(err, ErrNoAccess) || errors.Is(err, ErrNoSignIn) {
 		s.mu.Lock()
 		if len(s.cache) >= maxCached {
