@@ -199,7 +199,10 @@ func TestAnswersFailWhenATokensRolesCannotBeRead(t *testing.T) {
 	for name, call := range map[string]func(h *web.Tokens) error{
 		"listing one's own": func(h *web.Tokens) error { _, err := h.ListMyTokens(as(ada)); return err },
 		"minting":           func(h *web.Tokens) error { _, err := h.MintToken(as(ada), &oas.TokenDraft{}); return err },
-		"listing a User's":  func(h *web.Tokens) error { _, err := h.ListUserTokens(as(root), oas.ListUserTokensParams{}); return err },
+		"listing a User's": func(h *web.Tokens) error {
+			_, err := h.ListUserTokens(as(root), oas.ListUserTokensParams{})
+			return err
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
