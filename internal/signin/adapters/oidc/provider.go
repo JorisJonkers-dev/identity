@@ -2,7 +2,6 @@ package oidc
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -33,13 +32,14 @@ type Config struct {
 	Insecure bool
 	// SessionCookie is the name of the Single sign-on session cookie.
 	SessionCookie string
+	// CryptoKey seals the Provider's own opaque values, such as codes; every replica has the same one,
+	// so a code one issues another redeems (docs/adr/0013).
+	CryptoKey [32]byte
 }
 
 // New returns the Provider's handler: discovery at /.well-known/openid-configuration and every
 // other endpoint under /oidc/.
 func New(cfg Config, svc *app.Service, ring *Ring, logger *slog.Logger, now func() time.Time) (http.Handler, error) {
-	var cryptoKey [32]byte // seals opaque tokens, which no Client is given; JWTs are signed by ring
-	_, _ = rand.Read(cryptoKey[:])
 	opts := []op.Option{
 		op.WithLogger(logger),
 		op.WithCustomEndpoints(
@@ -47,13 +47,13 @@ func New(cfg Config, svc *app.Service, ring *Ring, logger *slog.Logger, now func
 			op.NewEndpoint("/oidc/revoke"), op.NewEndpoint("/oidc/end_session"), op.NewEndpoint("/oidc/keys"),
 		),
 		op.WithCustomIntrospectionEndpoint(op.NewEndpoint("/oidc/introspect")),
-		op.WithCrypto(newCrypto(cryptoKey, svc.ResolvePersonalToken)),
+		op.WithCrypto(newCrypto(cfg.CryptoKey, svc.ResolvePersonalToken)),
 	}
 	if cfg.Insecure {
 		opts = append(opts, op.WithAllowInsecure())
 	}
 	provider, err := op.NewProvider(&op.Config{
-		CryptoKey: cryptoKey, CodeMethodS256: true, AuthMethodPost: true,
+		CryptoKey: cfg.CryptoKey, CodeMethodS256: true, AuthMethodPost: true,
 		BackChannelLogoutSupported: true, BackChannelLogoutSessionSupported: true,
 	}, &storage{svc: svc, ring: ring, logger: logger, now: now}, op.StaticIssuer(cfg.Issuer), opts...)
 	if err != nil {

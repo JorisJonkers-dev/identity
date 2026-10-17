@@ -74,6 +74,9 @@ type Config struct {
 	Mailer    app.Mailer
 	// Sealer seals TOTP secrets; without one, Users cannot add authenticator apps.
 	Sealer app.Sealer
+	// KeySealer seals the Provider's signing keys and its own secret (docs/adr/0013); identity
+	// does not start without it.
+	KeySealer signinapp.Sealer
 	// Index is the Clients the cluster declares, and Synced whether they are all listed yet.
 	Index  *clients.Index
 	Synced func() bool
@@ -86,15 +89,18 @@ type Config struct {
 }
 
 // Identity is identity built: its routes, the count of Users waiting for a Group, which /metrics
-// reports, and Prune, which removes Audit Events older than a year and runs on a schedule.
+// reports, and two jobs that run on a schedule: Prune, which removes Audit Events older than a
+// year, and RefreshKeys, which starts a new signing key on time and retires old ones.
 type Identity struct {
-	Routes     server.Routes
-	Unassigned func(ctx context.Context) (int, error)
-	Prune      func(ctx context.Context) (int64, error)
+	Routes      server.Routes
+	Unassigned  func(ctx context.Context) (int, error)
+	Prune       func(ctx context.Context) (int64, error)
+	RefreshKeys func(ctx context.Context) error
 }
 
 // New builds identity.
-func New(cfg Config) (*Identity, error) {
+// New builds identity, reading its signing keys from Postgres through Vault before anything serves.
+func New(ctx context.Context, cfg Config) (*Identity, error) {
 	// users caps an Admin's session at 12 hours, and access lists users' Users: each needs the other.
 	var access *accessapp.Service
 	admins := adminsFunc(func(ctx context.Context, id uuid.UUID) (bool, error) { return access.IsAdmin(ctx, id) })
@@ -117,11 +123,15 @@ func New(cfg Config) (*Identity, error) {
 	q := cfg.Store.Queries()
 	users := app.New(persistence.New(q), passwords.NewArgon2id(maxConcurrentHashes, hashWait), cfg.Mailer, time.Now, rand.Reader, cfg.PublicURL, opts...)
 	access = accessapp.New(accesspersistence.New(q, cfg.Store), catalog.New(cfg.Index), people.New(users), recorder, rand.Reader)
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	keys := signinapp.NewKeys(signinpersistence.NewKeys(q, cfg.Store, time.Now), cfg.KeySealer, newSigningKey, time.Now, rand.Reader)
+	ring, err := signinoidc.LoadRing(ctx, keys.Load)
 	if err != nil {
 		return nil, err
 	}
-	ring := signinoidc.NewRing(key)
+	cryptoKey, err := keys.Secret(ctx, "oidc-crypto")
+	if err != nil {
+		return nil, err
+	}
 	logouts := signinoidc.NewLogouts(cfg.PublicURL, ring, &http.Client{}, cfg.Logger, time.Now)
 	signIn := signinapp.New(signinpersistence.New(q), cfg.Index, accounts.New(users), access, logouts, recorder, time.Now, rand.Reader)
 	tokenContexts := tokenscontexts.New(signIn, access, cfg.Index)
@@ -142,6 +152,7 @@ func New(cfg Config) (*Identity, error) {
 		Issuer:        cfg.PublicURL,
 		Insecure:      strings.HasPrefix(cfg.PublicURL, "http://"),
 		SessionCookie: usersweb.CookieName,
+		CryptoKey:     cryptoKey,
 	}, signIn, ring, cfg.Logger, time.Now)
 	if err != nil {
 		return nil, err
@@ -169,8 +180,9 @@ func New(cfg Config) (*Identity, error) {
 				return cfg.Store.Ping(ctx)
 			},
 		},
-		Unassigned: access.Unassigned,
-		Prune:      audit.Prune,
+		Unassigned:  access.Unassigned,
+		Prune:       audit.Prune,
+		RefreshKeys: ring.Refresh,
 	}, nil
 }
 
@@ -190,6 +202,9 @@ func passkeyCeremonies(publicURL string) (*passkeys.Ceremonies, error) {
 type recorderFunc func(ctx context.Context, e auditdomain.Event)
 
 func (f recorderFunc) Record(ctx context.Context, e auditdomain.Event) { f(ctx, e) }
+
+// newSigningKey is a new RSA key for RS256, the algorithm every OIDC client supports.
+func newSigningKey() (*rsa.PrivateKey, error) { return rsa.GenerateKey(rand.Reader, 2048) }
 
 // adminsFunc is app.Admins as a function.
 type adminsFunc func(ctx context.Context, id uuid.UUID) (bool, error)

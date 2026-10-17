@@ -101,6 +101,12 @@ CREATE TABLE public.personal_tokens (
     last_used_at timestamp with time zone
 );
 
+CREATE TABLE public.sealed_secrets (
+    name text NOT NULL,
+    sealed text NOT NULL,
+    created_at timestamp with time zone NOT NULL
+);
+
 CREATE TABLE public.session_clients (
     session_id uuid NOT NULL,
     client_id text NOT NULL
@@ -123,6 +129,14 @@ CREATE TABLE public.sign_in_challenges (
     expires_at timestamp with time zone NOT NULL,
     window_started_at timestamp with time zone NOT NULL,
     passkey_ceremony bytea
+);
+
+CREATE TABLE public.signing_keys (
+    id text NOT NULL,
+    public_key bytea NOT NULL,
+    sealed_private text NOT NULL,
+    signs_from timestamp with time zone NOT NULL,
+    signs_until timestamp with time zone NOT NULL
 );
 
 CREATE TABLE public.signups (
@@ -200,6 +214,9 @@ ALTER TABLE ONLY public.personal_tokens
 ALTER TABLE ONLY public.personal_tokens
     ADD CONSTRAINT personal_tokens_pkey PRIMARY KEY (id);
 
+ALTER TABLE ONLY public.sealed_secrets
+    ADD CONSTRAINT sealed_secrets_pkey PRIMARY KEY (name);
+
 ALTER TABLE ONLY public.session_clients
     ADD CONSTRAINT session_clients_pkey PRIMARY KEY (session_id, client_id);
 
@@ -214,6 +231,9 @@ ALTER TABLE ONLY public.sign_in_challenges
 
 ALTER TABLE ONLY public.sign_in_challenges
     ADD CONSTRAINT sign_in_challenges_user_key UNIQUE (user_id);
+
+ALTER TABLE ONLY public.signing_keys
+    ADD CONSTRAINT signing_keys_pkey PRIMARY KEY (id);
 
 ALTER TABLE ONLY public.signups
     ADD CONSTRAINT signups_pkey PRIMARY KEY (token_hash);
@@ -261,6 +281,8 @@ CREATE INDEX personal_tokens_user_idx ON public.personal_tokens USING btree (use
 CREATE INDEX sessions_user_idx ON public.sessions USING btree (user_id);
 
 CREATE INDEX sign_in_challenges_expires_at_idx ON public.sign_in_challenges USING btree (expires_at);
+
+CREATE INDEX signing_keys_signs_until_idx ON public.signing_keys USING btree (signs_until);
 
 CREATE INDEX signups_expires_at_idx ON public.signups USING btree (expires_at);
 
