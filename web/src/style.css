@@ -17,7 +17,8 @@
   --color-accent: #2545f0;
   --color-accent-ink: #ffffff;
   --color-accent-soft: #e5e9ff;
-  --color-ok: #10805a;
+  /* Darker than the canvas's #10805a, which on its own soft green falls short of WCAG AA. */
+  --color-ok: #0d7350;
   --color-ok-soft: #e1f3ea;
   --color-warn: #9a5a00;
   --color-warn-soft: #fbefd8;

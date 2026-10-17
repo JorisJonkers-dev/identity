@@ -11,7 +11,7 @@ test('an Admin reads the dashboard and the audit log', async ({ page, browser },
     await page.getByRole('link', { name: 'Dashboard' }).click()
     await expect(page).toHaveURL('/admin')
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Estate sign-in')
-    await expect(page.getByRole('list', { name: 'Counts' }).getByRole('listitem')).toHaveCount(4)
+    await expect(page.getByRole('list', { name: 'Counts' }).getByRole('listitem')).toHaveCount(5)
     await expect(page.getByRole('img', { name: /sign-ins in the last 24 hours/ })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Open in Grafana ↗' })).toHaveAttribute('href', 'https://grafana.example.org/d/identity')
     await expectAccessible(page)

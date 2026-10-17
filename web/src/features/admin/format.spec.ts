@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AuditEvent, SignInHour } from '../../infrastructure/api/types.gen'
-import { ago, clock, counted, dayOf, describeEvent, drawChart, initials, scaleFor, tone } from './format'
+import { initials } from '../../shared/initials'
+import { ago, clock, counted, dayOf, describeEvent, drawChart, scaleFor, tone } from './format'
 
 const joris = { id: '00000000-0000-4000-8000-0000000000a1', name: 'Joris', email: 'joris@example.org' }
 const noor = { id: '00000000-0000-4000-8000-0000000000a2', name: 'Noor Bakker', email: 'noor@example.org' }

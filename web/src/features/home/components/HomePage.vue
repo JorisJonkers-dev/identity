@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { computed, reactive } from 'vue'
 import { RouterLink } from 'vue-router'
+import { useExpiringTokens } from '../../tokens/composables/useExpiringTokens'
+import { expiry } from '../../tokens/expiry'
 import { useLauncher } from '../composables/useLauncher'
 import { useVersion } from '../composables/useVersion'
 
 const { version, loadError: versionError } = useVersion()
 const { apps, isLoading, loadError, admin } = useLauncher()
+const ending = useExpiringTokens(computed(() => apps.value !== undefined))
+const now = new Date()
 // Apps whose icon failed to load show their label's first letter instead.
 const broken = reactive(new Set<string>())
 </script>
@@ -15,9 +19,15 @@ const broken = reactive(new Set<string>())
     <h1 id="home-title">Your apps</h1>
     <nav aria-label="Your account" class="links">
       <RouterLink to="/profile">Your profile</RouterLink>
+      <RouterLink to="/profile/tokens">Tokens</RouterLink>
       <RouterLink v-if="admin" to="/admin">Dashboard</RouterLink>
       <RouterLink v-if="admin" to="/access">Manage access</RouterLink>
     </nav>
+    <p v-if="ending[0]" role="status" class="mb-4 rounded-[9px] border border-warn bg-warn-soft px-3 py-2.5 text-warn">
+      <template v-if="ending.length === 1">Your token {{ ending[0].name }} {{ expiry(ending[0], now) }}. </template>
+      <template v-else>{{ ending.length }} of your tokens expire within 7 days: {{ ending.map((t) => t.name).join(', ') }}. </template>
+      <RouterLink to="/profile/tokens" class="text-warn underline">Make a new one on the Tokens page</RouterLink>.
+    </p>
     <p v-if="apps.length === 0">You don't have access to any apps yet. Ask an Admin to add you to a Group.</p>
     <ul v-else class="apps" aria-labelledby="home-title">
       <li v-for="app in apps" :key="app.id" class="app">

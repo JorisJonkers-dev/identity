@@ -4,6 +4,7 @@ import { reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getProfileOptions } from '../../../infrastructure/api/@tanstack/vue-query.gen'
 import type { AccessOverview } from '../../../infrastructure/api/types.gen'
+import UserTokens from '../../tokens/components/UserTokens.vue'
 import { useAccess } from '../composables/useAccess'
 
 // An Admin whose session proved no Second Factor is sent to add one first (docs/adr/0005).
@@ -25,6 +26,12 @@ const picked = reactive<Record<string, string>>({})
 const placing = reactive<Record<string, string>>({})
 const asking = ref<string | null>(null)
 const signedOut = reactive(new Set<string>())
+// The people whose Personal Tokens are open.
+const showing = reactive(new Set<string>())
+
+function toggleTokens(userId: string) {
+  if (!showing.delete(userId)) showing.add(userId)
+}
 
 function holds(o: AccessOverview, groupId: string, clientId: string, role: string): boolean {
   return o.assignments.some((a) => a.groupId === groupId && a.clientId === clientId && a.role === role)
@@ -99,7 +106,10 @@ function add(groupId: string) {
       </template>
 
       <h2 id="people-title">People</h2>
-      <p>Sign someone out on every device they use, for example after they lose a phone. They can sign straight back in.</p>
+      <p>
+        Sign someone out on every device they use, for example after they lose a phone. They can sign straight back in. Open their
+        tokens to revoke one a script should no longer use.
+      </p>
       <ul aria-labelledby="people-title">
         <li v-for="u in overview.users" :key="u.id" :aria-label="`${u.name} (${u.email})`" class="inline">
           <span>{{ u.name }} ({{ u.email }})</span>
@@ -110,6 +120,10 @@ function add(groupId: string) {
           </template>
           <button v-else type="button" @click="asking = u.id">Sign out on every device</button>
           <span v-if="signedOut.has(u.id)" role="status">{{ u.name }} is signed out on every device.</span>
+          <button type="button" :aria-expanded="showing.has(u.id)" @click="toggleTokens(u.id)">
+            {{ showing.has(u.id) ? 'Hide tokens' : 'Tokens' }}
+          </button>
+          <UserTokens v-if="showing.has(u.id)" class="basis-full" :user-id="u.id" :name="u.name" />
         </li>
       </ul>
 
