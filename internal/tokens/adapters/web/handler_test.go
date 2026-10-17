@@ -3,6 +3,7 @@ package web_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -28,10 +29,10 @@ var (
 // useCases answers with what a test sets and records what it was asked.
 type useCases struct {
 	// tokens is what Mine lists; cli when nil.
-	tokens           []domain.Token
-	err, mintableErr error
-	asked            []any
-	actor            app.Actor
+	tokens                     []domain.Token
+	err, mintableErr, rolesErr error
+	asked                      []any
+	actor                      app.Actor
 }
 
 func (u *useCases) Mint(_ context.Context, userID uuid.UUID, name, clientID string, days int) (app.Minted, error) {
@@ -70,13 +71,24 @@ func (*useCases) Label(_ context.Context, clientID string) string { return "Labe
 
 func (*useCases) State(domain.Token) domain.State { return domain.Expiring }
 
+func (u *useCases) RolesOf(context.Context, domain.Token) ([]string, error) {
+	return []string{"viewer"}, u.rolesErr
+}
+
 func as(id uuid.UUID) context.Context {
 	return principal.With(context.Background(), principal.Principal{UserID: id, SecondFactor: true})
 }
 
 var wantToken = oas.PersonalToken{
 	ID: oas.ID(tokenID), Name: "grafana-cli", Client: oas.TokenClient{ID: "grafana", Label: "Label of grafana"},
-	CreatedAt: t0, ExpiresAt: t0.Add(30 * 24 * time.Hour), LastUsedAt: oas.NewOptDateTime(used), State: oas.PersonalTokenStateExpiring,
+	Roles: []oas.AppRole{"viewer"}, CreatedAt: t0, ExpiresAt: t0.Add(30 * 24 * time.Hour), LastUsedAt: oas.NewOptDateTime(used),
+	State: oas.PersonalTokenStateExpiring,
+}
+
+// same compares tokens, whose roles a struct comparison cannot.
+func same(a, b oas.PersonalToken) bool {
+	return slices.Equal(a.Roles, b.Roles) && a.ID == b.ID && a.Name == b.Name && a.Client == b.Client &&
+		a.CreatedAt.Equal(b.CreatedAt) && a.ExpiresAt.Equal(b.ExpiresAt) && a.LastUsedAt == b.LastUsedAt && a.State == b.State
 }
 
 func TestAUserListsTheirTokensAndTheAppsTheyMayMintFor(t *testing.T) {
@@ -84,7 +96,7 @@ func TestAUserListsTheirTokensAndTheAppsTheyMayMintFor(t *testing.T) {
 	uc := &useCases{}
 	res, err := web.New(uc).ListMyTokens(as(ada))
 	mine, _ := res.(*oas.MyTokens)
-	if err != nil || len(mine.Tokens) != 1 || mine.Tokens[0] != wantToken || len(mine.Clients) != 1 || mine.Clients[0] != (oas.TokenClient{ID: "grafana", Label: "Grafana"}) {
+	if err != nil || len(mine.Tokens) != 1 || !same(mine.Tokens[0], wantToken) || len(mine.Clients) != 1 || mine.Clients[0] != (oas.TokenClient{ID: "grafana", Label: "Grafana"}) {
 		t.Fatalf("ListMyTokens = %+v, %v", res, err)
 	}
 	if uc.asked[0] != ada {
@@ -118,7 +130,7 @@ func TestAUserMintsATokenAndGetsItsSecretOnce(t *testing.T) {
 	t.Parallel()
 	uc := &useCases{}
 	res, err := web.New(uc).MintToken(as(ada), &oas.TokenDraft{Name: "grafana-cli", ClientId: "grafana", Days: 90})
-	if m, ok := res.(*oas.MintedToken); err != nil || !ok || m.Secret != "idpat_secret" || m.Token != wantToken {
+	if m, ok := res.(*oas.MintedToken); err != nil || !ok || m.Secret != "idpat_secret" || !same(m.Token, wantToken) {
 		t.Fatalf("MintToken = %+v, %v", res, err)
 	}
 	if want := []any{ada, "grafana-cli", "grafana", 90}; len(uc.asked) != 4 || uc.asked[0] != want[0] || uc.asked[3] != want[3] {
@@ -179,6 +191,25 @@ func TestARefusalSaysWhy(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestAnswersFailWhenATokensRolesCannotBeRead(t *testing.T) {
+	t.Parallel()
+	for name, call := range map[string]func(h *web.Tokens) error{
+		"listing one's own": func(h *web.Tokens) error { _, err := h.ListMyTokens(as(ada)); return err },
+		"minting":           func(h *web.Tokens) error { _, err := h.MintToken(as(ada), &oas.TokenDraft{}); return err },
+		"listing a User's": func(h *web.Tokens) error {
+			_, err := h.ListUserTokens(as(root), oas.ListUserTokensParams{})
+			return err
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			if err := call(web.New(&useCases{rolesErr: errBoom})); !errors.Is(err, errBoom) {
+				t.Fatalf("err = %v", err)
+			}
+		})
 	}
 }
 

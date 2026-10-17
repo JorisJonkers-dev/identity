@@ -162,6 +162,33 @@ func (e *Env) Introspect(t *testing.T, clientID, secret, token string) map[strin
 	return out
 }
 
+// GateAnswer is what the Gate told Traefik: a status and the headers it set.
+type GateAnswer struct {
+	StatusCode int
+	Header     http.Header
+}
+
+// GateCheck is Traefik's forwardAuth call to the Gate for a request to host, carrying
+// authorization as its Authorization header when it is not empty.
+func (e *Env) GateCheck(t *testing.T, host, authorization string) GateAnswer {
+	t.Helper()
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://"+Host+"/gate/check", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("X-Forwarded-Host", host)
+	req.Header.Set("X-Forwarded-Uri", "/")
+	if authorization != "" {
+		req.Header.Set("Authorization", authorization)
+	}
+	res, err := e.Browser().client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = res.Body.Close()
+	return GateAnswer{StatusCode: res.StatusCode, Header: res.Header}
+}
+
 // Userinfo is the status /oidc/userinfo answers for a bearer token.
 func (e *Env) Userinfo(t *testing.T, token string) int {
 	t.Helper()

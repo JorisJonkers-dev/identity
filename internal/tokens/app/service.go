@@ -107,6 +107,7 @@ type Service struct {
 	clients Clients
 	admins  Admins
 	audit   Audit
+	revoked func(ctx context.Context, tokenID uuid.UUID)
 	now     func() time.Time
 	random  io.Reader
 }
@@ -115,6 +116,9 @@ type Service struct {
 func New(store Store, roles Roles, clients Clients, admins Admins, audit Audit, now func() time.Time, random io.Reader) *Service {
 	return &Service{store: store, roles: roles, clients: clients, admins: admins, audit: audit, now: now, random: random}
 }
+
+// OnRevoked tells f about each token revoked, so what has its checks cached can drop them now.
+func (s *Service) OnRevoked(f func(ctx context.Context, tokenID uuid.UUID)) { s.revoked = f }
 
 // Mint makes a token for one of the User's Clients, lasting days, and returns its secret once.
 func (s *Service) Mint(ctx context.Context, userID uuid.UUID, rawName, clientID string, days int) (Minted, error) {
@@ -176,6 +180,11 @@ func (s *Service) Mintable(ctx context.Context, userID uuid.UUID) ([]Client, err
 	return clients, nil
 }
 
+// RolesOf is the App Roles a token carries now: its User's on its Client.
+func (s *Service) RolesOf(ctx context.Context, t domain.Token) ([]string, error) {
+	return s.roles.Roles(ctx, t.UserID, t.ClientID)
+}
+
 // Label is what a token's Client is called.
 func (s *Service) Label(ctx context.Context, clientID string) string {
 	return s.clients.Label(ctx, clientID)
@@ -221,6 +230,9 @@ func (s *Service) revoke(ctx context.Context, actor, userID, tokenID uuid.UUID) 
 	}
 	if revoked {
 		s.audit.Record(ctx, audit.Event{Action: audit.TokenRevoked, Actor: actor, User: userID, Client: t.ClientID})
+		if s.revoked != nil {
+			s.revoked(ctx, tokenID)
+		}
 	}
 	return nil
 }

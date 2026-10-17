@@ -910,7 +910,7 @@ components:
       description: A Personal Token, without its secret.
       type: object
       additionalProperties: false
-      required: [id, name, client, createdAt, expiresAt, state]
+      required: [id, name, client, roles, createdAt, expiresAt, state]
       properties:
         id:
           $ref: "#/components/schemas/Id"
@@ -919,6 +919,12 @@ components:
           maxLength: 64
         client:
           $ref: "#/components/schemas/TokenClient"
+        roles:
+          type: array
+          maxItems: 100
+          description: The App Roles the token's User holds on its Client now, which is all it carries.
+          items:
+            $ref: "#/components/schemas/AppRole"
         createdAt:
           type: string
           format: date-time

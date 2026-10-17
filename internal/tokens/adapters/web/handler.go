@@ -25,6 +25,7 @@ type UseCases interface {
 	Of(ctx context.Context, actor app.Actor, userID uuid.UUID) ([]domain.Token, error)
 	RevokeAs(ctx context.Context, actor app.Actor, userID, tokenID uuid.UUID) error
 	Label(ctx context.Context, clientID string) string
+	RolesOf(ctx context.Context, t domain.Token) ([]string, error)
 	State(t domain.Token) domain.State
 }
 
@@ -45,7 +46,11 @@ func (h *Tokens) ListMyTokens(ctx context.Context) (oas.ListMyTokensRes, error) 
 	if err != nil {
 		return nil, err
 	}
-	res := &oas.MyTokens{Tokens: h.list(ctx, mine), Clients: make([]oas.TokenClient, 0, len(clients))}
+	tokens, err := h.list(ctx, mine)
+	if err != nil {
+		return nil, err
+	}
+	res := &oas.MyTokens{Tokens: tokens, Clients: make([]oas.TokenClient, 0, len(clients))}
 	for _, c := range clients {
 		res.Clients = append(res.Clients, oas.TokenClient{ID: oas.ClientId(c.ID), Label: c.Label})
 	}
@@ -58,7 +63,11 @@ func (h *Tokens) MintToken(ctx context.Context, req *oas.TokenDraft) (oas.MintTo
 	if err != nil {
 		return refusal(err)
 	}
-	return &oas.MintedToken{Token: h.token(ctx, m.Token), Secret: m.Secret}, nil
+	t, err := h.token(ctx, m.Token)
+	if err != nil {
+		return nil, err
+	}
+	return &oas.MintedToken{Token: t, Secret: m.Secret}, nil
 }
 
 // RevokeMyToken implements revokeMyToken.
@@ -75,7 +84,11 @@ func (h *Tokens) ListUserTokens(ctx context.Context, params oas.ListUserTokensPa
 	if err != nil {
 		return refusal(err)
 	}
-	return &oas.TokenList{Tokens: h.list(ctx, tokens)}, nil
+	list, err := h.list(ctx, tokens)
+	if err != nil {
+		return nil, err
+	}
+	return &oas.TokenList{Tokens: list}, nil
 }
 
 // RevokeUserToken implements revokeUserToken.
@@ -86,23 +99,35 @@ func (h *Tokens) RevokeUserToken(ctx context.Context, params oas.RevokeUserToken
 	return &oas.RevokeUserTokenNoContent{}, nil
 }
 
-func (h *Tokens) list(ctx context.Context, tokens []domain.Token) []oas.PersonalToken {
+func (h *Tokens) list(ctx context.Context, tokens []domain.Token) ([]oas.PersonalToken, error) {
 	out := make([]oas.PersonalToken, 0, len(tokens))
 	for _, t := range tokens {
-		out = append(out, h.token(ctx, t))
+		pt, err := h.token(ctx, t)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, pt)
 	}
-	return out
+	return out, nil
 }
 
-func (h *Tokens) token(ctx context.Context, t domain.Token) oas.PersonalToken {
+func (h *Tokens) token(ctx context.Context, t domain.Token) (oas.PersonalToken, error) {
+	held, err := h.uc.RolesOf(ctx, t)
+	if err != nil {
+		return oas.PersonalToken{}, err
+	}
+	roles := make([]oas.AppRole, 0, len(held))
+	for _, r := range held {
+		roles = append(roles, oas.AppRole(r))
+	}
 	out := oas.PersonalToken{
 		ID: oas.ID(t.ID), Name: t.Name, Client: oas.TokenClient{ID: oas.ClientId(t.ClientID), Label: h.uc.Label(ctx, t.ClientID)},
-		CreatedAt: t.CreatedAt, ExpiresAt: t.ExpiresAt, State: oas.PersonalTokenState(h.uc.State(t)),
+		Roles: roles, CreatedAt: t.CreatedAt, ExpiresAt: t.ExpiresAt, State: oas.PersonalTokenState(h.uc.State(t)),
 	}
 	if t.LastUsedAt != nil {
 		out.LastUsedAt = oas.NewOptDateTime(*t.LastUsedAt)
 	}
-	return out
+	return out, nil
 }
 
 func actor(ctx context.Context) app.Actor {

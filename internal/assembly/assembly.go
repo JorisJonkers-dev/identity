@@ -148,6 +148,8 @@ func New(cfg Config) (*Identity, error) {
 	}
 	others := gatecontexts.New(signIn, users)
 	gate := gateapp.New(gatepersistence.New(q), others, others, others, recorder, time.Now, rand.Reader, gateCacheTTL)
+	gate.SetTokens(others)
+	tokens.OnRevoked(func(_ context.Context, tokenID uuid.UUID) { gate.Forget([]uuid.UUID{tokenID}) })
 	signedOut = endSessions(gate, signIn, cfg.Logger)
 	gateHandler, err := gateweb.New(gate, gateweb.Config{Issuer: cfg.PublicURL, SessionCookie: usersweb.CookieName}, cfg.Logger)
 	if err != nil {
