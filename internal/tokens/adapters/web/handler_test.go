@@ -196,15 +196,14 @@ func TestARefusalSaysWhy(t *testing.T) {
 
 func TestAnswersFailWhenATokensRolesCannotBeRead(t *testing.T) {
 	t.Parallel()
-	h := web.New(&useCases{rolesErr: errBoom})
-	for name, call := range map[string]func() error{
-		"listing one's own": func() error { _, err := h.ListMyTokens(as(ada)); return err },
-		"minting":           func() error { _, err := h.MintToken(as(ada), &oas.TokenDraft{}); return err },
-		"listing a User's":  func() error { _, err := h.ListUserTokens(as(root), oas.ListUserTokensParams{}); return err },
+	for name, call := range map[string]func(h *web.Tokens) error{
+		"listing one's own": func(h *web.Tokens) error { _, err := h.ListMyTokens(as(ada)); return err },
+		"minting":           func(h *web.Tokens) error { _, err := h.MintToken(as(ada), &oas.TokenDraft{}); return err },
+		"listing a User's":  func(h *web.Tokens) error { _, err := h.ListUserTokens(as(root), oas.ListUserTokensParams{}); return err },
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			if err := call(); !errors.Is(err, errBoom) {
+			if err := call(web.New(&useCases{rolesErr: errBoom})); !errors.Is(err, errBoom) {
 				t.Fatalf("err = %v", err)
 			}
 		})
