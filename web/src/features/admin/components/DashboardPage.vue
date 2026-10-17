@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
 import { useDashboard } from '../composables/useDashboard'
-import { ago, initials } from '../format'
+import { initials } from '../../../shared/initials'
+import { ago } from '../format'
 import AdminLayout from './AdminLayout.vue'
 import SignInChart from './SignInChart.vue'
 
@@ -60,6 +61,10 @@ const heading = 'mt-0 mb-2.5 flex items-center justify-between gap-2 text-[13px]
         <li :class="stat">
           <small :class="label">Active sessions</small><b :class="figure">{{ dashboard.activeSessions }}</b>
           <span :class="delta">across {{ dashboard.sessionUsers }} {{ dashboard.sessionUsers === 1 ? 'User' : 'Users' }}</span>
+        </li>
+        <li :class="stat">
+          <small :class="label">Tokens expiring</small><b :class="figure">{{ dashboard.tokensExpiring }}</b>
+          <span :class="delta">within 7 days</span>
         </li>
       </ul>
       <div class="grid grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] gap-3 max-[900px]:grid-cols-1">

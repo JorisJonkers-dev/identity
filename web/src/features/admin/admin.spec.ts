@@ -78,6 +78,7 @@ describe('the dashboard', () => {
       'Unassigned1waiting for a Group',
       'Sign-ins1864 failed',
       'Active sessions23across 12 Users',
+      'Tokens expiring3within 7 days',
     ])
     expect(wrapper.get('[data-attention]').text()).toContain('Unassigned')
   })

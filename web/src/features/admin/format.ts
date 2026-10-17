@@ -100,13 +100,6 @@ export function ago(at: string, now: Date): string {
   return `${String(Math.floor(hours / 24))} days ago`
 }
 
-/** A person's initials, for their avatar. */
-export function initials(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean)
-  const first = words[0] ?? '?'
-  const last = words.length > 1 ? (words[words.length - 1] as string) : ''
-  return (first.charAt(0) + last.charAt(0)).toUpperCase()
-}
 
 // The chart's frame, the same as the design's: x from 30 to 470, y from 110 (none) to 20 (most).
 const x0 = 30
