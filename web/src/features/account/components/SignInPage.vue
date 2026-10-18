@@ -65,9 +65,9 @@ function submitCode() {
 <template>
   <CardLayout v-if="methods.length > 0" glyph="lock">
     <section aria-labelledby="signin-title" class="grid gap-3.5">
-      <h1 id="signin-title" class="m-0 font-display text-[22px]/[1.15] font-bold tracking-[-0.02em]">Confirm it's you</h1>
+      <h1 id="signin-title" class="page-title">Confirm it's you</h1>
       <div v-if="methods.includes('passkey')" class="grid gap-3">
-        <p class="fine">Click Use your passkey. Your browser then asks you to confirm it's you.</p>
+        <p class="fine">Your browser asks you to confirm with your passkey.</p>
         <p v-if="keyError" role="alert" class="alert">{{ keyError }}</p>
         <button
           type="button"
@@ -80,7 +80,7 @@ function submitCode() {
       </div>
       <p v-if="methods.includes('passkey') && methods.includes('totp')" class="flex items-center gap-2.5 text-[12px] text-ink-3 before:h-px before:flex-1 before:bg-line after:h-px after:flex-1 after:bg-line">or</p>
       <form v-if="methods.includes('totp')" class="grid gap-3" @submit.prevent="submitCode">
-        <p class="fine">Open your authenticator app and enter the 6-digit code it shows for jorisjonkers.dev. This sign-in expires after 5 minutes.</p>
+        <p class="fine">Enter the code your authenticator app shows.</p>
         <label for="signin-code" class="field-label">6-digit code</label>
         <input
           id="signin-code"
@@ -98,7 +98,7 @@ function submitCode() {
   </CardLayout>
   <AuthLayout v-else>
     <section aria-labelledby="signin-title" class="grid gap-3.5">
-      <h1 id="signin-title" class="m-0 font-display text-[26px]/[1.1] font-bold tracking-[-0.02em]">Sign in</h1>
+      <h1 id="signin-title" class="page-title">Sign in</h1>
       <form class="grid gap-3.5" @submit.prevent="submit">
         <div class="grid gap-1.5">
           <label for="signin-email" class="field-label">Email</label>
@@ -111,7 +111,7 @@ function submitCode() {
         <p v-if="signIn.error.value" role="alert" class="alert">{{ signIn.error.value }}</p>
         <button type="submit" class="btn-primary w-full py-[11px]" :disabled="signIn.isPending.value">Sign in</button>
       </form>
-      <p class="fine">No account yet? <RouterLink to="/signup">Sign up</RouterLink>. You get access to apps once an Admin adds you to a Group.</p>
+      <p class="fine">No account yet? <RouterLink to="/signup">Sign up</RouterLink>.</p>
     </section>
   </AuthLayout>
 </template>

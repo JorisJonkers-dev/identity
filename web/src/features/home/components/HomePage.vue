@@ -28,7 +28,7 @@ function matches(app: LauncherApp): boolean {
     <section aria-labelledby="home-title" class="grid gap-[18px]">
       <div class="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 id="home-title" class="m-0 font-display text-[22px]/[1.15] font-bold tracking-[-0.02em]">{{ greeting(name, now) }}</h1>
+          <h1 id="home-title" class="page-title">{{ greeting(name, now) }}</h1>
           <p class="m-0 mt-0.5 text-[13px] text-ink-3">{{ apps.length === 1 ? '1 app' : `${apps.length} apps` }}</p>
         </div>
         <label v-if="apps.length > 0" class="flex max-w-[300px] min-w-0 flex-1 items-center gap-2 rounded-[10px] border border-line bg-surface px-3 py-2 text-ink-3">
@@ -70,8 +70,7 @@ function matches(app: LauncherApp): boolean {
   </YourLayout>
   <AuthLayout v-else>
     <section aria-labelledby="home-title" class="grid gap-3.5">
-      <h1 id="home-title" class="m-0 font-display text-[26px]/[1.1] font-bold tracking-[-0.02em]">jorisjonkers.dev</h1>
-      <p class="m-0 text-ink-2">Sign in once to open the apps you have been given access to.</p>
+      <h1 id="home-title" class="page-title">jorisjonkers.dev</h1>
       <p v-if="isLoading" class="fine">Loading…</p>
       <p v-else-if="loadError" role="alert" class="alert">{{ loadError }}</p>
       <div v-else class="grid gap-2.5">

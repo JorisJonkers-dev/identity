@@ -48,7 +48,7 @@ const primary = 'btn border-accent bg-accent text-accent-ink'
   <YourLayout>
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 class="m-0 font-display text-[22px]/[1.15] font-bold tracking-[-0.02em] text-balance">Tokens</h1>
+        <h1 class="page-title">Tokens</h1>
         <p class="mt-0.5 mb-0 text-[13px] text-ink-3">For scripts and tools. A token never has more access than you do.</p>
       </div>
       <button v-if="!making && clients.length > 0" type="button" :class="primary" @click="making = true">New token</button>
@@ -56,7 +56,7 @@ const primary = 'btn border-accent bg-accent text-accent-ink'
     <p v-if="actionError" role="alert" class="m-0 text-bad">{{ actionError }}</p>
 
     <section v-if="secret" class="panel grid gap-3" aria-labelledby="secret-title" role="status">
-      <h2 id="secret-title" class="m-0 text-[13px] font-semibold">Copy your token now. You won't see it again.</h2>
+      <h2 id="secret-title" class="section-title">Copy your token now. You won't see it again.</h2>
       <code class="block overflow-x-auto rounded-[9px] border border-line bg-surface-2 px-3 py-2.5 font-mono text-xs break-all" data-secret>{{ secret }}</code>
       <div class="flex flex-wrap gap-2">
         <button type="button" class="btn" @click="copy(secret)">{{ copied ? 'Copied' : 'Copy' }}</button>
@@ -88,7 +88,7 @@ const primary = 'btn border-accent bg-accent text-accent-ink'
     </form>
 
     <section class="panel" aria-labelledby="tokens-title">
-      <h2 id="tokens-title" class="mt-0 mb-2.5 text-[13px] font-semibold">Personal Tokens</h2>
+      <h2 id="tokens-title" class="section-title mb-3">Personal Tokens</h2>
       <p v-if="isLoading" class="m-0 text-ink-3">Loading…</p>
       <p v-else-if="loadError" role="alert" class="m-0 text-bad">{{ loadError }}</p>
       <p v-else-if="tokens?.length === 0" class="m-0 text-ink-3">

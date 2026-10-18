@@ -53,17 +53,27 @@
 
 /* A label pill, as the canvas draws state, kinds and roles. */
 @utility pill {
-  @apply inline-flex items-center gap-[5px] rounded-full border border-line bg-surface-2 px-2 py-0.5 font-mono text-[11.5px] font-medium whitespace-nowrap text-ink-2;
+  @apply inline-flex items-center gap-[5px] rounded-full border border-line bg-surface-2 px-2.5 py-0.5 font-mono text-[12px] font-medium whitespace-nowrap text-ink-2;
 }
 
 /* A plain button or link that looks like one. */
 @utility btn {
-  @apply cursor-pointer rounded-[9px] border border-line bg-surface px-3.5 py-2 font-body text-[13px] font-semibold whitespace-nowrap text-ink no-underline;
+  @apply cursor-pointer rounded-[10px] border border-line bg-surface px-4 py-2.5 font-body text-[14px] font-semibold whitespace-nowrap text-ink no-underline transition-colors hover:border-ink-3 disabled:cursor-default disabled:opacity-60;
 }
 
 /* A white card on the page. */
 @utility panel {
-  @apply min-w-0 rounded-xl border border-line bg-surface p-4;
+  @apply min-w-0 rounded-2xl border border-line bg-surface p-5;
+}
+
+/* A page's heading, as the canvas sets it. */
+@utility page-title {
+  @apply m-0 font-display text-[30px]/[1.1] font-bold tracking-[-0.02em] text-balance;
+}
+
+/* A heading inside a page: a panel's or a section's. */
+@utility section-title {
+  @apply m-0 text-[16px] font-semibold;
 }
 
 /* The small uppercase label above a group of links or a day of events. */
@@ -73,25 +83,25 @@
 
 /* A form field's label, above its input. */
 @utility field-label {
-  @apply flex justify-between text-[12.5px] font-medium text-ink-2;
+  @apply flex justify-between text-[13.5px] font-medium text-ink-2;
 }
 
 /* A text input, as the canvas's sign-in frames draw it. */
 @utility input {
-  @apply w-full rounded-[9px] border border-line bg-surface px-3 py-2.5 font-body text-[14px] text-ink focus:border-accent focus:shadow-[0_0_0_3px_var(--color-accent-soft)] focus:outline-none;
+  @apply w-full rounded-[10px] border border-line bg-surface px-3.5 py-3 font-body text-[15px] text-ink focus:border-accent focus:shadow-[0_0_0_3px_var(--color-accent-soft)] focus:outline-none;
 }
 
 /* The one action a page leads to. */
 @utility btn-primary {
-  @apply btn border-accent bg-accent text-accent-ink disabled:cursor-default disabled:opacity-60;
+  @apply btn border-accent bg-accent text-accent-ink hover:border-accent hover:brightness-110;
 }
 
 /* Small print under a form; its links are the accent colour. */
 @utility fine {
-  @apply m-0 text-[12.5px] text-ink-3 [&_a]:text-accent [&_a]:no-underline;
+  @apply m-0 text-[13.5px] text-ink-3 [&_a]:text-accent [&_a]:no-underline [&_a:hover]:underline;
 }
 
 /* What went wrong, said where it went wrong. */
 @utility alert {
-  @apply m-0 rounded-[9px] bg-bad-soft px-3 py-2 text-[13px] text-bad;
+  @apply m-0 rounded-[10px] bg-bad-soft px-3.5 py-2.5 text-[14px] text-bad;
 }

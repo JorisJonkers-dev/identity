@@ -43,7 +43,7 @@ const rows = computed(() =>
 <template>
   <AdminLayout>
     <div>
-      <h1 class="m-0 font-display text-[22px]/[1.15] font-bold tracking-[-0.02em] text-balance">Audit</h1>
+      <h1 class="page-title">Audit</h1>
       <p class="mt-0.5 mb-0 text-[13px] text-ink-3">Kept here for one year. Every event is also sent to Loki.</p>
     </div>
     <div class="flex flex-wrap gap-1.5" role="group" aria-label="Filter the events">

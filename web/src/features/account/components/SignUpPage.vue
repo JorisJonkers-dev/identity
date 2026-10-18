@@ -18,7 +18,7 @@ function submit() {
 <template>
   <AuthLayout>
     <section aria-labelledby="signup-title" class="grid gap-3.5">
-      <h1 id="signup-title" class="m-0 font-display text-[26px]/[1.1] font-bold tracking-[-0.02em]">Sign up</h1>
+      <h1 id="signup-title" class="page-title">Sign up</h1>
       <p v-if="signUp.isDone.value" role="status" class="m-0 rounded-[9px] bg-ok-soft px-3 py-2 text-[13px] text-ok">Check your email for a link to finish signing up.</p>
       <form v-else class="grid gap-3.5" @submit.prevent="submit">
         <div class="grid gap-1.5">

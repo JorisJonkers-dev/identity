@@ -20,7 +20,7 @@ function submit() {
 <template>
   <CardLayout glyph="mail">
     <section aria-labelledby="confirm-title" class="grid gap-3.5">
-      <h1 id="confirm-title" class="m-0 font-display text-[22px]/[1.15] font-bold tracking-[-0.02em]">Confirm your email</h1>
+      <h1 id="confirm-title" class="page-title">Confirm your email</h1>
       <p v-if="!token" role="alert" class="alert">This link is incomplete. Open the link in your email again.</p>
       <p v-else-if="confirm.isDone.value" role="status" class="m-0 rounded-[9px] bg-ok-soft px-3 py-2 text-[13px] text-ok">
         Your email is confirmed. <RouterLink to="/signin" class="font-semibold text-ok">Sign in</RouterLink>

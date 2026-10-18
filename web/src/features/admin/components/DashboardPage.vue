@@ -25,7 +25,7 @@ const heading = 'mt-0 mb-2.5 flex items-center justify-between gap-2 text-[13px]
   <AdminLayout>
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 class="m-0 font-display text-[22px]/[1.15] font-bold tracking-[-0.02em] text-balance">Estate sign-in</h1>
+        <h1 class="page-title">Estate sign-in</h1>
         <p class="mt-0.5 mb-0 text-[13px] text-ink-3" data-test="subtitle">
           Last 24 hours.<template v-if="dashboard?.grafanaUrl"> Charts over time are in Grafana.</template>
         </p>

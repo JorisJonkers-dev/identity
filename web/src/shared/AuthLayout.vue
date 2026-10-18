@@ -16,7 +16,7 @@ import '@fontsource-variable/geist-mono'
       <span class="absolute -top-32 -right-32 size-[420px] rounded-full border border-surface-2/20" />
       <span class="absolute -top-12 -right-12 size-[260px] rounded-full border border-surface-2/20" />
       <span class="font-mono text-[12px] opacity-70">jorisjonkers.dev</span>
-      <p class="m-0 font-display text-[clamp(34px,4vw,56px)]/[1] font-extrabold tracking-[-0.03em]">Sign in once.<br />Your apps open <em class="text-accent not-italic">without asking again</em>.</p>
+      <p class="m-0 font-display text-[clamp(34px,4vw,56px)]/[1] font-extrabold tracking-[-0.03em]">Sign in <em class="text-accent not-italic">once</em>.</p>
     </div>
   </div>
 </template>
