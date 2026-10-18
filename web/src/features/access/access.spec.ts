@@ -227,9 +227,12 @@ describe('an Admin without a Second Factor', () => {
 })
 
 describe('the no-access page', () => {
-  it('says why the app did not open', async () => {
+  it('says why the app did not open, and leads to the apps the person can open', async () => {
     const { wrapper } = await mountAt('/no-access', {})
     expect(wrapper.get('h1').text()).toBe("You don't have access to this app")
-    expect(wrapper.get('a').attributes('href')).toBe('/profile')
+    expect(wrapper.findAll('a').map((a) => [a.text(), a.attributes('href')])).toEqual([
+      ['Open your apps', '/'],
+      ['Go to your profile', '/profile'],
+    ])
   })
 })

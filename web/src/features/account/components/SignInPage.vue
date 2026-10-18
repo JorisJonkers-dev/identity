@@ -11,6 +11,8 @@ import type { SecondFactorKind } from '../../../infrastructure/api/types.gen'
 import { navigation } from '../../../infrastructure/navigation'
 import { passkeys } from '../../../infrastructure/passkeys'
 import { useAction } from '../../../infrastructure/useAction'
+import AuthLayout from '../../../shared/AuthLayout.vue'
+import CardLayout from '../../../shared/CardLayout.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -61,33 +63,55 @@ function submitCode() {
 </script>
 
 <template>
-  <section aria-labelledby="signin-title">
-    <template v-if="methods.length > 0">
-      <h1 id="signin-title">Confirm it's you</h1>
-      <template v-if="methods.includes('passkey')">
-        <p>Click Use your passkey. Your browser then asks you to confirm it's you.</p>
-        <p v-if="keyError" role="alert" class="error">{{ keyError }}</p>
-        <button type="button" :disabled="keyOptions.isPending.value || keyAnswer.isPending.value" @click="usePasskey">Use your passkey</button>
-      </template>
-      <form v-if="methods.includes('totp')" @submit.prevent="submitCode">
-        <p>Open your authenticator app and enter the 6-digit code it shows for jorisjonkers.dev. This sign-in expires after 5 minutes.</p>
-        <label for="signin-code">6-digit code</label>
-        <input id="signin-code" v-model="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required />
-        <p v-if="complete.error.value" role="alert" class="error">{{ complete.error.value }}</p>
-        <button type="submit" :disabled="complete.isPending.value">Sign in</button>
+  <CardLayout v-if="methods.length > 0" glyph="lock">
+    <section aria-labelledby="signin-title" class="grid gap-3.5">
+      <h1 id="signin-title" class="m-0 font-display text-[22px]/[1.15] font-bold tracking-[-0.02em]">Confirm it's you</h1>
+      <div v-if="methods.includes('passkey')" class="grid gap-3">
+        <p class="fine">Click Use your passkey. Your browser then asks you to confirm it's you.</p>
+        <p v-if="keyError" role="alert" class="alert">{{ keyError }}</p>
+        <button
+          type="button"
+          :class="[methods.includes('totp') ? 'btn' : 'btn-primary', 'w-full py-[11px]']"
+          :disabled="keyOptions.isPending.value || keyAnswer.isPending.value"
+          @click="usePasskey"
+        >
+          Use your passkey
+        </button>
+      </div>
+      <p v-if="methods.includes('passkey') && methods.includes('totp')" class="flex items-center gap-2.5 text-[12px] text-ink-3 before:h-px before:flex-1 before:bg-line after:h-px after:flex-1 after:bg-line">or</p>
+      <form v-if="methods.includes('totp')" class="grid gap-3" @submit.prevent="submitCode">
+        <p class="fine">Open your authenticator app and enter the 6-digit code it shows for jorisjonkers.dev. This sign-in expires after 5 minutes.</p>
+        <label for="signin-code" class="field-label">6-digit code</label>
+        <input
+          id="signin-code"
+          v-model="code"
+          class="input py-3 text-center font-mono text-[22px] font-semibold tracking-[0.5em]"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          maxlength="8"
+          required
+        />
+        <p v-if="complete.error.value" role="alert" class="alert">{{ complete.error.value }}</p>
+        <button type="submit" class="btn-primary w-full py-[11px]" :disabled="complete.isPending.value">Sign in</button>
       </form>
-    </template>
-    <template v-else>
-      <h1 id="signin-title">Sign in</h1>
-      <form @submit.prevent="submit">
-        <label for="signin-email">Email</label>
-        <input id="signin-email" v-model="email" type="email" autocomplete="username" required />
-        <label for="signin-password">Password</label>
-        <input id="signin-password" v-model="password" type="password" autocomplete="current-password" required />
-        <p v-if="signIn.error.value" role="alert" class="error">{{ signIn.error.value }}</p>
-        <button type="submit" :disabled="signIn.isPending.value">Sign in</button>
+    </section>
+  </CardLayout>
+  <AuthLayout v-else>
+    <section aria-labelledby="signin-title" class="grid gap-3.5">
+      <h1 id="signin-title" class="m-0 font-display text-[26px]/[1.1] font-bold tracking-[-0.02em]">Sign in</h1>
+      <form class="grid gap-3.5" @submit.prevent="submit">
+        <div class="grid gap-1.5">
+          <label for="signin-email" class="field-label">Email</label>
+          <input id="signin-email" v-model="email" class="input" type="email" autocomplete="username" required />
+        </div>
+        <div class="grid gap-1.5">
+          <label for="signin-password" class="field-label">Password</label>
+          <input id="signin-password" v-model="password" class="input" type="password" autocomplete="current-password" required />
+        </div>
+        <p v-if="signIn.error.value" role="alert" class="alert">{{ signIn.error.value }}</p>
+        <button type="submit" class="btn-primary w-full py-[11px]" :disabled="signIn.isPending.value">Sign in</button>
       </form>
-      <p>No account yet? <RouterLink to="/signup">Sign up</RouterLink></p>
-    </template>
-  </section>
+      <p class="fine">No account yet? <RouterLink to="/signup">Sign up</RouterLink>. You get access to apps once an Admin adds you to a Group.</p>
+    </section>
+  </AuthLayout>
 </template>

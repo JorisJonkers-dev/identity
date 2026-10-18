@@ -70,3 +70,28 @@
 @utility eyebrow {
   @apply font-mono text-[10.5px] font-medium tracking-[0.08em] text-ink-3 uppercase;
 }
+
+/* A form field's label, above its input. */
+@utility field-label {
+  @apply flex justify-between text-[12.5px] font-medium text-ink-2;
+}
+
+/* A text input, as the canvas's sign-in frames draw it. */
+@utility input {
+  @apply w-full rounded-[9px] border border-line bg-surface px-3 py-2.5 font-body text-[14px] text-ink focus:border-accent focus:shadow-[0_0_0_3px_var(--color-accent-soft)] focus:outline-none;
+}
+
+/* The one action a page leads to. */
+@utility btn-primary {
+  @apply btn border-accent bg-accent text-accent-ink disabled:cursor-default disabled:opacity-60;
+}
+
+/* Small print under a form; its links are the accent colour. */
+@utility fine {
+  @apply m-0 text-[12.5px] text-ink-3 [&_a]:text-accent [&_a]:no-underline;
+}
+
+/* What went wrong, said where it went wrong. */
+@utility alert {
+  @apply m-0 rounded-[9px] bg-bad-soft px-3 py-2 text-[13px] text-bad;
+}
