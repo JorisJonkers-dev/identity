@@ -3,7 +3,6 @@ package app_test
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"errors"
 	"slices"
 	"testing"
@@ -195,9 +194,16 @@ type recorded []audit.Event
 
 func (r *recorded) Record(_ context.Context, e audit.Event) { *r = append(*r, e) }
 
-type counter struct{ n byte }
+// counter is random bytes that differ on every read; fail makes it a reader that fails.
+type counter struct {
+	n    byte
+	fail bool
+}
 
 func (c *counter) Read(p []byte) (int, error) {
+	if c.fail {
+		return 0, errBoom
+	}
 	c.n++
 	for i := range p {
 		p[i] = c.n
@@ -208,11 +214,6 @@ func (c *counter) Read(p []byte) (int, error) {
 type broken struct{}
 
 func (broken) Read([]byte) (int, error) { return 0, errBoom }
-
-func secretHash(s string) []byte {
-	h := sha256.Sum256([]byte(s))
-	return h[:]
-}
 
 func newFixture() *fixture {
 	f := &fixture{
@@ -228,9 +229,8 @@ func newFixture() *fixture {
 			ID: "spa", SignIn: domain.Native, Host: "spa.test", Credential: domain.PKCE, Roles: []string{"user", "viewer", "editor"},
 			BackChannelLogoutURI: "https://spa.test/logout",
 		},
-		"web":     {ID: "web", SignIn: domain.Native, Host: "web.test", Credential: domain.Secret, SecretHash: secretHash("s3cret"), Roles: []string{"user"}},
-		"unready": {ID: "unready", SignIn: domain.Native, Host: "unready.test", Credential: domain.Secret},
-		"gated":   {ID: "gated", SignIn: domain.Gated, Host: "gated.test"},
+		"web":   {ID: "web", SignIn: domain.Native, Host: "web.test", Credential: domain.Secret, Roles: []string{"user"}},
+		"gated": {ID: "gated", SignIn: domain.Gated, Host: "gated.test"},
 	}
 	f.Service = app.New(f.requests, cs, f.accounts, f.access, f.logouts, f.events, func() time.Time { return f.now }, &counter{})
 	return f
@@ -386,8 +386,20 @@ func TestACodeIsStoredHashedAndIssuedOnce(t *testing.T) {
 	}
 }
 
+// secretChecker knows one secret per Client.
+type secretChecker map[string]string
+
+func (c secretChecker) Authorize(_ context.Context, clientID, secret string) error {
+	if c[clientID] != secret {
+		return app.ErrInvalidClient
+	}
+	return nil
+}
+
 func TestAConfidentialClientIsAuthorizedByItsSecret(t *testing.T) {
-	if err := newFixture().AuthorizeSecret(context.Background(), "web", "s3cret"); err != nil {
+	f := newFixture()
+	f.SetClientSecrets(secretChecker{"web": "s3cret"})
+	if err := f.AuthorizeSecret(context.Background(), "web", "s3cret"); err != nil {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -397,14 +409,21 @@ func TestAClientIsRefusedWithoutItsSecret(t *testing.T) {
 		{"a wrong secret", "web", "wrong"},
 		{"a public Client", "spa", ""},
 		{"an unknown Client", "nobody", "s3cret"},
-		{"a Client whose secret is not minted yet", "unready", ""},
 		{"a gated Client", "gated", ""},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			if err := newFixture().AuthorizeSecret(context.Background(), c.client, c.secret); !errors.Is(err, app.ErrInvalidClient) {
+			f := newFixture()
+			f.SetClientSecrets(secretChecker{"web": "s3cret", "spa": "", "gated": ""})
+			if err := f.AuthorizeSecret(context.Background(), c.client, c.secret); !errors.Is(err, app.ErrInvalidClient) {
 				t.Fatalf("err = %v, want ErrInvalidClient", err)
 			}
 		})
+	}
+}
+
+func TestNoSecretIsAcceptedBeforeClientSecretsAreSet(t *testing.T) {
+	if err := newFixture().AuthorizeSecret(context.Background(), "web", "s3cret"); !errors.Is(err, app.ErrInvalidClient) {
+		t.Fatalf("err = %v, want ErrInvalidClient", err)
 	}
 }
 

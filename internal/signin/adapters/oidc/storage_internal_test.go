@@ -20,6 +20,7 @@ import (
 func newStorage() (*storage, *requests, *accounts) {
 	r, a := newRequests(), &accounts{ada: uuid.New(), sessionID: uuid.New()}
 	svc := app.New(r, testClients, a, newAccess(), noLogouts{}, discard{}, time.Now, rand.Reader)
+	svc.SetClientSecrets(testSecrets)
 	return &storage{svc: svc, ring: NewRing(testKey()), logger: slog.New(slog.DiscardHandler), now: time.Now}, r, a
 }
 
@@ -161,6 +162,7 @@ func TestRolesInTokens(t *testing.T) {
 	_, err = s.GetPrivateClaimsFromScopes(ctx, a.ada.String(), "removed", nil)
 	wantOIDC(t, err, "invalid_request")
 	s.svc = app.New(newRequests(), testClients, a, &access{fail: errBoom}, noLogouts{}, discard{}, time.Now, rand.Reader)
+	s.svc.SetClientSecrets(testSecrets)
 	_, err = s.GetPrivateClaimsFromScopes(ctx, a.ada.String(), "web", nil)
 	wantOIDC(t, err, "server_error")
 	wantOIDC(t, s.SetUserinfoFromRequest(ctx, new(oidc.UserInfo), tokenRequest{a.ada.String()}, nil), "server_error")

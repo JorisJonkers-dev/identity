@@ -178,6 +178,14 @@ type Handler interface {
 	//
 	// DELETE /api/v1/access/users/{userId}/tokens/{patId}
 	RevokeUserToken(ctx context.Context, params RevokeUserTokenParams) (RevokeUserTokenRes, error)
+	// RotateClientSecret implements rotateClientSecret operation.
+	//
+	// Admins only, from a session that proved a Second Factor, for a Client that signs in with a secret.
+	// The new secret is written where the Client's Application reads it, never answered here. The old one
+	// keeps working until the Application first uses the new one.
+	//
+	// POST /api/v1/apps/{clientId}/secret
+	RotateClientSecret(ctx context.Context, params RotateClientSecretParams) (RotateClientSecretRes, error)
 	// SignIn implements signIn operation.
 	//
 	// Checks an email and a password and starts a Single sign-on session in a host-only cookie. A wrong

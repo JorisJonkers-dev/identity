@@ -70,7 +70,7 @@ func serve(t *testing.T, f *fakeVault) string {
 
 func TestSealAndOpenWithAToken(t *testing.T) {
 	f := &fakeVault{tokens: map[string]bool{"root": true}}
-	tr := vault.NewTransit(serve(t, f)+"/", "transit", vault.Token("root"), http.DefaultClient)
+	tr := vault.New(serve(t, f)+"/", vault.Token("root"), http.DefaultClient).Transit("transit")
 	sealed, err := tr.Seal(t.Context(), "totp", []byte("JBSWY3DPEHPK3PXP"))
 	if err != nil || !strings.HasPrefix(sealed, "vault:v1:") || strings.Contains(sealed, "JBSWY3DPEHPK3PXP") {
 		t.Fatalf("Seal = %q, %v", sealed, err)
@@ -86,7 +86,7 @@ func TestSealAndOpenWithAToken(t *testing.T) {
 
 func TestAKeyNamesItsTransitKey(t *testing.T) {
 	f := &fakeVault{tokens: map[string]bool{"root": true}}
-	k := vault.NewTransit(serve(t, f), "transit", vault.Token("root"), http.DefaultClient).Key("totp")
+	k := vault.New(serve(t, f), vault.Token("root"), http.DefaultClient).Transit("transit").Key("totp")
 	sealed, err := k.Seal(t.Context(), []byte("s"))
 	if err != nil {
 		t.Fatal(err)
@@ -102,7 +102,7 @@ func TestKubernetesLoginAndARefusedTokenSignsInAgain(t *testing.T) {
 		t.Fatal(err)
 	}
 	f := &fakeVault{tokens: map[string]bool{}}
-	tr := vault.NewTransit(serve(t, f), "transit", vault.Kubernetes("kubernetes", "identity", jwt), http.DefaultClient)
+	tr := vault.New(serve(t, f), vault.Kubernetes("kubernetes", "identity", jwt), http.DefaultClient).Transit("transit")
 	if _, err := tr.Seal(t.Context(), "totp", []byte("x")); err != nil {
 		t.Fatal(err)
 	}
@@ -116,14 +116,14 @@ func TestKubernetesLoginAndARefusedTokenSignsInAgain(t *testing.T) {
 }
 
 func TestSealingWithoutAServiceAccountTokenSaysWhatIsMissing(t *testing.T) {
-	missing := vault.NewTransit("http://127.0.0.1:1", "transit", vault.Kubernetes("kubernetes", "identity", "/no/such/token"), http.DefaultClient)
+	missing := vault.New("http://127.0.0.1:1", vault.Kubernetes("kubernetes", "identity", "/no/such/token"), http.DefaultClient).Transit("transit")
 	if _, err := missing.Seal(t.Context(), "totp", nil); err == nil || !strings.Contains(err.Error(), "service account token") {
 		t.Fatalf("err = %v", err)
 	}
 }
 
 func TestAnUnreachableVaultNeitherSealsNorOpens(t *testing.T) {
-	down := vault.NewTransit("http://127.0.0.1:1", "transit", vault.Token("t"), http.DefaultClient)
+	down := vault.New("http://127.0.0.1:1", vault.Token("t"), http.DefaultClient).Transit("transit")
 	if _, err := down.Seal(t.Context(), "totp", nil); err == nil {
 		t.Error("an unreachable Vault sealed")
 	}
@@ -133,7 +133,7 @@ func TestAnUnreachableVaultNeitherSealsNorOpens(t *testing.T) {
 }
 
 func TestABadVaultAddressDoesNotSeal(t *testing.T) {
-	bad := vault.NewTransit("http://bad host", "transit", vault.Token("t"), http.DefaultClient)
+	bad := vault.New("http://bad host", vault.Token("t"), http.DefaultClient).Transit("transit")
 	if _, err := bad.Seal(t.Context(), "totp", nil); err == nil {
 		t.Fatal("a bad address sealed")
 	}
@@ -160,28 +160,28 @@ func TestARefusedLoginReportsVaultsStatus(t *testing.T) {
 	refusing := &fakeVault{tokens: map[string]bool{}, answer: func(path string) (int, string, bool) {
 		return http.StatusInternalServerError, "", strings.HasSuffix(path, "/login")
 	}}
-	tr := vault.NewTransit(serve(t, refusing), "transit", vault.Kubernetes("kubernetes", "identity", jwtFile(t)), http.DefaultClient)
+	tr := vault.New(serve(t, refusing), vault.Kubernetes("kubernetes", "identity", jwtFile(t)), http.DefaultClient).Transit("transit")
 	if _, err := tr.Seal(t.Context(), "totp", nil); err == nil || err.Error() != "vault: answered 500" {
 		t.Fatalf("err = %v", err)
 	}
 }
 
 func TestALoginAnswerWithoutATokenIsAnError(t *testing.T) {
-	tr := vault.NewTransit(answering(t, "/login", `{"auth":{}}`), "transit", vault.Kubernetes("kubernetes", "identity", jwtFile(t)), http.DefaultClient)
+	tr := vault.New(answering(t, "/login", `{"auth":{}}`), vault.Kubernetes("kubernetes", "identity", jwtFile(t)), http.DefaultClient).Transit("transit")
 	if _, err := tr.Seal(t.Context(), "totp", []byte("x")); err == nil {
 		t.Fatal("sealed without a token")
 	}
 }
 
 func TestAnEncryptAnswerThatIsNotJSONIsAnError(t *testing.T) {
-	tr := vault.NewTransit(answering(t, "/encrypt/totp", `{`), "transit", vault.Token("root"), http.DefaultClient)
+	tr := vault.New(answering(t, "/encrypt/totp", `{`), vault.Token("root"), http.DefaultClient).Transit("transit")
 	if _, err := tr.Seal(t.Context(), "totp", []byte("x")); err == nil {
 		t.Fatal("sealed with a broken answer")
 	}
 }
 
 func TestADecryptAnswerWithBadPlaintextIsAnError(t *testing.T) {
-	tr := vault.NewTransit(answering(t, "/decrypt/totp", `{"data":{"plaintext":"%%%"}}`), "transit", vault.Token("root"), http.DefaultClient)
+	tr := vault.New(answering(t, "/decrypt/totp", `{"data":{"plaintext":"%%%"}}`), vault.Token("root"), http.DefaultClient).Transit("transit")
 	if _, err := tr.Open(t.Context(), "totp", "vault:v1:"+base64.StdEncoding.EncodeToString([]byte("x"))); err == nil {
 		t.Fatal("opened bad plaintext")
 	}
@@ -189,7 +189,7 @@ func TestADecryptAnswerWithBadPlaintextIsAnError(t *testing.T) {
 
 func TestATokenRefusedTwiceIsAnErrorNotASealedValue(t *testing.T) {
 	never := &fakeVault{tokens: map[string]bool{}}
-	if _, err := vault.NewTransit(serve(t, never), "transit", vault.Token("wrong"), http.DefaultClient).Open(t.Context(), "totp", "vault:v1:eA=="); err == nil || errors.Is(err, vault.ErrSealed) {
+	if _, err := vault.New(serve(t, never), vault.Token("wrong"), http.DefaultClient).Transit("transit").Open(t.Context(), "totp", "vault:v1:eA=="); err == nil || errors.Is(err, vault.ErrSealed) {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -203,7 +203,7 @@ func TestACutOffAnswerIsAnError(t *testing.T) {
 	c := &http.Client{Transport: roundTrip(func(*http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: http.StatusOK, Body: failingBody{}, Header: http.Header{}}, nil
 	})}
-	if _, err := vault.NewTransit("http://vault.test", "transit", vault.Token("t"), c).Seal(t.Context(), "totp", nil); err == nil {
+	if _, err := vault.New("http://vault.test", vault.Token("t"), c).Transit("transit").Seal(t.Context(), "totp", nil); err == nil {
 		t.Fatal("a cut-off answer sealed")
 	}
 }

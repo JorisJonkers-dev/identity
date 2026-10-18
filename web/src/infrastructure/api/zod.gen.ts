@@ -33,7 +33,8 @@ export const zAuditAction = z.enum([
     'role-assigned',
     'role-removed',
     'token-minted',
-    'token-revoked'
+    'token-revoked',
+    'client-secret-rotated'
 ]);
 
 /**
@@ -738,3 +739,12 @@ export const zRevokeUserTokenPath = z.object({
  * Revoked.
  */
 export const zRevokeUserTokenResponse = z.void();
+
+export const zRotateClientSecretPath = z.object({
+    clientId: zClientId
+});
+
+/**
+ * The new secret is written.
+ */
+export const zRotateClientSecretResponse = z.void();

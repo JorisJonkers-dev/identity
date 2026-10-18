@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha256"
 	"errors"
 	"sync"
 
@@ -130,10 +129,17 @@ func (c clients) ClientForHost(context.Context, string) (domain.Client, error) {
 	return domain.Client{}, app.ErrNotFound
 }
 
-func secretHash(s string) []byte {
-	h := sha256.Sum256([]byte(s))
-	return h[:]
+// secrets knows each Secret Client's secret, as ClientSecrets would from its hash.
+type secrets map[string]string
+
+func (s secrets) Authorize(_ context.Context, clientID, secret string) error {
+	if s[clientID] != secret {
+		return app.ErrInvalidClient
+	}
+	return nil
 }
+
+var testSecrets = secrets{"web": "s3cret"}
 
 var testClients = clients{
 	"spa": {
@@ -142,7 +148,7 @@ var testClients = clients{
 	},
 	"web": {
 		ID: "web", SignIn: domain.Native, Credential: domain.Secret, Roles: []string{"user", "viewer", "editor"},
-		RedirectURIs: []string{"https://web.test/cb"}, SecretHash: secretHash("s3cret"),
+		RedirectURIs: []string{"https://web.test/cb"},
 	},
 }
 

@@ -6,7 +6,6 @@ package app
 import (
 	"context"
 	"crypto/sha256"
-	"crypto/subtle"
 	"errors"
 	"io"
 	"slices"
@@ -91,6 +90,7 @@ type Service struct {
 	logouts  Logouts
 	audit    Audit
 	tokens   PersonalTokens
+	secrets  SecretChecker
 	now      func() time.Time
 	random   io.Reader
 }
@@ -228,8 +228,17 @@ func (s *Service) ClientForHost(ctx context.Context, host string) (domain.Client
 	return s.clients.ClientForHost(ctx, host)
 }
 
-// AuthorizeSecret checks a confidential Client's secret, in constant time. A public Client, an
-// unknown one and a wrong secret all fail with ErrInvalidClient.
+// SecretChecker checks a Secret Client's secret.
+type SecretChecker interface {
+	Authorize(ctx context.Context, clientID, secret string) error
+}
+
+// SetClientSecrets lets Secret Clients authenticate; until it is called, none can. It is set once,
+// before the Provider serves.
+func (s *Service) SetClientSecrets(c SecretChecker) { s.secrets = c }
+
+// AuthorizeSecret checks a Secret Client's secret. A Client of another kind, an unknown one and a
+// wrong secret all fail with ErrInvalidClient.
 func (s *Service) AuthorizeSecret(ctx context.Context, clientID, secret string) error {
 	c, err := s.Client(ctx, clientID)
 	if errors.Is(err, ErrNotFound) {
@@ -238,10 +247,10 @@ func (s *Service) AuthorizeSecret(ctx context.Context, clientID, secret string) 
 	if err != nil {
 		return err
 	}
-	if c.Public() || len(c.SecretHash) == 0 || subtle.ConstantTimeCompare(hashOf(secret), c.SecretHash) != 1 {
+	if c.Credential != domain.Secret || s.secrets == nil {
 		return ErrInvalidClient
 	}
-	return nil
+	return s.secrets.Authorize(ctx, clientID, secret)
 }
 
 // Roles is the App Roles a User holds on a Client that the Client still declares, in the Client's

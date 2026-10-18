@@ -27,11 +27,11 @@ func secretHash(s string) []byte {
 var (
 	grafana = signindomain.Client{
 		ID: "grafana", SignIn: signindomain.Native, Host: "grafana.test", Label: "Grafana", Roles: []string{"user", "viewer"},
-		Credential: signindomain.Secret, SecretHash: secretHash(grafanaSecret), RedirectURIs: []string{"https://grafana.test/callback"},
+		Credential: signindomain.Secret, RedirectURIs: []string{"https://grafana.test/callback"},
 	}
 	wiki = signindomain.Client{
 		ID: "wiki", SignIn: signindomain.Native, Host: "wiki.test", Label: "Wiki", Roles: []string{"user"},
-		Credential: signindomain.Secret, SecretHash: secretHash("wiki-secret"), RedirectURIs: []string{"https://wiki.test/callback"},
+		Credential: signindomain.Secret, RedirectURIs: []string{"https://wiki.test/callback"},
 	}
 )
 
@@ -57,7 +57,11 @@ type world struct {
 
 func start(t *testing.T) world {
 	t.Helper()
-	env := itest.Start(t, grafana, wiki)
+	gr, wk := grafana, wiki
+	gr.SecretPath, wk.SecretPath = itest.SecretPath(t), itest.SecretPath(t)
+	itest.PutSecret(t, gr.SecretPath, "grafana", grafanaSecret)
+	itest.PutSecret(t, wk.SecretPath, "wiki", "wiki-secret")
+	env := itest.Start(t, gr, wk)
 	admin := env.Admin(t, "root@example.org")
 	ada := env.SignedUp(t, "ada@example.org")
 	w := world{env: env, admin: admin, ada: ada, adaID: admin.UserID(t, ada.Email)}

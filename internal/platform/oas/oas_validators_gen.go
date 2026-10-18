@@ -339,6 +339,8 @@ func (s AuditAction) Validate() error {
 		return nil
 	case "token-revoked":
 		return nil
+	case "client-secret-rotated":
+		return nil
 	default:
 		return errors.Errorf("invalid value: %v", s)
 	}

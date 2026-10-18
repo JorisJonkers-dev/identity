@@ -555,6 +555,8 @@ func (s *AuditAction) Decode(d *jx.Decoder) error {
 		*s = AuditActionTokenMinted
 	case AuditActionTokenRevoked:
 		*s = AuditActionTokenRevoked
+	case AuditActionClientSecretRotated:
+		*s = AuditActionClientSecretRotated
 	default:
 		*s = AuditAction(v)
 	}

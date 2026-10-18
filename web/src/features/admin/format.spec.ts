@@ -41,6 +41,7 @@ describe('an Audit Event reads as a sentence', () => {
     ['a role taken away', { action: 'role-removed', actor: joris, groupName: 'Family', role: 'viewer', client: grafana }, '**Joris** took [viewer] on Grafana away from Family'],
     ['a token made', { action: 'token-minted', kind: 'tokens', user: noor }, '**Noor Bakker** created a token'],
     ['a token revoked', { action: 'token-revoked', kind: 'tokens', user: noor }, '**Noor Bakker** revoked a token'],
+    ['an app given a new secret', { action: 'client-secret-rotated', actor: joris, client: grafana }, '**Joris** gave Grafana a new secret'],
   ])('%s', (_, e, want) => {
     expect(sentence(e)).toBe(want)
   })

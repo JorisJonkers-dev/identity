@@ -45,15 +45,13 @@ type Client struct {
 	// BackChannelLogoutURI takes a logout token when a session that signed into the Client ends.
 	BackChannelLogoutURI string
 	Credential           Credential
-	// SecretPath is where a Secret Client's secret is kept (identity#32).
+	// SecretPath is the Secret Store path where a Secret Client's Application reads its secret.
 	SecretPath string
-	// SecretHash is the SHA-256 of a Secret Client's secret; empty until identity has one.
-	SecretHash []byte
 	Roles      []string
 }
 
 // Public reports whether the Client is a public one. A Secret Client without a secret yet is not
-// public: it cannot authenticate at all.
+// public: it cannot authenticate at all until identity has given it one.
 func (c Client) Public() bool { return c.Credential == PKCE }
 
 // AuthRequest is one authorization request, as /authorize received it.

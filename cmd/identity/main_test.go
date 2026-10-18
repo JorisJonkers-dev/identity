@@ -124,7 +124,7 @@ func TestVaultIsReachedWithATokenOrTheServiceAccount(t *testing.T) {
 			vars["VAULT_TOKEN"], vars["VAULT_JWT_PATH"] = token, "/no/such/token"
 			cfg, _ := readConfig(env(vars))
 			// Neither reaches a Vault: the token fails to connect, the service account fails to read.
-			if _, err := cfg.vault.transit().Key("identity-signing").Seal(t.Context(), []byte("x")); err == nil {
+			if _, err := cfg.vault.vault().Transit("transit").Key("identity-signing").Seal(t.Context(), []byte("x")); err == nil {
 				t.Errorf("sealed against nothing with token %q", token)
 			}
 		})

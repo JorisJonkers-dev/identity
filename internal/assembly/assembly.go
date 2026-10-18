@@ -41,7 +41,9 @@ import (
 	"github.com/JorisJonkers-dev/identity/internal/signin/adapters/clients"
 	signinoidc "github.com/JorisJonkers-dev/identity/internal/signin/adapters/oidc"
 	signinpersistence "github.com/JorisJonkers-dev/identity/internal/signin/adapters/persistence"
+	"github.com/JorisJonkers-dev/identity/internal/signin/adapters/secretstore"
 	signintokens "github.com/JorisJonkers-dev/identity/internal/signin/adapters/tokens"
+	signinweb "github.com/JorisJonkers-dev/identity/internal/signin/adapters/web"
 	signinapp "github.com/JorisJonkers-dev/identity/internal/signin/app"
 	tokenscontexts "github.com/JorisJonkers-dev/identity/internal/tokens/adapters/contexts"
 	tokenspersistence "github.com/JorisJonkers-dev/identity/internal/tokens/adapters/persistence"
@@ -77,6 +79,8 @@ type Config struct {
 	// KeySealer seals the Provider's signing keys and its own secret (docs/adr/0013); identity
 	// does not start without it.
 	KeySealer signinapp.Sealer
+	// KV is where Secret Clients' Applications read their secrets (identity#32).
+	KV secretstore.KV
 	// Index is the Clients the cluster declares, and Synced whether they are all listed yet.
 	Index  *clients.Index
 	Synced func() bool
@@ -89,13 +93,15 @@ type Config struct {
 }
 
 // Identity is identity built: its routes, the count of Users waiting for a Group, which /metrics
-// reports, and two jobs that run on a schedule: Prune, which removes Audit Events older than a
-// year, and RefreshKeys, which starts a new signing key on time and retires old ones.
+// reports, and three jobs that run on a schedule: Prune, which removes Audit Events older than a
+// year, RefreshKeys, which starts a new signing key on time and retires old ones, and
+// ProvisionSecrets, which gives each new Secret Client its secret.
 type Identity struct {
-	Routes      server.Routes
-	Unassigned  func(ctx context.Context) (int, error)
-	Prune       func(ctx context.Context) (int64, error)
-	RefreshKeys func(ctx context.Context) error
+	Routes           server.Routes
+	Unassigned       func(ctx context.Context) (int, error)
+	Prune            func(ctx context.Context) (int64, error)
+	RefreshKeys      func(ctx context.Context) error
+	ProvisionSecrets func(ctx context.Context) error
 }
 
 // New builds identity.
@@ -134,6 +140,8 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 	}
 	logouts := signinoidc.NewLogouts(cfg.PublicURL, ring, &http.Client{}, cfg.Logger, time.Now)
 	signIn := signinapp.New(signinpersistence.New(q), cfg.Index, accounts.New(users), access, logouts, recorder, time.Now, rand.Reader)
+	secrets := signinapp.NewClientSecrets(signinpersistence.NewClientSecrets(q, cfg.Store, time.Now), secretstore.New(cfg.KV), cfg.Index, admins, recorder, rand.Reader)
+	signIn.SetClientSecrets(secrets)
 	tokenContexts := tokenscontexts.New(signIn, access, cfg.Index)
 	tokens := tokensapp.New(tokenspersistence.New(q), tokenContexts, tokenContexts, admins, recorder, time.Now, rand.Reader)
 	signIn.SetPersonalTokens(signintokens.New(tokens))
@@ -144,7 +152,7 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 		transport = http.DefaultTransport
 	}
 	launcher := launcherapp.New(launcherContexts, launcherContexts, launcherfetch.New(transport, iconTimeout), time.Now)
-	api, err := httpapi.New(cfg.Logger, cfg.Version, users, access, auditweb.New(audit, cfg.Grafana), launcher, tokensweb.New(tokens))
+	api, err := httpapi.New(cfg.Logger, cfg.Version, users, access, auditweb.New(audit, cfg.Grafana), launcher, tokensweb.New(tokens), signinweb.New(secrets))
 	if err != nil {
 		return nil, err
 	}
@@ -180,9 +188,10 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 				return cfg.Store.Ping(ctx)
 			},
 		},
-		Unassigned:  access.Unassigned,
-		Prune:       audit.Prune,
-		RefreshKeys: ring.Refresh,
+		Unassigned:       access.Unassigned,
+		Prune:            audit.Prune,
+		RefreshKeys:      ring.Refresh,
+		ProvisionSecrets: secrets.ProvisionAll,
 	}, nil
 }
 

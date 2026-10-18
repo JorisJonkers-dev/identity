@@ -32,3 +32,6 @@ databaseChangeLog:
   - include:
       file: 0010-signing-keys.yaml
       relativeToChangelogFile: true
+  - include:
+      file: 0011-client-secrets.yaml
+      relativeToChangelogFile: true

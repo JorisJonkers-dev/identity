@@ -12,7 +12,7 @@ export type AuditKind = 'sign-in' | 'people' | 'access' | 'tokens';
 /**
  * What an Audit Event records.
  */
-export type AuditAction = 'signed-in' | 'sign-in-failed' | 'signed-out' | 'user-created' | 'user-renamed' | 'password-changed' | 'second-factor-added' | 'second-factor-removed' | 'admin-promoted' | 'group-created' | 'group-renamed' | 'group-deleted' | 'member-added' | 'member-removed' | 'role-assigned' | 'role-removed' | 'token-minted' | 'token-revoked';
+export type AuditAction = 'signed-in' | 'sign-in-failed' | 'signed-out' | 'user-created' | 'user-renamed' | 'password-changed' | 'second-factor-added' | 'second-factor-removed' | 'admin-promoted' | 'group-created' | 'group-renamed' | 'group-deleted' | 'member-added' | 'member-removed' | 'role-assigned' | 'role-removed' | 'token-minted' | 'token-revoked' | 'client-secret-rotated';
 
 /**
  * Where a page of Audit Events ends; opaque.
@@ -1698,3 +1698,37 @@ export type RevokeUserTokenResponses = {
 };
 
 export type RevokeUserTokenResponse = RevokeUserTokenResponses[keyof RevokeUserTokenResponses];
+
+export type RotateClientSecretData = {
+    body?: never;
+    path: {
+        /**
+         * The Client, by its id.
+         */
+        clientId: ClientId;
+    };
+    query?: never;
+    url: '/api/v1/apps/{clientId}/secret';
+};
+
+export type RotateClientSecretErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type RotateClientSecretError = RotateClientSecretErrors[keyof RotateClientSecretErrors];
+
+export type RotateClientSecretResponses = {
+    /**
+     * The new secret is written.
+     */
+    204: void;
+};
+
+export type RotateClientSecretResponse = RotateClientSecretResponses[keyof RotateClientSecretResponses];

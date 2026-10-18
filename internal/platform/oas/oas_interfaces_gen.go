@@ -105,6 +105,10 @@ type RevokeUserTokenRes interface {
 	revokeUserTokenRes()
 }
 
+type RotateClientSecretRes interface {
+	rotateClientSecretRes()
+}
+
 type SignInRes interface {
 	signInRes()
 }
