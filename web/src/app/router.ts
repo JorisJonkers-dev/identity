@@ -5,7 +5,7 @@ export function createAppRouter(history: RouterHistory = createWebHistory()): Ro
   return createRouter({
     history,
     routes: [
-      { path: '/', name: 'home', component: () => import('../features/home/components/HomePage.vue') },
+      { path: '/', name: 'home', meta: { wide: true }, component: () => import('../features/home/components/HomePage.vue') },
       { path: '/signup', name: 'signup', meta: { wide: true }, component: () => import('../features/account/components/SignUpPage.vue') },
       { path: '/confirm', name: 'confirm', meta: { wide: true }, component: () => import('../features/account/components/ConfirmPage.vue') },
       { path: '/signin', name: 'signin', meta: { wide: true }, component: () => import('../features/account/components/SignInPage.vue') },

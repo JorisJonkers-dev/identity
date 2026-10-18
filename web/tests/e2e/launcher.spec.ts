@@ -3,7 +3,7 @@ import { enrolTOTP, expectAccessible, givesRole, promote, signedUp } from './hel
 
 test('a new User is told they have no apps yet', async ({ page }, info) => {
   await signedUp(page, `launcher-empty-${info.project.name}`)
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Your apps')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^Good (morning|afternoon|evening)/)
   await expect(page.getByText("You don't have access to any apps yet. Ask an Admin to add you to a Group.")).toBeVisible()
 })
 

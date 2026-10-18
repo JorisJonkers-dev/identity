@@ -17,7 +17,14 @@ const sections = computed<SideSection[]>(() => {
       { to: '/profile/tokens', label: 'Tokens' },
     ],
   }
-  return profile.data.value?.admin ? [yours, { title: 'Admin', links: [{ to: '/admin', label: 'Dashboard' }] }] : [yours]
+  const admin: SideSection = {
+    title: 'Admin',
+    links: [
+      { to: '/admin', label: 'Dashboard' },
+      { to: '/access', label: 'Groups and access' },
+    ],
+  }
+  return profile.data.value?.admin ? [yours, admin] : [yours]
 })
 </script>
 

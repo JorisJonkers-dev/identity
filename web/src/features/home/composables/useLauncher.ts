@@ -16,6 +16,6 @@ export function useLauncher() {
     isLoading: query.isPending,
     signedOut,
     loadError: computed(() => (query.error.value && !signedOut.value ? describeError(query.error.value) : null)),
-    admin: computed(() => profile.data.value?.admin ?? false),
+    name: computed(() => profile.data.value?.name),
   }
 }

@@ -6,10 +6,10 @@ test('a promoted Admin manages Groups on the access page', async ({ page }, info
   const group = `Family ${info.project.name} ${String(Date.now())}`
 
   await test.step('an Admin with no Second Factor is sent to add one before the access page opens', async () => {
-    await expect(page.getByRole('link', { name: 'Manage access' })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Groups and access' })).toHaveCount(0)
     expect(promote(email)).toBe(`${email} is now an Admin.\n`)
     await page.reload()
-    await page.getByRole('link', { name: 'Manage access' }).click()
+    await page.getByRole('link', { name: 'Groups and access' }).click()
     await expect(page).toHaveURL('/security?for=admin')
     await expectAccessible(page)
   })
@@ -17,7 +17,7 @@ test('a promoted Admin manages Groups on the access page', async ({ page }, info
   await test.step('with an authenticator app the access page opens', async () => {
     await enrolTOTP(page)
     await page.goto('/profile')
-    await page.getByRole('link', { name: 'Manage access' }).click()
+    await page.getByRole('link', { name: 'Groups and access' }).click()
     await expect(page).toHaveURL('/access')
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Access')
     await expectAccessible(page)

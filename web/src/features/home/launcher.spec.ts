@@ -41,8 +41,8 @@ describe('the home page, signed out', () => {
 describe('the Launcher', () => {
   it('shows one tile per app the User can open', async () => {
     const { wrapper } = await mountAt('/', signedIn([grafana, jellyfin]))
-    expect(wrapper.get('h1').text()).toBe('Your apps')
     expect(wrapper.findAll('li.app').map((li) => li.get('.label').text())).toEqual(['Grafana', 'Jellyfin'])
+    expect(wrapper.text()).toContain('2 apps')
   })
 
   it('opens an app at its launch URL', async () => {
@@ -53,7 +53,8 @@ describe('the Launcher', () => {
   it("shows an app's description and the User's access to it", async () => {
     const { wrapper } = await mountAt('/', signedIn([grafana]))
     expect(wrapper.get('li.app .description').text()).toBe('Metrics and alerts')
-    expect(wrapper.get('li.app .roles').text()).toBe('Your access: editor, viewer')
+    expect(wrapper.get('li.app .roles').text()).toBe('Your access: editorviewer')
+    expect(wrapper.findAll('li.app .roles .pill').map((p) => p.text())).toEqual(['editor', 'viewer'])
   })
 
   it("shows an app's icon from identity's own origin", async () => {
@@ -81,14 +82,39 @@ describe('the Launcher', () => {
     expect(wrapper.find('li.app').exists()).toBe(false)
   })
 
+  it('greets the User by their first name', async () => {
+    const { wrapper } = await mountAt('/', signedIn([grafana]))
+    expect(wrapper.get('h1').text()).toMatch(/^Good (morning|afternoon|evening), Ada$/)
+  })
+
+  it('says 1 app for one', async () => {
+    const { wrapper } = await mountAt('/', signedIn([grafana]))
+    expect(wrapper.text()).toContain('1 app')
+  })
+
+  it('finds an app by its name or description', async () => {
+    const { wrapper } = await mountAt('/', signedIn([grafana, jellyfin]))
+    await wrapper.get('input[type="search"]').setValue('alerts')
+    expect(wrapper.findAll('li.app .label').map((l) => l.text())).toEqual(['Grafana'])
+    await wrapper.get('input[type="search"]').setValue('jelly')
+    expect(wrapper.findAll('li.app .label').map((l) => l.text())).toEqual(['Jellyfin'])
+  })
+
+  it('says when no app matches', async () => {
+    const { wrapper } = await mountAt('/', signedIn([grafana, jellyfin]))
+    await wrapper.get('input[type="search"]').setValue('overleaf')
+    expect(wrapper.text()).toContain('No app matches “overleaf”.')
+    expect(wrapper.find('li.app').exists()).toBe(false)
+  })
+
   it('links to the Profile', async () => {
     const { wrapper } = await mountAt('/', signedIn([grafana]))
-    expect(wrapper.get('nav a[href="/profile"]').text()).toBe('Your profile')
+    expect(wrapper.get('nav a[href="/profile"]').text()).toBe('Profile')
   })
 
   it('links an Admin to the access page', async () => {
     const { wrapper } = await mountAt('/', signedIn([grafana], true))
-    expect(wrapper.get('nav a[href="/access"]').text()).toBe('Manage access')
+    expect(wrapper.get('nav a[href="/access"]').text()).toBe('Groups and access')
   })
 
   it('does not link anyone else to the access page', async () => {

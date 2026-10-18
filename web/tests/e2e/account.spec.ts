@@ -33,7 +33,7 @@ test('a person signs up, confirms by mail, signs in, sees their profile and sign
     await page.getByLabel('Password', { exact: true }).fill(password)
     await page.getByRole('button', { name: 'Sign in' }).click()
     await expect(page).toHaveURL('/')
-    await page.getByRole('link', { name: 'Your profile' }).click()
+    await page.getByRole('link', { name: 'Profile', exact: true }).click()
     await expect(page.getByRole('definition').filter({ hasText: email })).toBeVisible()
     await expectAccessible(page)
   })
@@ -56,7 +56,7 @@ test('a person signs up, confirms by mail, signs in, sees their profile and sign
 test('a new User is no Admin: the Profile does not offer the access page, and it refuses them', async ({ page }, info) => {
   await signedUp(page, `not-admin-${info.project.name}`)
   await page.goto('/profile')
-  await expect(page.getByRole('link', { name: 'Manage access' })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Groups and access' })).toHaveCount(0)
   await page.goto('/access')
   await expect(page.getByRole('alert')).toHaveText('Only Admins manage access.')
   await expectAccessible(page)
