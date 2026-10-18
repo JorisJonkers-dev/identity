@@ -58,3 +58,29 @@ func TestLoadFileRefusesWhatIsNotAClient(t *testing.T) {
 		}
 	}
 }
+
+func TestTheLocalRunsClientsFileHoldsTheCanvasApps(t *testing.T) {
+	x := clients.NewIndex()
+	if err := clients.LoadFile("../../../../dev/clients.yaml", x); err != nil {
+		t.Fatal(err)
+	}
+	modes := map[string]domain.SignInMode{}
+	for _, c := range x.All() {
+		modes[c.ID] = c.SignIn
+		if c.Credential == domain.Secret && c.SecretPath == "" {
+			t.Errorf("%s has a secret but no secretPath", c.ID)
+		}
+	}
+	want := map[string]domain.SignInMode{
+		"grafana": domain.Native, "jellyfin": domain.Native, "grimoire": domain.Native, "vault": domain.Native,
+		"tribelt-stats": domain.Gated, "backup": domain.Token,
+	}
+	if len(modes) != len(want) {
+		t.Fatalf("apps = %v", modes)
+	}
+	for id, mode := range want {
+		if modes[id] != mode {
+			t.Errorf("%s = %q, want %q", id, modes[id], mode)
+		}
+	}
+}

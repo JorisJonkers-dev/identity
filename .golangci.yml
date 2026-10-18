@@ -54,7 +54,8 @@ linters:
         linters:
           - gocognit
           - gochecknoglobals
-      - path: (pgtest|itest)/
+      # Test tooling, and the local run's seed, whose globals are fixture data.
+      - path: (pgtest|itest|cmd/seed)/
         linters:
           - gochecknoglobals
     # ogen and sqlc output is regenerated, never edited, so it is not linted.

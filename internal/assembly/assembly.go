@@ -79,6 +79,8 @@ type Config struct {
 	// KeySealer seals the Provider's signing keys and its own secret (docs/adr/0013); identity
 	// does not start without it.
 	KeySealer signinapp.Sealer
+	// TOTPMatch replaces the authenticator code check; nil checks by RFC 6238, as every release does.
+	TOTPMatch app.TOTPMatch
 	// KV is where Secret Clients' Applications read their secrets (identity#32).
 	KV secretstore.KV
 	// Index is the Clients the cluster declares, and Synced whether they are all listed yet.
@@ -90,6 +92,9 @@ type Config struct {
 	Grafana *url.URL
 	Logger  *slog.Logger
 	Version string
+	// Now is the clock of the use cases, so a local run's seed can record a past day; nil is the
+	// real clock. Signing keys always run on the real clock.
+	Now func() time.Time
 }
 
 // Identity is identity built: its routes, the count of Users waiting for a Group, which /metrics
@@ -107,6 +112,10 @@ type Identity struct {
 // New builds identity.
 // New builds identity, reading its signing keys from Postgres through Vault before anything serves.
 func New(ctx context.Context, cfg Config) (*Identity, error) {
+	now := cfg.Now
+	if now == nil {
+		now = time.Now
+	}
 	// users caps an Admin's session at 12 hours, and access lists users' Users: each needs the other.
 	var access *accessapp.Service
 	admins := adminsFunc(func(ctx context.Context, id uuid.UUID) (bool, error) { return access.IsAdmin(ctx, id) })
@@ -126,8 +135,11 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 	if cfg.Sealer != nil {
 		opts = append(opts, app.WithSealer(cfg.Sealer))
 	}
+	if cfg.TOTPMatch != nil {
+		opts = append(opts, app.WithTOTPMatch(cfg.TOTPMatch))
+	}
 	q := cfg.Store.Queries()
-	users := app.New(persistence.New(q), passwords.NewArgon2id(maxConcurrentHashes, hashWait), cfg.Mailer, time.Now, rand.Reader, cfg.PublicURL, opts...)
+	users := app.New(persistence.New(q), passwords.NewArgon2id(maxConcurrentHashes, hashWait), cfg.Mailer, now, rand.Reader, cfg.PublicURL, opts...)
 	access = accessapp.New(accesspersistence.New(q, cfg.Store), catalog.New(cfg.Index), people.New(users), recorder, rand.Reader)
 	keys := signinapp.NewKeys(signinpersistence.NewKeys(q, cfg.Store, time.Now), cfg.KeySealer, newSigningKey, time.Now, rand.Reader)
 	ring, err := signinoidc.LoadRing(ctx, keys.Load)
@@ -139,19 +151,19 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 		return nil, err
 	}
 	logouts := signinoidc.NewLogouts(cfg.PublicURL, ring, &http.Client{}, cfg.Logger, time.Now)
-	signIn := signinapp.New(signinpersistence.New(q), cfg.Index, accounts.New(users), access, logouts, recorder, time.Now, rand.Reader)
+	signIn := signinapp.New(signinpersistence.New(q), cfg.Index, accounts.New(users), access, logouts, recorder, now, rand.Reader)
 	secrets := signinapp.NewClientSecrets(signinpersistence.NewClientSecrets(q, cfg.Store, time.Now), secretstore.New(cfg.KV), cfg.Index, admins, recorder, rand.Reader)
 	signIn.SetClientSecrets(secrets)
 	tokenContexts := tokenscontexts.New(signIn, access, cfg.Index)
-	tokens := tokensapp.New(tokenspersistence.New(q), tokenContexts, tokenContexts, admins, recorder, time.Now, rand.Reader)
+	tokens := tokensapp.New(tokenspersistence.New(q), tokenContexts, tokenContexts, admins, recorder, now, rand.Reader)
 	signIn.SetPersonalTokens(signintokens.New(tokens))
-	audit = auditapp.New(auditpersistence.New(q), admins, directory.New(users, access, tokens, cfg.Index), cfg.Logger, time.Now, rand.Reader)
+	audit = auditapp.New(auditpersistence.New(q), admins, directory.New(users, access, tokens, cfg.Index), cfg.Logger, now, rand.Reader)
 	launcherContexts := launchercontexts.New(cfg.Index, access)
 	transport := cfg.IconTransport
 	if transport == nil {
 		transport = http.DefaultTransport
 	}
-	launcher := launcherapp.New(launcherContexts, launcherContexts, launcherfetch.New(transport, iconTimeout), time.Now)
+	launcher := launcherapp.New(launcherContexts, launcherContexts, launcherfetch.New(transport, iconTimeout), now)
 	api, err := httpapi.New(cfg.Logger, cfg.Version, users, access, auditweb.New(audit, cfg.Grafana), launcher, tokensweb.New(tokens), signinweb.New(secrets))
 	if err != nil {
 		return nil, err
@@ -166,7 +178,7 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 		return nil, err
 	}
 	others := gatecontexts.New(signIn, users)
-	gate := gateapp.New(gatepersistence.New(q), others, others, others, recorder, time.Now, rand.Reader, gateCacheTTL)
+	gate := gateapp.New(gatepersistence.New(q), others, others, others, recorder, now, rand.Reader, gateCacheTTL)
 	gate.SetTokens(others)
 	tokens.OnRevoked(func(_ context.Context, tokenID uuid.UUID) { gate.Forget([]uuid.UUID{tokenID}) })
 	signedOut = endSessions(gate, signIn, cfg.Logger)

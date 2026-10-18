@@ -166,6 +166,7 @@ type Service struct {
 	admins    Admins
 	signedOut SignedOut
 	audit     Audit
+	matchTOTP TOTPMatch
 
 	decoy atomic.Pointer[string]
 }
@@ -205,12 +206,20 @@ func (s *Service) failed(ctx context.Context, e audit.Event, err error) error {
 	return err
 }
 
+// TOTPMatch checks an authenticator app's code against its secret at now, accepting only a step
+// after the one last used, and returns the step it matched.
+type TOTPMatch func(secret, code string, now time.Time, after int64) (step int64, ok bool)
+
+// WithTOTPMatch checks authenticator codes with m instead of RFC 6238 alone; only a local run's
+// dev build passes one.
+func WithTOTPMatch(m TOTPMatch) Option { return func(s *Service) { s.matchTOTP = m } }
+
 // WithAdmins caps an Admin's session at 12 hours.
 func WithAdmins(admins Admins) Option { return func(s *Service) { s.admins = admins } }
 
 // New returns a Service. publicURL is where links in mail point, with no trailing slash.
 func New(store Store, hasher Hasher, mailer Mailer, now func() time.Time, random io.Reader, publicURL string, opts ...Option) *Service {
-	s := &Service{store: store, hasher: hasher, mailer: mailer, now: now, random: random, publicURL: publicURL}
+	s := &Service{store: store, hasher: hasher, mailer: mailer, now: now, random: random, publicURL: publicURL, matchTOTP: domain.MatchTOTP}
 	for _, opt := range opts {
 		opt(s)
 	}
