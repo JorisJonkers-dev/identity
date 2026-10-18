@@ -28,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pquerna/otp/totp"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -84,7 +85,8 @@ func (l *logBuffer) Write(p []byte) (int, error) {
 	return l.buf.Write(p)
 }
 
-// Start runs identity for t with the Clients given, and stops it when t ends.
+// Start runs identity for t with the Clients given, and stops it when t ends. Each Secret Client
+// has its secret before Start returns: the one at its SecretPath, or a new one written there.
 func Start(t *testing.T, cs ...signindomain.Client) *Env {
 	t.Helper()
 	started(t)
@@ -99,19 +101,24 @@ func Start(t *testing.T, cs ...signindomain.Client) *Env {
 	}
 	logs := &logBuffer{}
 	logger := slog.New(slog.NewJSONHandler(logs, nil))
-	transit := vault.NewTransit(shared.vaultAddr, "transit", vault.Token(vaultToken), &http.Client{Timeout: 5 * time.Second})
+	v := vault.New(shared.vaultAddr, vault.Token(vaultToken), &http.Client{Timeout: 5 * time.Second})
+	transit := v.Transit("transit")
 	built, err := assembly.New(t.Context(), assembly.Config{
 		Store:     store,
 		PublicURL: "https://" + Host,
 		Mailer:    mail.SMTP{Addr: shared.smtpAddr, From: "identity@" + Host},
 		Sealer:    transit.Key("identity-totp"),
 		KeySealer: transit.Key("identity-signing"),
+		KV:        v.KV(),
 		Index:     index,
 		Synced:    func() bool { return true },
 		Logger:    logger,
 		Version:   "itest",
 	})
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := built.ProvisionSecrets(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	srv := httptest.NewUnstartedServer(server.New(logger, "itest", built.Routes).Handler())
@@ -162,6 +169,24 @@ func (e *Env) Introspect(t *testing.T, clientID, secret, token string) map[strin
 		t.Fatal(err)
 	}
 	return out
+}
+
+// ClientAuth is the status /oidc/introspect answers a Client authenticating with secret: 200 when
+// the token endpoint accepts the secret, 401 when it does not.
+func (e *Env) ClientAuth(t *testing.T, clientID, secret string) int {
+	t.Helper()
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "https://"+Host+"/oidc/introspect", strings.NewReader("token=x"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetBasicAuth(url.QueryEscape(clientID), url.QueryEscape(secret))
+	res, err := e.Browser().client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = res.Body.Close()
+	return res.StatusCode
 }
 
 // GateAnswer is what the Gate told Traefik: a status and the headers it set.
@@ -394,6 +419,35 @@ func Vault(t *testing.T) (addr, token string) {
 	t.Helper()
 	started(t)
 	return shared.vaultAddr, vaultToken
+}
+
+// SecretPath is a Vault KV path of t's own, where a Secret Client's Application would read its
+// secret; the test binary's tests share one Vault.
+func SecretPath(t *testing.T) string {
+	t.Helper()
+	return "secret/data/itest/" + uuid.NewString() + "/client"
+}
+
+// PutSecret writes a Client's id and secret at path, as one already there before identity starts.
+func PutSecret(t *testing.T, path, clientID, secret string) {
+	t.Helper()
+	started(t)
+	kv := vault.New(shared.vaultAddr, vault.Token(vaultToken), http.DefaultClient).KV()
+	if err := kv.Write(t.Context(), path, map[string]string{"id": clientID, "secret": secret}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// ReadSecret is what an Application reads at path: its Client's id and secret.
+func ReadSecret(t *testing.T, path string) map[string]string {
+	t.Helper()
+	started(t)
+	kv := vault.New(shared.vaultAddr, vault.Token(vaultToken), http.DefaultClient).KV()
+	data, err := kv.Read(t.Context(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
 }
 
 // started starts Vault, with its transit key, and Mailpit, once for the test binary.

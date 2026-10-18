@@ -43,6 +43,14 @@ CREATE TABLE public.auth_requests (
     methods text[]
 );
 
+CREATE TABLE public.client_secrets (
+    client_id text NOT NULL,
+    hash bytea NOT NULL,
+    previous_hash bytea,
+    created_at timestamp with time zone NOT NULL,
+    rotated_at timestamp with time zone
+);
+
 CREATE TABLE public.gate_codes (
     code_hash bytea NOT NULL,
     host text NOT NULL,
@@ -186,6 +194,9 @@ ALTER TABLE ONLY public.auth_requests
 
 ALTER TABLE ONLY public.auth_requests
     ADD CONSTRAINT auth_requests_pkey PRIMARY KEY (id);
+
+ALTER TABLE ONLY public.client_secrets
+    ADD CONSTRAINT client_secrets_pkey PRIMARY KEY (client_id);
 
 ALTER TABLE ONLY public.gate_codes
     ADD CONSTRAINT gate_codes_pkey PRIMARY KEY (code_hash);

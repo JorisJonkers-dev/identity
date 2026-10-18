@@ -184,6 +184,7 @@ const (
 	AuditActionRoleRemoved         AuditAction = "role-removed"
 	AuditActionTokenMinted         AuditAction = "token-minted"
 	AuditActionTokenRevoked        AuditAction = "token-revoked"
+	AuditActionClientSecretRotated AuditAction = "client-secret-rotated"
 )
 
 // AllValues returns all AuditAction values.
@@ -207,6 +208,7 @@ func (AuditAction) AllValues() []AuditAction {
 		AuditActionRoleRemoved,
 		AuditActionTokenMinted,
 		AuditActionTokenRevoked,
+		AuditActionClientSecretRotated,
 	}
 }
 
@@ -248,6 +250,8 @@ func (s AuditAction) MarshalText() ([]byte, error) {
 	case AuditActionTokenMinted:
 		return []byte(s), nil
 	case AuditActionTokenRevoked:
+		return []byte(s), nil
+	case AuditActionClientSecretRotated:
 		return []byte(s), nil
 	default:
 		return nil, errors.Errorf("invalid value: %q", s)
@@ -310,6 +314,9 @@ func (s *AuditAction) UnmarshalText(data []byte) error {
 		return nil
 	case AuditActionTokenRevoked:
 		*s = AuditActionTokenRevoked
+		return nil
+	case AuditActionClientSecretRotated:
+		*s = AuditActionClientSecretRotated
 		return nil
 	default:
 		return errors.Errorf("invalid value: %q", data)
@@ -2082,6 +2089,7 @@ func (*ProblemStatusCode) removeSecondFactorRes()        {}
 func (*ProblemStatusCode) renameGroupRes()               {}
 func (*ProblemStatusCode) revokeMyTokenRes()             {}
 func (*ProblemStatusCode) revokeUserTokenRes()           {}
+func (*ProblemStatusCode) rotateClientSecretRes()        {}
 func (*ProblemStatusCode) signInRes()                    {}
 func (*ProblemStatusCode) signOutRes()                   {}
 func (*ProblemStatusCode) signOutUserRes()               {}
@@ -2199,6 +2207,11 @@ func (*RevokeMyTokenNoContent) revokeMyTokenRes() {}
 type RevokeUserTokenNoContent struct{}
 
 func (*RevokeUserTokenNoContent) revokeUserTokenRes() {}
+
+// RotateClientSecretNoContent is response for RotateClientSecret operation.
+type RotateClientSecretNoContent struct{}
+
+func (*RotateClientSecretNoContent) rotateClientSecretRes() {}
 
 // One of a User's Second Factors.
 // Ref: #/components/schemas/SecondFactor

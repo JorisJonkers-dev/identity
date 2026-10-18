@@ -19,6 +19,7 @@ import (
 	auditweb "github.com/JorisJonkers-dev/identity/internal/audit/adapters/web"
 	launcherdomain "github.com/JorisJonkers-dev/identity/internal/launcher/domain"
 	"github.com/JorisJonkers-dev/identity/internal/platform/httpapi"
+	signinweb "github.com/JorisJonkers-dev/identity/internal/signin/adapters/web"
 	tokensweb "github.com/JorisJonkers-dev/identity/internal/tokens/adapters/web"
 	"github.com/JorisJonkers-dev/identity/internal/users/app"
 	"github.com/JorisJonkers-dev/identity/internal/users/domain"
@@ -102,7 +103,7 @@ func (launcher) Icon(context.Context, string) (launcherdomain.Icon, error) {
 
 func serve(t *testing.T) *httptest.Server {
 	t.Helper()
-	h, err := httpapi.New(slog.New(slog.DiscardHandler), "1.2.3", users{}, access{}, auditweb.New(audit{}, nil), launcher{}, tokensweb.New(nil))
+	h, err := httpapi.New(slog.New(slog.DiscardHandler), "1.2.3", users{}, access{}, auditweb.New(audit{}, nil), launcher{}, tokensweb.New(nil), signinweb.New(nil))
 	if err != nil {
 		t.Fatal(err)
 	}

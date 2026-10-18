@@ -9,7 +9,8 @@
 // to :8080, and METRICS_ADDR, which serves only /metrics, to :9090. identity signs in to Vault with
 // VAULT_TOKEN, or as VAULT_ROLE (identity) through the Kubernetes auth method; under
 // VAULT_TRANSIT_MOUNT (transit), VAULT_SIGNING_KEY (identity-signing) seals the signing keys and
-// VAULT_TOTP_KEY (identity-totp) the authenticator apps' secrets (docs/adr/0013). Outside a cluster, CLIENTS_FILE names a YAML file of Client objects for a local run.
+// VAULT_TOTP_KEY (identity-totp) the authenticator apps' secrets (docs/adr/0013). Secret Clients'
+// secrets are written to Vault KV at the path each Client object names (identity#32). Outside a cluster, CLIENTS_FILE names a YAML file of Client objects for a local run.
 // GRAFANA_URL, an https address, is where the Admin dashboard links for charts over time.
 package main
 
@@ -50,6 +51,8 @@ const (
 	pruneInterval = time.Hour
 	// Each replica reads the signing keys this often, so a new key signs on time everywhere.
 	keysInterval = time.Hour
+	// Each replica gives new Secret Clients their secrets this often, and retries ones that failed.
+	secretsInterval = time.Minute
 )
 
 func main() {
@@ -88,8 +91,9 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 		return err
 	}
 	built := assembly.Config{Store: store, PublicURL: cfg.publicURL, Mailer: cfg.mailer, Index: index, Synced: synced, Grafana: cfg.grafana, Logger: logger, Version: version}
-	transit := cfg.vault.transit()
-	built.Sealer, built.KeySealer = transit.Key(cfg.vault.totpKey), transit.Key(cfg.vault.signingKey)
+	v := cfg.vault.vault()
+	transit := v.Transit(cfg.vault.transitMount)
+	built.Sealer, built.KeySealer, built.KV = transit.Key(cfg.vault.totpKey), transit.Key(cfg.vault.signingKey), v.KV()
 	identity, err := assembly.New(ctx, built)
 	if err != nil {
 		return err
@@ -113,6 +117,9 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 	go schedule.Every(ctx, keysInterval, identity.RefreshKeys, func(err error) {
 		logger.ErrorContext(ctx, "signing keys not refreshed", "error", err)
 	})
+	go schedule.Every(ctx, secretsInterval, identity.ProvisionSecrets, func(err error) {
+		logger.ErrorContext(ctx, "client secrets not provisioned", "error", err)
+	})
 	return server.New(logger, version, identity.Routes).Serve(ctx, ln)
 }
 
@@ -127,20 +134,20 @@ func prune(job func(context.Context) (int64, error), logger *slog.Logger) func(c
 	}
 }
 
-// vaultConfig reaches Vault's transit engine, which seals the signing keys and TOTP secrets
-// (docs/adr/0013).
+// vaultConfig reaches Vault: its transit engine, which seals the signing keys and TOTP secrets
+// (docs/adr/0013), and its KV engine, where Secret Clients' secrets are kept (identity#32).
 type vaultConfig struct {
 	addr, token, role, authMount, jwtPath, transitMount, totpKey, signingKey string
 }
 
-// transit is Vault's transit engine. A token signs in directly, for a local dev-mode Vault;
-// without one identity signs in with its service account.
-func (v vaultConfig) transit() *vault.Transit {
+// vault is Vault. A token signs in directly, for a local dev-mode Vault; without one identity signs
+// in with its service account.
+func (v vaultConfig) vault() *vault.Vault {
 	login := vault.Kubernetes(v.authMount, v.role, v.jwtPath)
 	if v.token != "" {
 		login = vault.Token(v.token)
 	}
-	return vault.NewTransit(v.addr, v.transitMount, login, &http.Client{Timeout: vaultTimeout})
+	return vault.New(v.addr, login, &http.Client{Timeout: vaultTimeout})
 }
 
 const vaultTimeout = 5 * time.Second

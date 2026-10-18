@@ -65,6 +65,8 @@ export function describeEvent(e: AuditEvent): Part[] {
       return [user, { text: ' created a token' }]
     case 'token-revoked':
       return [user, { text: ' revoked a token' }]
+    case 'client-secret-rotated':
+      return [actor, { text: ` gave ${client} a new secret` }]
   }
 }
 

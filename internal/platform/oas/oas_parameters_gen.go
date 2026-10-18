@@ -1280,6 +1280,87 @@ func decodeRevokeUserTokenParams(args [2]string, argsEscaped bool, r *http.Reque
 	return params, nil
 }
 
+// RotateClientSecretParams is parameters of rotateClientSecret operation.
+type RotateClientSecretParams struct {
+	// The Client, by its id.
+	ClientId ClientId
+}
+
+func unpackRotateClientSecretParams(packed middleware.Parameters) (params RotateClientSecretParams) {
+	{
+		key := middleware.ParameterKey{
+			Name: "clientId",
+			In:   "path",
+		}
+		params.ClientId = packed[key].(ClientId)
+	}
+	return params
+}
+
+func decodeRotateClientSecretParams(args [1]string, argsEscaped bool, r *http.Request) (params RotateClientSecretParams, _ error) {
+	// Decode path: clientId.
+	if err := func() error {
+		param := args[0]
+		if argsEscaped {
+			unescaped, err := url.PathUnescape(args[0])
+			if err != nil {
+				return errors.Wrap(err, "unescape path")
+			}
+			param = unescaped
+		}
+		if len(param) > 0 {
+			d := uri.NewPathDecoder(uri.PathDecoderConfig{
+				Param:   "clientId",
+				Value:   param,
+				Style:   uri.PathStyleSimple,
+				Explode: false,
+			})
+
+			if err := func() error {
+				var paramsDotClientIdVal string
+				if err := func() error {
+					val, err := d.DecodeValue()
+					if err != nil {
+						return err
+					}
+
+					c, err := conv.ToString(val)
+					if err != nil {
+						return err
+					}
+
+					paramsDotClientIdVal = c
+					return nil
+				}(); err != nil {
+					return err
+				}
+				params.ClientId = ClientId(paramsDotClientIdVal)
+				return nil
+			}(); err != nil {
+				return err
+			}
+			if err := func() error {
+				if err := params.ClientId.Validate(); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return err
+			}
+		} else {
+			return validate.ErrFieldRequired
+		}
+		return nil
+	}(); err != nil {
+		return params, &ogenerrors.DecodeParamError{
+			Name: "clientId",
+			In:   "path",
+			Err:  err,
+		}
+	}
+	return params, nil
+}
+
 // SignOutUserParams is parameters of signOutUser operation.
 type SignOutUserParams struct {
 	// The User.

@@ -61,6 +61,7 @@ func serve(t *testing.T, requests app.Requests, accounts app.Accounts, access ap
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { h.ServeHTTP(w, r) }))
 	t.Cleanup(srv.Close)
 	svc := app.New(requests, testClients, accounts, access, noLogouts{}, discard{}, time.Now, rand.Reader)
+	svc.SetClientSecrets(testSecrets)
 	var err error
 	h, err = New(Config{Issuer: srv.URL, Insecure: true, SessionCookie: cookieName}, svc, NewRing(testKey()), slog.New(slog.DiscardHandler), time.Now)
 	if err != nil {

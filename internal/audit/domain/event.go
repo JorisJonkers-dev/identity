@@ -39,6 +39,8 @@ const (
 	MemberRemoved Action = "member-removed"
 	RoleAssigned  Action = "role-assigned"
 	RoleRemoved   Action = "role-removed"
+	// ClientSecretRotated is an Admin giving a Client a new secret (identity#32).
+	ClientSecretRotated Action = "client-secret-rotated"
 
 	TokenMinted  Action = "token-minted"
 	TokenRevoked Action = "token-revoked"
@@ -51,7 +53,7 @@ func (a Action) Kind() Kind {
 		return KindSignIn
 	case UserCreated, UserRenamed, PasswordChanged, SecondFactorAdded, SecondFactorRemoved, AdminPromoted:
 		return KindPeople
-	case GroupCreated, GroupRenamed, GroupDeleted, MemberAdded, MemberRemoved, RoleAssigned, RoleRemoved:
+	case GroupCreated, GroupRenamed, GroupDeleted, MemberAdded, MemberRemoved, RoleAssigned, RoleRemoved, ClientSecretRotated:
 		return KindAccess
 	case TokenMinted, TokenRevoked:
 		return KindTokens

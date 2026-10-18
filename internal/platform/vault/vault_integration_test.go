@@ -16,9 +16,10 @@ import (
 
 const vaultImage = "hashicorp/vault:1.19.0"
 
-// TestTransitAgainstARealVault seals and opens through a dev-mode Vault, the same server the cluster
-// runs, so the request and answer shapes are Vault's, not the fake's.
-func TestTransitAgainstARealVault(t *testing.T) {
+// devVault starts a dev-mode Vault, the same server the cluster runs, with the transit key identity
+// uses, so the request and answer shapes are Vault's, not a fake's. Its KV engine is at secret/.
+func devVault(t *testing.T) string {
+	t.Helper()
 	c, err := testcontainers.Run(t.Context(), vaultImage,
 		testcontainers.WithEnv(map[string]string{"VAULT_DEV_ROOT_TOKEN_ID": "root", "VAULT_DEV_LISTEN_ADDRESS": "0.0.0.0:8200"}),
 		testcontainers.WithExposedPorts("8200/tcp"),
@@ -47,8 +48,12 @@ func TestTransitAgainstARealVault(t *testing.T) {
 			t.Fatalf("%s = %d", step.path, res.StatusCode)
 		}
 	}
+	return addr
+}
 
-	tr := vault.NewTransit(addr, "transit", vault.Token("root"), http.DefaultClient)
+func TestTransitAgainstARealVault(t *testing.T) {
+	addr := devVault(t)
+	tr := vault.New(addr, vault.Token("root"), http.DefaultClient).Transit("transit")
 	sealed, err := tr.Seal(t.Context(), "identity-totp", []byte("JBSWY3DPEHPK3PXP"))
 	if err != nil {
 		t.Fatal(err)
@@ -63,8 +68,31 @@ func TestTransitAgainstARealVault(t *testing.T) {
 	if _, err := tr.Open(t.Context(), "identity-totp", "vault:v1:AAAA"); !errors.Is(err, vault.ErrSealed) {
 		t.Fatalf("a forged ciphertext = %v, want ErrSealed", err)
 	}
-	wrong := vault.NewTransit(addr, "transit", vault.Token("not-root"), http.DefaultClient)
+	wrong := vault.New(addr, vault.Token("not-root"), http.DefaultClient).Transit("transit")
 	if _, err := wrong.Seal(t.Context(), "identity-totp", []byte("x")); err == nil {
 		t.Fatal("a wrong token sealed")
+	}
+}
+
+func TestKVAgainstARealVault(t *testing.T) {
+	k := vault.New(devVault(t), vault.Token("root"), http.DefaultClient).KV()
+	const path = "secret/data/monitoring/grafana/client"
+	if _, err := k.Read(t.Context(), path); !errors.Is(err, vault.ErrNoSecret) {
+		t.Fatalf("Read of an empty path = %v, want ErrNoSecret", err)
+	}
+	if err := k.Create(t.Context(), path, map[string]string{"id": "grafana", "secret": "first"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := k.Create(t.Context(), path, map[string]string{"id": "grafana", "secret": "second"}); err == nil {
+		t.Fatal("a second create replaced the secret")
+	}
+	if got, err := k.Read(t.Context(), path); err != nil || got["secret"] != "first" || got["id"] != "grafana" {
+		t.Fatalf("Read after creates = %v, %v", got, err)
+	}
+	if err := k.Write(t.Context(), path, map[string]string{"id": "grafana", "secret": "rotated"}); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := k.Read(t.Context(), path); err != nil || got["secret"] != "rotated" {
+		t.Fatalf("Read after a write = %v, %v", got, err)
 	}
 }

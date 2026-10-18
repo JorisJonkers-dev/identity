@@ -32,6 +32,7 @@ const (
 	RenameGroupOperation               OperationName = "RenameGroup"
 	RevokeMyTokenOperation             OperationName = "RevokeMyToken"
 	RevokeUserTokenOperation           OperationName = "RevokeUserToken"
+	RotateClientSecretOperation        OperationName = "RotateClientSecret"
 	SignInOperation                    OperationName = "SignIn"
 	SignOutOperation                   OperationName = "SignOut"
 	SignOutUserOperation               OperationName = "SignOutUser"

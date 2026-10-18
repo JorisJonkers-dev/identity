@@ -19,6 +19,7 @@ type Querier interface {
 	Assign(ctx context.Context, arg AssignParams) (int64, error)
 	AuthRequestByID(ctx context.Context, id uuid.UUID) (AuthRequest, error)
 	ChallengeCeremony(ctx context.Context, arg ChallengeCeremonyParams) (ChallengeCeremonyRow, error)
+	ClientSecret(ctx context.Context, clientID string) (ClientSecretRow, error)
 	// Records who signed in, once: a request already completed keeps its first User.
 	CompleteAuthRequest(ctx context.Context, arg CompleteAuthRequestParams) (int64, error)
 	CountActiveSessions(ctx context.Context, expiresAt time.Time) (CountActiveSessionsRow, error)
@@ -31,6 +32,7 @@ type Querier interface {
 	// Confirmed Users in no Group, the admins Group included (docs/adr/0005).
 	CountUnassigned(ctx context.Context) (int64, error)
 	CreateAuthRequest(ctx context.Context, arg CreateAuthRequestParams) error
+	CreateClientSecret(ctx context.Context, arg CreateClientSecretParams) error
 	CreateGateCode(ctx context.Context, arg CreateGateCodeParams) error
 	CreateGateSession(ctx context.Context, arg CreateGateSessionParams) error
 	CreateGroup(ctx context.Context, arg CreateGroupParams) error
@@ -57,6 +59,8 @@ type Querier interface {
 	DeleteSignup(ctx context.Context, tokenHash []byte) error
 	DeleteTOTPEnrolment(ctx context.Context, userID uuid.UUID) error
 	DeleteTOTPFactor(ctx context.Context, arg DeleteTOTPFactorParams) (int64, error)
+	// Only while hash is still the current secret, so a rotation in between keeps its own previous.
+	EndPreviousClientSecret(ctx context.Context, arg EndPreviousClientSecretParams) error
 	GateSessionByHash(ctx context.Context, tokenHash []byte) (GateSessionByHashRow, error)
 	GroupByID(ctx context.Context, id uuid.UUID) (GroupByIDRow, error)
 	IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error)
@@ -70,6 +74,9 @@ type Querier interface {
 	// The Users CountUnassigned counts.
 	ListUnassigned(ctx context.Context) ([]uuid.UUID, error)
 	ListUsers(ctx context.Context) ([]User, error)
+	// Held until the transaction ends, so of two replicas seeing a new Client one makes its secret and
+	// the other reads the hash.
+	LockClientSecret(ctx context.Context, clientID string) error
 	// Holds the Group until the transaction ends, so two removals cannot both see the other member.
 	LockGroup(ctx context.Context, id uuid.UUID) (bool, error)
 	// Held until the transaction ends, so of two replicas starting together one makes the key and the
@@ -89,6 +96,9 @@ type Querier interface {
 	RolesByClient(ctx context.Context, userID uuid.UUID) ([]RolesByClientRow, error)
 	// A User's App Roles on a Client: the union over their Groups (docs/adr/0004).
 	RolesOf(ctx context.Context, arg RolesOfParams) ([]string, error)
+	// The replaced secret stays accepted; if an earlier one still is, the Client has not used the
+	// replaced one yet, so the earlier one is kept instead.
+	RotateClientSecret(ctx context.Context, arg RotateClientSecretParams) error
 	// A request gets one code; a second is refused.
 	SaveAuthCode(ctx context.Context, arg SaveAuthCodeParams) (int64, error)
 	SealedSecret(ctx context.Context, name string) (string, error)

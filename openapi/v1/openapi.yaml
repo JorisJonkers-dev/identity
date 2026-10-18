@@ -35,6 +35,10 @@ tags:
     description: >-
       Personal Tokens: bearer credentials a User mints for one Client, checked by the Client at
       /oidc/introspect (docs/adr/0017). A token never carries more than the User's App Roles there.
+  - name: apps
+    description: >-
+      The Clients the cluster declares. They are read-only here: deploy-kit declares them. Admins
+      may give a Client that signs in with a secret a new one.
   - name: audit
     description: >-
       Audit Events: sign-ins, failed sign-ins, and changes to Users, Groups and Assignments, kept
@@ -745,6 +749,24 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/apps/{clientId}/secret:
+    parameters:
+      - $ref: "#/components/parameters/ClientId"
+    post:
+      operationId: rotateClientSecret
+      summary: Give a Client a new secret
+      description: >-
+        Admins only, from a session that proved a Second Factor, for a Client that signs in with a
+        secret. The new secret is written where the Client's Application reads it, never answered
+        here. The old one keeps working until the Application first uses the new one.
+      tags: [apps]
+      responses:
+        "204":
+          description: The new secret is written.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
   securitySchemes:
     challenge:
@@ -831,6 +853,7 @@ components:
         - role-removed
         - token-minted
         - token-revoked
+        - client-secret-rotated
     AuditCursor:
       description: Where a page of Audit Events ends; opaque.
       type: string

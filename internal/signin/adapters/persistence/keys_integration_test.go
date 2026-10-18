@@ -39,7 +39,7 @@ func newReplica(t *testing.T, url string, now *time.Time) replica {
 	}
 	t.Cleanup(store.Close)
 	addr, token := itest.Vault(t)
-	sealer := vault.NewTransit(addr, "transit", vault.Token(token), &http.Client{Timeout: 5 * time.Second}).Key("identity-signing")
+	sealer := vault.New(addr, vault.Token(token), &http.Client{Timeout: 5 * time.Second}).Transit("transit").Key("identity-signing")
 	clock := func() time.Time { return *now }
 	keys := app.NewKeys(persistence.NewKeys(store.Queries(), store, clock), sealer,
 		func() (*rsa.PrivateKey, error) { return rsa.GenerateKey(rand.Reader, 2048) }, clock, rand.Reader)

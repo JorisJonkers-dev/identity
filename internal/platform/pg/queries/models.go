@@ -52,6 +52,14 @@ type AuthRequest struct {
 	Methods             []string
 }
 
+type ClientSecret struct {
+	ClientID     string
+	Hash         []byte
+	PreviousHash []byte
+	CreatedAt    time.Time
+	RotatedAt    *time.Time
+}
+
 type GateCode struct {
 	CodeHash   []byte
 	Host       string
