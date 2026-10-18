@@ -20,7 +20,8 @@ const keepDist: Plugin = {
 
 export default defineConfig({
   plugins: [vue(), tailwindcss(), keepDist],
-  server: { proxy },
+  // IPv4 explicitly: Node binds localhost to ::1 alone, which a browser resolving 127.0.0.1 cannot reach.
+  server: { proxy, host: '127.0.0.1', port: 5173, strictPort: true },
   test: {
     environment: 'jsdom',
     include: ['src/**/*.spec.ts'],
