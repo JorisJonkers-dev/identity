@@ -573,7 +573,8 @@ type fixture struct {
 	dry bool
 }
 
-func newFixture() *fixture {
+// newFixture is a Service over fakes, with opts after the usual ones.
+func newFixture(opts ...app.Option) *fixture {
 	f := &fixture{store: newStore(), hasher: &hasher{}, mailer: &mailer{}, sealer: &sealer{}, wa: &webAuthn{}, admins: &admins{ids: map[uuid.UUID]bool{}}, events: &recorded{}, now: t0}
 	// A reader that never runs out gives every token a distinct value.
 	var n byte
@@ -588,7 +589,7 @@ func newFixture() *fixture {
 		return len(p), nil
 	})
 	f.Service = app.New(f.store, f.hasher, f.mailer, func() time.Time { return f.now }, random, "https://auth.test",
-		app.WithSealer(f.sealer), app.WithWebAuthn(f.wa), app.WithAdmins(f.admins), app.WithAudit(f.events))
+		append([]app.Option{app.WithSealer(f.sealer), app.WithWebAuthn(f.wa), app.WithAdmins(f.admins), app.WithAudit(f.events)}, opts...)...)
 	return f
 }
 

@@ -141,7 +141,7 @@ func (s *Service) CompleteSignIn(ctx context.Context, challenge, code string) (s
 		if err != nil {
 			return "", err
 		}
-		step, ok := domain.MatchTOTP(string(secret), code, now, f.LastStep)
+		step, ok := s.matchTOTP(string(secret), code, now, f.LastStep)
 		if !ok {
 			continue
 		}
@@ -234,7 +234,7 @@ func (s *Service) ConfirmTOTP(ctx context.Context, userID uuid.UUID, sessionToke
 	if err != nil {
 		return err
 	}
-	step, ok := domain.MatchTOTP(string(secret), code, now, 0)
+	step, ok := s.matchTOTP(string(secret), code, now, 0)
 	if !ok {
 		return ErrInvalidCode
 	}

@@ -5,7 +5,8 @@ import vue from '@vitejs/plugin-vue'
 import { defineConfig, type Plugin } from 'vitest/config'
 
 const api = process.env.API_ORIGIN ?? 'http://localhost:8080'
-const proxy = { '/api': api, '/healthz': api, '/readyz': api }
+// Everything the Go server answers itself; Vite serves the app.
+const proxy = Object.fromEntries(['/api', '/oidc', '/.well-known', '/gate', '/.auth', '/icons', '/healthz', '/readyz'].map((p) => [p, api]))
 
 // web/embed.go embeds dist/, and go:embed needs a file there before the app is built, so the
 // tracked dist/.gitkeep is put back after every build empties the directory.

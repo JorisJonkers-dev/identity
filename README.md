@@ -51,7 +51,8 @@ How the repository is laid out and worked on.
 | `internal/access/` | The access context: Groups, members and Assignments, managed by Admins, and the App Roles sign-in puts in tokens |
 | `internal/gate/` | The Gate: the forwardAuth check, answered from a short-lived cache, the sign-in page, and the `/.auth/callback` that sets a host's own cookie |
 | `internal/signin/` | The sign-in context: the OIDC Provider on zitadel/oidc, authorization requests, and the Single sign-on check at `/oidc/login` |
-| `compose.yaml` | Postgres, the migration runner and Mailpit for `task dev` and `task e2e` |
+| `compose.yaml` | Postgres, the migration runner, Vault and Mailpit for `task dev` and `task e2e` |
+| `dev/clients.yaml`, `cmd/seed` | The design canvas's apps, and the seed `task dev` runs; built only with the `dev` tag |
 | `web/` | The Vue 3 SPA, and `embed.go`, which embeds its build (`web/dist`) in the binary |
 | `web/tests/e2e/` | Playwright with axe, on a desktop and a phone, against the built binary |
 | `mise.toml`, `Taskfile.yml` | The pinned toolchain, and every command: `task` lists them |
@@ -68,8 +69,20 @@ How the repository is laid out and worked on.
 mise install    # the pinned toolchain: Go, Node, pnpm, task, linters
 task check      # lint, gen:check, Go and web tests with coverage, build, secret scan
 task e2e        # builds, starts the compose Postgres, runs Playwright with axe
-task dev        # Postgres, the API on :8080, Vite with hot reload on :5173
+task dev        # identity at http://localhost:5173, seeded with the design canvas's people and apps
 ```
+
+**Running it locally.** `task dev` starts the compose Postgres, Vault and Mailpit, migrates, seeds,
+and serves the app at `http://localhost:5173` (Vite, hot reload) with the API on `:18480`. The
+Clients are the design canvas's apps, from `dev/clients.yaml`. The seed (`cmd/seed`) adds the
+canvas's people, Groups, Assignments, Personal Tokens and a day of Audit Events, through identity's
+own API; it runs once and leaves a seeded database alone. Sign in as `joris@example.org`, an Admin,
+with the password `correct horse battery staple` and the code `000000`; everyone else has the same
+password. Mail lands in Mailpit at `http://localhost:28025`. `docker compose down -v` starts over.
+
+**`000000` works only under `task dev`.** It is compiled in only with the `dev` build tag, which
+`task dev` alone passes. Every other build, the release image among them, checks codes by RFC 6238
+and refuses it; a test fails if a build file starts passing the tag.
 
 `task check` needs Docker: the Go tests start Postgres through testcontainers. `go test -short`
 skips the tests that need it.

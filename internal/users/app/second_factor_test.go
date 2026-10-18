@@ -506,3 +506,24 @@ func TestWithoutAdminsEverySessionLastsThirtyDays(t *testing.T) {
 		t.Fatalf("expires %v", s.ExpiresAt)
 	}
 }
+
+func TestAuthenticatorCodesAreCheckedByTheMatchGiven(t *testing.T) {
+	always := app.WithTOTPMatch(func(_, code string, _ time.Time, after int64) (int64, bool) { return after + 1, code == "424242" })
+	f := newFixture(always)
+	ctx := context.Background()
+	id := f.signedUp(t, "ada@example.org")
+	session, _ := f.SignIn(ctx, "ada@example.org", pw)
+	if _, err := f.StartTOTP(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.ConfirmTOTP(ctx, id, session, "Phone", "424242", pw); err != nil {
+		t.Fatalf("confirming with the code the match takes = %v", err)
+	}
+	challenge, err := f.SignIn(ctx, "ada@example.org", pw)
+	if !errors.Is(err, app.ErrSecondFactorNeeded) {
+		t.Fatal(err)
+	}
+	if _, err := f.CompleteSignIn(ctx, challenge, "424242"); err != nil {
+		t.Fatalf("signing in with the code the match takes = %v", err)
+	}
+}
