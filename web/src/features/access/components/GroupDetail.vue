@@ -87,9 +87,8 @@ function rename() {
   dialog.value = null
 }
 function remove() {
-  deleteGroup(props.group.id)
   dialog.value = null
-  void router.replace('/admin/groups')
+  deleteGroup(props.group.id, () => void router.replace('/admin/groups'))
 }
 </script>
 

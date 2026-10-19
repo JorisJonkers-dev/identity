@@ -255,13 +255,31 @@ describe('the Groups page', () => {
   })
 
   it('deletes a Group after saying what it costs', async () => {
-    const { wrapper, router, requests } = await mountAt(`/admin/groups/${ids.family}`, { ...server().answers, [`DELETE /api/v1/access/groups/${ids.family}`]: ok })
+    const { o, answers } = server()
+    const gone = () => {
+      o.groups = o.groups.filter((g) => g.id !== ids.family)
+      return ok()
+    }
+    const { wrapper, router, requests } = await mountAt(`/admin/groups/${ids.family}`, { ...answers, [`DELETE /api/v1/access/groups/${ids.family}`]: gone })
     await button(wrapper, 'Delete').trigger('click')
     expect(wrapper.get('[role="dialog"] p').text()).toBe('2 people lose what it gives them.')
     await wrapper.get('form[role="dialog"]').trigger('submit')
     await settle()
     expect(requests.some((r) => r.key === `DELETE /api/v1/access/groups/${ids.family}`)).toBe(true)
     expect(router.currentRoute.value.path).toBe('/admin/groups')
+    expect(wrapper.findAll('.g-item b').map((b) => b.text())).toEqual(['Admins', 'Friends'])
+  })
+
+  it('keeps a Group open, and says why, when its delete is refused', async () => {
+    const { wrapper, router } = await mountAt(`/admin/groups/${ids.family}`, {
+      ...server().answers,
+      [`DELETE /api/v1/access/groups/${ids.family}`]: () => problem(409, 'Family still gives roles.'),
+    })
+    await button(wrapper, 'Delete').trigger('click')
+    await wrapper.get('form[role="dialog"]').trigger('submit')
+    await settle()
+    expect(router.currentRoute.value.path).toBe(`/admin/groups/${ids.family}`)
+    expect(wrapper.get('[role="alert"]').text()).toBe('Family still gives roles.')
   })
 
   it('cancels a dialog without a change', async () => {

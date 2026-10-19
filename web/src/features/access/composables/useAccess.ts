@@ -46,8 +46,12 @@ export function useAccess() {
     renameGroup: (groupId: string, name: string) => {
       rename.run({ path: { groupId }, body: { name } }, refresh)
     },
-    deleteGroup: (groupId: string) => {
-      remove.run({ path: { groupId } }, refresh)
+    // done runs before the caller leaves the page: a callback for an unmounted page never fires.
+    deleteGroup: (groupId: string, done: () => void) => {
+      remove.run({ path: { groupId } }, () => {
+        refresh()
+        done()
+      })
     },
     addMember: (groupId: string, userId: string) => {
       join.run({ path: { groupId, userId } }, refresh)

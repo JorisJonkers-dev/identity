@@ -1,6 +1,6 @@
 import { request as httpRequest, createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { expect, test } from '@playwright/test'
-import { enrolTOTP, givesRole, promote, signedUp } from './helpers'
+import { addMember, enrolTOTP, givesRole, makeGroup, promote, signedUp, signOut } from './helpers'
 
 const identity = { host: 'localhost', port: 18573 }
 
@@ -70,14 +70,10 @@ test('a gated app signs in through the Gate, and only for a User with a role on 
   await test.step("an Admin gives the User's Group the role", async () => {
     promote(email)
     await enrolTOTP(page)
-    await page.goto('/access')
     const group = `Stats readers ${info.project.name} ${String(Date.now())}`
-    await page.getByLabel('Group name').fill(group)
-    await page.getByRole('button', { name: 'Create Group' }).click()
-    const article = page.getByRole('article', { name: group })
-    await article.getByLabel('Add a member').selectOption({ label: `Grace Hopper (${email})` })
-    await article.getByRole('button', { name: 'Add' }).click()
-    await givesRole(page, page.getByRole('checkbox', { name: `${group}: user on ${name}` }))
+    await makeGroup(page, group)
+    await addMember(page, email)
+    await givesRole(page, group, name, 'user')
   })
 
   await test.step('signing in through the Gate returns to the page asked for', async () => {
@@ -98,9 +94,8 @@ test('a gated app signs in through the Gate, and only for a User with a role on 
   })
 
   await test.step('signing out at identity reaches the gated host at once, not when its 30-second cache runs out', async () => {
-    await page.goto('/profile')
-    await page.getByRole('button', { name: 'Sign out' }).click()
-    await expect(page).toHaveURL('/signin')
+    await page.goto('/account')
+    await signOut(page)
     await page.goto(`${app}/`)
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Sign in to ${name}`)
   })

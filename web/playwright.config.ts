@@ -11,6 +11,8 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   // A flaky test is a bug to fix, not to retry.
   retries: 0,
+  // An Admin's flow signs up, sets up two-factor and makes a Group before it starts.
+  timeout: 60_000,
   reporter: process.env.CI ? [['github'], ['list']] : 'list',
   use: { baseURL: origin, trace: 'retain-on-failure' },
   projects: [

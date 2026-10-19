@@ -71,7 +71,7 @@ function submitCode() {
   <AuthShell>
     <form v-if="methods.length > 0" class="auth-box" novalidate @submit.prevent="submitCode">
       <span class="from who"><span>{{ email }}</span></span>
-      <h1>Enter your code</h1>
+      <h1>{{ methods.includes('totp') ? 'Enter your code' : 'Use your passkey' }}</h1>
       <template v-if="methods.includes('totp')">
         <CodeBoxes ref="codeBoxes" v-model="code" :invalid="!!complete.error.value" />
         <p v-if="complete.error.value" role="alert" class="alert"><Icon name="alert" />{{ complete.error.value }}</p>

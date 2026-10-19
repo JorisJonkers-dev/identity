@@ -187,6 +187,7 @@ describe('signing in', () => {
       'GET /api/v1/profile': ada,
     })
     await signIn(wrapper)
+    expect(wrapper.get('h1').text()).toBe('Use your passkey')
     expect(wrapper.find('[aria-label="Digit 1 of 6"]').exists()).toBe(false)
     await button(wrapper, 'Use your passkey').trigger('click')
     await settle()
