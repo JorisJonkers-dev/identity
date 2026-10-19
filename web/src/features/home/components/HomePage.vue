@@ -1,119 +1,79 @@
 <script setup lang="ts">
-import { computed, reactive } from 'vue'
+import { adminMail } from '../../../shared/contact'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import type { LauncherApp } from '../../../infrastructure/api/types.gen'
+import AppIcon from '../../../shared/AppIcon.vue'
+import AppShell from '../../../shared/AppShell.vue'
+import AuthShell from '../../../shared/AuthShell.vue'
+import Icon from '../../../shared/Icon'
 import { useExpiringTokens } from '../../tokens/composables/useExpiringTokens'
 import { expiry } from '../../tokens/expiry'
 import { useLauncher } from '../composables/useLauncher'
-import { useVersion } from '../composables/useVersion'
+import VersionLine from './VersionLine.vue'
 
-const { version, loadError: versionError } = useVersion()
-const { apps, isLoading, loadError, admin } = useLauncher()
+const { apps, isLoading, loadError } = useLauncher()
 const ending = useExpiringTokens(computed(() => apps.value !== undefined))
 const now = new Date()
-// Apps whose icon failed to load show their label's first letter instead.
-const broken = reactive(new Set<string>())
+const find = ref('')
+const search = ref<HTMLInputElement | null>(null)
+// An app is found by any part of its name or description.
+function matches(app: LauncherApp): boolean {
+  const q = find.value.trim().toLowerCase()
+  return !q || app.label.toLowerCase().includes(q) || app.description?.toLowerCase().includes(q) === true
+}
+// "/" puts the cursor in the search, as the design's keycap says.
+function slash(e: KeyboardEvent) {
+  if (e.key === '/' && !(document.activeElement instanceof HTMLInputElement)) {
+    e.preventDefault()
+    search.value?.focus()
+  }
+}
+onMounted(() => { document.addEventListener('keydown', slash); })
+onBeforeUnmount(() => { document.removeEventListener('keydown', slash); })
 </script>
 
 <template>
-  <section v-if="apps" aria-labelledby="home-title">
-    <h1 id="home-title">Your apps</h1>
-    <nav aria-label="Your account" class="links">
-      <RouterLink to="/profile">Your profile</RouterLink>
-      <RouterLink to="/profile/tokens">Tokens</RouterLink>
-      <RouterLink v-if="admin" to="/admin">Dashboard</RouterLink>
-      <RouterLink v-if="admin" to="/access">Manage access</RouterLink>
-    </nav>
-    <p v-if="ending[0]" role="status" class="mb-4 rounded-[9px] border border-warn bg-warn-soft px-3 py-2.5 text-warn">
-      <template v-if="ending.length === 1">Your token {{ ending[0].name }} {{ expiry(ending[0], now) }}. </template>
-      <template v-else>{{ ending.length }} of your tokens expire within 7 days: {{ ending.map((t) => t.name).join(', ') }}. </template>
-      <RouterLink to="/profile/tokens" class="text-warn underline">Make a new one on the Tokens page</RouterLink>.
-    </p>
-    <p v-if="apps.length === 0">You don't have access to any apps yet. Ask an Admin to add you to a Group.</p>
-    <ul v-else class="apps" aria-labelledby="home-title">
-      <li v-for="app in apps" :key="app.id" class="app">
-        <a :href="app.launchUrl">
-          <img v-if="app.iconUrl && !broken.has(app.id)" :src="app.iconUrl" alt="" width="40" height="40" @error="broken.add(app.id)" />
-          <span v-else class="letter" aria-hidden="true">{{ app.label.charAt(0) }}</span>
-          <span class="text">
-            <span class="label">{{ app.label }}</span>
-            <span v-if="app.description" class="description">{{ app.description }}</span>
-            <span class="roles">Your access: {{ app.roles.join(', ') }}</span>
-          </span>
+  <AppShell v-if="apps">
+    <div class="launch">
+      <h1 class="sr">Apps</h1>
+      <label class="search glass strong">
+        <Icon name="search" />
+        <input ref="search" v-model="find" type="search" placeholder="Find an app" aria-label="Find an app" />
+        <span class="kbd" aria-hidden="true">/</span>
+      </label>
+      <div v-if="ending[0]" class="strip glass" role="status">
+        <Icon name="clock" />
+        <span v-if="ending.length === 1"><b>{{ ending[0].name }}</b> {{ expiry(ending[0], now) }}.</span>
+        <span v-else>{{ ending.length }} tokens expire within 7 days.</span>
+        <RouterLink class="btn sm" to="/tokens">View tokens</RouterLink>
+      </div>
+      <div v-if="apps.length === 0" class="glass apps-empty"><p>No apps yet. An Admin adds you to a Group.</p><a class="link" :href="adminMail">Contact an Admin</a></div>
+      <p v-else-if="!apps.some(matches)" class="soft">No app matches “{{ find }}”.</p>
+      <div v-else class="apps">
+        <a v-for="app in apps.filter(matches)" :key="app.id" class="app" :href="app.launchUrl">
+          <AppIcon :label="app.label" :icon-url="app.iconUrl" />
+          <div>
+            <b>{{ app.label }}</b>
+            <div class="roles"><span class="sr">Your roles: </span><span v-for="r in app.roles" :key="r" class="role">{{ r }}</span></div>
+          </div>
+          <Icon name="out" class="go" />
         </a>
-      </li>
-    </ul>
-  </section>
-  <section v-else aria-labelledby="home-title">
-    <h1 id="home-title">jorisjonkers.dev</h1>
-    <p>Sign in once, and every app here knows who you are.</p>
-    <p v-if="isLoading">Loading…</p>
-    <p v-else-if="loadError" role="alert" class="error">{{ loadError }}</p>
-    <p v-else><RouterLink to="/signin">Sign in</RouterLink> or <RouterLink to="/signup">sign up</RouterLink>.</p>
-  </section>
-  <p v-if="versionError" role="alert" class="error">{{ versionError }}</p>
-  <footer v-else-if="version">Version {{ version }}</footer>
+      </div>
+      <VersionLine />
+    </div>
+  </AppShell>
+  <AuthShell v-else brandless>
+    <div class="auth-box land">
+      <span class="land-mark"><Icon name="mark" /></span>
+      <h1>jorisjonkers.dev</h1>
+      <p v-if="isLoading" class="soft">Loading…</p>
+      <p v-else-if="loadError" role="alert" class="alert">{{ loadError }}</p>
+      <div v-else class="land-acts">
+        <RouterLink class="btn primary xl wide" to="/signin">Sign in</RouterLink>
+        <RouterLink class="btn xl wide" to="/signup">Sign up</RouterLink>
+      </div>
+      <VersionLine />
+    </div>
+  </AuthShell>
 </template>
-
-<style scoped>
-.error {
-  color: #a4161a;
-}
-.links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-.apps {
-  list-style: none;
-  padding: 0;
-  display: grid;
-  gap: 0.75rem;
-}
-.app a {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-  padding: 0.75rem;
-  border: 1px solid #c8c8c8;
-  border-radius: 0.75rem;
-  color: inherit;
-  text-decoration: none;
-}
-.app a:hover,
-.app a:focus-visible {
-  border-color: #1a1a1a;
-}
-.app img,
-.letter {
-  width: 40px;
-  height: 40px;
-  flex: none;
-  border-radius: 0.5rem;
-}
-.letter {
-  display: grid;
-  place-items: center;
-  background: #e5e9ff;
-  color: #2545f0;
-  font-weight: 700;
-}
-.text {
-  display: grid;
-  min-width: 0;
-}
-.label {
-  font-weight: 600;
-}
-.description,
-.roles {
-  color: #4a4a4a;
-  font-size: 0.875rem;
-  overflow-wrap: anywhere;
-}
-footer {
-  margin-top: 2rem;
-  color: #4a4a4a;
-  font-size: 0.875rem;
-}
-</style>

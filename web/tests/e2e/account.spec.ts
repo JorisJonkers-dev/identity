@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
-import { confirmationLink, expectAccessible, signedUp } from './helpers'
+import { confirmationLink, expectAccessible, signedUp, signIn, signOut } from './helpers'
 
-test('a person signs up, confirms by mail, signs in, sees their profile and signs out', async ({ page }, info) => {
+test('a person signs up, confirms by mail, signs in, sees their account and signs out', async ({ page }, info) => {
   const errors: string[] = []
   page.on('console', (message) => {
     if (message.type() === 'error') errors.push(message.text())
@@ -11,30 +11,34 @@ test('a person signs up, confirms by mail, signs in, sees their profile and sign
 
   await test.step('a person signs up and is told to check their mail', async () => {
     await page.goto('/signup')
+    await expect(page.getByLabel('Name', { exact: true })).toBeFocused()
     await expectAccessible(page)
-    await page.getByLabel('Email', { exact: true }).fill(email)
     await page.getByLabel('Name', { exact: true }).fill('Ada Lovelace')
+    await page.getByLabel('Email', { exact: true }).fill(email)
     await page.getByLabel('Password', { exact: true }).fill(password)
-    await page.getByRole('button', { name: 'Sign up' }).click()
-    await expect(page.getByRole('status')).toHaveText('Check your email for a link to finish signing up.')
+    await page.getByRole('button', { name: 'Create account' }).click()
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check your email')
+    await expect(page.getByText(`Link sent to ${email}.`)).toBeVisible()
   })
 
   await test.step('the mailed link confirms the email with the password', async () => {
     await page.goto(await confirmationLink(page, email))
+    await expectAccessible(page)
     await page.getByLabel('Password', { exact: true }).fill(password)
     await page.getByRole('button', { name: 'Confirm email' }).click()
-    await expect(page.getByRole('status')).toContainText('Your email is confirmed.')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Email confirmed')
   })
 
-  await test.step('signing in lands on the Launcher, and the Profile shows the email', async () => {
-    await page.getByRole('link', { name: 'Sign in' }).first().click()
+  await test.step('signing in lands on the apps, and the Account page shows the email', async () => {
+    await page.getByRole('link', { name: 'Sign in' }).click()
     await expect(page).toHaveURL('/signin')
-    await page.getByLabel('Email', { exact: true }).fill(email)
-    await page.getByLabel('Password', { exact: true }).fill(password)
-    await page.getByRole('button', { name: 'Sign in' }).click()
+    await expect(page.getByLabel('Email', { exact: true })).toBeFocused()
+    await expectAccessible(page)
+    await signIn(page, email)
     await expect(page).toHaveURL('/')
-    await page.getByRole('link', { name: 'Your profile' }).click()
-    await expect(page.getByRole('definition').filter({ hasText: email })).toBeVisible()
+    await page.goto('/account')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ada Lovelace')
+    await expect(page.locator('.hero-t p')).toHaveText(email)
     await expectAccessible(page)
   })
 
@@ -45,33 +49,32 @@ test('a person signs up, confirms by mail, signs in, sees their profile and sign
   })
 
   await test.step('signing out ends the session', async () => {
-    await page.getByRole('button', { name: 'Sign out' }).click()
+    await signOut(page)
+    await page.goto('/account')
     await expect(page).toHaveURL('/signin')
-    await page.goto('/profile')
-    await expect(page.getByRole('alert')).toBeVisible()
     expect(errors.filter((e) => !e.includes('401') && !e.includes('403'))).toEqual([])
   })
 })
 
-test('a new User is no Admin: the Profile does not offer the access page, and it refuses them', async ({ page }, info) => {
+test('a new User is no Admin: no Admin view is offered, and the Admin pages send them home', async ({ page }, info) => {
   await signedUp(page, `not-admin-${info.project.name}`)
-  await page.goto('/profile')
-  await expect(page.getByRole('link', { name: 'Manage access' })).toHaveCount(0)
-  await page.goto('/access')
-  await expect(page.getByRole('alert')).toHaveText('Only Admins manage access.')
+  await page.goto('/account')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Grace Hopper')
+  await expect(page.getByRole('group', { name: 'View' })).toHaveCount(0)
+  await page.goto('/admin/groups')
+  await expect(page).toHaveURL('/')
   await expectAccessible(page)
 })
 
 test('a wrong password is refused with the same answer as an unknown email', async ({ page }) => {
-  await page.goto('/signin')
-  await page.getByLabel('Email', { exact: true }).fill('nobody@example.org')
-  await page.getByLabel('Password', { exact: true }).fill('wrong password!!')
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  await signIn(page, 'nobody@example.org')
   await expect(page.getByRole('alert')).toHaveText('The email or the password is wrong.')
+  await expectAccessible(page)
 })
 
-test('the no-access page says why an app did not open', async ({ page }) => {
+test('the no-access page sends the person back to their apps', async ({ page }) => {
   await page.goto('/no-access')
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText("You don't have access to this app")
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('No access to this app')
+  await expect(page.getByRole('link', { name: 'Your apps' })).toHaveAttribute('href', '/')
   await expectAccessible(page)
 })
