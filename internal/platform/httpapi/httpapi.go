@@ -15,6 +15,7 @@ import (
 	"github.com/JorisJonkers-dev/identity/internal/platform/device"
 	"github.com/JorisJonkers-dev/identity/internal/platform/httpx"
 	"github.com/JorisJonkers-dev/identity/internal/platform/oas"
+	"github.com/JorisJonkers-dev/identity/internal/platform/remote"
 	signinweb "github.com/JorisJonkers-dev/identity/internal/signin/adapters/web"
 	tokensweb "github.com/JorisJonkers-dev/identity/internal/tokens/adapters/web"
 	usersweb "github.com/JorisJonkers-dev/identity/internal/users/adapters/web"
@@ -74,7 +75,7 @@ func New(logger *slog.Logger, version string, users usersweb.UseCases, access Ac
 			httpx.WriteProblem(w, http.StatusMethodNotAllowed, "")
 		}),
 	)
-	return httpx.LimitBody(maxBody, device.Middleware(srv)), err // NewServer fails only on a bad option, never at run time
+	return httpx.LimitBody(maxBody, device.Middleware(remote.Middleware(srv))), err // NewServer fails only on a bad option, never at run time
 }
 
 // writeError answers a request ogen could not decode with a problem carrying ogen's status.

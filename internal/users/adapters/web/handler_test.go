@@ -116,6 +116,36 @@ func (u *useCases) ConfirmEmailChange(_ context.Context, token string) error {
 	return u.err
 }
 
+func (u *useCases) AskPasswordReset(_ context.Context, email string) error {
+	u.asked = append(u.asked, email)
+	return u.err
+}
+
+func (u *useCases) CheckPasswordReset(_ context.Context, token string) ([]string, error) {
+	u.asked = append(u.asked, token)
+	return u.kinds, u.err
+}
+
+func (u *useCases) ResetWithCode(_ context.Context, token, code string) error {
+	u.asked = append(u.asked, token, code)
+	return u.err
+}
+
+func (u *useCases) ResetPasskeyOptions(_ context.Context, token string) ([]byte, error) {
+	u.asked = append(u.asked, token)
+	return []byte(`{"publicKey":{}}`), u.err
+}
+
+func (u *useCases) ResetWithPasskey(_ context.Context, token string, response []byte) error {
+	u.asked = append(u.asked, token, string(response))
+	return u.err
+}
+
+func (u *useCases) CompletePasswordReset(_ context.Context, token, password string) error {
+	u.asked = append(u.asked, token, password)
+	return u.err
+}
+
 func (u *useCases) DeleteAccount(_ context.Context, _ uuid.UUID, token, password string) error {
 	u.asked = append(u.asked, token, password)
 	return u.err
@@ -868,5 +898,109 @@ func TestEachRefusedDeletionSaysWhatToDo(t *testing.T) {
 func TestAFailedDeletionIsPassedOn(t *testing.T) {
 	if _, err := web.New(&useCases{err: errBoom}, admins{}).DeleteAccount(context.Background(), &oas.PasswordCheck{}); !errors.Is(err, errBoom) {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestAResetIsAskedForByEmail(t *testing.T) {
+	uc := &useCases{}
+	res, err := web.New(uc, admins{}).AskPasswordReset(context.Background(), &oas.EmailAddress{Email: "ada@example.org"})
+	if _, ok := res.(*oas.AskPasswordResetAccepted); err != nil || !ok || uc.asked[0] != "ada@example.org" {
+		t.Fatalf("AskPasswordReset = %#v, %v", res, err)
+	}
+}
+
+func TestAResetForSomethingThatIsNotAnEmailIsRefused(t *testing.T) {
+	res, err := web.New(&useCases{err: domain.ErrInvalidEmail}, admins{}).AskPasswordReset(context.Background(), &oas.EmailAddress{})
+	if p, ok := res.(*oas.ProblemStatusCode); err != nil || !ok || p.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("AskPasswordReset = %#v, %v", res, err)
+	}
+}
+
+func TestCheckingAResetSaysWhatToProveItWith(t *testing.T) {
+	uc := &useCases{kinds: []string{"totp"}}
+	res, err := web.New(uc, admins{}).CheckPasswordReset(context.Background(), &oas.LinkToken{Token: "tok-1"})
+	if got, ok := res.(*oas.ResetCheck); err != nil || !ok || len(got.Methods) != 1 || got.Methods[0] != "totp" || uc.asked[0] != "tok-1" {
+		t.Fatalf("CheckPasswordReset = %#v, %v", res, err)
+	}
+}
+
+func TestCheckingAResetWithNothingToProveSaysNone(t *testing.T) {
+	res, err := web.New(&useCases{}, admins{}).CheckPasswordReset(context.Background(), &oas.LinkToken{Token: "tok-1"})
+	if got, ok := res.(*oas.ResetCheck); err != nil || !ok || got.Methods == nil || len(got.Methods) != 0 {
+		t.Fatalf("CheckPasswordReset = %#v, %v", res, err)
+	}
+}
+
+func TestAResetCodeSendsTheTokenAndTheCode(t *testing.T) {
+	uc := &useCases{}
+	res, err := web.New(uc, admins{}).ResetWithCode(context.Background(), &oas.ResetCode{Token: "tok-1", Code: "123456"})
+	if _, ok := res.(*oas.ResetWithCodeNoContent); err != nil || !ok || !slices.Equal(uc.asked, []string{"tok-1", "123456"}) {
+		t.Fatalf("ResetWithCode = %#v, %v", res, err)
+	}
+}
+
+func TestResetPasskeyOptionsSendTheToken(t *testing.T) {
+	uc := &useCases{}
+	res, err := web.New(uc, admins{}).ResetPasskeyOptions(context.Background(), &oas.LinkToken{Token: "tok-1"})
+	if got, ok := res.(*oas.PasskeyOptions); err != nil || !ok || got.Options != `{"publicKey":{}}` || uc.asked[0] != "tok-1" {
+		t.Fatalf("ResetPasskeyOptions = %#v, %v", res, err)
+	}
+}
+
+func TestAResetPasskeySendsTheTokenAndTheAnswer(t *testing.T) {
+	uc := &useCases{}
+	res, err := web.New(uc, admins{}).ResetWithPasskey(context.Background(), &oas.ResetPasskey{Token: "tok-1", Response: "signed"})
+	if _, ok := res.(*oas.ResetWithPasskeyNoContent); err != nil || !ok || !slices.Equal(uc.asked, []string{"tok-1", "signed"}) {
+		t.Fatalf("ResetWithPasskey = %#v, %v", res, err)
+	}
+}
+
+func TestCompletingAResetSendsTheTokenAndTheNewPassword(t *testing.T) {
+	uc := &useCases{}
+	res, err := web.New(uc, admins{}).CompletePasswordReset(context.Background(), &oas.ResetCompletion{Token: "tok-1", Password: "new"})
+	if _, ok := res.(*oas.CompletePasswordResetNoContent); err != nil || !ok || !slices.Equal(uc.asked, []string{"tok-1", "new"}) {
+		t.Fatalf("CompletePasswordReset = %#v, %v", res, err)
+	}
+}
+
+func TestEachRefusedResetSaysWhatToDo(t *testing.T) {
+	for _, tc := range []struct {
+		err    error
+		status int
+		detail string
+	}{
+		{app.ErrInvalidToken, http.StatusUnprocessableEntity, "This link has expired or was already used. Ask for a new one."},
+		{app.ErrFreshTwoFactorNeeded, http.StatusForbidden, "Confirm it is you with two-factor first."},
+		{domain.ErrWeakPassword, http.StatusUnprocessableEntity, "Enter a password of 12 to 128 characters."},
+	} {
+		t.Run(tc.err.Error(), func(t *testing.T) {
+			res, err := web.New(&useCases{err: tc.err}, admins{}).CompletePasswordReset(context.Background(), &oas.ResetCompletion{})
+			if p, ok := res.(*oas.ProblemStatusCode); err != nil || !ok || p.StatusCode != tc.status || p.Response.Detail.Value != tc.detail {
+				t.Fatalf("CompletePasswordReset = %#v, %v", res, err)
+			}
+		})
+	}
+}
+
+func TestEveryResetStepAnswersARefusalAsAProblem(t *testing.T) {
+	for _, op := range []struct {
+		name string
+		call func(h *web.Handler) (any, error)
+	}{
+		{"checking", func(h *web.Handler) (any, error) { return h.CheckPasswordReset(context.Background(), &oas.LinkToken{}) }},
+		{"a code", func(h *web.Handler) (any, error) { return h.ResetWithCode(context.Background(), &oas.ResetCode{}) }},
+		{"passkey options", func(h *web.Handler) (any, error) {
+			return h.ResetPasskeyOptions(context.Background(), &oas.LinkToken{})
+		}},
+		{"a passkey", func(h *web.Handler) (any, error) {
+			return h.ResetWithPasskey(context.Background(), &oas.ResetPasskey{})
+		}},
+	} {
+		t.Run(op.name, func(t *testing.T) {
+			res, err := op.call(web.New(&useCases{err: app.ErrInvalidToken}, admins{}))
+			if p, ok := res.(*oas.ProblemStatusCode); err != nil || !ok || p.StatusCode != http.StatusUnprocessableEntity {
+				t.Fatalf("got %#v, %v", res, err)
+			}
+		})
 	}
 }

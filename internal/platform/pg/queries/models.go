@@ -113,6 +113,13 @@ type PasskeyEnrolment struct {
 	ExpiresAt time.Time
 }
 
+type PasswordReset struct {
+	UserID    uuid.UUID
+	TokenHash []byte
+	ExpiresAt time.Time
+	ProvedAt  *time.Time
+}
+
 type PersonalToken struct {
 	ID         uuid.UUID
 	UserID     uuid.UUID

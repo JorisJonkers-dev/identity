@@ -43,6 +43,13 @@ type Invoker interface {
 	//
 	// POST /api/v1/profile/email-change
 	AskEmailChange(ctx context.Context, request *EmailChange) (AskEmailChangeRes, error)
+	// AskPasswordReset invokes askPasswordReset operation.
+	//
+	// Mails a link to choose a new password, valid once for 30 minutes, when the email belongs to a User.
+	// Answers the same whether or not it does; requests are limited per address and per client.
+	//
+	// POST /api/v1/password-resets
+	AskPasswordReset(ctx context.Context, request *EmailAddress) (AskPasswordResetRes, error)
 	// AssignRole invokes assignRole operation.
 	//
 	// Makes an Assignment. The Client must be in the cluster and declare the App Role, and the admins
@@ -69,6 +76,20 @@ type Invoker interface {
 	//
 	// POST /api/v1/profile/password
 	ChangePassword(ctx context.Context, request *PasswordChange) (ChangePasswordRes, error)
+	// CheckPasswordReset invokes checkPasswordReset operation.
+	//
+	// Says which kinds of two-factor the reset must be proved with first; none when the User has none or
+	// proved it already.
+	//
+	// POST /api/v1/password-resets/check
+	CheckPasswordReset(ctx context.Context, request *LinkToken) (CheckPasswordResetRes, error)
+	// CompletePasswordReset invokes completePasswordReset operation.
+	//
+	// Sets the new password, ends every session and mails the User. A User with two-factor must have
+	// proved the reset first. The link works once.
+	//
+	// POST /api/v1/password-resets/completion
+	CompletePasswordReset(ctx context.Context, request *ResetCompletion) (CompletePasswordResetRes, error)
 	// CompleteSignIn invokes completeSignIn operation.
 	//
 	// Takes a code from the User's authenticator app for the sign-in the challenge cookie names, and
@@ -239,6 +260,24 @@ type Invoker interface {
 	//
 	// PATCH /api/v1/access/groups/{groupId}
 	RenameGroup(ctx context.Context, request *GroupDraft, params RenameGroupParams) (RenameGroupRes, error)
+	// ResetPasskeyOptions invokes resetPasskeyOptions operation.
+	//
+	// Returns the WebAuthn options for the reset; checkPasswordReset must have run first.
+	//
+	// POST /api/v1/password-resets/passkey
+	ResetPasskeyOptions(ctx context.Context, request *LinkToken) (ResetPasskeyOptionsRes, error)
+	// ResetWithCode invokes resetWithCode operation.
+	//
+	// Takes a code from the User's authenticator app for the reset. Five codes in fifteen minutes.
+	//
+	// POST /api/v1/password-resets/code
+	ResetWithCode(ctx context.Context, request *ResetCode) (ResetWithCodeRes, error)
+	// ResetWithPasskey invokes resetWithPasskey operation.
+	//
+	// Checks the browser's passkey answer for the reset. A refused answer counts as a wrong code.
+	//
+	// POST /api/v1/password-resets/passkey/assertion
+	ResetWithPasskey(ctx context.Context, request *ResetPasskey) (ResetWithPasskeyRes, error)
 	// RevokeMyToken invokes revokeMyToken operation.
 	//
 	// The token is refused from now on. Revoking it twice changes nothing.
@@ -674,6 +713,90 @@ func (c *Client) sendAskEmailChange(ctx context.Context, request *EmailChange) (
 
 	stage = "DecodeResponse"
 	result, err := decodeAskEmailChangeResponse(resp)
+	if err != nil {
+		return res, errors.Wrap(err, "decode response")
+	}
+
+	return result, nil
+}
+
+// AskPasswordReset invokes askPasswordReset operation.
+//
+// Mails a link to choose a new password, valid once for 30 minutes, when the email belongs to a User.
+// Answers the same whether or not it does; requests are limited per address and per client.
+//
+// POST /api/v1/password-resets
+func (c *Client) AskPasswordReset(ctx context.Context, request *EmailAddress) (AskPasswordResetRes, error) {
+	res, err := c.sendAskPasswordReset(ctx, request)
+	return res, err
+}
+
+func (c *Client) sendAskPasswordReset(ctx context.Context, request *EmailAddress) (res AskPasswordResetRes, err error) {
+	otelAttrs := []attribute.KeyValue{
+		otelogen.OperationID("askPasswordReset"),
+		semconv.HTTPRequestMethodKey.String("POST"),
+		semconv.URLTemplateKey.String("/api/v1/password-resets"),
+	}
+	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
+
+	// Run stopwatch.
+	startTime := time.Now()
+	defer func() {
+		// Use floating point division here for higher precision (instead of Millisecond method).
+		elapsedDuration := time.Since(startTime)
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
+	}()
+
+	// Increment request counter.
+	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+
+	// Start a span for this request.
+	ctx, span := c.cfg.Tracer.Start(ctx, AskPasswordResetOperation,
+		trace.WithAttributes(otelAttrs...),
+		clientSpanKind,
+	)
+	// Track stage for error reporting.
+	var stage string
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, stage)
+			c.errors.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+		}
+		span.End()
+	}()
+
+	stage = "BuildURL"
+	u := uri.Clone(c.requestURL(ctx))
+	var pathParts [1]string
+	pathParts[0] = "/api/v1/password-resets"
+	uri.AddPathParts(u, pathParts[:]...)
+
+	stage = "EncodeRequest"
+	r, err := ht.NewRequest(ctx, "POST", u)
+	if err != nil {
+		return res, errors.Wrap(err, "create request")
+	}
+	if err := encodeAskPasswordResetRequest(request, r); err != nil {
+		return res, errors.Wrap(err, "encode request")
+	}
+
+	stage = "SendRequest"
+	resp, err := c.cfg.Client.Do(r)
+	if err != nil {
+		return res, errors.Wrap(err, "do request")
+	}
+	body := resp.Body
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
+
+	stage = "DecodeResponse"
+	result, err := decodeAskPasswordResetResponse(resp)
 	if err != nil {
 		return res, errors.Wrap(err, "decode response")
 	}
@@ -1261,6 +1384,174 @@ func (c *Client) sendChangePassword(ctx context.Context, request *PasswordChange
 
 	stage = "DecodeResponse"
 	result, err := decodeChangePasswordResponse(resp)
+	if err != nil {
+		return res, errors.Wrap(err, "decode response")
+	}
+
+	return result, nil
+}
+
+// CheckPasswordReset invokes checkPasswordReset operation.
+//
+// Says which kinds of two-factor the reset must be proved with first; none when the User has none or
+// proved it already.
+//
+// POST /api/v1/password-resets/check
+func (c *Client) CheckPasswordReset(ctx context.Context, request *LinkToken) (CheckPasswordResetRes, error) {
+	res, err := c.sendCheckPasswordReset(ctx, request)
+	return res, err
+}
+
+func (c *Client) sendCheckPasswordReset(ctx context.Context, request *LinkToken) (res CheckPasswordResetRes, err error) {
+	otelAttrs := []attribute.KeyValue{
+		otelogen.OperationID("checkPasswordReset"),
+		semconv.HTTPRequestMethodKey.String("POST"),
+		semconv.URLTemplateKey.String("/api/v1/password-resets/check"),
+	}
+	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
+
+	// Run stopwatch.
+	startTime := time.Now()
+	defer func() {
+		// Use floating point division here for higher precision (instead of Millisecond method).
+		elapsedDuration := time.Since(startTime)
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
+	}()
+
+	// Increment request counter.
+	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+
+	// Start a span for this request.
+	ctx, span := c.cfg.Tracer.Start(ctx, CheckPasswordResetOperation,
+		trace.WithAttributes(otelAttrs...),
+		clientSpanKind,
+	)
+	// Track stage for error reporting.
+	var stage string
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, stage)
+			c.errors.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+		}
+		span.End()
+	}()
+
+	stage = "BuildURL"
+	u := uri.Clone(c.requestURL(ctx))
+	var pathParts [1]string
+	pathParts[0] = "/api/v1/password-resets/check"
+	uri.AddPathParts(u, pathParts[:]...)
+
+	stage = "EncodeRequest"
+	r, err := ht.NewRequest(ctx, "POST", u)
+	if err != nil {
+		return res, errors.Wrap(err, "create request")
+	}
+	if err := encodeCheckPasswordResetRequest(request, r); err != nil {
+		return res, errors.Wrap(err, "encode request")
+	}
+
+	stage = "SendRequest"
+	resp, err := c.cfg.Client.Do(r)
+	if err != nil {
+		return res, errors.Wrap(err, "do request")
+	}
+	body := resp.Body
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
+
+	stage = "DecodeResponse"
+	result, err := decodeCheckPasswordResetResponse(resp)
+	if err != nil {
+		return res, errors.Wrap(err, "decode response")
+	}
+
+	return result, nil
+}
+
+// CompletePasswordReset invokes completePasswordReset operation.
+//
+// Sets the new password, ends every session and mails the User. A User with two-factor must have
+// proved the reset first. The link works once.
+//
+// POST /api/v1/password-resets/completion
+func (c *Client) CompletePasswordReset(ctx context.Context, request *ResetCompletion) (CompletePasswordResetRes, error) {
+	res, err := c.sendCompletePasswordReset(ctx, request)
+	return res, err
+}
+
+func (c *Client) sendCompletePasswordReset(ctx context.Context, request *ResetCompletion) (res CompletePasswordResetRes, err error) {
+	otelAttrs := []attribute.KeyValue{
+		otelogen.OperationID("completePasswordReset"),
+		semconv.HTTPRequestMethodKey.String("POST"),
+		semconv.URLTemplateKey.String("/api/v1/password-resets/completion"),
+	}
+	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
+
+	// Run stopwatch.
+	startTime := time.Now()
+	defer func() {
+		// Use floating point division here for higher precision (instead of Millisecond method).
+		elapsedDuration := time.Since(startTime)
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
+	}()
+
+	// Increment request counter.
+	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+
+	// Start a span for this request.
+	ctx, span := c.cfg.Tracer.Start(ctx, CompletePasswordResetOperation,
+		trace.WithAttributes(otelAttrs...),
+		clientSpanKind,
+	)
+	// Track stage for error reporting.
+	var stage string
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, stage)
+			c.errors.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+		}
+		span.End()
+	}()
+
+	stage = "BuildURL"
+	u := uri.Clone(c.requestURL(ctx))
+	var pathParts [1]string
+	pathParts[0] = "/api/v1/password-resets/completion"
+	uri.AddPathParts(u, pathParts[:]...)
+
+	stage = "EncodeRequest"
+	r, err := ht.NewRequest(ctx, "POST", u)
+	if err != nil {
+		return res, errors.Wrap(err, "create request")
+	}
+	if err := encodeCompletePasswordResetRequest(request, r); err != nil {
+		return res, errors.Wrap(err, "encode request")
+	}
+
+	stage = "SendRequest"
+	resp, err := c.cfg.Client.Do(r)
+	if err != nil {
+		return res, errors.Wrap(err, "do request")
+	}
+	body := resp.Body
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
+
+	stage = "DecodeResponse"
+	result, err := decodeCompletePasswordResetResponse(resp)
 	if err != nil {
 		return res, errors.Wrap(err, "decode response")
 	}
@@ -4272,6 +4563,255 @@ func (c *Client) sendRenameGroup(ctx context.Context, request *GroupDraft, param
 
 	stage = "DecodeResponse"
 	result, err := decodeRenameGroupResponse(resp)
+	if err != nil {
+		return res, errors.Wrap(err, "decode response")
+	}
+
+	return result, nil
+}
+
+// ResetPasskeyOptions invokes resetPasskeyOptions operation.
+//
+// Returns the WebAuthn options for the reset; checkPasswordReset must have run first.
+//
+// POST /api/v1/password-resets/passkey
+func (c *Client) ResetPasskeyOptions(ctx context.Context, request *LinkToken) (ResetPasskeyOptionsRes, error) {
+	res, err := c.sendResetPasskeyOptions(ctx, request)
+	return res, err
+}
+
+func (c *Client) sendResetPasskeyOptions(ctx context.Context, request *LinkToken) (res ResetPasskeyOptionsRes, err error) {
+	otelAttrs := []attribute.KeyValue{
+		otelogen.OperationID("resetPasskeyOptions"),
+		semconv.HTTPRequestMethodKey.String("POST"),
+		semconv.URLTemplateKey.String("/api/v1/password-resets/passkey"),
+	}
+	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
+
+	// Run stopwatch.
+	startTime := time.Now()
+	defer func() {
+		// Use floating point division here for higher precision (instead of Millisecond method).
+		elapsedDuration := time.Since(startTime)
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
+	}()
+
+	// Increment request counter.
+	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+
+	// Start a span for this request.
+	ctx, span := c.cfg.Tracer.Start(ctx, ResetPasskeyOptionsOperation,
+		trace.WithAttributes(otelAttrs...),
+		clientSpanKind,
+	)
+	// Track stage for error reporting.
+	var stage string
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, stage)
+			c.errors.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+		}
+		span.End()
+	}()
+
+	stage = "BuildURL"
+	u := uri.Clone(c.requestURL(ctx))
+	var pathParts [1]string
+	pathParts[0] = "/api/v1/password-resets/passkey"
+	uri.AddPathParts(u, pathParts[:]...)
+
+	stage = "EncodeRequest"
+	r, err := ht.NewRequest(ctx, "POST", u)
+	if err != nil {
+		return res, errors.Wrap(err, "create request")
+	}
+	if err := encodeResetPasskeyOptionsRequest(request, r); err != nil {
+		return res, errors.Wrap(err, "encode request")
+	}
+
+	stage = "SendRequest"
+	resp, err := c.cfg.Client.Do(r)
+	if err != nil {
+		return res, errors.Wrap(err, "do request")
+	}
+	body := resp.Body
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
+
+	stage = "DecodeResponse"
+	result, err := decodeResetPasskeyOptionsResponse(resp)
+	if err != nil {
+		return res, errors.Wrap(err, "decode response")
+	}
+
+	return result, nil
+}
+
+// ResetWithCode invokes resetWithCode operation.
+//
+// Takes a code from the User's authenticator app for the reset. Five codes in fifteen minutes.
+//
+// POST /api/v1/password-resets/code
+func (c *Client) ResetWithCode(ctx context.Context, request *ResetCode) (ResetWithCodeRes, error) {
+	res, err := c.sendResetWithCode(ctx, request)
+	return res, err
+}
+
+func (c *Client) sendResetWithCode(ctx context.Context, request *ResetCode) (res ResetWithCodeRes, err error) {
+	otelAttrs := []attribute.KeyValue{
+		otelogen.OperationID("resetWithCode"),
+		semconv.HTTPRequestMethodKey.String("POST"),
+		semconv.URLTemplateKey.String("/api/v1/password-resets/code"),
+	}
+	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
+
+	// Run stopwatch.
+	startTime := time.Now()
+	defer func() {
+		// Use floating point division here for higher precision (instead of Millisecond method).
+		elapsedDuration := time.Since(startTime)
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
+	}()
+
+	// Increment request counter.
+	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+
+	// Start a span for this request.
+	ctx, span := c.cfg.Tracer.Start(ctx, ResetWithCodeOperation,
+		trace.WithAttributes(otelAttrs...),
+		clientSpanKind,
+	)
+	// Track stage for error reporting.
+	var stage string
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, stage)
+			c.errors.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+		}
+		span.End()
+	}()
+
+	stage = "BuildURL"
+	u := uri.Clone(c.requestURL(ctx))
+	var pathParts [1]string
+	pathParts[0] = "/api/v1/password-resets/code"
+	uri.AddPathParts(u, pathParts[:]...)
+
+	stage = "EncodeRequest"
+	r, err := ht.NewRequest(ctx, "POST", u)
+	if err != nil {
+		return res, errors.Wrap(err, "create request")
+	}
+	if err := encodeResetWithCodeRequest(request, r); err != nil {
+		return res, errors.Wrap(err, "encode request")
+	}
+
+	stage = "SendRequest"
+	resp, err := c.cfg.Client.Do(r)
+	if err != nil {
+		return res, errors.Wrap(err, "do request")
+	}
+	body := resp.Body
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
+
+	stage = "DecodeResponse"
+	result, err := decodeResetWithCodeResponse(resp)
+	if err != nil {
+		return res, errors.Wrap(err, "decode response")
+	}
+
+	return result, nil
+}
+
+// ResetWithPasskey invokes resetWithPasskey operation.
+//
+// Checks the browser's passkey answer for the reset. A refused answer counts as a wrong code.
+//
+// POST /api/v1/password-resets/passkey/assertion
+func (c *Client) ResetWithPasskey(ctx context.Context, request *ResetPasskey) (ResetWithPasskeyRes, error) {
+	res, err := c.sendResetWithPasskey(ctx, request)
+	return res, err
+}
+
+func (c *Client) sendResetWithPasskey(ctx context.Context, request *ResetPasskey) (res ResetWithPasskeyRes, err error) {
+	otelAttrs := []attribute.KeyValue{
+		otelogen.OperationID("resetWithPasskey"),
+		semconv.HTTPRequestMethodKey.String("POST"),
+		semconv.URLTemplateKey.String("/api/v1/password-resets/passkey/assertion"),
+	}
+	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
+
+	// Run stopwatch.
+	startTime := time.Now()
+	defer func() {
+		// Use floating point division here for higher precision (instead of Millisecond method).
+		elapsedDuration := time.Since(startTime)
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
+	}()
+
+	// Increment request counter.
+	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+
+	// Start a span for this request.
+	ctx, span := c.cfg.Tracer.Start(ctx, ResetWithPasskeyOperation,
+		trace.WithAttributes(otelAttrs...),
+		clientSpanKind,
+	)
+	// Track stage for error reporting.
+	var stage string
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, stage)
+			c.errors.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+		}
+		span.End()
+	}()
+
+	stage = "BuildURL"
+	u := uri.Clone(c.requestURL(ctx))
+	var pathParts [1]string
+	pathParts[0] = "/api/v1/password-resets/passkey/assertion"
+	uri.AddPathParts(u, pathParts[:]...)
+
+	stage = "EncodeRequest"
+	r, err := ht.NewRequest(ctx, "POST", u)
+	if err != nil {
+		return res, errors.Wrap(err, "create request")
+	}
+	if err := encodeResetWithPasskeyRequest(request, r); err != nil {
+		return res, errors.Wrap(err, "encode request")
+	}
+
+	stage = "SendRequest"
+	resp, err := c.cfg.Client.Do(r)
+	if err != nil {
+		return res, errors.Wrap(err, "do request")
+	}
+	body := resp.Body
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
+
+	stage = "DecodeResponse"
+	result, err := decodeResetWithPasskeyResponse(resp)
 	if err != nil {
 		return res, errors.Wrap(err, "decode response")
 	}

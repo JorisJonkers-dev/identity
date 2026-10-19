@@ -37,6 +37,7 @@ export const zAuditAction = z.enum([
     'client-secret-rotated',
     'email-changed',
     'account-deleted',
+    'password-reset',
     'step-up-changed'
 ]);
 
@@ -75,6 +76,37 @@ export const zPassword = z.string().min(1).max(512);
 export const zSignUp = z.object({
     email: zEmail,
     name: z.string().min(1).max(400),
+    password: zPassword
+});
+
+/**
+ * An email address.
+ */
+export const zEmailAddress = z.object({
+    email: zEmail
+});
+
+/**
+ * A reset link's token, with a code from an authenticator app.
+ */
+export const zResetCode = z.object({
+    token: z.string().min(1).max(128),
+    code: z.string().min(1).max(16)
+});
+
+/**
+ * A reset link's token, with the browser's passkey answer.
+ */
+export const zResetPasskey = z.object({
+    token: z.string().min(1).max(128),
+    response: z.string().min(1).max(16384)
+});
+
+/**
+ * A reset link's token, with the new password.
+ */
+export const zResetCompletion = z.object({
+    token: z.string().min(1).max(128),
     password: zPassword
 });
 
@@ -435,6 +467,13 @@ export const zDevices = z.object({
 export const zSecondFactorKind = z.enum(['totp', 'passkey']);
 
 /**
+ * What a password reset must be proved with first.
+ */
+export const zResetCheck = z.object({
+    methods: z.array(zSecondFactorKind).max(2)
+});
+
+/**
  * The sign-in waits for a Second Factor.
  */
 export const zSecondFactorNeeded = z.object({
@@ -580,6 +619,43 @@ export const zConfirmEmailChangeBody = zLinkToken;
  * The User signs in with the new email.
  */
 export const zConfirmEmailChangeResponse = z.void();
+
+export const zAskPasswordResetBody = zEmailAddress;
+
+export const zCheckPasswordResetBody = zLinkToken;
+
+/**
+ * The link works.
+ */
+export const zCheckPasswordResetResponse = zResetCheck;
+
+export const zResetWithCodeBody = zResetCode;
+
+/**
+ * The reset is proved.
+ */
+export const zResetWithCodeResponse = z.void();
+
+export const zResetPasskeyOptionsBody = zLinkToken;
+
+/**
+ * The options for navigator.credentials.get.
+ */
+export const zResetPasskeyOptionsResponse = zPasskeyOptions;
+
+export const zResetWithPasskeyBody = zResetPasskey;
+
+/**
+ * The reset is proved.
+ */
+export const zResetWithPasskeyResponse = z.void();
+
+export const zCompletePasswordResetBody = zResetCompletion;
+
+/**
+ * The new password is set.
+ */
+export const zCompletePasswordResetResponse = z.void();
 
 /**
  * Signed out.

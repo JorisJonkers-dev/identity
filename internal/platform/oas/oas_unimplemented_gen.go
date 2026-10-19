@@ -32,6 +32,16 @@ func (UnimplementedHandler) AskEmailChange(ctx context.Context, req *EmailChange
 	return r, ht.ErrNotImplemented
 }
 
+// AskPasswordReset implements askPasswordReset operation.
+//
+// Mails a link to choose a new password, valid once for 30 minutes, when the email belongs to a User.
+// Answers the same whether or not it does; requests are limited per address and per client.
+//
+// POST /api/v1/password-resets
+func (UnimplementedHandler) AskPasswordReset(ctx context.Context, req *EmailAddress) (r AskPasswordResetRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // AssignRole implements assignRole operation.
 //
 // Makes an Assignment. The Client must be in the cluster and declare the App Role, and the admins
@@ -67,6 +77,26 @@ func (UnimplementedHandler) CancelEmailChange(ctx context.Context) (r CancelEmai
 //
 // POST /api/v1/profile/password
 func (UnimplementedHandler) ChangePassword(ctx context.Context, req *PasswordChange) (r ChangePasswordRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// CheckPasswordReset implements checkPasswordReset operation.
+//
+// Says which kinds of two-factor the reset must be proved with first; none when the User has none or
+// proved it already.
+//
+// POST /api/v1/password-resets/check
+func (UnimplementedHandler) CheckPasswordReset(ctx context.Context, req *LinkToken) (r CheckPasswordResetRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// CompletePasswordReset implements completePasswordReset operation.
+//
+// Sets the new password, ends every session and mails the User. A User with two-factor must have
+// proved the reset first. The link works once.
+//
+// POST /api/v1/password-resets/completion
+func (UnimplementedHandler) CompletePasswordReset(ctx context.Context, req *ResetCompletion) (r CompletePasswordResetRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -312,6 +342,33 @@ func (UnimplementedHandler) RemoveSecondFactor(ctx context.Context, req *Passwor
 //
 // PATCH /api/v1/access/groups/{groupId}
 func (UnimplementedHandler) RenameGroup(ctx context.Context, req *GroupDraft, params RenameGroupParams) (r RenameGroupRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// ResetPasskeyOptions implements resetPasskeyOptions operation.
+//
+// Returns the WebAuthn options for the reset; checkPasswordReset must have run first.
+//
+// POST /api/v1/password-resets/passkey
+func (UnimplementedHandler) ResetPasskeyOptions(ctx context.Context, req *LinkToken) (r ResetPasskeyOptionsRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// ResetWithCode implements resetWithCode operation.
+//
+// Takes a code from the User's authenticator app for the reset. Five codes in fifteen minutes.
+//
+// POST /api/v1/password-resets/code
+func (UnimplementedHandler) ResetWithCode(ctx context.Context, req *ResetCode) (r ResetWithCodeRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// ResetWithPasskey implements resetWithPasskey operation.
+//
+// Checks the browser's passkey answer for the reset. A refused answer counts as a wrong code.
+//
+// POST /api/v1/password-resets/passkey/assertion
+func (UnimplementedHandler) ResetWithPasskey(ctx context.Context, req *ResetPasskey) (r ResetWithPasskeyRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 

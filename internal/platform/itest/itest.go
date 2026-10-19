@@ -501,6 +501,14 @@ func Mailed(t *testing.T, email, subject string) string {
 	return ""
 }
 
+// MailCount is how many mails to email with subject Mailpit holds now.
+func MailCount(t *testing.T, email, subject string) int {
+	t.Helper()
+	var found struct{ Messages []struct{ ID string } }
+	get(t, shared.mailAPI+"/api/v1/search?query="+url.QueryEscape(fmt.Sprintf("to:%q subject:%q", email, subject)), &found)
+	return len(found.Messages)
+}
+
 // TokenIn is the token of the link to path, as "/account/email", in a mail's text.
 func TokenIn(t *testing.T, text, path string) string {
 	t.Helper()

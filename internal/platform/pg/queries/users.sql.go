@@ -485,6 +485,36 @@ func (q *Queries) PasskeysOfUser(ctx context.Context, userID uuid.UUID) ([]Passk
 	return items, nil
 }
 
+const passwordResetByHash = `-- name: PasswordResetByHash :one
+SELECT user_id, token_hash, expires_at, proved_at FROM password_resets WHERE token_hash = $1
+`
+
+func (q *Queries) PasswordResetByHash(ctx context.Context, tokenHash []byte) (PasswordReset, error) {
+	row := q.db.QueryRow(ctx, passwordResetByHash, tokenHash)
+	var i PasswordReset
+	err := row.Scan(
+		&i.UserID,
+		&i.TokenHash,
+		&i.ExpiresAt,
+		&i.ProvedAt,
+	)
+	return i, err
+}
+
+const provePasswordReset = `-- name: ProvePasswordReset :exec
+UPDATE password_resets SET proved_at = $2 WHERE user_id = $1
+`
+
+type ProvePasswordResetParams struct {
+	UserID   uuid.UUID
+	ProvedAt *time.Time
+}
+
+func (q *Queries) ProvePasswordReset(ctx context.Context, arg ProvePasswordResetParams) error {
+	_, err := q.db.Exec(ctx, provePasswordReset, arg.UserID, arg.ProvedAt)
+	return err
+}
+
 const saveEmailChange = `-- name: SaveEmailChange :exec
 INSERT INTO email_changes (user_id, email, token_hash, expires_at) VALUES ($1, $2, $3, $4)
 ON CONFLICT (user_id) DO UPDATE SET email = EXCLUDED.email, token_hash = EXCLUDED.token_hash, expires_at = EXCLUDED.expires_at
@@ -505,6 +535,23 @@ func (q *Queries) SaveEmailChange(ctx context.Context, arg SaveEmailChangeParams
 		arg.TokenHash,
 		arg.ExpiresAt,
 	)
+	return err
+}
+
+const savePasswordReset = `-- name: SavePasswordReset :exec
+INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES ($1, $2, $3)
+ON CONFLICT (user_id) DO UPDATE SET token_hash = EXCLUDED.token_hash, expires_at = EXCLUDED.expires_at, proved_at = NULL
+`
+
+type SavePasswordResetParams struct {
+	UserID    uuid.UUID
+	TokenHash []byte
+	ExpiresAt time.Time
+}
+
+// A User has one reset at a time; asking again replaces it.
+func (q *Queries) SavePasswordReset(ctx context.Context, arg SavePasswordResetParams) error {
+	_, err := q.db.Exec(ctx, savePasswordReset, arg.UserID, arg.TokenHash, arg.ExpiresAt)
 	return err
 }
 
@@ -799,6 +846,19 @@ func (q *Queries) TakeEmailChange(ctx context.Context, tokenHash []byte) (EmailC
 		&i.ExpiresAt,
 	)
 	return i, err
+}
+
+const takePasswordReset = `-- name: TakePasswordReset :execrows
+DELETE FROM password_resets WHERE token_hash = $1
+`
+
+// Finishing a reset spends its link; of two racing, one gets it.
+func (q *Queries) TakePasswordReset(ctx context.Context, tokenHash []byte) (int64, error) {
+	result, err := q.db.Exec(ctx, takePasswordReset, tokenHash)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const touchSession = `-- name: TouchSession :exec

@@ -28,6 +28,9 @@ type store struct {
 	sessions   map[string]app.Session
 	challenges map[string]*challenge
 	changes    map[uuid.UUID]app.EmailChange
+	resets     map[uuid.UUID]app.PasswordReset
+	// racedReset makes TakePasswordReset find the reset already taken.
+	racedReset bool
 	// tokens is each User's Personal Tokens, which go with them.
 	tokens     map[uuid.UUID][]uuid.UUID
 	factors    []app.TOTPFactor
@@ -170,6 +173,7 @@ func newStore() *store {
 		sessions:   map[string]app.Session{},
 		challenges: map[string]*challenge{},
 		changes:    map[uuid.UUID]app.EmailChange{},
+		resets:     map[uuid.UUID]app.PasswordReset{},
 		enrolments: map[uuid.UUID]app.TOTPEnrolment{},
 		pending:    map[uuid.UUID]app.PasskeyEnrolment{},
 		fail:       map[string]error{},
@@ -510,6 +514,49 @@ func (s *store) TouchSession(_ context.Context, hash []byte, lastSeen, expires t
 	sess.LastSeenAt, sess.ExpiresAt = lastSeen, expires
 	s.sessions[string(hash)] = sess
 	return nil
+}
+
+func (s *store) SavePasswordReset(_ context.Context, r app.PasswordReset) error {
+	if err := s.fail["SavePasswordReset"]; err != nil {
+		return err
+	}
+	s.resets[r.UserID] = r
+	return nil
+}
+
+func (s *store) PasswordResetByHash(_ context.Context, hash []byte) (app.PasswordReset, error) {
+	if err := s.fail["PasswordResetByHash"]; err != nil {
+		return app.PasswordReset{}, err
+	}
+	for _, r := range s.resets {
+		if string(r.TokenHash) == string(hash) {
+			return r, nil
+		}
+	}
+	return app.PasswordReset{}, app.ErrNotFound
+}
+
+func (s *store) ProvePasswordReset(_ context.Context, userID uuid.UUID, at time.Time) error {
+	if err := s.fail["ProvePasswordReset"]; err != nil {
+		return err
+	}
+	r := s.resets[userID]
+	r.ProvedAt = &at
+	s.resets[userID] = r
+	return nil
+}
+
+func (s *store) TakePasswordReset(_ context.Context, hash []byte) (bool, error) {
+	if err := s.fail["TakePasswordReset"]; err != nil || s.racedReset {
+		return false, err
+	}
+	for id, r := range s.resets {
+		if string(r.TokenHash) == string(hash) {
+			delete(s.resets, id)
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (s *store) DeleteUser(_ context.Context, userID uuid.UUID) (app.Deleted, error) {

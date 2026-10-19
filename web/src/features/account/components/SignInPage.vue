@@ -87,7 +87,7 @@ function submitCode() {
       <h1>Sign in</h1>
       <div class="field"><label class="label" for="si-email">Email</label><input id="si-email" ref="emailField" v-model="email" class="input" type="email" autocomplete="username webauthn" required /></div>
       <div class="field">
-        <div class="label"><label for="si-pw">Password</label></div>
+        <div class="label"><label for="si-pw">Password</label><RouterLink class="link" to="/forgot">Forgot password?</RouterLink></div>
         <div class="pw">
           <input id="si-pw" v-model="password" class="input" :type="shown ? 'text' : 'password'" autocomplete="current-password" required :aria-invalid="!!signIn.error.value || undefined" />
           <button type="button" :aria-label="shown ? 'Hide password' : 'Show password'" @click="shown = !shown"><Icon name="eye" /></button>

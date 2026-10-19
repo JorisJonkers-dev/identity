@@ -12,7 +12,7 @@ export type AuditKind = 'sign-in' | 'people' | 'access' | 'tokens';
 /**
  * What an Audit Event records.
  */
-export type AuditAction = 'signed-in' | 'sign-in-failed' | 'signed-out' | 'user-created' | 'user-renamed' | 'password-changed' | 'second-factor-added' | 'second-factor-removed' | 'admin-promoted' | 'group-created' | 'group-renamed' | 'group-deleted' | 'member-added' | 'member-removed' | 'role-assigned' | 'role-removed' | 'token-minted' | 'token-revoked' | 'client-secret-rotated' | 'email-changed' | 'account-deleted' | 'step-up-changed';
+export type AuditAction = 'signed-in' | 'sign-in-failed' | 'signed-out' | 'user-created' | 'user-renamed' | 'password-changed' | 'second-factor-added' | 'second-factor-removed' | 'admin-promoted' | 'group-created' | 'group-renamed' | 'group-deleted' | 'member-added' | 'member-removed' | 'role-assigned' | 'role-removed' | 'token-minted' | 'token-revoked' | 'client-secret-rotated' | 'email-changed' | 'account-deleted' | 'password-reset' | 'step-up-changed';
 
 /**
  * Where a page of Audit Events ends; opaque.
@@ -230,6 +230,47 @@ export type SignUp = {
      * What the User is called, 1 to 100 characters.
      */
     name: string;
+    password: Password;
+};
+
+/**
+ * An email address.
+ */
+export type EmailAddress = {
+    email: Email;
+};
+
+/**
+ * What a password reset must be proved with first.
+ */
+export type ResetCheck = {
+    /**
+     * The kinds of two-factor the User has, authenticator apps first; empty when none is needed.
+     */
+    methods: Array<SecondFactorKind>;
+};
+
+/**
+ * A reset link's token, with a code from an authenticator app.
+ */
+export type ResetCode = {
+    token: string;
+    code: string;
+};
+
+/**
+ * A reset link's token, with the browser's passkey answer.
+ */
+export type ResetPasskey = {
+    token: string;
+    response: string;
+};
+
+/**
+ * A reset link's token, with the new password.
+ */
+export type ResetCompletion = {
+    token: string;
     password: Password;
 };
 
@@ -801,6 +842,178 @@ export type ConfirmEmailChangeResponses = {
 };
 
 export type ConfirmEmailChangeResponse = ConfirmEmailChangeResponses[keyof ConfirmEmailChangeResponses];
+
+export type AskPasswordResetData = {
+    body: EmailAddress;
+    path?: never;
+    query?: never;
+    url: '/api/v1/password-resets';
+};
+
+export type AskPasswordResetErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type AskPasswordResetError = AskPasswordResetErrors[keyof AskPasswordResetErrors];
+
+export type AskPasswordResetResponses = {
+    /**
+     * If the email belongs to a User, the link is on its way.
+     */
+    202: unknown;
+};
+
+export type CheckPasswordResetData = {
+    body: LinkToken;
+    path?: never;
+    query?: never;
+    url: '/api/v1/password-resets/check';
+};
+
+export type CheckPasswordResetErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type CheckPasswordResetError = CheckPasswordResetErrors[keyof CheckPasswordResetErrors];
+
+export type CheckPasswordResetResponses = {
+    /**
+     * The link works.
+     */
+    200: ResetCheck;
+};
+
+export type CheckPasswordResetResponse = CheckPasswordResetResponses[keyof CheckPasswordResetResponses];
+
+export type ResetWithCodeData = {
+    body: ResetCode;
+    path?: never;
+    query?: never;
+    url: '/api/v1/password-resets/code';
+};
+
+export type ResetWithCodeErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type ResetWithCodeError = ResetWithCodeErrors[keyof ResetWithCodeErrors];
+
+export type ResetWithCodeResponses = {
+    /**
+     * The reset is proved.
+     */
+    204: void;
+};
+
+export type ResetWithCodeResponse = ResetWithCodeResponses[keyof ResetWithCodeResponses];
+
+export type ResetPasskeyOptionsData = {
+    body: LinkToken;
+    path?: never;
+    query?: never;
+    url: '/api/v1/password-resets/passkey';
+};
+
+export type ResetPasskeyOptionsErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type ResetPasskeyOptionsError = ResetPasskeyOptionsErrors[keyof ResetPasskeyOptionsErrors];
+
+export type ResetPasskeyOptionsResponses = {
+    /**
+     * The options for navigator.credentials.get.
+     */
+    200: PasskeyOptions;
+};
+
+export type ResetPasskeyOptionsResponse = ResetPasskeyOptionsResponses[keyof ResetPasskeyOptionsResponses];
+
+export type ResetWithPasskeyData = {
+    body: ResetPasskey;
+    path?: never;
+    query?: never;
+    url: '/api/v1/password-resets/passkey/assertion';
+};
+
+export type ResetWithPasskeyErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type ResetWithPasskeyError = ResetWithPasskeyErrors[keyof ResetWithPasskeyErrors];
+
+export type ResetWithPasskeyResponses = {
+    /**
+     * The reset is proved.
+     */
+    204: void;
+};
+
+export type ResetWithPasskeyResponse = ResetWithPasskeyResponses[keyof ResetWithPasskeyResponses];
+
+export type CompletePasswordResetData = {
+    body: ResetCompletion;
+    path?: never;
+    query?: never;
+    url: '/api/v1/password-resets/completion';
+};
+
+export type CompletePasswordResetErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type CompletePasswordResetError = CompletePasswordResetErrors[keyof CompletePasswordResetErrors];
+
+export type CompletePasswordResetResponses = {
+    /**
+     * The new password is set.
+     */
+    204: void;
+};
+
+export type CompletePasswordResetResponse = CompletePasswordResetResponses[keyof CompletePasswordResetResponses];
 
 export type SignOutData = {
     body?: never;

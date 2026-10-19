@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/vue-query';
 
 import { client } from '../client.gen';
-import { addMember, askEmailChange, assignRole, assignUserRole, cancelEmailChange, changePassword, completeSignIn, completeSignInWithPasskey, confirmEmail, confirmEmailChange, confirmPasskey, confirmTotp, createGroup, deleteAccount, deleteGroup, getAccess, getDashboard, getLauncher, getProfile, getStepUp, getVersion, listAuditEvents, listDevices, listMyTokens, listSecondFactors, listUserTokens, mintToken, type Options, passkeyOptions, removeMember, removeSecondFactor, renameGroup, revokeMyToken, revokeUserToken, rotateClientSecret, setStepUp, signIn, signOut, signOutDevice, signOutOtherDevices, signOutUser, signUp, startPasskey, startStepUp, startTotp, stepUpPasskeyOptions, stepUpWithCode, stepUpWithPasskey, unassignRole, unassignUserRole, updateProfile } from '../sdk.gen';
-import type { AddMemberData, AddMemberError, AddMemberResponse, AskEmailChangeData, AskEmailChangeError, AssignRoleData, AssignRoleError, AssignRoleResponse, AssignUserRoleData, AssignUserRoleError, AssignUserRoleResponse, AuditCursor, CancelEmailChangeData, CancelEmailChangeError, CancelEmailChangeResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CompleteSignInData, CompleteSignInError, CompleteSignInResponse, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyError, CompleteSignInWithPasskeyResponse, ConfirmEmailChangeData, ConfirmEmailChangeError, ConfirmEmailChangeResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, ConfirmPasskeyData, ConfirmPasskeyError, ConfirmPasskeyResponse, ConfirmTotpData, ConfirmTotpError, ConfirmTotpResponse, CreateGroupData, CreateGroupError, CreateGroupResponse, DeleteAccountData, DeleteAccountError, DeleteAccountResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, GetAccessData, GetAccessError, GetAccessResponse, GetDashboardData, GetDashboardError, GetDashboardResponse, GetLauncherData, GetLauncherError, GetLauncherResponse, GetProfileData, GetProfileError, GetProfileResponse, GetStepUpData, GetStepUpError, GetStepUpResponse, GetVersionData, GetVersionError, GetVersionResponse, ListAuditEventsData, ListAuditEventsError, ListAuditEventsResponse, ListDevicesData, ListDevicesError, ListDevicesResponse, ListMyTokensData, ListMyTokensError, ListMyTokensResponse, ListSecondFactorsData, ListSecondFactorsError, ListSecondFactorsResponse, ListUserTokensData, ListUserTokensError, ListUserTokensResponse, MintTokenData, MintTokenError, MintTokenResponse, PasskeyOptionsData, PasskeyOptionsError, PasskeyOptionsResponse, RemoveMemberData, RemoveMemberError, RemoveMemberResponse, RemoveSecondFactorData, RemoveSecondFactorError, RemoveSecondFactorResponse, RenameGroupData, RenameGroupError, RenameGroupResponse, RevokeMyTokenData, RevokeMyTokenError, RevokeMyTokenResponse, RevokeUserTokenData, RevokeUserTokenError, RevokeUserTokenResponse, RotateClientSecretData, RotateClientSecretError, RotateClientSecretResponse, SetStepUpData, SetStepUpError, SetStepUpResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutDeviceData, SignOutDeviceError, SignOutDeviceResponse, SignOutError, SignOutOtherDevicesData, SignOutOtherDevicesError, SignOutOtherDevicesResponse, SignOutResponse, SignOutUserData, SignOutUserError, SignOutUserResponse, SignUpData, SignUpError, StartPasskeyData, StartPasskeyError, StartPasskeyResponse, StartStepUpData, StartStepUpError, StartStepUpResponse, StartTotpData, StartTotpError, StartTotpResponse, StepUpPasskeyOptionsData, StepUpPasskeyOptionsError, StepUpPasskeyOptionsResponse, StepUpWithCodeData, StepUpWithCodeError, StepUpWithCodeResponse, StepUpWithPasskeyData, StepUpWithPasskeyError, StepUpWithPasskeyResponse, UnassignRoleData, UnassignRoleError, UnassignRoleResponse, UnassignUserRoleData, UnassignUserRoleError, UnassignUserRoleResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
+import { addMember, askEmailChange, askPasswordReset, assignRole, assignUserRole, cancelEmailChange, changePassword, checkPasswordReset, completePasswordReset, completeSignIn, completeSignInWithPasskey, confirmEmail, confirmEmailChange, confirmPasskey, confirmTotp, createGroup, deleteAccount, deleteGroup, getAccess, getDashboard, getLauncher, getProfile, getStepUp, getVersion, listAuditEvents, listDevices, listMyTokens, listSecondFactors, listUserTokens, mintToken, type Options, passkeyOptions, removeMember, removeSecondFactor, renameGroup, resetPasskeyOptions, resetWithCode, resetWithPasskey, revokeMyToken, revokeUserToken, rotateClientSecret, setStepUp, signIn, signOut, signOutDevice, signOutOtherDevices, signOutUser, signUp, startPasskey, startStepUp, startTotp, stepUpPasskeyOptions, stepUpWithCode, stepUpWithPasskey, unassignRole, unassignUserRole, updateProfile } from '../sdk.gen';
+import type { AddMemberData, AddMemberError, AddMemberResponse, AskEmailChangeData, AskEmailChangeError, AskPasswordResetData, AskPasswordResetError, AssignRoleData, AssignRoleError, AssignRoleResponse, AssignUserRoleData, AssignUserRoleError, AssignUserRoleResponse, AuditCursor, CancelEmailChangeData, CancelEmailChangeError, CancelEmailChangeResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CheckPasswordResetData, CheckPasswordResetError, CheckPasswordResetResponse, CompletePasswordResetData, CompletePasswordResetError, CompletePasswordResetResponse, CompleteSignInData, CompleteSignInError, CompleteSignInResponse, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyError, CompleteSignInWithPasskeyResponse, ConfirmEmailChangeData, ConfirmEmailChangeError, ConfirmEmailChangeResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, ConfirmPasskeyData, ConfirmPasskeyError, ConfirmPasskeyResponse, ConfirmTotpData, ConfirmTotpError, ConfirmTotpResponse, CreateGroupData, CreateGroupError, CreateGroupResponse, DeleteAccountData, DeleteAccountError, DeleteAccountResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, GetAccessData, GetAccessError, GetAccessResponse, GetDashboardData, GetDashboardError, GetDashboardResponse, GetLauncherData, GetLauncherError, GetLauncherResponse, GetProfileData, GetProfileError, GetProfileResponse, GetStepUpData, GetStepUpError, GetStepUpResponse, GetVersionData, GetVersionError, GetVersionResponse, ListAuditEventsData, ListAuditEventsError, ListAuditEventsResponse, ListDevicesData, ListDevicesError, ListDevicesResponse, ListMyTokensData, ListMyTokensError, ListMyTokensResponse, ListSecondFactorsData, ListSecondFactorsError, ListSecondFactorsResponse, ListUserTokensData, ListUserTokensError, ListUserTokensResponse, MintTokenData, MintTokenError, MintTokenResponse, PasskeyOptionsData, PasskeyOptionsError, PasskeyOptionsResponse, RemoveMemberData, RemoveMemberError, RemoveMemberResponse, RemoveSecondFactorData, RemoveSecondFactorError, RemoveSecondFactorResponse, RenameGroupData, RenameGroupError, RenameGroupResponse, ResetPasskeyOptionsData, ResetPasskeyOptionsError, ResetPasskeyOptionsResponse, ResetWithCodeData, ResetWithCodeError, ResetWithCodeResponse, ResetWithPasskeyData, ResetWithPasskeyError, ResetWithPasskeyResponse, RevokeMyTokenData, RevokeMyTokenError, RevokeMyTokenResponse, RevokeUserTokenData, RevokeUserTokenError, RevokeUserTokenResponse, RotateClientSecretData, RotateClientSecretError, RotateClientSecretResponse, SetStepUpData, SetStepUpError, SetStepUpResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutDeviceData, SignOutDeviceError, SignOutDeviceResponse, SignOutError, SignOutOtherDevicesData, SignOutOtherDevicesError, SignOutOtherDevicesResponse, SignOutResponse, SignOutUserData, SignOutUserError, SignOutUserResponse, SignUpData, SignUpError, StartPasskeyData, StartPasskeyError, StartPasskeyResponse, StartStepUpData, StartStepUpError, StartStepUpResponse, StartTotpData, StartTotpError, StartTotpResponse, StepUpPasskeyOptionsData, StepUpPasskeyOptionsError, StepUpPasskeyOptionsResponse, StepUpWithCodeData, StepUpWithCodeError, StepUpWithCodeResponse, StepUpWithPasskeyData, StepUpWithPasskeyError, StepUpWithPasskeyResponse, UnassignRoleData, UnassignRoleError, UnassignRoleResponse, UnassignUserRoleData, UnassignUserRoleError, UnassignUserRoleResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -106,6 +106,120 @@ export const confirmEmailChangeMutation = (options?: Partial<Options<ConfirmEmai
     const mutationOptions: UseMutationOptions<ConfirmEmailChangeResponse, ConfirmEmailChangeError, Options<ConfirmEmailChangeData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await confirmEmailChange({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Ask for a password reset
+ *
+ * Mails a link to choose a new password, valid once for 30 minutes, when the email belongs to a User. Answers the same whether or not it does; requests are limited per address and per client.
+ */
+export const askPasswordResetMutation = (options?: Partial<Options<AskPasswordResetData>>): UseMutationOptions<unknown, AskPasswordResetError, Options<AskPasswordResetData>> => {
+    const mutationOptions: UseMutationOptions<unknown, AskPasswordResetError, Options<AskPasswordResetData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await askPasswordReset({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Check a password reset link
+ *
+ * Says which kinds of two-factor the reset must be proved with first; none when the User has none or proved it already.
+ */
+export const checkPasswordResetMutation = (options?: Partial<Options<CheckPasswordResetData>>): UseMutationOptions<CheckPasswordResetResponse, CheckPasswordResetError, Options<CheckPasswordResetData>> => {
+    const mutationOptions: UseMutationOptions<CheckPasswordResetResponse, CheckPasswordResetError, Options<CheckPasswordResetData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await checkPasswordReset({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Prove a password reset with an authenticator code
+ *
+ * Takes a code from the User's authenticator app for the reset. Five codes in fifteen minutes.
+ */
+export const resetWithCodeMutation = (options?: Partial<Options<ResetWithCodeData>>): UseMutationOptions<ResetWithCodeResponse, ResetWithCodeError, Options<ResetWithCodeData>> => {
+    const mutationOptions: UseMutationOptions<ResetWithCodeResponse, ResetWithCodeError, Options<ResetWithCodeData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await resetWithCode({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Start proving a password reset with a passkey
+ *
+ * Returns the WebAuthn options for the reset; checkPasswordReset must have run first.
+ */
+export const resetPasskeyOptionsMutation = (options?: Partial<Options<ResetPasskeyOptionsData>>): UseMutationOptions<ResetPasskeyOptionsResponse, ResetPasskeyOptionsError, Options<ResetPasskeyOptionsData>> => {
+    const mutationOptions: UseMutationOptions<ResetPasskeyOptionsResponse, ResetPasskeyOptionsError, Options<ResetPasskeyOptionsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await resetPasskeyOptions({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Prove a password reset with a passkey
+ *
+ * Checks the browser's passkey answer for the reset. A refused answer counts as a wrong code.
+ */
+export const resetWithPasskeyMutation = (options?: Partial<Options<ResetWithPasskeyData>>): UseMutationOptions<ResetWithPasskeyResponse, ResetWithPasskeyError, Options<ResetWithPasskeyData>> => {
+    const mutationOptions: UseMutationOptions<ResetWithPasskeyResponse, ResetWithPasskeyError, Options<ResetWithPasskeyData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await resetWithPasskey({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Choose a new password
+ *
+ * Sets the new password, ends every session and mails the User. A User with two-factor must have proved the reset first. The link works once.
+ */
+export const completePasswordResetMutation = (options?: Partial<Options<CompletePasswordResetData>>): UseMutationOptions<CompletePasswordResetResponse, CompletePasswordResetError, Options<CompletePasswordResetData>> => {
+    const mutationOptions: UseMutationOptions<CompletePasswordResetResponse, CompletePasswordResetError, Options<CompletePasswordResetData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await completePasswordReset({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

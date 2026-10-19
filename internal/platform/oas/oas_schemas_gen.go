@@ -135,6 +135,11 @@ type AskEmailChangeAccepted struct{}
 
 func (*AskEmailChangeAccepted) askEmailChangeRes() {}
 
+// AskPasswordResetAccepted is response for AskPasswordReset operation.
+type AskPasswordResetAccepted struct{}
+
+func (*AskPasswordResetAccepted) askPasswordResetRes() {}
+
 // AssignRoleNoContent is response for AssignRole operation.
 type AssignRoleNoContent struct{}
 
@@ -209,6 +214,7 @@ const (
 	AuditActionClientSecretRotated AuditAction = "client-secret-rotated"
 	AuditActionEmailChanged        AuditAction = "email-changed"
 	AuditActionAccountDeleted      AuditAction = "account-deleted"
+	AuditActionPasswordReset       AuditAction = "password-reset"
 	AuditActionStepUpChanged       AuditAction = "step-up-changed"
 )
 
@@ -236,6 +242,7 @@ func (AuditAction) AllValues() []AuditAction {
 		AuditActionClientSecretRotated,
 		AuditActionEmailChanged,
 		AuditActionAccountDeleted,
+		AuditActionPasswordReset,
 		AuditActionStepUpChanged,
 	}
 }
@@ -284,6 +291,8 @@ func (s AuditAction) MarshalText() ([]byte, error) {
 	case AuditActionEmailChanged:
 		return []byte(s), nil
 	case AuditActionAccountDeleted:
+		return []byte(s), nil
+	case AuditActionPasswordReset:
 		return []byte(s), nil
 	case AuditActionStepUpChanged:
 		return []byte(s), nil
@@ -357,6 +366,9 @@ func (s *AuditAction) UnmarshalText(data []byte) error {
 		return nil
 	case AuditActionAccountDeleted:
 		*s = AuditActionAccountDeleted
+		return nil
+	case AuditActionPasswordReset:
+		*s = AuditActionPasswordReset
 		return nil
 	case AuditActionStepUpChanged:
 		*s = AuditActionStepUpChanged
@@ -765,6 +777,11 @@ func (*ChangePasswordNoContent) changePasswordRes() {}
 
 type ClientId string
 
+// CompletePasswordResetNoContent is response for CompletePasswordReset operation.
+type CompletePasswordResetNoContent struct{}
+
+func (*CompletePasswordResetNoContent) completePasswordResetRes() {}
+
 // CompleteSignInNoContent is response for CompleteSignIn operation.
 type CompleteSignInNoContent struct {
 	SetCookie string
@@ -1063,6 +1080,22 @@ func (s *Devices) SetDevices(val []Device) {
 func (*Devices) listDevicesRes() {}
 
 type Email string
+
+// An email address.
+// Ref: #/components/schemas/EmailAddress
+type EmailAddress struct {
+	Email Email `json:"email"`
+}
+
+// GetEmail returns the value of Email.
+func (s *EmailAddress) GetEmail() Email {
+	return s.Email
+}
+
+// SetEmail sets the value of Email.
+func (s *EmailAddress) SetEmail(val Email) {
+	s.Email = val
+}
 
 // A new sign-in email, with the User's password.
 // Ref: #/components/schemas/EmailChange
@@ -2009,6 +2042,7 @@ func (s *PasskeyOptions) SetOptions(val string) {
 }
 
 func (*PasskeyOptions) passkeyOptionsRes()       {}
+func (*PasskeyOptions) resetPasskeyOptionsRes()  {}
 func (*PasskeyOptions) startPasskeyRes()         {}
 func (*PasskeyOptions) stepUpPasskeyOptionsRes() {}
 
@@ -2328,10 +2362,13 @@ func (s *ProblemStatusCode) SetResponse(val Problem) {
 
 func (*ProblemStatusCode) addMemberRes()                 {}
 func (*ProblemStatusCode) askEmailChangeRes()            {}
+func (*ProblemStatusCode) askPasswordResetRes()          {}
 func (*ProblemStatusCode) assignRoleRes()                {}
 func (*ProblemStatusCode) assignUserRoleRes()            {}
 func (*ProblemStatusCode) cancelEmailChangeRes()         {}
 func (*ProblemStatusCode) changePasswordRes()            {}
+func (*ProblemStatusCode) checkPasswordResetRes()        {}
+func (*ProblemStatusCode) completePasswordResetRes()     {}
 func (*ProblemStatusCode) completeSignInRes()            {}
 func (*ProblemStatusCode) completeSignInWithPasskeyRes() {}
 func (*ProblemStatusCode) confirmEmailChangeRes()        {}
@@ -2357,6 +2394,9 @@ func (*ProblemStatusCode) passkeyOptionsRes()            {}
 func (*ProblemStatusCode) removeMemberRes()              {}
 func (*ProblemStatusCode) removeSecondFactorRes()        {}
 func (*ProblemStatusCode) renameGroupRes()               {}
+func (*ProblemStatusCode) resetPasskeyOptionsRes()       {}
+func (*ProblemStatusCode) resetWithCodeRes()             {}
+func (*ProblemStatusCode) resetWithPasskeyRes()          {}
 func (*ProblemStatusCode) revokeMyTokenRes()             {}
 func (*ProblemStatusCode) revokeUserTokenRes()           {}
 func (*ProblemStatusCode) rotateClientSecretRes()        {}
@@ -2486,6 +2526,116 @@ func (*RemoveSecondFactorNoContent) removeSecondFactorRes() {}
 type RenameGroupNoContent struct{}
 
 func (*RenameGroupNoContent) renameGroupRes() {}
+
+// What a password reset must be proved with first.
+// Ref: #/components/schemas/ResetCheck
+type ResetCheck struct {
+	// The kinds of two-factor the User has, authenticator apps first; empty when none is needed.
+	Methods []SecondFactorKind `json:"methods"`
+}
+
+// GetMethods returns the value of Methods.
+func (s *ResetCheck) GetMethods() []SecondFactorKind {
+	return s.Methods
+}
+
+// SetMethods sets the value of Methods.
+func (s *ResetCheck) SetMethods(val []SecondFactorKind) {
+	s.Methods = val
+}
+
+func (*ResetCheck) checkPasswordResetRes() {}
+
+// A reset link's token, with a code from an authenticator app.
+// Ref: #/components/schemas/ResetCode
+type ResetCode struct {
+	Token string `json:"token"`
+	Code  string `json:"code"`
+}
+
+// GetToken returns the value of Token.
+func (s *ResetCode) GetToken() string {
+	return s.Token
+}
+
+// GetCode returns the value of Code.
+func (s *ResetCode) GetCode() string {
+	return s.Code
+}
+
+// SetToken sets the value of Token.
+func (s *ResetCode) SetToken(val string) {
+	s.Token = val
+}
+
+// SetCode sets the value of Code.
+func (s *ResetCode) SetCode(val string) {
+	s.Code = val
+}
+
+// A reset link's token, with the new password.
+// Ref: #/components/schemas/ResetCompletion
+type ResetCompletion struct {
+	Token    string   `json:"token"`
+	Password Password `json:"password"`
+}
+
+// GetToken returns the value of Token.
+func (s *ResetCompletion) GetToken() string {
+	return s.Token
+}
+
+// GetPassword returns the value of Password.
+func (s *ResetCompletion) GetPassword() Password {
+	return s.Password
+}
+
+// SetToken sets the value of Token.
+func (s *ResetCompletion) SetToken(val string) {
+	s.Token = val
+}
+
+// SetPassword sets the value of Password.
+func (s *ResetCompletion) SetPassword(val Password) {
+	s.Password = val
+}
+
+// A reset link's token, with the browser's passkey answer.
+// Ref: #/components/schemas/ResetPasskey
+type ResetPasskey struct {
+	Token    string `json:"token"`
+	Response string `json:"response"`
+}
+
+// GetToken returns the value of Token.
+func (s *ResetPasskey) GetToken() string {
+	return s.Token
+}
+
+// GetResponse returns the value of Response.
+func (s *ResetPasskey) GetResponse() string {
+	return s.Response
+}
+
+// SetToken sets the value of Token.
+func (s *ResetPasskey) SetToken(val string) {
+	s.Token = val
+}
+
+// SetResponse sets the value of Response.
+func (s *ResetPasskey) SetResponse(val string) {
+	s.Response = val
+}
+
+// ResetWithCodeNoContent is response for ResetWithCode operation.
+type ResetWithCodeNoContent struct{}
+
+func (*ResetWithCodeNoContent) resetWithCodeRes() {}
+
+// ResetWithPasskeyNoContent is response for ResetWithPasskey operation.
+type ResetWithPasskeyNoContent struct{}
+
+func (*ResetWithPasskeyNoContent) resetWithPasskeyRes() {}
 
 // RevokeMyTokenNoContent is response for RevokeMyToken operation.
 type RevokeMyTokenNoContent struct{}

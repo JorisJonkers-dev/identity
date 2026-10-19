@@ -399,6 +399,108 @@ describe('confirming a new email', () => {
   })
 })
 
+describe('resetting a forgotten password', () => {
+  const check = (methods: string[]) => ({ 'POST /api/v1/password-resets/check': Response.json({ methods }) })
+  async function choose(wrapper: VueWrapper, password = 'a brand new passphrase') {
+    await wrapper.get('#rs-pw').setValue(password)
+    await wrapper.get('form').trigger('submit')
+    await settle()
+  }
+
+  it('is offered on the sign-in page', async () => {
+    const { wrapper } = await mountAt('/signin', {})
+    expect(wrapper.get('a[href="/forgot"]').text()).toBe('Forgot password?')
+  })
+
+  it('asks for the email and says a link is on its way', async () => {
+    const { wrapper, requests } = await mountAt('/forgot', { 'POST /api/v1/password-resets': new Response(null, { status: 202 }) })
+    await wrapper.get('#fg-email').setValue('ada@example.org')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(requests.find((r) => r.key === 'POST /api/v1/password-resets')?.body).toEqual({ email: 'ada@example.org' })
+    expect(wrapper.get('h1').text()).toBe('Check your email')
+    expect(wrapper.get('.lead').text()).toBe('If ada@example.org has an account, we sent a link to reset its password. It works once, for 30 minutes.')
+  })
+
+  it('shows a refused request', async () => {
+    const { wrapper } = await mountAt('/forgot', { 'POST /api/v1/password-resets': problem(503, 'Mail cannot be sent right now. Try again later.') })
+    await wrapper.get('#fg-email').setValue('ada@example.org')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(wrapper.get('[role="alert"]').text()).toBe('Mail cannot be sent right now. Try again later.')
+  })
+
+  it('takes a new password when there is no two-factor to prove', async () => {
+    const { wrapper, requests } = await mountAt('/reset?token=t0k', { ...check([]), 'POST /api/v1/password-resets/completion': noContent() })
+    expect(wrapper.get('h1').text()).toBe('Choose a new password')
+    await choose(wrapper)
+    expect(requests.find((r) => r.key === 'POST /api/v1/password-resets/completion')?.body).toEqual({ token: 't0k', password: 'a brand new passphrase' })
+    expect(wrapper.get('h1').text()).toBe('Password changed')
+    expect(wrapper.get('a.btn').attributes('href')).toBe('/signin')
+  })
+
+  it('asks for a code first when the User has an authenticator app', async () => {
+    const { wrapper, requests } = await mountAt('/reset?token=t0k', { ...check(['totp']), 'POST /api/v1/password-resets/code': noContent(), 'POST /api/v1/password-resets/completion': noContent() })
+    expect(wrapper.get('h1').text()).toBe('Enter your code')
+    expect(wrapper.get('a[href="mailto:admin@jorisjonkers.dev"]').text()).toBe('admin@jorisjonkers.dev')
+    await typeCode(wrapper, '492039')
+    expect(requests.find((r) => r.key === 'POST /api/v1/password-resets/code')?.body).toEqual({ token: 't0k', code: '492039' })
+    expect(wrapper.get('h1').text()).toBe('Choose a new password')
+  })
+
+  it('proves it with a passkey', async () => {
+    const get = vi.spyOn(passkeys, 'get').mockResolvedValue('{"id":"cred-1"}')
+    const { wrapper, requests } = await mountAt('/reset?token=t0k', {
+      ...check(['passkey']),
+      'POST /api/v1/password-resets/passkey': Response.json({ options: '{"publicKey":{}}' }),
+      'POST /api/v1/password-resets/passkey/assertion': noContent(),
+    })
+    await button(wrapper, 'Use your passkey').trigger('click')
+    await settle()
+    expect(requests.find((r) => r.key === 'POST /api/v1/password-resets/passkey/assertion')?.body).toEqual({ token: 't0k', response: '{"id":"cred-1"}' })
+    expect(wrapper.get('h1').text()).toBe('Choose a new password')
+    get.mockRestore()
+  })
+
+  it('says when the browser did not use the passkey', async () => {
+    const get = vi.spyOn(passkeys, 'get').mockRejectedValue(new Error('NotAllowedError'))
+    const { wrapper } = await mountAt('/reset?token=t0k', { ...check(['passkey']), 'POST /api/v1/password-resets/passkey': Response.json({ options: '{"publicKey":{}}' }) })
+    await button(wrapper, 'Use your passkey').trigger('click')
+    await settle()
+    expect(wrapper.get('[role="alert"]').text()).toBe('Passkey check was cancelled. Try again.')
+    get.mockRestore()
+  })
+
+  it('offers the code and the passkey when the User has both', async () => {
+    const { wrapper } = await mountAt('/reset?token=t0k', check(['totp', 'passkey']))
+    expect(wrapper.get('.or').text()).toBe('or')
+  })
+
+  it('says when the code is wrong', async () => {
+    const { wrapper } = await mountAt('/reset?token=t0k', { ...check(['totp']), 'POST /api/v1/password-resets/code': problem(422, 'That code is wrong or was already used.') })
+    await typeCode(wrapper, '000000')
+    expect(wrapper.get('[role="alert"]').text()).toBe('That code is wrong or was already used.')
+  })
+
+  it('says when the new password is refused', async () => {
+    const { wrapper } = await mountAt('/reset?token=t0k', { ...check([]), 'POST /api/v1/password-resets/completion': problem(422, 'Enter a password of 12 to 128 characters.') })
+    await choose(wrapper, 'short')
+    expect(wrapper.get('[role="alert"]').text()).toBe('Enter a password of 12 to 128 characters.')
+  })
+
+  it('says when the link is spent, and offers a new one', async () => {
+    const { wrapper } = await mountAt('/reset?token=t0k', { 'POST /api/v1/password-resets/check': problem(422, 'This link has expired or was already used. Ask for a new one.') })
+    expect(wrapper.get('[role="alert"]').text()).toBe('This link has expired or was already used. Ask for a new one.')
+    expect(wrapper.get('a[href="/forgot"]').text()).toBe('Ask for a new link')
+  })
+
+  it('says when the link has no token, without asking the server', async () => {
+    const { wrapper, requests } = await mountAt('/reset', {})
+    expect(wrapper.get('h1').text()).toBe('This link is incomplete')
+    expect(requests).toHaveLength(0)
+  })
+})
+
 describe('the Account page', () => {
   const answers = (over: Record<string, unknown> = {}) => ({
     'GET /api/v1/profile': () => Response.json(profile(over)),

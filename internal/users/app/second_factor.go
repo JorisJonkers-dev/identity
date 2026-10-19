@@ -110,12 +110,15 @@ func (s *Service) challenge(ctx context.Context, userID uuid.UUID, sessionHash [
 	if err != nil {
 		return "", err
 	}
+	return token, s.saveChallenge(ctx, userID, hash, sessionHash)
+}
+
+// saveChallenge makes the User's one challenge, under hash; its wrong codes carry over from an
+// earlier one within the window.
+func (s *Service) saveChallenge(ctx context.Context, userID uuid.UUID, hash, sessionHash []byte) error {
 	now := s.now()
 	c := Challenge{TokenHash: hash, UserID: userID, ExpiresAt: now.Add(challengeLifetime), WindowStartedAt: now, SessionHash: sessionHash}
-	if err := s.store.SaveChallenge(ctx, c, now.Add(-attemptWindow)); err != nil {
-		return "", err
-	}
-	return token, nil
+	return s.store.SaveChallenge(ctx, c, now.Add(-attemptWindow))
 }
 
 // CompleteSignIn takes a code from one of the User's authenticators for a sign-in challenge and
