@@ -1074,6 +1074,8 @@ components:
         minutes:
           type: integer
           format: int32
+          minimum: 0
+          maximum: 60
           enum: [0, 5, 15, 60]
           description: The step-up window an Admin set, 0 for off.
     TokenClient:
@@ -1583,6 +1585,8 @@ components:
         minutes:
           type: integer
           format: int32
+          minimum: 0
+          maximum: 60
           enum: [0, 5, 15, 60]
           description: The window in minutes; 0 is off.
     SecondFactorNeeded:
