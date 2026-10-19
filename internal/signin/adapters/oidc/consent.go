@@ -56,11 +56,8 @@ func (c *consent) prompt(w http.ResponseWriter, r *http.Request) {
 		c.refuse(w, r, err)
 		return
 	}
-	host := ""
-	if u, err := url.Parse(p.RedirectURI); err == nil {
-		host = u.Host
-	}
-	writeJSON(w, http.StatusOK, consentPrompt{App: p.App, Client: p.ClientLabel, Roles: p.Roles, RedirectHost: host})
+	u, _ := url.Parse(p.RedirectURI) // checked against the registration at /authorize
+	writeJSON(w, http.StatusOK, consentPrompt{App: p.App, Client: p.ClientLabel, Roles: p.Roles, RedirectHost: u.Host})
 }
 
 func (c *consent) answer(w http.ResponseWriter, r *http.Request) {

@@ -101,6 +101,9 @@ func TestAConsentCallIsRefused(t *testing.T) {
 			e.apps.fail["Registration"] = errBoom
 			return e.get(t, consentAPIPath+"?authRequestID="+id, true)
 		}},
+		{"for an answer from another browser", http.StatusBadRequest, func(t *testing.T, e *env, id string) page {
+			return e.elsewhere().answer(t, `{"authRequestID":"`+id+`","allow":true}`)
+		}},
 		{"with an answer that is not JSON", http.StatusBadRequest, func(t *testing.T, e *env, _ string) page {
 			return e.answer(t, `{`)
 		}},
@@ -111,5 +114,12 @@ func TestAConsentCallIsRefused(t *testing.T) {
 				t.Fatalf("got %d %s, want %d", p.status, p.body, c.status)
 			}
 		})
+	}
+}
+
+func TestDecliningARequestWithNoStateSendsNone(t *testing.T) {
+	u, _ := url.Parse(denied("http://127.0.0.1:1/cb", "", "https://auth.test"))
+	if _, has := u.Query()["state"]; has || u.Query().Get("error") != "access_denied" {
+		t.Fatalf("declined to %s", u)
 	}
 }
