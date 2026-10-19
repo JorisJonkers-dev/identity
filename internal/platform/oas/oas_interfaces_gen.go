@@ -105,6 +105,10 @@ type GetLauncherRes interface {
 	getLauncherRes()
 }
 
+type GetMCPResourceRes interface {
+	getMCPResourceRes()
+}
+
 type GetProfileRes interface {
 	getProfileRes()
 }
@@ -127,6 +131,10 @@ type ListDevicesRes interface {
 
 type ListMachinesRes interface {
 	listMachinesRes()
+}
+
+type ListMyConnectedAppsRes interface {
+	listMyConnectedAppsRes()
 }
 
 type ListMyTokensRes interface {
@@ -177,6 +185,10 @@ type ResetWithPasskeyRes interface {
 	resetWithPasskeyRes()
 }
 
+type RevokeMyConnectedAppRes interface {
+	revokeMyConnectedAppRes()
+}
+
 type RevokeMyTokenRes interface {
 	revokeMyTokenRes()
 }
@@ -195,6 +207,10 @@ type RotateMachineSecretRes interface {
 
 type SetGroupTwoFactorRes interface {
 	setGroupTwoFactorRes()
+}
+
+type SetMCPResourceRes interface {
+	setMCPResourceRes()
 }
 
 type SetStepUpRes interface {

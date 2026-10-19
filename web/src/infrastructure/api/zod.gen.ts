@@ -52,9 +52,24 @@ export const zAuditAction = z.enum([
 export const zAuditCursor = z.string().min(1).max(100);
 
 /**
+ * Whether a Client takes Connected Apps.
+ */
+export const zMcpResourceSetting = z.object({
+    on: z.boolean()
+});
+
+/**
  * A count.
  */
 export const zCount = z.int().gte(0).lte(2147483647);
+
+/**
+ * Whether a Client takes Connected Apps, and how many it has.
+ */
+export const zMcpResource = z.object({
+    on: z.boolean(),
+    connectedApps: zCount
+});
 
 /**
  * Sign-ins to the Identity Provider in one hour.
@@ -270,6 +285,24 @@ export const zTokenDraft = z.object({
         z.literal(90),
         z.literal(365)
     ])
+});
+
+/**
+ * A tool acting for the User on one Client.
+ */
+export const zConnectedApp = z.object({
+    id: zId,
+    name: z.string().max(100),
+    client: zTokenClient,
+    createdAt: z.iso.datetime({ offset: true }).max(64),
+    lastUsedAt: z.iso.datetime({ offset: true }).max(64).optional()
+});
+
+/**
+ * The User's Connected Apps, oldest first.
+ */
+export const zConnectedAppList = z.object({
+    apps: z.array(zConnectedApp).max(1000)
 });
 
 /**
@@ -494,7 +527,7 @@ export const zAccessOverview = z.object({
 });
 
 /**
- * How fresh a Client wants two-factor, and how many live Personal Tokens turning step-up on would revoke: none can satisfy it (docs/adr/0019).
+ * How fresh a Client wants two-factor, and how many live Personal Tokens and Connected Apps turning step-up on would revoke: none can satisfy it (docs/adr/0019).
  */
 export const zStepUpState = z.object({
     minutes: z.union([
@@ -503,7 +536,8 @@ export const zStepUpState = z.object({
         z.literal(15),
         z.literal(60)
     ]),
-    tokens: zCount
+    tokens: zCount,
+    connectedApps: zCount
 });
 
 /**
@@ -667,6 +701,11 @@ export const zClientId2 = zClientId;
  * The Device.
  */
 export const zDeviceId = zId;
+
+/**
+ * The Connected App.
+ */
+export const zConnectedAppId = zId;
 
 /**
  * The Personal Token.
@@ -1167,3 +1206,37 @@ export const zSetStepUpPath = z.object({
  * The Client's step-up is set.
  */
 export const zSetStepUpResponse = z.void();
+
+/**
+ * The User's Connected Apps.
+ */
+export const zListMyConnectedAppsResponse = zConnectedAppList;
+
+export const zRevokeMyConnectedAppPath = z.object({
+    connectedAppId: zId
+});
+
+/**
+ * Disconnected.
+ */
+export const zRevokeMyConnectedAppResponse = z.void();
+
+export const zGetMcpResourcePath = z.object({
+    clientId: zClientId
+});
+
+/**
+ * The Client's setting.
+ */
+export const zGetMcpResourceResponse = zMcpResource;
+
+export const zSetMcpResourceBody = zMcpResourceSetting;
+
+export const zSetMcpResourcePath = z.object({
+    clientId: zClientId
+});
+
+/**
+ * The Client's setting is set.
+ */
+export const zSetMcpResourceResponse = z.void();

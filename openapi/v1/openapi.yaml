@@ -39,6 +39,10 @@ tags:
     description: >-
       The Clients the cluster declares. They are read-only here: deploy-kit declares them. Admins
       may give a Client that signs in with a secret a new one.
+  - name: connected
+    description: >-
+      Connected Apps: tools such as MCP clients that registered themselves and act for a User on
+      one Client the User consented to, never beyond the App Roles they hold there (identity#23).
   - name: audit
     description: >-
       Audit Events: sign-ins, failed sign-ins, and changes to Users, Groups and Assignments, kept
@@ -1386,6 +1390,77 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/profile/connected-apps:
+    get:
+      operationId: listMyConnectedApps
+      summary: My Connected Apps
+      description: The tools acting for the signed-in User, oldest first.
+      tags: [connected]
+      responses:
+        "200":
+          description: The User's Connected Apps.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectedAppList"
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/profile/connected-apps/{connectedAppId}:
+    parameters:
+      - $ref: "#/components/parameters/ConnectedAppId"
+    delete:
+      operationId: revokeMyConnectedApp
+      summary: Disconnect one of my Connected Apps
+      description: Its tokens stop working at once; the tool must ask for consent again.
+      tags: [connected]
+      responses:
+        "204":
+          description: Disconnected.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/apps/{clientId}/mcp:
+    parameters:
+      - $ref: "#/components/parameters/ClientId"
+    get:
+      operationId: getMCPResource
+      summary: Whether a Client takes Connected Apps
+      description: Admins only, from a session that proved a Second Factor.
+      tags: [connected]
+      responses:
+        "200":
+          description: The Client's setting.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MCPResource"
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    put:
+      operationId: setMCPResource
+      summary: Let a Client take Connected Apps, or stop it
+      description: >-
+        Admins only, from a session that proved a Second Factor. Stopping keeps the Connected Apps
+        the Client has; turning step-up on disconnects them.
+      tags: [connected]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MCPResourceSetting"
+      responses:
+        "204":
+          description: The Client's setting is set.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
   securitySchemes:
     challenge:
@@ -1436,6 +1511,13 @@ components:
       in: path
       required: true
       description: The Device.
+      schema:
+        $ref: "#/components/schemas/Id"
+    ConnectedAppId:
+      name: connectedAppId
+      in: path
+      required: true
+      description: The Connected App.
       schema:
         $ref: "#/components/schemas/Id"
     PatId:
@@ -1675,6 +1757,57 @@ components:
           type: string
           maxLength: 128
           description: The bearer token. identity keeps only its hash.
+    ConnectedApp:
+      description: A tool acting for the User on one Client.
+      type: object
+      additionalProperties: false
+      required: [id, name, client, createdAt]
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        name:
+          type: string
+          maxLength: 100
+          description: What the tool called itself when it registered; nothing checks it.
+        client:
+          $ref: "#/components/schemas/TokenClient"
+        createdAt:
+          type: string
+          format: date-time
+          maxLength: 64
+        lastUsedAt:
+          type: string
+          format: date-time
+          maxLength: 64
+    ConnectedAppList:
+      description: The User's Connected Apps, oldest first.
+      type: object
+      additionalProperties: false
+      required: [apps]
+      properties:
+        apps:
+          type: array
+          maxItems: 1000
+          items:
+            $ref: "#/components/schemas/ConnectedApp"
+    MCPResource:
+      description: Whether a Client takes Connected Apps, and how many it has.
+      type: object
+      additionalProperties: false
+      required: [on, connectedApps]
+      properties:
+        on:
+          type: boolean
+        connectedApps:
+          $ref: "#/components/schemas/Count"
+    MCPResourceSetting:
+      description: Whether a Client takes Connected Apps.
+      type: object
+      additionalProperties: false
+      required: [on]
+      properties:
+        on:
+          type: boolean
     Count:
       description: A count.
       type: integer
@@ -2263,11 +2396,11 @@ components:
             $ref: "#/components/schemas/UserAssignment"
     StepUpState:
       description: >-
-        How fresh a Client wants two-factor, and how many live Personal Tokens turning step-up on
-        would revoke: none can satisfy it (docs/adr/0019).
+        How fresh a Client wants two-factor, and how many live Personal Tokens and Connected Apps
+        turning step-up on would revoke: none can satisfy it (docs/adr/0019).
       type: object
       additionalProperties: false
-      required: [minutes, tokens]
+      required: [minutes, tokens, connectedApps]
       properties:
         minutes:
           type: integer
@@ -2277,6 +2410,8 @@ components:
           enum: [0, 5, 15, 60]
           description: The window in minutes; 0 is off.
         tokens:
+          $ref: "#/components/schemas/Count"
+        connectedApps:
           $ref: "#/components/schemas/Count"
     StepUp:
       description: How fresh a Client wants a session's two-factor proof (docs/adr/0019).

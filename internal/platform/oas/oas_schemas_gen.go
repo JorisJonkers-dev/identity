@@ -922,6 +922,85 @@ func (s *Confirmation) SetToken(val string) {
 	s.Token = val
 }
 
+// A tool acting for the User on one Client.
+// Ref: #/components/schemas/ConnectedApp
+type ConnectedApp struct {
+	ID ID `json:"id"`
+	// What the tool called itself when it registered; nothing checks it.
+	Name       string      `json:"name"`
+	Client     TokenClient `json:"client"`
+	CreatedAt  time.Time   `json:"createdAt"`
+	LastUsedAt OptDateTime `json:"lastUsedAt"`
+}
+
+// GetID returns the value of ID.
+func (s *ConnectedApp) GetID() ID {
+	return s.ID
+}
+
+// GetName returns the value of Name.
+func (s *ConnectedApp) GetName() string {
+	return s.Name
+}
+
+// GetClient returns the value of Client.
+func (s *ConnectedApp) GetClient() TokenClient {
+	return s.Client
+}
+
+// GetCreatedAt returns the value of CreatedAt.
+func (s *ConnectedApp) GetCreatedAt() time.Time {
+	return s.CreatedAt
+}
+
+// GetLastUsedAt returns the value of LastUsedAt.
+func (s *ConnectedApp) GetLastUsedAt() OptDateTime {
+	return s.LastUsedAt
+}
+
+// SetID sets the value of ID.
+func (s *ConnectedApp) SetID(val ID) {
+	s.ID = val
+}
+
+// SetName sets the value of Name.
+func (s *ConnectedApp) SetName(val string) {
+	s.Name = val
+}
+
+// SetClient sets the value of Client.
+func (s *ConnectedApp) SetClient(val TokenClient) {
+	s.Client = val
+}
+
+// SetCreatedAt sets the value of CreatedAt.
+func (s *ConnectedApp) SetCreatedAt(val time.Time) {
+	s.CreatedAt = val
+}
+
+// SetLastUsedAt sets the value of LastUsedAt.
+func (s *ConnectedApp) SetLastUsedAt(val OptDateTime) {
+	s.LastUsedAt = val
+}
+
+// The User's Connected Apps, oldest first.
+// Ref: #/components/schemas/ConnectedAppList
+type ConnectedAppList struct {
+	Apps []ConnectedApp `json:"apps"`
+}
+
+// GetApps returns the value of Apps.
+func (s *ConnectedAppList) GetApps() []ConnectedApp {
+	return s.Apps
+}
+
+// SetApps sets the value of Apps.
+func (s *ConnectedAppList) SetApps(val []ConnectedApp) {
+	s.Apps = val
+}
+
+func (*ConnectedAppList) listMyConnectedAppsRes() {}
+
 type Count int32
 
 // How things stand.
@@ -1398,6 +1477,51 @@ func (s *LinkToken) GetToken() string {
 // SetToken sets the value of Token.
 func (s *LinkToken) SetToken(val string) {
 	s.Token = val
+}
+
+// Whether a Client takes Connected Apps, and how many it has.
+// Ref: #/components/schemas/MCPResource
+type MCPResource struct {
+	On            bool  `json:"on"`
+	ConnectedApps Count `json:"connectedApps"`
+}
+
+// GetOn returns the value of On.
+func (s *MCPResource) GetOn() bool {
+	return s.On
+}
+
+// GetConnectedApps returns the value of ConnectedApps.
+func (s *MCPResource) GetConnectedApps() Count {
+	return s.ConnectedApps
+}
+
+// SetOn sets the value of On.
+func (s *MCPResource) SetOn(val bool) {
+	s.On = val
+}
+
+// SetConnectedApps sets the value of ConnectedApps.
+func (s *MCPResource) SetConnectedApps(val Count) {
+	s.ConnectedApps = val
+}
+
+func (*MCPResource) getMCPResourceRes() {}
+
+// Whether a Client takes Connected Apps.
+// Ref: #/components/schemas/MCPResourceSetting
+type MCPResourceSetting struct {
+	On bool `json:"on"`
+}
+
+// GetOn returns the value of On.
+func (s *MCPResourceSetting) GetOn() bool {
+	return s.On
+}
+
+// SetOn sets the value of On.
+func (s *MCPResourceSetting) SetOn(val bool) {
+	s.On = val
 }
 
 // A Machine Identity: a workload that signs in as itself, bound to one Kubernetes ServiceAccount. Its
@@ -2692,12 +2816,14 @@ func (*ProblemStatusCode) deleteUserRes()                {}
 func (*ProblemStatusCode) getAccessRes()                 {}
 func (*ProblemStatusCode) getDashboardRes()              {}
 func (*ProblemStatusCode) getLauncherRes()               {}
+func (*ProblemStatusCode) getMCPResourceRes()            {}
 func (*ProblemStatusCode) getProfileRes()                {}
 func (*ProblemStatusCode) getStepUpRes()                 {}
 func (*ProblemStatusCode) getVersionRes()                {}
 func (*ProblemStatusCode) listAuditEventsRes()           {}
 func (*ProblemStatusCode) listDevicesRes()               {}
 func (*ProblemStatusCode) listMachinesRes()              {}
+func (*ProblemStatusCode) listMyConnectedAppsRes()       {}
 func (*ProblemStatusCode) listMyTokensRes()              {}
 func (*ProblemStatusCode) listSecondFactorsRes()         {}
 func (*ProblemStatusCode) listUserTokensRes()            {}
@@ -2710,11 +2836,13 @@ func (*ProblemStatusCode) renameUserRes()                {}
 func (*ProblemStatusCode) resetPasskeyOptionsRes()       {}
 func (*ProblemStatusCode) resetWithCodeRes()             {}
 func (*ProblemStatusCode) resetWithPasskeyRes()          {}
+func (*ProblemStatusCode) revokeMyConnectedAppRes()      {}
 func (*ProblemStatusCode) revokeMyTokenRes()             {}
 func (*ProblemStatusCode) revokeUserTokenRes()           {}
 func (*ProblemStatusCode) rotateClientSecretRes()        {}
 func (*ProblemStatusCode) rotateMachineSecretRes()       {}
 func (*ProblemStatusCode) setGroupTwoFactorRes()         {}
+func (*ProblemStatusCode) setMCPResourceRes()            {}
 func (*ProblemStatusCode) setStepUpRes()                 {}
 func (*ProblemStatusCode) signInRes()                    {}
 func (*ProblemStatusCode) signOutDeviceRes()             {}
@@ -2958,6 +3086,11 @@ type ResetWithPasskeyNoContent struct{}
 
 func (*ResetWithPasskeyNoContent) resetWithPasskeyRes() {}
 
+// RevokeMyConnectedAppNoContent is response for RevokeMyConnectedApp operation.
+type RevokeMyConnectedAppNoContent struct{}
+
+func (*RevokeMyConnectedAppNoContent) revokeMyConnectedAppRes() {}
+
 // RevokeMyTokenNoContent is response for RevokeMyToken operation.
 type RevokeMyTokenNoContent struct{}
 
@@ -3192,6 +3325,11 @@ type SetGroupTwoFactorNoContent struct{}
 
 func (*SetGroupTwoFactorNoContent) setGroupTwoFactorRes() {}
 
+// SetMCPResourceNoContent is response for SetMCPResource operation.
+type SetMCPResourceNoContent struct{}
+
+func (*SetMCPResourceNoContent) setMCPResourceRes() {}
+
 // SetStepUpNoContent is response for SetStepUp operation.
 type SetStepUpNoContent struct{}
 
@@ -3394,13 +3532,14 @@ func (StepUpMinutes) AllValues() []StepUpMinutes {
 	}
 }
 
-// How fresh a Client wants two-factor, and how many live Personal Tokens turning step-up on would
-// revoke: none can satisfy it (docs/adr/0019).
+// How fresh a Client wants two-factor, and how many live Personal Tokens and Connected Apps turning
+// step-up on would revoke: none can satisfy it (docs/adr/0019).
 // Ref: #/components/schemas/StepUpState
 type StepUpState struct {
 	// The window in minutes; 0 is off.
-	Minutes StepUpStateMinutes `json:"minutes"`
-	Tokens  Count              `json:"tokens"`
+	Minutes       StepUpStateMinutes `json:"minutes"`
+	Tokens        Count              `json:"tokens"`
+	ConnectedApps Count              `json:"connectedApps"`
 }
 
 // GetMinutes returns the value of Minutes.
@@ -3413,6 +3552,11 @@ func (s *StepUpState) GetTokens() Count {
 	return s.Tokens
 }
 
+// GetConnectedApps returns the value of ConnectedApps.
+func (s *StepUpState) GetConnectedApps() Count {
+	return s.ConnectedApps
+}
+
 // SetMinutes sets the value of Minutes.
 func (s *StepUpState) SetMinutes(val StepUpStateMinutes) {
 	s.Minutes = val
@@ -3421,6 +3565,11 @@ func (s *StepUpState) SetMinutes(val StepUpStateMinutes) {
 // SetTokens sets the value of Tokens.
 func (s *StepUpState) SetTokens(val Count) {
 	s.Tokens = val
+}
+
+// SetConnectedApps sets the value of ConnectedApps.
+func (s *StepUpState) SetConnectedApps(val Count) {
+	s.ConnectedApps = val
 }
 
 func (*StepUpState) getStepUpRes() {}

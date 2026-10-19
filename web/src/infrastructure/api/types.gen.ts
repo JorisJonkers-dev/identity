@@ -131,6 +131,42 @@ export type MintedToken = {
 };
 
 /**
+ * A tool acting for the User on one Client.
+ */
+export type ConnectedApp = {
+    id: Id;
+    /**
+     * What the tool called itself when it registered; nothing checks it.
+     */
+    name: string;
+    client: TokenClient;
+    createdAt: string;
+    lastUsedAt?: string;
+};
+
+/**
+ * The User's Connected Apps, oldest first.
+ */
+export type ConnectedAppList = {
+    apps: Array<ConnectedApp>;
+};
+
+/**
+ * Whether a Client takes Connected Apps, and how many it has.
+ */
+export type McpResource = {
+    on: boolean;
+    connectedApps: Count;
+};
+
+/**
+ * Whether a Client takes Connected Apps.
+ */
+export type McpResourceSetting = {
+    on: boolean;
+};
+
+/**
  * A count.
  */
 export type Count = number;
@@ -586,7 +622,7 @@ export type AccessOverview = {
 };
 
 /**
- * How fresh a Client wants two-factor, and how many live Personal Tokens turning step-up on would revoke: none can satisfy it (docs/adr/0019).
+ * How fresh a Client wants two-factor, and how many live Personal Tokens and Connected Apps turning step-up on would revoke: none can satisfy it (docs/adr/0019).
  */
 export type StepUpState = {
     /**
@@ -594,6 +630,7 @@ export type StepUpState = {
      */
     minutes: 0 | 5 | 15 | 60;
     tokens: Count;
+    connectedApps: Count;
 };
 
 /**
@@ -814,6 +851,11 @@ export type ClientId2 = ClientId;
  * The Device.
  */
 export type DeviceId = Id;
+
+/**
+ * The Connected App.
+ */
+export type ConnectedAppId = Id;
 
 /**
  * The Personal Token.
@@ -2936,3 +2978,134 @@ export type SetStepUpResponses = {
 };
 
 export type SetStepUpResponse = SetStepUpResponses[keyof SetStepUpResponses];
+
+export type ListMyConnectedAppsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/profile/connected-apps';
+};
+
+export type ListMyConnectedAppsErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type ListMyConnectedAppsError = ListMyConnectedAppsErrors[keyof ListMyConnectedAppsErrors];
+
+export type ListMyConnectedAppsResponses = {
+    /**
+     * The User's Connected Apps.
+     */
+    200: ConnectedAppList;
+};
+
+export type ListMyConnectedAppsResponse = ListMyConnectedAppsResponses[keyof ListMyConnectedAppsResponses];
+
+export type RevokeMyConnectedAppData = {
+    body?: never;
+    path: {
+        /**
+         * The Connected App.
+         */
+        connectedAppId: Id;
+    };
+    query?: never;
+    url: '/api/v1/profile/connected-apps/{connectedAppId}';
+};
+
+export type RevokeMyConnectedAppErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type RevokeMyConnectedAppError = RevokeMyConnectedAppErrors[keyof RevokeMyConnectedAppErrors];
+
+export type RevokeMyConnectedAppResponses = {
+    /**
+     * Disconnected.
+     */
+    204: void;
+};
+
+export type RevokeMyConnectedAppResponse = RevokeMyConnectedAppResponses[keyof RevokeMyConnectedAppResponses];
+
+export type GetMcpResourceData = {
+    body?: never;
+    path: {
+        /**
+         * The Client, by its id.
+         */
+        clientId: ClientId;
+    };
+    query?: never;
+    url: '/api/v1/apps/{clientId}/mcp';
+};
+
+export type GetMcpResourceErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type GetMcpResourceError = GetMcpResourceErrors[keyof GetMcpResourceErrors];
+
+export type GetMcpResourceResponses = {
+    /**
+     * The Client's setting.
+     */
+    200: McpResource;
+};
+
+export type GetMcpResourceResponse = GetMcpResourceResponses[keyof GetMcpResourceResponses];
+
+export type SetMcpResourceData = {
+    body: McpResourceSetting;
+    path: {
+        /**
+         * The Client, by its id.
+         */
+        clientId: ClientId;
+    };
+    query?: never;
+    url: '/api/v1/apps/{clientId}/mcp';
+};
+
+export type SetMcpResourceErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type SetMcpResourceError = SetMcpResourceErrors[keyof SetMcpResourceErrors];
+
+export type SetMcpResourceResponses = {
+    /**
+     * The Client's setting is set.
+     */
+    204: void;
+};
+
+export type SetMcpResourceResponse = SetMcpResourceResponses[keyof SetMcpResourceResponses];

@@ -26,6 +26,7 @@ import (
 	auditdomain "github.com/JorisJonkers-dev/identity/internal/audit/domain"
 	connectedcontexts "github.com/JorisJonkers-dev/identity/internal/connected/adapters/contexts"
 	connectedpersistence "github.com/JorisJonkers-dev/identity/internal/connected/adapters/persistence"
+	connectedweb "github.com/JorisJonkers-dev/identity/internal/connected/adapters/web"
 	connectedapp "github.com/JorisJonkers-dev/identity/internal/connected/app"
 	gatecontexts "github.com/JorisJonkers-dev/identity/internal/gate/adapters/contexts"
 	gatepersistence "github.com/JorisJonkers-dev/identity/internal/gate/adapters/persistence"
@@ -184,6 +185,7 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 	connectedContexts := connectedcontexts.New(cfg.Index, stepUpSettings, access)
 	apps := connectedapp.New(connectedpersistence.New(q, cfg.Store), connectedContexts, connectedContexts, admins, recorder, now, rand.Reader)
 	signIn.SetConsents(signinconnected.New(apps))
+	stepUps.SetConnectedApps(apps)
 	audit = auditapp.New(auditpersistence.New(q), admins, directory.New(users, access, tokens, cfg.Index), cfg.Logger, now, rand.Reader)
 	launcherContexts := launchercontexts.New(cfg.Index, access)
 	transport := cfg.IconTransport
@@ -191,7 +193,7 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 		transport = http.DefaultTransport
 	}
 	launcher := launcherapp.New(launcherContexts, launcherContexts, launcherfetch.New(transport, iconTimeout), now)
-	api, err := httpapi.New(cfg.Logger, cfg.Version, users, access, auditweb.New(audit, cfg.Grafana), launcher, tokensweb.New(tokens), signinweb.New(secrets, stepUps, machineSignIn))
+	api, err := httpapi.New(cfg.Logger, cfg.Version, users, access, auditweb.New(audit, cfg.Grafana), launcher, tokensweb.New(tokens), signinweb.New(secrets, stepUps, machineSignIn), connectedweb.New(apps))
 	if err != nil {
 		return nil, err
 	}

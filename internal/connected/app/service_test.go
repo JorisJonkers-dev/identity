@@ -921,3 +921,62 @@ func TestPruningFailsWhenTheStoreDoes(t *testing.T) {
 		})
 	}
 }
+
+func TestAnAdminSeesWhetherAClientTakesConnectedAppsAndHowMany(t *testing.T) {
+	f := newFixture()
+	f.connected(t)
+	on, n, err := f.MCPState(ctx, app.Actor{ID: root, SecondFactor: true}, "kb")
+	if err != nil || !on || n != 1 {
+		t.Fatalf("MCPState = %v, %d, %v", on, n, err)
+	}
+}
+
+func TestOnlyAnAdminSeesWhetherAClientTakesConnectedApps(t *testing.T) {
+	for _, c := range []struct {
+		name  string
+		actor app.Actor
+		want  error
+	}{
+		{"not an Admin", app.Actor{ID: ada, SecondFactor: true}, app.ErrNotAdmin},
+		{"no second factor", app.Actor{ID: root}, app.ErrSecondFactorNeeded},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			if _, _, err := newFixture().MCPState(ctx, c.actor, "kb"); !errors.Is(err, c.want) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
+
+func TestSeeingWhetherAClientTakesConnectedAppsFails(t *testing.T) {
+	for _, c := range []struct {
+		name   string
+		client string
+		spoil  func(f *fixture)
+		want   error
+	}{
+		{"for a Client not in the cluster", "gone", func(*fixture) {}, app.ErrNotFound},
+		{"when the mark cannot be read", "kb", func(f *fixture) { f.store.fail["IsMCPResource"] = errBoom }, errBoom},
+		{"when the count cannot be read", "kb", func(f *fixture) { f.store.fail["CountForClient"] = errBoom }, errBoom},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			f := newFixture()
+			c.spoil(f)
+			if _, _, err := f.MCPState(ctx, app.Actor{ID: root, SecondFactor: true}, c.client); !errors.Is(err, c.want) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
+
+func TestAClientIsLabelledByItsLabelOrItsID(t *testing.T) {
+	f := newFixture()
+	f.Service = app.New(f.store, clients{"kb": kb, "bare": {ID: "bare"}}, roles{}, admins{}, f.events, time.Now, &counter{})
+	for _, c := range []struct{ client, want string }{{"kb", "Knowledge"}, {"bare", "bare"}, {"gone", "gone"}} {
+		t.Run(c.client, func(t *testing.T) {
+			if got := f.Label(ctx, c.client); got != c.want {
+				t.Fatalf("Label = %q", got)
+			}
+		})
+	}
+}

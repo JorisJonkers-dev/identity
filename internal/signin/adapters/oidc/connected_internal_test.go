@@ -580,3 +580,22 @@ func TestTheGateRefusesATokenThatIsNoConnectedAppsToken(t *testing.T) {
 		})
 	}
 }
+
+// brokenCrypto seals and opens nothing.
+type brokenCrypto struct{}
+
+func (brokenCrypto) Encrypt(string) (string, error) { return "", errBoom }
+func (brokenCrypto) Decrypt(string) (string, error) { return "", errBoom }
+
+func TestATokenThatCannotBeSealedIsNotIssued(t *testing.T) {
+	if _, err := (appSealer{sealed: brokenCrypto{}}).Encrypt("app-1:ada"); !errors.Is(err, errBoom) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestAnAuthorizeRequestThatCannotBeReadIsLeftToTheProvider(t *testing.T) {
+	e := newEnv(t)
+	if p := e.get(t, "/oidc/authorize?client_id=mcp-1&%zz", false); p.status == http.StatusFound {
+		t.Fatalf("a broken request was sent on: %s", p.header.Get("Location"))
+	}
+}

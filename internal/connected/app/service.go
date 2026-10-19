@@ -452,15 +452,8 @@ func (s *Service) IsMCPResource(ctx context.Context, clientID string) (bool, err
 // SetMCPResource lets a Client take Connected Apps, or stops it, as an Admin. Stopping keeps the
 // Connected Apps it has; an Admin revokes those by turning step-up on, or a User revokes their own.
 func (s *Service) SetMCPResource(ctx context.Context, actor Actor, clientID string, on bool) error {
-	yes, err := s.admins.IsAdmin(ctx, actor.ID)
-	if err != nil {
+	if err := s.admin(ctx, actor); err != nil {
 		return err
-	}
-	if !yes {
-		return ErrNotAdmin
-	}
-	if !actor.SecondFactor {
-		return ErrSecondFactorNeeded
 	}
 	if _, err := s.clients.Client(ctx, clientID); err != nil {
 		return err
@@ -474,6 +467,46 @@ func (s *Service) SetMCPResource(ctx context.Context, actor Actor, clientID stri
 	}
 	s.audit.Record(ctx, audit.Event{Action: action, Actor: actor.ID, Client: clientID})
 	return nil
+}
+
+// MCPState is whether a Client takes Connected Apps and how many it has, as an Admin sees it.
+func (s *Service) MCPState(ctx context.Context, actor Actor, clientID string) (bool, int, error) {
+	if err := s.admin(ctx, actor); err != nil {
+		return false, 0, err
+	}
+	if _, err := s.clients.Client(ctx, clientID); err != nil {
+		return false, 0, err
+	}
+	on, err := s.store.IsMCPResource(ctx, clientID)
+	if err != nil {
+		return false, 0, err
+	}
+	n, err := s.store.CountForClient(ctx, clientID)
+	return on, n, err
+}
+
+// admin is nil for an Admin whose session proved a Second Factor.
+func (s *Service) admin(ctx context.Context, actor Actor) error {
+	yes, err := s.admins.IsAdmin(ctx, actor.ID)
+	if err != nil {
+		return err
+	}
+	if !yes {
+		return ErrNotAdmin
+	}
+	if !actor.SecondFactor {
+		return ErrSecondFactorNeeded
+	}
+	return nil
+}
+
+// Label is a Client's label, for the Security page; its id when it has none or is gone.
+func (s *Service) Label(ctx context.Context, clientID string) string {
+	c, err := s.clients.Client(ctx, clientID)
+	if err != nil || c.Label == "" {
+		return clientID
+	}
+	return c.Label
 }
 
 // Prune removes registrations nobody consented to within a day, and expired tokens.

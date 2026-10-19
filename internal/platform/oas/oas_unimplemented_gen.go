@@ -273,6 +273,15 @@ func (UnimplementedHandler) GetLauncher(ctx context.Context) (r GetLauncherRes, 
 	return r, ht.ErrNotImplemented
 }
 
+// GetMCPResource implements getMCPResource operation.
+//
+// Admins only, from a session that proved a Second Factor.
+//
+// GET /api/v1/apps/{clientId}/mcp
+func (UnimplementedHandler) GetMCPResource(ctx context.Context, params GetMCPResourceParams) (r GetMCPResourceRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // GetProfile implements getProfile operation.
 //
 // Who is signed in.
@@ -328,6 +337,15 @@ func (UnimplementedHandler) ListDevices(ctx context.Context) (r ListDevicesRes, 
 //
 // GET /api/v1/access/machines
 func (UnimplementedHandler) ListMachines(ctx context.Context) (r ListMachinesRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// ListMyConnectedApps implements listMyConnectedApps operation.
+//
+// The tools acting for the signed-in User, oldest first.
+//
+// GET /api/v1/profile/connected-apps
+func (UnimplementedHandler) ListMyConnectedApps(ctx context.Context) (r ListMyConnectedAppsRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -441,6 +459,15 @@ func (UnimplementedHandler) ResetWithPasskey(ctx context.Context, req *ResetPass
 	return r, ht.ErrNotImplemented
 }
 
+// RevokeMyConnectedApp implements revokeMyConnectedApp operation.
+//
+// Its tokens stop working at once; the tool must ask for consent again.
+//
+// DELETE /api/v1/profile/connected-apps/{connectedAppId}
+func (UnimplementedHandler) RevokeMyConnectedApp(ctx context.Context, params RevokeMyConnectedAppParams) (r RevokeMyConnectedAppRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // RevokeMyToken implements revokeMyToken operation.
 //
 // The token is refused from now on. Revoking it twice changes nothing.
@@ -488,6 +515,16 @@ func (UnimplementedHandler) RotateMachineSecret(ctx context.Context, params Rota
 //
 // PUT /api/v1/access/groups/{groupId}/two-factor
 func (UnimplementedHandler) SetGroupTwoFactor(ctx context.Context, req *TwoFactorRequirement, params SetGroupTwoFactorParams) (r SetGroupTwoFactorRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// SetMCPResource implements setMCPResource operation.
+//
+// Admins only, from a session that proved a Second Factor. Stopping keeps the Connected Apps the
+// Client has; turning step-up on disconnects them.
+//
+// PUT /api/v1/apps/{clientId}/mcp
+func (UnimplementedHandler) SetMCPResource(ctx context.Context, req *MCPResourceSetting, params SetMCPResourceParams) (r SetMCPResourceRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 

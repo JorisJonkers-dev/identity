@@ -54,7 +54,7 @@ func (h *Apps) GetStepUp(ctx context.Context, params oas.GetStepUpParams) (oas.G
 	if err != nil {
 		return stepUpRefusal(err)
 	}
-	return &oas.StepUpState{Minutes: oas.StepUpStateMinutes(s.Minutes), Tokens: oas.Count(s.Tokens)}, nil //nolint:gosec // 0 to 60, and a count
+	return &oas.StepUpState{Minutes: oas.StepUpStateMinutes(s.Minutes), Tokens: oas.Count(s.Tokens), ConnectedApps: oas.Count(s.ConnectedApps)}, nil //nolint:gosec // 0 to 60, and counts
 }
 
 // SetStepUp implements setStepUp.
