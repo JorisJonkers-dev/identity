@@ -276,6 +276,13 @@ type Handler interface {
 	//
 	// POST /api/v1/apps/{clientId}/secret
 	RotateClientSecret(ctx context.Context, params RotateClientSecretParams) (RotateClientSecretRes, error)
+	// SetGroupTwoFactor implements setGroupTwoFactor operation.
+	//
+	// While a Group requires two-factor, a member without it holds none of the Group's App Roles; their
+	// other roles keep working. The admins Group always requires it. Admins only.
+	//
+	// PUT /api/v1/access/groups/{groupId}/two-factor
+	SetGroupTwoFactor(ctx context.Context, req *TwoFactorRequirement, params SetGroupTwoFactorParams) (SetGroupTwoFactorRes, error)
 	// SetStepUp implements setStepUp operation.
 	//
 	// Signing in to the Client then finishes only when the session proved two-factor within the window; 0

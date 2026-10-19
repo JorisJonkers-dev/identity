@@ -9,13 +9,14 @@ import Icon from '../../../shared/Icon'
 import PersonAvatar from '../../../shared/PersonAvatar.vue'
 import RoleChip from '../../../shared/RoleChip.vue'
 import { useAccess } from '../composables/useAccess'
+import { counted } from '../../admin/format'
 import { allRoles, appsOf, groupsOf, holds, membersOf, unassigned } from '../model'
 
 /** One Group: the apps it gives roles on, and the people in it. */
 const props = defineProps<{ o: AccessOverview; group: Group }>()
 const route = useRoute()
 const router = useRouter()
-const { actionError, renameGroup, deleteGroup, addMember, removeMember, setRole } = useAccess()
+const { actionError, renameGroup, deleteGroup, addMember, removeMember, setRole, setTwoFactor } = useAccess()
 
 const tab = computed(() => (route.query.tab === 'members' ? 'members' : 'access'))
 function go(members: boolean) {
@@ -79,8 +80,25 @@ const alsoIn = (userId: string) =>
     .map((g) => g.name)
     .join(' · ')
 
-// Dialogs: a new name, or deleting the Group.
-const dialog = ref<'rename' | 'delete' | null>(null)
+// Two-factor: requiring it holds back the Group's roles from members without it, so the Admin
+// sees how many first; dropping it needs no warning.
+const withoutTwoFactor = computed(() => members.value.filter((m) => !m.twoFactor))
+const twoFactorNote = computed(() => {
+  if (props.group.admins) return 'Always on for Admins'
+  if (!props.group.requiresTwoFactor) return 'Off'
+  return `Holds back ${counted(withoutTwoFactor.value.length, 'member')} without two-factor`
+})
+function toggleTwoFactor() {
+  if (props.group.requiresTwoFactor) setTwoFactor(props.group.id, false)
+  else dialog.value = 'two-factor'
+}
+function requireTwoFactor() {
+  dialog.value = null
+  setTwoFactor(props.group.id, true)
+}
+
+// Dialogs: a new name, deleting the Group, or requiring two-factor.
+const dialog = ref<'rename' | 'delete' | 'two-factor' | null>(null)
 const draft = ref('')
 function rename() {
   renameGroup(props.group.id, draft.value)
@@ -105,6 +123,11 @@ function remove() {
       </div>
     </div>
     <p v-if="actionError" role="alert" class="alert"><Icon name="alert" />{{ actionError }}</p>
+    <div class="row tf-row">
+      <span class="row-ic"><Icon name="shield" /></span>
+      <span class="grow"><b>Require two-factor</b><small>{{ twoFactorNote }}</small></span>
+      <label class="switch"><input type="checkbox" aria-label="Require two-factor" :checked="group.requiresTwoFactor" :disabled="group.admins" @click.prevent="toggleTwoFactor" /><span class="sw" /></label>
+    </div>
     <nav class="g-tabs" :aria-label="group.name">
       <button type="button" class="g-tab" :aria-current="tab === 'access' ? 'page' : undefined" @click="go(false)">Access <span class="n">{{ group.admins ? 'Admin' : heldApps.length }}</span></button>
       <button type="button" class="g-tab" :aria-current="tab === 'members' ? 'page' : undefined" @click="go(true)">Members <span class="n">{{ members.length }}</span></button>
@@ -154,6 +177,7 @@ function remove() {
         <div v-for="m in members" :key="m.id" class="m-row">
           <PersonAvatar :name="m.name" />
           <RouterLink class="grow m-link" :to="`/admin/people/${m.id}`"><b>{{ m.name }}</b><small>{{ m.email }}</small></RouterLink>
+          <span v-if="group.requiresTwoFactor && !m.twoFactor" class="gtag warn">No two-factor</span>
           <span class="also">{{ alsoIn(m.id) }}</span>
           <button class="icon-btn sm" type="button" :aria-label="`Remove ${m.name} from ${group.name}`" @click="removeMember(group.id, m.id)"><Icon name="x" /></button>
         </div>
@@ -172,6 +196,13 @@ function remove() {
         <h2 id="g-dlg">Delete {{ group.name }}?</h2>
         <p>{{ members.length }} people lose the access it gives them.</p>
         <div class="btn-row end"><button class="btn" type="button" @click="dialog = null">Cancel</button><button class="btn danger-solid" type="submit">Delete Group</button></div>
+      </form>
+    </DialogScrim>
+    <DialogScrim v-if="dialog === 'two-factor'" @close="dialog = null">
+      <form class="dialog glass strong" role="dialog" aria-modal="true" aria-labelledby="g-dlg" @submit.prevent="requireTwoFactor">
+        <h2 id="g-dlg">Require two-factor for {{ group.name }}?</h2>
+        <p>{{ withoutTwoFactor.length === 1 ? '1 member has' : `${withoutTwoFactor.length} members have` }} no two-factor. They lose the roles {{ group.name }} gives until they set it up.</p>
+        <div class="btn-row end"><button class="btn" type="button" @click="dialog = null">Cancel</button><button class="btn primary" type="submit">Require two-factor</button></div>
       </form>
     </DialogScrim>
     <DialogScrim v-if="dialog === 'rename'" @close="dialog = null">

@@ -12,7 +12,7 @@ export type AuditKind = 'sign-in' | 'people' | 'access' | 'tokens';
 /**
  * What an Audit Event records.
  */
-export type AuditAction = 'signed-in' | 'sign-in-failed' | 'signed-out' | 'user-created' | 'user-renamed' | 'password-changed' | 'second-factor-added' | 'second-factor-removed' | 'admin-promoted' | 'group-created' | 'group-renamed' | 'group-deleted' | 'member-added' | 'member-removed' | 'role-assigned' | 'role-removed' | 'token-minted' | 'token-revoked' | 'client-secret-rotated' | 'email-changed' | 'account-deleted' | 'password-reset' | 'step-up-changed';
+export type AuditAction = 'signed-in' | 'sign-in-failed' | 'signed-out' | 'user-created' | 'user-renamed' | 'password-changed' | 'second-factor-added' | 'second-factor-removed' | 'admin-promoted' | 'group-created' | 'group-renamed' | 'group-deleted' | 'member-added' | 'member-removed' | 'role-assigned' | 'role-removed' | 'token-minted' | 'token-revoked' | 'client-secret-rotated' | 'group-two-factor-required' | 'group-two-factor-dropped' | 'email-changed' | 'account-deleted' | 'password-reset' | 'step-up-changed';
 
 /**
  * Where a page of Audit Events ends; opaque.
@@ -395,6 +395,10 @@ export type Group = {
      */
     admins: boolean;
     /**
+     * Whether a member without two-factor holds none of the Group's App Roles. The admins Group always does.
+     */
+    requiresTwoFactor: boolean;
+    /**
      * The Users in the Group.
      */
     members: Array<Id>;
@@ -444,6 +448,10 @@ export type Person = {
      * What the User is called.
      */
     name: string;
+    /**
+     * Whether the User added an authenticator app or a passkey.
+     */
+    twoFactor: boolean;
 };
 
 /**
@@ -468,6 +476,13 @@ export type Assignment = {
     groupId: Id;
     clientId: ClientId;
     role: AppRole;
+};
+
+/**
+ * Whether a Group requires two-factor of its members.
+ */
+export type TwoFactorRequirement = {
+    required: boolean;
 };
 
 /**
@@ -1953,6 +1968,40 @@ export type AddMemberResponses = {
 };
 
 export type AddMemberResponse = AddMemberResponses[keyof AddMemberResponses];
+
+export type SetGroupTwoFactorData = {
+    body: TwoFactorRequirement;
+    path: {
+        /**
+         * The Group.
+         */
+        groupId: Id;
+    };
+    query?: never;
+    url: '/api/v1/access/groups/{groupId}/two-factor';
+};
+
+export type SetGroupTwoFactorErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type SetGroupTwoFactorError = SetGroupTwoFactorErrors[keyof SetGroupTwoFactorErrors];
+
+export type SetGroupTwoFactorResponses = {
+    /**
+     * The Group's requirement is set.
+     */
+    204: void;
+};
+
+export type SetGroupTwoFactorResponse = SetGroupTwoFactorResponses[keyof SetGroupTwoFactorResponses];
 
 export type SignOutUserData = {
     body?: never;

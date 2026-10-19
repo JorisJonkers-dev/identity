@@ -1653,6 +1653,79 @@ func decodeRotateClientSecretParams(args [1]string, argsEscaped bool, r *http.Re
 	return params, nil
 }
 
+// SetGroupTwoFactorParams is parameters of setGroupTwoFactor operation.
+type SetGroupTwoFactorParams struct {
+	// The Group.
+	GroupId ID
+}
+
+func unpackSetGroupTwoFactorParams(packed middleware.Parameters) (params SetGroupTwoFactorParams) {
+	{
+		key := middleware.ParameterKey{
+			Name: "groupId",
+			In:   "path",
+		}
+		params.GroupId = packed[key].(ID)
+	}
+	return params
+}
+
+func decodeSetGroupTwoFactorParams(args [1]string, argsEscaped bool, r *http.Request) (params SetGroupTwoFactorParams, _ error) {
+	// Decode path: groupId.
+	if err := func() error {
+		param := args[0]
+		if argsEscaped {
+			unescaped, err := url.PathUnescape(args[0])
+			if err != nil {
+				return errors.Wrap(err, "unescape path")
+			}
+			param = unescaped
+		}
+		if len(param) > 0 {
+			d := uri.NewPathDecoder(uri.PathDecoderConfig{
+				Param:   "groupId",
+				Value:   param,
+				Style:   uri.PathStyleSimple,
+				Explode: false,
+			})
+
+			if err := func() error {
+				var paramsDotGroupIdVal uuid.UUID
+				if err := func() error {
+					val, err := d.DecodeValue()
+					if err != nil {
+						return err
+					}
+
+					c, err := conv.ToUUID(val)
+					if err != nil {
+						return err
+					}
+
+					paramsDotGroupIdVal = c
+					return nil
+				}(); err != nil {
+					return err
+				}
+				params.GroupId = ID(paramsDotGroupIdVal)
+				return nil
+			}(); err != nil {
+				return err
+			}
+		} else {
+			return validate.ErrFieldRequired
+		}
+		return nil
+	}(); err != nil {
+		return params, &ogenerrors.DecodeParamError{
+			Name: "groupId",
+			In:   "path",
+			Err:  err,
+		}
+	}
+	return params, nil
+}
+
 // SetStepUpParams is parameters of setStepUp operation.
 type SetStepUpParams struct {
 	// The Client, by its id.

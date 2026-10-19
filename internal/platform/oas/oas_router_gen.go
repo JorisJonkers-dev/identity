@@ -17,6 +17,9 @@ var (
 	rn2AllowedHeaders = map[string]string{
 		"PATCH": "Content-Type",
 	}
+	rn66AllowedHeaders = map[string]string{
+		"PUT": "Content-Type",
+	}
 	rn43AllowedHeaders = map[string]string{
 		"PUT": "Content-Type",
 	}
@@ -68,7 +71,7 @@ var (
 	rn48AllowedHeaders = map[string]string{
 		"POST": "Content-Type",
 	}
-	rn66AllowedHeaders = map[string]string{
+	rn67AllowedHeaders = map[string]string{
 		"POST": "Content-Type",
 	}
 	rn28AllowedHeaders = map[string]string{
@@ -77,13 +80,13 @@ var (
 	rn26AllowedHeaders = map[string]string{
 		"POST": "Content-Type",
 	}
-	rn79AllowedHeaders = map[string]string{
-		"POST": "Content-Type",
-	}
 	rn80AllowedHeaders = map[string]string{
 		"POST": "Content-Type",
 	}
-	rn72AllowedHeaders = map[string]string{
+	rn81AllowedHeaders = map[string]string{
+		"POST": "Content-Type",
+	}
+	rn73AllowedHeaders = map[string]string{
 		"POST": "Content-Type",
 	}
 )
@@ -369,6 +372,33 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 												return
 											}
 
+										}
+
+									case 't': // Prefix: "two-factor"
+
+										if l := len("two-factor"); len(elem) >= l && elem[0:l] == "two-factor" {
+											elem = elem[l:]
+										} else {
+											break
+										}
+
+										if len(elem) == 0 {
+											// Leaf node.
+											switch r.Method {
+											case "PUT":
+												s.handleSetGroupTwoFactorRequest([1]string{
+													args[0],
+												}, elemIsEscaped, w, r)
+											default:
+												s.notAllowed(w, r, notAllowedParams{
+													allowedMethods: "PUT",
+													allowedHeaders: rn66AllowedHeaders,
+													acceptPost:     "",
+													acceptPatch:    "",
+												})
+											}
+
+											return
 										}
 
 									}
@@ -1505,7 +1535,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 						default:
 							s.notAllowed(w, r, notAllowedParams{
 								allowedMethods: "DELETE,POST",
-								allowedHeaders: rn66AllowedHeaders,
+								allowedHeaders: rn67AllowedHeaders,
 								acceptPost:     "application/json",
 								acceptPatch:    "",
 							})
@@ -1666,7 +1696,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 											default:
 												s.notAllowed(w, r, notAllowedParams{
 													allowedMethods: "POST",
-													allowedHeaders: rn79AllowedHeaders,
+													allowedHeaders: rn80AllowedHeaders,
 													acceptPost:     "application/json",
 													acceptPatch:    "",
 												})
@@ -1715,7 +1745,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 												default:
 													s.notAllowed(w, r, notAllowedParams{
 														allowedMethods: "POST",
-														allowedHeaders: rn80AllowedHeaders,
+														allowedHeaders: rn81AllowedHeaders,
 														acceptPost:     "application/json",
 														acceptPatch:    "",
 													})
@@ -1752,7 +1782,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 						default:
 							s.notAllowed(w, r, notAllowedParams{
 								allowedMethods: "POST",
-								allowedHeaders: rn72AllowedHeaders,
+								allowedHeaders: rn73AllowedHeaders,
 								acceptPost:     "application/json",
 								acceptPatch:    "",
 							})
@@ -2121,6 +2151,31 @@ func (s *Server) FindPath(method string, u *url.URL) (r Route, _ bool) {
 												}
 											}
 
+										}
+
+									case 't': // Prefix: "two-factor"
+
+										if l := len("two-factor"); len(elem) >= l && elem[0:l] == "two-factor" {
+											elem = elem[l:]
+										} else {
+											break
+										}
+
+										if len(elem) == 0 {
+											// Leaf node.
+											switch method {
+											case "PUT":
+												r.name = SetGroupTwoFactorOperation
+												r.summary = "Make a Group require two-factor, or stop"
+												r.operationID = "setGroupTwoFactor"
+												r.operationGroup = ""
+												r.pathPattern = "/api/v1/access/groups/{groupId}/two-factor"
+												r.args = args
+												r.count = 1
+												return r, true
+											default:
+												return
+											}
 										}
 
 									}

@@ -61,6 +61,10 @@ export function describeEvent(e: AuditEvent): Part[] {
       return [actor, { text: ` renamed a Group to ${group}` }]
     case 'group-deleted':
       return [actor, { text: ` deleted the Group ${group}` }]
+    case 'group-two-factor-required':
+      return [actor, { text: ` made ${group} require two-factor` }]
+    case 'group-two-factor-dropped':
+      return [actor, { text: ` stopped ${group} requiring two-factor` }]
     case 'member-added':
       return [actor, { text: ` added ${name(e.user)} to ${group}` }]
     case 'member-removed':

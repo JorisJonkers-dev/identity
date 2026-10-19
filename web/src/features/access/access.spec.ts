@@ -27,6 +27,11 @@ function server(start: AccessOverview = overview()) {
     }
   }
   for (const g of o.groups) {
+    answers[`PUT /api/v1/access/groups/${g.id}/two-factor`] = () => {
+      const it = group(g.id)
+      if (it) it.requiresTwoFactor = !it.requiresTwoFactor
+      return ok()
+    }
     for (const c of o.clients) {
       for (const r of c.roles) {
         answers[`PUT ${roleAt(g.id, c.id, r)}`] = () => {
@@ -257,7 +262,7 @@ describe('the Groups page', () => {
     const { answers } = server()
     const { wrapper, requests } = await mountAt('/admin/groups', {
       ...answers,
-      'POST /api/v1/access/groups': () => Response.json({ id: '00000000-0000-4000-8000-0000000000b9', name: 'Neighbours', admins: false, members: [] }, { status: 201 }),
+      'POST /api/v1/access/groups': () => Response.json({ id: '00000000-0000-4000-8000-0000000000b9', name: 'Neighbours', admins: false, requiresTwoFactor: false, members: [] }, { status: 201 }),
     })
     await button(wrapper, 'New Group').trigger('click')
     await wrapper.get('#g-name').setValue('Neighbours')
@@ -573,6 +578,69 @@ describe('an app’s page', () => {
     await wrapper.get('[aria-label="Take viewer from Family"]').trigger('click')
     await settle()
     expect(wrapper.get('[role="alert"]').text()).toBe('That role is no longer on Grafana.')
+  })
+})
+
+describe('a Group that requires two-factor', () => {
+  const requiring = () => {
+    const { o, answers } = server()
+    o.groups = o.groups.map((g) => (g.id === ids.family ? { ...g, requiresTwoFactor: true } : g))
+    return { o, answers }
+  }
+
+  it('is marked in the Group list', async () => {
+    const { wrapper } = await mountAt('/admin/groups', requiring().answers)
+    expect(wrapper.findAll('.g-item').map((i) => i.find('.gtag.tf').exists())).toEqual([true, true, false])
+  })
+
+  it('is asked for after saying how many members it holds back', async () => {
+    const { wrapper, requests } = await mountAt(`/admin/groups/${ids.family}`, server().answers)
+    await wrapper.get('input[aria-label="Require two-factor"]').trigger('click')
+    expect(wrapper.get('[role="dialog"] p').text()).toBe('1 member has no two-factor. They lose the roles Family gives until they set it up.')
+    await wrapper.get('[role="dialog"]').trigger('submit')
+    await settle()
+    expect(requests.find((r) => r.key === `PUT /api/v1/access/groups/${ids.family}/two-factor`)?.body).toEqual({ required: true })
+    expect((wrapper.get('input[aria-label="Require two-factor"]').element as HTMLInputElement).checked).toBe(true)
+  })
+
+  it('is not asked for when the dialog is cancelled', async () => {
+    const { wrapper, requests } = await mountAt(`/admin/groups/${ids.family}`, server().answers)
+    await wrapper.get('input[aria-label="Require two-factor"]').trigger('click')
+    await wrapper.findAll('[role="dialog"] button').find((b) => b.text() === 'Cancel')?.trigger('click')
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    expect(requests.some((r) => r.key.endsWith('/two-factor'))).toBe(false)
+  })
+
+  it('counts every member without two-factor, and closes on Escape', async () => {
+    const { o, answers } = server()
+    o.groups = o.groups.map((g) => (g.id === ids.friends ? { ...g, members: [ids.ada, ids.noor] } : g))
+    const { wrapper } = await mountAt(`/admin/groups/${ids.friends}`, answers, { attach: true })
+    await wrapper.get('input[aria-label="Require two-factor"]').trigger('click')
+    expect(wrapper.get('[role="dialog"] p').text()).toBe('2 members have no two-factor. They lose the roles Friends gives until they set it up.')
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await settle()
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+  })
+
+  it('stops requiring it without asking', async () => {
+    const { wrapper, requests } = await mountAt(`/admin/groups/${ids.family}`, requiring().answers)
+    await wrapper.get('input[aria-label="Require two-factor"]').trigger('click')
+    await settle()
+    expect(requests.find((r) => r.key === `PUT /api/v1/access/groups/${ids.family}/two-factor`)?.body).toEqual({ required: false })
+  })
+
+  it('says how many members it holds back, and marks them', async () => {
+    const { wrapper } = await mountAt(`/admin/groups/${ids.family}?tab=members`, requiring().answers)
+    expect(wrapper.get('.tf-row small').text()).toBe('Holds back 1 member without two-factor')
+    expect(wrapper.findAll('.m-row').map((r) => r.find('.gtag.warn').exists())).toEqual([false, true])
+  })
+
+  it('cannot be turned off for the admins', async () => {
+    const { wrapper } = await mountAt(`/admin/groups/${ids.admins}`, server().answers)
+    const toggle = wrapper.get('input[aria-label="Require two-factor"]')
+    expect((toggle.element as HTMLInputElement).checked).toBe(true)
+    expect(toggle.attributes('disabled')).toBeDefined()
+    expect(wrapper.get('.tf-row small').text()).toBe('Always on for Admins')
   })
 })
 

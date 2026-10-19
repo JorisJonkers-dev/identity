@@ -23,10 +23,11 @@ var (
 )
 
 type group struct {
-	ID      string
-	Name    string
-	Admins  bool
-	Members []string
+	ID                string
+	Name              string
+	Admins            bool
+	Members           []string
+	RequiresTwoFactor bool
 }
 
 type assignment struct{ GroupID, ClientID, Role string }

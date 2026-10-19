@@ -35,6 +35,8 @@ export const zAuditAction = z.enum([
     'token-minted',
     'token-revoked',
     'client-secret-rotated',
+    'group-two-factor-required',
+    'group-two-factor-dropped',
     'email-changed',
     'account-deleted',
     'password-reset',
@@ -363,6 +365,7 @@ export const zGroup = z.object({
     id: zId,
     name: z.string().max(256),
     admins: z.boolean(),
+    requiresTwoFactor: z.boolean(),
     members: z.array(zId).max(100000)
 });
 
@@ -391,7 +394,8 @@ export const zLauncher = z.object({
 export const zPerson = z.object({
     id: zId,
     email: zEmail,
-    name: z.string().max(400)
+    name: z.string().max(400),
+    twoFactor: z.boolean()
 });
 
 /**
@@ -410,6 +414,13 @@ export const zAssignment = z.object({
     groupId: zId,
     clientId: zClientId,
     role: zAppRole
+});
+
+/**
+ * Whether a Group requires two-factor of its members.
+ */
+export const zTwoFactorRequirement = z.object({
+    required: z.boolean()
 });
 
 /**
@@ -860,6 +871,17 @@ export const zAddMemberPath = z.object({
  * The User is a member.
  */
 export const zAddMemberResponse = z.void();
+
+export const zSetGroupTwoFactorBody = zTwoFactorRequirement;
+
+export const zSetGroupTwoFactorPath = z.object({
+    groupId: zId
+});
+
+/**
+ * The Group's requirement is set.
+ */
+export const zSetGroupTwoFactorResponse = z.void();
 
 export const zSignOutUserPath = z.object({
     userId: zId

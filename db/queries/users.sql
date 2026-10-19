@@ -203,3 +203,7 @@ UPDATE password_resets SET proved_at = $2 WHERE user_id = $1;
 -- name: TakePasswordReset :execrows
 -- Finishing a reset spends its link; of two racing, one gets it.
 DELETE FROM password_resets WHERE token_hash = $1;
+
+-- name: ListUsersWithTwoFactor :many
+-- The Users who added an authenticator app or a passkey.
+SELECT user_id FROM totp_factors UNION SELECT user_id FROM passkeys;

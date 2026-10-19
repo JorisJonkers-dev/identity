@@ -15,6 +15,7 @@ import (
 // Users is what People needs from the users context.
 type Users interface {
 	Users(ctx context.Context) ([]usersdomain.User, error)
+	UsersWithTwoFactor(ctx context.Context) ([]uuid.UUID, error)
 	SignOutEverywhere(ctx context.Context, actor, userID uuid.UUID) error
 }
 
@@ -31,9 +32,17 @@ func (p *People) People(ctx context.Context) ([]domain.Person, error) {
 	if err != nil {
 		return nil, err
 	}
+	with, err := p.users.UsersWithTwoFactor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	twoFactor := make(map[uuid.UUID]bool, len(with))
+	for _, id := range with {
+		twoFactor[id] = true
+	}
 	out := make([]domain.Person, 0, len(users))
 	for _, u := range users {
-		out = append(out, domain.Person{ID: u.ID, Email: u.Email.String(), Name: u.Name.String()})
+		out = append(out, domain.Person{ID: u.ID, Email: u.Email.String(), Name: u.Name.String(), TwoFactor: twoFactor[u.ID]})
 	}
 	return out, nil
 }

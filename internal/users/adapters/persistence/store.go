@@ -249,6 +249,10 @@ func (s *Store) TakePasswordReset(ctx context.Context, hash []byte) (bool, error
 	return n > 0, err
 }
 
+func (s *Store) UsersWithTwoFactor(ctx context.Context) ([]uuid.UUID, error) {
+	return s.q.ListUsersWithTwoFactor(ctx)
+}
+
 func (s *Store) TouchSession(ctx context.Context, hash []byte, lastSeen, expires time.Time) error {
 	return s.q.TouchSession(ctx, queries.TouchSessionParams{TokenHash: hash, LastSeenAt: lastSeen, ExpiresAt: expires})
 }

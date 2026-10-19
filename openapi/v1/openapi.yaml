@@ -901,6 +901,29 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/access/groups/{groupId}/two-factor:
+    parameters:
+      - $ref: "#/components/parameters/GroupId"
+    put:
+      operationId: setGroupTwoFactor
+      summary: Make a Group require two-factor, or stop
+      description: >-
+        While a Group requires two-factor, a member without it holds none of the Group's App
+        Roles; their other roles keep working. The admins Group always requires it. Admins only.
+      tags: [access]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TwoFactorRequirement"
+      responses:
+        "204":
+          description: The Group's requirement is set.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /api/v1/access/users/{userId}/sign-out:
     parameters:
       - $ref: "#/components/parameters/UserId"
@@ -1286,6 +1309,8 @@ components:
         - token-minted
         - token-revoked
         - client-secret-rotated
+        - group-two-factor-required
+        - group-two-factor-dropped
         - email-changed
         - account-deleted
         - password-reset
@@ -1779,7 +1804,7 @@ components:
       description: A named set of Users.
       type: object
       additionalProperties: false
-      required: [id, name, admins, members]
+      required: [id, name, admins, requiresTwoFactor, members]
       properties:
         id:
           $ref: "#/components/schemas/Id"
@@ -1791,6 +1816,9 @@ components:
         admins:
           type: boolean
           description: Whether this is the admins Group, whose members are Admins and which holds no App Role.
+        requiresTwoFactor:
+          type: boolean
+          description: Whether a member without two-factor holds none of the Group's App Roles. The admins Group always does.
         members:
           type: array
           maxItems: 100000
@@ -1850,7 +1878,7 @@ components:
       description: A User, as the access page lists one.
       type: object
       additionalProperties: false
-      required: [id, email, name]
+      required: [id, email, name, twoFactor]
       properties:
         id:
           $ref: "#/components/schemas/Id"
@@ -1861,6 +1889,9 @@ components:
           maxLength: 400
           description: What the User is called.
           example: Ada Lovelace
+        twoFactor:
+          type: boolean
+          description: Whether the User added an authenticator app or a passkey.
     AccessClient:
       description: A Client in the cluster, with the App Roles it declares.
       type: object
@@ -1892,6 +1923,14 @@ components:
           $ref: "#/components/schemas/ClientId"
         role:
           $ref: "#/components/schemas/AppRole"
+    TwoFactorRequirement:
+      description: Whether a Group requires two-factor of its members.
+      type: object
+      additionalProperties: false
+      required: [required]
+      properties:
+        required:
+          type: boolean
     UserAssignment:
       description: A User holding one App Role on one Client directly, without a Group.
       type: object

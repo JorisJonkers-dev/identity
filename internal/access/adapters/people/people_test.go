@@ -16,9 +16,15 @@ type users struct {
 	list      []usersdomain.User
 	err       error
 	signedOut *[2]uuid.UUID
+	twoFactor []uuid.UUID
+	factorErr error
 }
 
 func (u users) Users(context.Context) ([]usersdomain.User, error) { return u.list, u.err }
+
+func (u users) UsersWithTwoFactor(context.Context) ([]uuid.UUID, error) {
+	return u.twoFactor, u.factorErr
+}
 
 func (u users) SignOutEverywhere(_ context.Context, actor, id uuid.UUID) error {
 	*u.signedOut = [2]uuid.UUID{actor, id}
@@ -36,6 +42,23 @@ func TestPeopleAreUsersWithoutTheirSecrets(t *testing.T) {
 	boom := errors.New("boom")
 	if _, err := people.New(users{err: boom}).People(context.Background()); !errors.Is(err, boom) {
 		t.Fatalf("a failing users context: %v", err)
+	}
+}
+
+func TestAPersonSaysWhetherTheyHaveTwoFactor(t *testing.T) {
+	e, _ := usersdomain.NewEmail("ada@example.org")
+	n, _ := usersdomain.NewName("Ada")
+	with, without := uuid.New(), uuid.New()
+	got, err := people.New(users{list: []usersdomain.User{{ID: with, Email: e, Name: n}, {ID: without, Email: e, Name: n}}, twoFactor: []uuid.UUID{with}}).People(context.Background())
+	if err != nil || !got[0].TwoFactor || got[1].TwoFactor {
+		t.Fatalf("People = %+v, %v", got, err)
+	}
+}
+
+func TestPeopleFailWhenWhoHasTwoFactorCannotBeRead(t *testing.T) {
+	boom := errors.New("boom")
+	if _, err := people.New(users{factorErr: boom}).People(context.Background()); !errors.Is(err, boom) {
+		t.Fatalf("err = %v", err)
 	}
 }
 

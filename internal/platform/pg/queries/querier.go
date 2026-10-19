@@ -86,6 +86,8 @@ type Querier interface {
 	ListUnassigned(ctx context.Context) ([]uuid.UUID, error)
 	ListUserAssignments(ctx context.Context) ([]ListUserAssignmentsRow, error)
 	ListUsers(ctx context.Context) ([]User, error)
+	// The Users who added an authenticator app or a passkey.
+	ListUsersWithTwoFactor(ctx context.Context) ([]uuid.UUID, error)
 	// Held until the transaction ends, as removing an Admin holds it, so two deletions cannot both see
 	// the other Admin.
 	LockAdminsGroup(ctx context.Context) (uuid.UUID, error)
@@ -109,9 +111,10 @@ type Querier interface {
 	RenameGroup(ctx context.Context, arg RenameGroupParams) (int64, error)
 	// Revokes a User's token once; a second revocation, or another User's token, changes nothing.
 	RevokePersonalToken(ctx context.Context, arg RevokePersonalTokenParams) (int64, error)
-	// Every App Role a User holds, per Client: their own and their Groups', combined (docs/adr/0018).
+	// Every App Role a User holds, per Client, as RolesOf counts them.
 	RolesByClient(ctx context.Context, userID uuid.UUID) ([]RolesByClientRow, error)
-	// A User's App Roles on a Client: their own and their Groups', combined (docs/adr/0018).
+	// A User's App Roles on a Client: their own and their Groups', combined (docs/adr/0018), less a
+	// Two-factor Group's while they have no two-factor.
 	RolesOf(ctx context.Context, arg RolesOfParams) ([]string, error)
 	// The replaced secret stays accepted; if an earlier one still is, the Client has not used the
 	// replaced one yet, so the earlier one is kept instead.
@@ -129,6 +132,8 @@ type Querier interface {
 	SessionsOfUser(ctx context.Context, arg SessionsOfUserParams) ([]SessionsOfUserRow, error)
 	// The WebAuthn ceremony a sign-in started; only an unexpired challenge takes one.
 	SetChallengeCeremony(ctx context.Context, arg SetChallengeCeremonyParams) (int64, error)
+	// The admins Group always requires two-factor; the table refuses otherwise.
+	SetGroupTwoFactor(ctx context.Context, arg SetGroupTwoFactorParams) (int64, error)
 	// A session that has just proved a Second Factor says so from then on, and when.
 	SetSessionMethods(ctx context.Context, arg SetSessionMethodsParams) error
 	SetStepUp(ctx context.Context, arg SetStepUpParams) error

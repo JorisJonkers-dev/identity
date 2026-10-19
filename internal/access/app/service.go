@@ -22,6 +22,8 @@ var (
 	ErrUnknownClient = errors.New("no such Client")
 	ErrUnknownRole   = errors.New("the Client declares no such App Role")
 	ErrAdminExists   = errors.New("an Admin exists already")
+	// ErrAdminsNeedTwoFactor is turning off the admins Group's two-factor requirement.
+	ErrAdminsNeedTwoFactor = errors.New("the admins Group always requires two-factor")
 	// ErrSecondFactorNeeded is an Admin whose session did not prove a Second Factor.
 	ErrSecondFactorNeeded = errors.New("access is managed only from a session proved with a Second Factor")
 )
@@ -41,6 +43,8 @@ type Store interface {
 	CreateGroup(ctx context.Context, g domain.Group) error
 	// RenameGroup is ErrNotFound or ErrNameTaken.
 	RenameGroup(ctx context.Context, id uuid.UUID, name domain.GroupName) error
+	// SetGroupTwoFactor is ErrNotFound when the Group is not there.
+	SetGroupTwoFactor(ctx context.Context, id uuid.UUID, required bool) error
 	// DeleteGroup never deletes the admins Group.
 	DeleteGroup(ctx context.Context, id uuid.UUID) error
 	Memberships(ctx context.Context) ([]domain.Membership, error)
@@ -375,4 +379,28 @@ func (s *Service) UnassignUser(ctx context.Context, actor Actor, a domain.UserAs
 		s.audit.Record(ctx, audit.Event{Action: audit.RoleRemoved, Actor: actor.ID, User: a.UserID, Client: a.ClientID, Role: a.Role})
 	}
 	return err
+}
+
+// SetTwoFactor makes a Group require two-factor, or stop: a member without it holds none of the
+// Group's App Roles while it does (identity#83). The admins Group always requires it.
+func (s *Service) SetTwoFactor(ctx context.Context, actor Actor, id uuid.UUID, required bool) error {
+	if err := s.admin(ctx, actor); err != nil {
+		return err
+	}
+	g, err := s.store.Group(ctx, id)
+	if err != nil {
+		return err
+	}
+	if g.Admins && !required {
+		return ErrAdminsNeedTwoFactor
+	}
+	if err := s.store.SetGroupTwoFactor(ctx, id, required); err != nil {
+		return err
+	}
+	action := audit.GroupTwoFactorDropped
+	if required {
+		action = audit.GroupTwoFactorRequired
+	}
+	s.audit.Record(ctx, audit.Event{Action: action, Actor: actor.ID, Group: id, GroupName: g.Name})
+	return nil
 }
