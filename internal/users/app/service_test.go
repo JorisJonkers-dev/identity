@@ -172,14 +172,26 @@ func newStore() *store {
 	}
 }
 
-func (s *store) SetSessionMethods(_ context.Context, hash []byte, methods []string) error {
+func (s *store) SetSessionMethods(_ context.Context, hash []byte, methods []string, at time.Time) error {
 	if err := s.fail["SetSessionMethods"]; err != nil {
 		return err
 	}
 	sess := s.sessions[string(hash)]
-	sess.Methods = methods
+	sess.Methods, sess.TwoFactorAt = methods, &at
 	s.sessions[string(hash)] = sess
 	return nil
+}
+
+func (s *store) StepUpChallenge(_ context.Context, sessionHash []byte) ([]byte, error) {
+	if err := s.fail["StepUpChallenge"]; err != nil {
+		return nil, err
+	}
+	for _, c := range s.challenges {
+		if c.SessionHash != nil && string(c.SessionHash) == string(sessionHash) {
+			return c.TokenHash, nil
+		}
+	}
+	return nil, app.ErrNotFound
 }
 
 // SaveChallenge keeps one challenge per User and carries its attempts, as the SQL does.

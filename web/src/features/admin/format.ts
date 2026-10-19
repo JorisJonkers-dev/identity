@@ -69,6 +69,8 @@ export function describeEvent(e: AuditEvent): Part[] {
       return [user, { text: ' revoked a token' }]
     case 'client-secret-rotated':
       return [actor, { text: ` gave ${client} a new secret` }]
+    case 'step-up-changed':
+      return [actor, { text: e.minutes ? ` set ${client} to ask for two-factor again after ${String(e.minutes)} minutes` : ` turned off asking for two-factor again in ${client}` }]
   }
 }
 

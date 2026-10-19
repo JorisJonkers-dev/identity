@@ -41,6 +41,8 @@ const (
 	RoleRemoved   Action = "role-removed"
 	// ClientSecretRotated is an Admin giving a Client a new secret (identity#32).
 	ClientSecretRotated Action = "client-secret-rotated"
+	// StepUpChanged is an Admin setting how fresh a Client wants two-factor (docs/adr/0019).
+	StepUpChanged Action = "step-up-changed"
 
 	TokenMinted  Action = "token-minted"
 	TokenRevoked Action = "token-revoked"
@@ -53,7 +55,7 @@ func (a Action) Kind() Kind {
 		return KindSignIn
 	case UserCreated, UserRenamed, PasswordChanged, SecondFactorAdded, SecondFactorRemoved, AdminPromoted:
 		return KindPeople
-	case GroupCreated, GroupRenamed, GroupDeleted, MemberAdded, MemberRemoved, RoleAssigned, RoleRemoved, ClientSecretRotated:
+	case GroupCreated, GroupRenamed, GroupDeleted, MemberAdded, MemberRemoved, RoleAssigned, RoleRemoved, ClientSecretRotated, StepUpChanged:
 		return KindAccess
 	case TokenMinted, TokenRevoked:
 		return KindTokens
@@ -83,6 +85,8 @@ type Event struct {
 	// Email is the address a failed sign-in gave; it may belong to no User.
 	Email  string
 	Reason string
+	// Minutes is the step-up window a StepUpChanged event set, 0 for off.
+	Minutes int
 }
 
 // Filter narrows a listing; a zero field does not filter.

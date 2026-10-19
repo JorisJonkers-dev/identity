@@ -176,7 +176,12 @@ func (s *ClientSecrets) Rotate(ctx context.Context, actor Actor, clientID string
 }
 
 func (s *ClientSecrets) admin(ctx context.Context, actor Actor) error {
-	yes, err := s.admins.IsAdmin(ctx, actor.ID)
+	return admin(ctx, s.admins, actor)
+}
+
+// admin lets an Admin through, and only from a session that proved a Second Factor.
+func admin(ctx context.Context, admins Admins, actor Actor) error {
+	yes, err := admins.IsAdmin(ctx, actor.ID)
 	if err != nil {
 		return err
 	}

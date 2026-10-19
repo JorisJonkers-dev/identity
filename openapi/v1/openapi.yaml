@@ -383,6 +383,84 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/session/step-up:
+    post:
+      operationId: startStepUp
+      summary: Start proving two-factor again
+      description: >-
+        For an app that wants a fresh proof (step-up), starts proving the signed-in session again
+        and says which kinds of Second Factor can prove it. A User with none is told to add one.
+      tags: [account]
+      responses:
+        "200":
+          description: The kinds of Second Factor the User has.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecondFactorNeeded"
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/session/step-up/code:
+    post:
+      operationId: stepUpWithCode
+      summary: Prove two-factor again with an authenticator code
+      description: >-
+        Takes a code from the User's authenticator app for the step-up startStepUp began, and marks
+        the session proved now. Five codes in fifteen minutes, as at sign-in; a code works once.
+      tags: [account]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SecondFactorCode"
+      responses:
+        "204":
+          description: The session proved two-factor now.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/session/step-up/passkey:
+    post:
+      operationId: stepUpPasskeyOptions
+      summary: Start proving two-factor again with a passkey
+      description: Returns the WebAuthn options for the step-up startStepUp began.
+      tags: [account]
+      responses:
+        "200":
+          description: The options for navigator.credentials.get.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeyOptions"
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/session/step-up/passkey/assertion:
+    post:
+      operationId: stepUpWithPasskey
+      summary: Prove two-factor again with a passkey
+      description: >-
+        Checks the browser's passkey answer for the step-up startStepUp began, and marks the
+        session proved now. A refused answer counts as a wrong code.
+      tags: [account]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasskeyAssertion"
+      responses:
+        "204":
+          description: The session proved two-factor now.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /api/v1/profile/second-factors/passkey:
     post:
       operationId: startPasskey
@@ -800,6 +878,47 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/apps/{clientId}/step-up:
+    parameters:
+      - $ref: "#/components/parameters/ClientId"
+    get:
+      operationId: getStepUp
+      summary: How fresh a Client wants two-factor
+      description: >-
+        The Client's step-up window, 0 when it is off. Admins only, from a session that proved a
+        Second Factor.
+      tags: [apps]
+      responses:
+        "200":
+          description: The Client's step-up.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StepUp"
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    put:
+      operationId: setStepUp
+      summary: Set how fresh a Client wants two-factor
+      description: >-
+        Signing in to the Client then finishes only when the session proved two-factor within the
+        window; 0 turns step-up off. Admins only, from a session that proved a Second Factor.
+      tags: [apps]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StepUp"
+      responses:
+        "204":
+          description: The Client's step-up is set.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
   securitySchemes:
     challenge:
@@ -887,6 +1006,7 @@ components:
         - token-minted
         - token-revoked
         - client-secret-rotated
+        - step-up-changed
     AuditCursor:
       description: Where a page of Audit Events ends; opaque.
       type: string
@@ -951,6 +1071,13 @@ components:
           type: string
           enum: [password, second-factor, no-access]
           description: Why a sign-in failed.
+        minutes:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 60
+          enum: [0, 5, 15, 60]
+          description: The step-up window an Admin set, 0 for off.
     TokenClient:
       description: A Client a token is for.
       type: object
@@ -1449,6 +1576,19 @@ components:
           description: Every Assignment held by a User directly.
           items:
             $ref: "#/components/schemas/UserAssignment"
+    StepUp:
+      description: How fresh a Client wants a session's two-factor proof (docs/adr/0019).
+      type: object
+      additionalProperties: false
+      required: [minutes]
+      properties:
+        minutes:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 60
+          enum: [0, 5, 15, 60]
+          description: The window in minutes; 0 is off.
     SecondFactorNeeded:
       description: The sign-in waits for a Second Factor.
       type: object

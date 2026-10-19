@@ -162,11 +162,15 @@ func (s *Service) ConfirmPasskey(ctx context.Context, userID uuid.UUID, sessionT
 
 // PasskeyOptions starts the passkey step of a sign-in the challenge names.
 func (s *Service) PasskeyOptions(ctx context.Context, challenge string) ([]byte, error) {
+	return s.passkeyOptions(ctx, hashOf(challenge))
+}
+
+func (s *Service) passkeyOptions(ctx context.Context, hash []byte) ([]byte, error) {
 	wa, err := s.webauthnOrErr()
 	if err != nil {
 		return nil, err
 	}
-	hash, now := hashOf(challenge), s.now()
+	now := s.now()
 	userID, _, err := s.store.ChallengeCeremony(ctx, hash, now)
 	if errors.Is(err, ErrNotFound) {
 		return nil, ErrInvalidToken
@@ -198,52 +202,59 @@ func (s *Service) PasskeyOptions(ctx context.Context, challenge string) ([]byte,
 // CompleteSignInWithPasskey takes the browser's passkey assertion for the sign-in and returns a
 // session proved by password and passkey. A refused assertion counts as a wrong code does.
 func (s *Service) CompleteSignInWithPasskey(ctx context.Context, challenge string, response []byte) (string, error) {
+	userID, err := s.answerWithPasskey(ctx, hashOf(challenge), response)
+	if err != nil {
+		return "", err
+	}
+	return s.startSession(ctx, userID, []string{methodPassword, methodPasskey})
+}
+
+// answerWithPasskey spends one attempt of the challenge on the browser's passkey assertion, and on
+// an accepted one removes the challenge and returns the User.
+func (s *Service) answerWithPasskey(ctx context.Context, hash, response []byte) (uuid.UUID, error) {
 	wa, err := s.webauthnOrErr()
 	if err != nil {
-		return "", err
+		return uuid.Nil, err
 	}
-	hash, now := hashOf(challenge), s.now()
+	now := s.now()
 	userID, err := s.store.SpendChallengeAttempt(ctx, hash, challengeAttempts, now)
 	if errors.Is(err, ErrNotFound) {
-		return "", ErrInvalidToken
+		return uuid.Nil, ErrInvalidToken
 	}
 	if err != nil {
-		return "", err
+		return uuid.Nil, err
 	}
 	refused := audit.Event{User: userID, Reason: audit.ReasonSecondFactor}
 	// The ceremony is taken, not read: of two requests with one assertion, one gets it.
 	_, ceremony, err := s.store.TakeChallengeCeremony(ctx, hash, now)
 	if errors.Is(err, ErrNotFound) {
-		return "", s.failed(ctx, refused, ErrInvalidPasskey)
+		return uuid.Nil, s.failed(ctx, refused, ErrInvalidPasskey)
 	}
 	if err != nil {
-		return "", err
+		return uuid.Nil, err
 	}
 	pu, keys, err := s.passkeyUserAndKeys(ctx, userID)
 	if err != nil {
-		return "", err
+		return uuid.Nil, err
 	}
 	used, err := wa.FinishLogin(pu, ceremony, response)
 	if err != nil {
-		return "", s.failed(ctx, refused, ErrInvalidPasskey)
+		return uuid.Nil, s.failed(ctx, refused, ErrInvalidPasskey)
 	}
 	// The counter moves on only from the record it was checked against, so two sign-ins with a
 	// copied key cannot both pass on one stored counter.
 	i := slices.IndexFunc(keys, func(k Passkey) bool { return bytes.Equal(k.CredentialID, used.CredentialID) })
 	if i < 0 {
-		return "", s.failed(ctx, refused, ErrInvalidPasskey)
+		return uuid.Nil, s.failed(ctx, refused, ErrInvalidPasskey)
 	}
 	kept, err := s.store.UsePasskey(ctx, userID, used, keys[i].Credential, now)
 	if err != nil {
-		return "", err
+		return uuid.Nil, err
 	}
 	if !kept {
-		return "", s.failed(ctx, refused, ErrInvalidPasskey)
+		return uuid.Nil, s.failed(ctx, refused, ErrInvalidPasskey)
 	}
-	if err := s.store.DeleteChallenge(ctx, hash); err != nil {
-		return "", err
-	}
-	return s.startSession(ctx, userID, []string{methodPassword, methodPasskey})
+	return userID, s.store.DeleteChallenge(ctx, hash)
 }
 
 // ChallengeKinds is which kinds of Second Factor the User of a sign-in challenge has.

@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddMemberData, AddMemberErrors, AddMemberResponses, AssignRoleData, AssignRoleErrors, AssignRoleResponses, AssignUserRoleData, AssignUserRoleErrors, AssignUserRoleResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, CompleteSignInData, CompleteSignInErrors, CompleteSignInResponses, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyErrors, CompleteSignInWithPasskeyResponses, ConfirmEmailData, ConfirmEmailErrors, ConfirmEmailResponses, ConfirmPasskeyData, ConfirmPasskeyErrors, ConfirmPasskeyResponses, ConfirmTotpData, ConfirmTotpErrors, ConfirmTotpResponses, CreateGroupData, CreateGroupErrors, CreateGroupResponses, DeleteGroupData, DeleteGroupErrors, DeleteGroupResponses, GetAccessData, GetAccessErrors, GetAccessResponses, GetDashboardData, GetDashboardErrors, GetDashboardResponses, GetLauncherData, GetLauncherErrors, GetLauncherResponses, GetProfileData, GetProfileErrors, GetProfileResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListAuditEventsData, ListAuditEventsErrors, ListAuditEventsResponses, ListMyTokensData, ListMyTokensErrors, ListMyTokensResponses, ListSecondFactorsData, ListSecondFactorsErrors, ListSecondFactorsResponses, ListUserTokensData, ListUserTokensErrors, ListUserTokensResponses, MintTokenData, MintTokenErrors, MintTokenResponses, PasskeyOptionsData, PasskeyOptionsErrors, PasskeyOptionsResponses, RemoveMemberData, RemoveMemberErrors, RemoveMemberResponses, RemoveSecondFactorData, RemoveSecondFactorErrors, RemoveSecondFactorResponses, RenameGroupData, RenameGroupErrors, RenameGroupResponses, RevokeMyTokenData, RevokeMyTokenErrors, RevokeMyTokenResponses, RevokeUserTokenData, RevokeUserTokenErrors, RevokeUserTokenResponses, RotateClientSecretData, RotateClientSecretErrors, RotateClientSecretResponses, SignInData, SignInErrors, SignInResponses, SignOutData, SignOutErrors, SignOutResponses, SignOutUserData, SignOutUserErrors, SignOutUserResponses, SignUpData, SignUpErrors, SignUpResponses, StartPasskeyData, StartPasskeyErrors, StartPasskeyResponses, StartTotpData, StartTotpErrors, StartTotpResponses, UnassignRoleData, UnassignRoleErrors, UnassignRoleResponses, UnassignUserRoleData, UnassignUserRoleErrors, UnassignUserRoleResponses, UpdateProfileData, UpdateProfileErrors, UpdateProfileResponses } from './types.gen';
-import { zAddMemberPath, zAddMemberResponse, zAssignRolePath, zAssignRoleResponse, zAssignUserRolePath, zAssignUserRoleResponse, zChangePasswordBody, zChangePasswordResponse, zCompleteSignInBody, zCompleteSignInResponse, zCompleteSignInWithPasskeyBody, zCompleteSignInWithPasskeyResponse, zConfirmEmailBody, zConfirmEmailResponse, zConfirmPasskeyBody, zConfirmPasskeyResponse, zConfirmTotpBody, zConfirmTotpResponse, zCreateGroupBody, zCreateGroupResponse, zDeleteGroupPath, zDeleteGroupResponse, zGetAccessResponse, zGetDashboardResponse, zGetLauncherResponse, zGetProfileResponse, zGetVersionResponse, zListAuditEventsQuery, zListAuditEventsResponse, zListMyTokensResponse, zListSecondFactorsResponse, zListUserTokensPath, zListUserTokensResponse, zMintTokenBody, zMintTokenResponse, zPasskeyOptionsResponse, zRemoveMemberPath, zRemoveMemberResponse, zRemoveSecondFactorBody, zRemoveSecondFactorPath, zRemoveSecondFactorResponse, zRenameGroupBody, zRenameGroupPath, zRenameGroupResponse, zRevokeMyTokenPath, zRevokeMyTokenResponse, zRevokeUserTokenPath, zRevokeUserTokenResponse, zRotateClientSecretPath, zRotateClientSecretResponse, zSignInBody, zSignInResponse, zSignOutResponse, zSignOutUserPath, zSignOutUserResponse, zSignUpBody, zStartPasskeyResponse, zStartTotpResponse, zUnassignRolePath, zUnassignRoleResponse, zUnassignUserRolePath, zUnassignUserRoleResponse, zUpdateProfileBody, zUpdateProfileResponse } from './zod.gen';
+import type { AddMemberData, AddMemberErrors, AddMemberResponses, AssignRoleData, AssignRoleErrors, AssignRoleResponses, AssignUserRoleData, AssignUserRoleErrors, AssignUserRoleResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, CompleteSignInData, CompleteSignInErrors, CompleteSignInResponses, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyErrors, CompleteSignInWithPasskeyResponses, ConfirmEmailData, ConfirmEmailErrors, ConfirmEmailResponses, ConfirmPasskeyData, ConfirmPasskeyErrors, ConfirmPasskeyResponses, ConfirmTotpData, ConfirmTotpErrors, ConfirmTotpResponses, CreateGroupData, CreateGroupErrors, CreateGroupResponses, DeleteGroupData, DeleteGroupErrors, DeleteGroupResponses, GetAccessData, GetAccessErrors, GetAccessResponses, GetDashboardData, GetDashboardErrors, GetDashboardResponses, GetLauncherData, GetLauncherErrors, GetLauncherResponses, GetProfileData, GetProfileErrors, GetProfileResponses, GetStepUpData, GetStepUpErrors, GetStepUpResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListAuditEventsData, ListAuditEventsErrors, ListAuditEventsResponses, ListMyTokensData, ListMyTokensErrors, ListMyTokensResponses, ListSecondFactorsData, ListSecondFactorsErrors, ListSecondFactorsResponses, ListUserTokensData, ListUserTokensErrors, ListUserTokensResponses, MintTokenData, MintTokenErrors, MintTokenResponses, PasskeyOptionsData, PasskeyOptionsErrors, PasskeyOptionsResponses, RemoveMemberData, RemoveMemberErrors, RemoveMemberResponses, RemoveSecondFactorData, RemoveSecondFactorErrors, RemoveSecondFactorResponses, RenameGroupData, RenameGroupErrors, RenameGroupResponses, RevokeMyTokenData, RevokeMyTokenErrors, RevokeMyTokenResponses, RevokeUserTokenData, RevokeUserTokenErrors, RevokeUserTokenResponses, RotateClientSecretData, RotateClientSecretErrors, RotateClientSecretResponses, SetStepUpData, SetStepUpErrors, SetStepUpResponses, SignInData, SignInErrors, SignInResponses, SignOutData, SignOutErrors, SignOutResponses, SignOutUserData, SignOutUserErrors, SignOutUserResponses, SignUpData, SignUpErrors, SignUpResponses, StartPasskeyData, StartPasskeyErrors, StartPasskeyResponses, StartStepUpData, StartStepUpErrors, StartStepUpResponses, StartTotpData, StartTotpErrors, StartTotpResponses, StepUpPasskeyOptionsData, StepUpPasskeyOptionsErrors, StepUpPasskeyOptionsResponses, StepUpWithCodeData, StepUpWithCodeErrors, StepUpWithCodeResponses, StepUpWithPasskeyData, StepUpWithPasskeyErrors, StepUpWithPasskeyResponses, UnassignRoleData, UnassignRoleErrors, UnassignRoleResponses, UnassignUserRoleData, UnassignUserRoleErrors, UnassignUserRoleResponses, UpdateProfileData, UpdateProfileErrors, UpdateProfileResponses } from './types.gen';
+import { zAddMemberPath, zAddMemberResponse, zAssignRolePath, zAssignRoleResponse, zAssignUserRolePath, zAssignUserRoleResponse, zChangePasswordBody, zChangePasswordResponse, zCompleteSignInBody, zCompleteSignInResponse, zCompleteSignInWithPasskeyBody, zCompleteSignInWithPasskeyResponse, zConfirmEmailBody, zConfirmEmailResponse, zConfirmPasskeyBody, zConfirmPasskeyResponse, zConfirmTotpBody, zConfirmTotpResponse, zCreateGroupBody, zCreateGroupResponse, zDeleteGroupPath, zDeleteGroupResponse, zGetAccessResponse, zGetDashboardResponse, zGetLauncherResponse, zGetProfileResponse, zGetStepUpPath, zGetStepUpResponse, zGetVersionResponse, zListAuditEventsQuery, zListAuditEventsResponse, zListMyTokensResponse, zListSecondFactorsResponse, zListUserTokensPath, zListUserTokensResponse, zMintTokenBody, zMintTokenResponse, zPasskeyOptionsResponse, zRemoveMemberPath, zRemoveMemberResponse, zRemoveSecondFactorBody, zRemoveSecondFactorPath, zRemoveSecondFactorResponse, zRenameGroupBody, zRenameGroupPath, zRenameGroupResponse, zRevokeMyTokenPath, zRevokeMyTokenResponse, zRevokeUserTokenPath, zRevokeUserTokenResponse, zRotateClientSecretPath, zRotateClientSecretResponse, zSetStepUpBody, zSetStepUpPath, zSetStepUpResponse, zSignInBody, zSignInResponse, zSignOutResponse, zSignOutUserPath, zSignOutUserResponse, zSignUpBody, zStartPasskeyResponse, zStartStepUpResponse, zStartTotpResponse, zStepUpPasskeyOptionsResponse, zStepUpWithCodeBody, zStepUpWithCodeResponse, zStepUpWithPasskeyBody, zStepUpWithPasskeyResponse, zUnassignRolePath, zUnassignRoleResponse, zUnassignUserRolePath, zUnassignUserRoleResponse, zUpdateProfileBody, zUpdateProfileResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -340,6 +340,98 @@ export const completeSignInWithPasskey = <ThrowOnError extends boolean = false>(
             type: 'apiKey'
         }],
     url: '/api/v1/session/passkey/assertion',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Start proving two-factor again
+ *
+ * For an app that wants a fresh proof (step-up), starts proving the signed-in session again and says which kinds of Second Factor can prove it. A User with none is told to add one.
+ */
+export const startStepUp = <ThrowOnError extends boolean = false>(options?: Options<StartStepUpData, ThrowOnError>): RequestResult<StartStepUpResponses, StartStepUpErrors, ThrowOnError> => (options?.client ?? client).post<StartStepUpResponses, StartStepUpErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zStartStepUpResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/session/step-up',
+    ...options
+});
+
+/**
+ * Prove two-factor again with an authenticator code
+ *
+ * Takes a code from the User's authenticator app for the step-up startStepUp began, and marks the session proved now. Five codes in fifteen minutes, as at sign-in; a code works once.
+ */
+export const stepUpWithCode = <ThrowOnError extends boolean = false>(options: Options<StepUpWithCodeData, ThrowOnError>): RequestResult<StepUpWithCodeResponses, StepUpWithCodeErrors, ThrowOnError> => (options.client ?? client).post<StepUpWithCodeResponses, StepUpWithCodeErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zStepUpWithCodeBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zStepUpWithCodeResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/session/step-up/code',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Start proving two-factor again with a passkey
+ *
+ * Returns the WebAuthn options for the step-up startStepUp began.
+ */
+export const stepUpPasskeyOptions = <ThrowOnError extends boolean = false>(options?: Options<StepUpPasskeyOptionsData, ThrowOnError>): RequestResult<StepUpPasskeyOptionsResponses, StepUpPasskeyOptionsErrors, ThrowOnError> => (options?.client ?? client).post<StepUpPasskeyOptionsResponses, StepUpPasskeyOptionsErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zStepUpPasskeyOptionsResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/session/step-up/passkey',
+    ...options
+});
+
+/**
+ * Prove two-factor again with a passkey
+ *
+ * Checks the browser's passkey answer for the step-up startStepUp began, and marks the session proved now. A refused answer counts as a wrong code.
+ */
+export const stepUpWithPasskey = <ThrowOnError extends boolean = false>(options: Options<StepUpWithPasskeyData, ThrowOnError>): RequestResult<StepUpWithPasskeyResponses, StepUpWithPasskeyErrors, ThrowOnError> => (options.client ?? client).post<StepUpWithPasskeyResponses, StepUpWithPasskeyErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zStepUpWithPasskeyBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zStepUpWithPasskeyResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/session/step-up/passkey/assertion',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -827,4 +919,50 @@ export const rotateClientSecret = <ThrowOnError extends boolean = false>(options
         }],
     url: '/api/v1/apps/{clientId}/secret',
     ...options
+});
+
+/**
+ * How fresh a Client wants two-factor
+ *
+ * The Client's step-up window, 0 when it is off. Admins only, from a session that proved a Second Factor.
+ */
+export const getStepUp = <ThrowOnError extends boolean = false>(options: Options<GetStepUpData, ThrowOnError>): RequestResult<GetStepUpResponses, GetStepUpErrors, ThrowOnError> => (options.client ?? client).get<GetStepUpResponses, GetStepUpErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zGetStepUpPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zGetStepUpResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/apps/{clientId}/step-up',
+    ...options
+});
+
+/**
+ * Set how fresh a Client wants two-factor
+ *
+ * Signing in to the Client then finishes only when the session proved two-factor within the window; 0 turns step-up off. Admins only, from a session that proved a Second Factor.
+ */
+export const setStepUp = <ThrowOnError extends boolean = false>(options: Options<SetStepUpData, ThrowOnError>): RequestResult<SetStepUpResponses, SetStepUpErrors, ThrowOnError> => (options.client ?? client).put<SetStepUpResponses, SetStepUpErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zSetStepUpBody,
+        path: zSetStepUpPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zSetStepUpResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/apps/{clientId}/step-up',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });

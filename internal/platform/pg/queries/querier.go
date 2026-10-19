@@ -20,6 +20,7 @@ type Querier interface {
 	AssignUser(ctx context.Context, arg AssignUserParams) (int64, error)
 	AuthRequestByID(ctx context.Context, id uuid.UUID) (AuthRequest, error)
 	ChallengeCeremony(ctx context.Context, arg ChallengeCeremonyParams) (ChallengeCeremonyRow, error)
+	ClearStepUp(ctx context.Context, clientID string) error
 	ClientSecret(ctx context.Context, clientID string) (ClientSecretRow, error)
 	// Records who signed in, once: a request already completed keeps its first User.
 	CompleteAuthRequest(ctx context.Context, arg CompleteAuthRequestParams) (int64, error)
@@ -108,11 +109,15 @@ type Querier interface {
 	SessionByID(ctx context.Context, id uuid.UUID) (SessionByIDRow, error)
 	// The WebAuthn ceremony a sign-in started; only an unexpired challenge takes one.
 	SetChallengeCeremony(ctx context.Context, arg SetChallengeCeremonyParams) (int64, error)
-	// A session that has just proved a Second Factor says so from then on.
+	// A session that has just proved a Second Factor says so from then on, and when.
 	SetSessionMethods(ctx context.Context, arg SetSessionMethodsParams) error
+	SetStepUp(ctx context.Context, arg SetStepUpParams) error
 	SignupByHash(ctx context.Context, tokenHash []byte) (SignupByHashRow, error)
 	// Counts one code against a sign-in; past the last attempt nothing comes back.
 	SpendChallengeAttempt(ctx context.Context, arg SpendChallengeAttemptParams) (uuid.UUID, error)
+	// The step-up challenge that proves this session again, if it has one.
+	StepUpChallenge(ctx context.Context, sessionHash []byte) ([]byte, error)
+	StepUpMinutes(ctx context.Context, clientID string) (int32, error)
 	TOTPEnrolment(ctx context.Context, userID uuid.UUID) (TOTPEnrolmentRow, error)
 	TOTPFactorsOfUser(ctx context.Context, userID uuid.UUID) ([]TotpFactor, error)
 	// Redeeming a code removes its request in the same statement, so two exchanges racing with one

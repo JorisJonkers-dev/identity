@@ -9,6 +9,7 @@ export function createAppRouter(history: RouterHistory = createWebHistory()): Ro
       { path: '/signup', name: 'signup', component: () => import('../features/account/components/SignUpPage.vue') },
       { path: '/confirm', name: 'confirm', component: () => import('../features/account/components/ConfirmPage.vue') },
       { path: '/signin', name: 'signin', component: () => import('../features/account/components/SignInPage.vue') },
+      { path: '/signin/step-up', name: 'step-up', component: () => import('../features/account/components/StepUpPage.vue') },
       { path: '/no-access', name: 'no-access', component: () => import('../features/access/components/NoAccessPage.vue') },
       { path: '/account', name: 'account', component: () => import('../features/account/components/AccountPage.vue') },
       { path: '/security', name: 'security', component: () => import('../features/security/components/SecurityPage.vue') },

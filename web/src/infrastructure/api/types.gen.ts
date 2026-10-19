@@ -12,7 +12,7 @@ export type AuditKind = 'sign-in' | 'people' | 'access' | 'tokens';
 /**
  * What an Audit Event records.
  */
-export type AuditAction = 'signed-in' | 'sign-in-failed' | 'signed-out' | 'user-created' | 'user-renamed' | 'password-changed' | 'second-factor-added' | 'second-factor-removed' | 'admin-promoted' | 'group-created' | 'group-renamed' | 'group-deleted' | 'member-added' | 'member-removed' | 'role-assigned' | 'role-removed' | 'token-minted' | 'token-revoked' | 'client-secret-rotated';
+export type AuditAction = 'signed-in' | 'sign-in-failed' | 'signed-out' | 'user-created' | 'user-renamed' | 'password-changed' | 'second-factor-added' | 'second-factor-removed' | 'admin-promoted' | 'group-created' | 'group-renamed' | 'group-deleted' | 'member-added' | 'member-removed' | 'role-assigned' | 'role-removed' | 'token-minted' | 'token-revoked' | 'client-secret-rotated' | 'step-up-changed';
 
 /**
  * Where a page of Audit Events ends; opaque.
@@ -57,6 +57,10 @@ export type AuditEvent = {
      * Why a sign-in failed.
      */
     reason?: 'password' | 'second-factor' | 'no-access';
+    /**
+     * The step-up window an Admin set, 0 for off.
+     */
+    minutes?: 0 | 5 | 15 | 60;
 };
 
 /**
@@ -439,6 +443,16 @@ export type AccessOverview = {
      * Every Assignment held by a User directly.
      */
     userAssignments: Array<UserAssignment>;
+};
+
+/**
+ * How fresh a Client wants a session's two-factor proof (docs/adr/0019).
+ */
+export type StepUp = {
+    /**
+     * The window in minutes; 0 is off.
+     */
+    minutes: 0 | 5 | 15 | 60;
 };
 
 /**
@@ -1060,6 +1074,122 @@ export type CompleteSignInWithPasskeyResponses = {
 };
 
 export type CompleteSignInWithPasskeyResponse = CompleteSignInWithPasskeyResponses[keyof CompleteSignInWithPasskeyResponses];
+
+export type StartStepUpData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/session/step-up';
+};
+
+export type StartStepUpErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type StartStepUpError = StartStepUpErrors[keyof StartStepUpErrors];
+
+export type StartStepUpResponses = {
+    /**
+     * The kinds of Second Factor the User has.
+     */
+    200: SecondFactorNeeded;
+};
+
+export type StartStepUpResponse = StartStepUpResponses[keyof StartStepUpResponses];
+
+export type StepUpWithCodeData = {
+    body: SecondFactorCode;
+    path?: never;
+    query?: never;
+    url: '/api/v1/session/step-up/code';
+};
+
+export type StepUpWithCodeErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type StepUpWithCodeError = StepUpWithCodeErrors[keyof StepUpWithCodeErrors];
+
+export type StepUpWithCodeResponses = {
+    /**
+     * The session proved two-factor now.
+     */
+    204: void;
+};
+
+export type StepUpWithCodeResponse = StepUpWithCodeResponses[keyof StepUpWithCodeResponses];
+
+export type StepUpPasskeyOptionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/session/step-up/passkey';
+};
+
+export type StepUpPasskeyOptionsErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type StepUpPasskeyOptionsError = StepUpPasskeyOptionsErrors[keyof StepUpPasskeyOptionsErrors];
+
+export type StepUpPasskeyOptionsResponses = {
+    /**
+     * The options for navigator.credentials.get.
+     */
+    200: PasskeyOptions;
+};
+
+export type StepUpPasskeyOptionsResponse = StepUpPasskeyOptionsResponses[keyof StepUpPasskeyOptionsResponses];
+
+export type StepUpWithPasskeyData = {
+    body: PasskeyAssertion;
+    path?: never;
+    query?: never;
+    url: '/api/v1/session/step-up/passkey/assertion';
+};
+
+export type StepUpWithPasskeyErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type StepUpWithPasskeyError = StepUpWithPasskeyErrors[keyof StepUpWithPasskeyErrors];
+
+export type StepUpWithPasskeyResponses = {
+    /**
+     * The session proved two-factor now.
+     */
+    204: void;
+};
+
+export type StepUpWithPasskeyResponse = StepUpWithPasskeyResponses[keyof StepUpWithPasskeyResponses];
 
 export type StartPasskeyData = {
     body?: never;
@@ -1829,3 +1959,71 @@ export type RotateClientSecretResponses = {
 };
 
 export type RotateClientSecretResponse = RotateClientSecretResponses[keyof RotateClientSecretResponses];
+
+export type GetStepUpData = {
+    body?: never;
+    path: {
+        /**
+         * The Client, by its id.
+         */
+        clientId: ClientId;
+    };
+    query?: never;
+    url: '/api/v1/apps/{clientId}/step-up';
+};
+
+export type GetStepUpErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type GetStepUpError = GetStepUpErrors[keyof GetStepUpErrors];
+
+export type GetStepUpResponses = {
+    /**
+     * The Client's step-up.
+     */
+    200: StepUp;
+};
+
+export type GetStepUpResponse = GetStepUpResponses[keyof GetStepUpResponses];
+
+export type SetStepUpData = {
+    body: StepUp;
+    path: {
+        /**
+         * The Client, by its id.
+         */
+        clientId: ClientId;
+    };
+    query?: never;
+    url: '/api/v1/apps/{clientId}/step-up';
+};
+
+export type SetStepUpErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type SetStepUpError = SetStepUpErrors[keyof SetStepUpErrors];
+
+export type SetStepUpResponses = {
+    /**
+     * The Client's step-up is set.
+     */
+    204: void;
+};
+
+export type SetStepUpResponse = SetStepUpResponses[keyof SetStepUpResponses];

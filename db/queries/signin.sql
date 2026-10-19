@@ -28,3 +28,13 @@ INSERT INTO session_clients (session_id, client_id) VALUES ($1, $2) ON CONFLICT 
 -- name: TakeSessionClients :many
 -- The Clients the ended sessions signed into, removed as they are read.
 DELETE FROM session_clients WHERE session_id = ANY(sqlc.arg(session_ids)::uuid[]) RETURNING session_id, client_id;
+
+-- name: StepUpMinutes :one
+SELECT minutes FROM step_up WHERE client_id = $1;
+
+-- name: SetStepUp :exec
+INSERT INTO step_up (client_id, minutes, changed_at) VALUES ($1, $2, $3)
+ON CONFLICT (client_id) DO UPDATE SET minutes = EXCLUDED.minutes, changed_at = EXCLUDED.changed_at;
+
+-- name: ClearStepUp :exec
+DELETE FROM step_up WHERE client_id = $1;

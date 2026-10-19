@@ -44,6 +44,10 @@ type UseCases interface {
 	ChallengeKinds(ctx context.Context, challenge string) ([]string, error)
 	PasskeyOptions(ctx context.Context, challenge string) ([]byte, error)
 	CompleteSignInWithPasskey(ctx context.Context, challenge string, response []byte) (string, error)
+	StartStepUp(ctx context.Context, sessionToken string) ([]string, error)
+	StepUpWithCode(ctx context.Context, sessionToken, code string) error
+	StepUpPasskeyOptions(ctx context.Context, sessionToken string) ([]byte, error)
+	StepUpWithPasskey(ctx context.Context, sessionToken string, response []byte) error
 	SecondFactors(ctx context.Context, userID uuid.UUID) ([]app.Factor, error)
 	StartTOTP(ctx context.Context, userID uuid.UUID) (app.TOTPSetup, error)
 	ConfirmTOTP(ctx context.Context, userID uuid.UUID, sessionToken, label, code, password string) error
@@ -129,13 +133,9 @@ func (h *Handler) SignIn(ctx context.Context, req *oas.SignIn) (oas.SignInRes, e
 		if err != nil {
 			return nil, err
 		}
-		methods := make([]oas.SecondFactorKind, 0, len(kinds))
-		for _, k := range kinds {
-			methods = append(methods, oas.SecondFactorKind(k))
-		}
 		return &oas.SecondFactorNeededHeaders{
 			SetCookie: named(challengeCookie, token, challengeMaxAge).String(),
-			Response:  oas.SecondFactorNeeded{Methods: methods},
+			Response:  needs(kinds),
 		}, nil
 	}
 	if err != nil {
@@ -185,6 +185,61 @@ func (h *Handler) CompleteSignInWithPasskey(ctx context.Context, req *oas.Passke
 		return refusal(err)
 	}
 	return &oas.CompleteSignInWithPasskeyNoContent{SetCookie: cookie(token, sessionMaxAge).String()}, nil
+}
+
+func needs(kinds []string) oas.SecondFactorNeeded {
+	methods := make([]oas.SecondFactorKind, 0, len(kinds))
+	for _, k := range kinds {
+		methods = append(methods, oas.SecondFactorKind(k))
+	}
+	return oas.SecondFactorNeeded{Methods: methods}
+}
+
+// StartStepUp implements startStepUp.
+func (h *Handler) StartStepUp(ctx context.Context) (oas.StartStepUpRes, error) {
+	kinds, err := h.uc.StartStepUp(ctx, current(ctx).token)
+	if err != nil {
+		return stepUpRefusal(err)
+	}
+	return new(needs(kinds)), nil
+}
+
+// StepUpWithCode implements stepUpWithCode.
+func (h *Handler) StepUpWithCode(ctx context.Context, req *oas.SecondFactorCode) (oas.StepUpWithCodeRes, error) {
+	if err := h.uc.StepUpWithCode(ctx, current(ctx).token, req.Code); err != nil {
+		return stepUpRefusal(err)
+	}
+	return &oas.StepUpWithCodeNoContent{}, nil
+}
+
+// StepUpPasskeyOptions implements stepUpPasskeyOptions.
+func (h *Handler) StepUpPasskeyOptions(ctx context.Context) (oas.StepUpPasskeyOptionsRes, error) {
+	options, err := h.uc.StepUpPasskeyOptions(ctx, current(ctx).token)
+	if err != nil {
+		return stepUpRefusal(err)
+	}
+	return &oas.PasskeyOptions{Options: string(options)}, nil
+}
+
+// StepUpWithPasskey implements stepUpWithPasskey.
+func (h *Handler) StepUpWithPasskey(ctx context.Context, req *oas.PasskeyAssertion) (oas.StepUpWithPasskeyRes, error) {
+	if err := h.uc.StepUpWithPasskey(ctx, current(ctx).token, []byte(req.Response)); err != nil {
+		return stepUpRefusal(err)
+	}
+	return &oas.StepUpWithPasskeyNoContent{}, nil
+}
+
+// stepUpRefusal is refusal, with what a step-up adds: no Second Factor to prove, or no step-up
+// begun.
+func stepUpRefusal(err error) (*oas.ProblemStatusCode, error) {
+	switch {
+	case errors.Is(err, app.ErrNoSecondFactor):
+		return problem(http.StatusConflict, "Add a passkey or an authenticator app on the Security page first."), nil
+	case errors.Is(err, app.ErrInvalidToken):
+		return problem(http.StatusUnauthorized, "This check expired, or you entered too many wrong codes. Start again from the app. After five wrong codes, wait 15 minutes before you try again."), nil
+	default:
+		return refusal(err)
+	}
 }
 
 // StartPasskey implements startPasskey.

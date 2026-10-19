@@ -213,3 +213,37 @@ func TestTheProfileNeedsASignIn(t *testing.T) {
 	t.Parallel()
 	itest.Start(t).Browser().Call(t, http.MethodGet, "/api/v1/profile", nil, http.StatusUnauthorized, nil)
 }
+
+func TestAPasskeyProvesTheSessionAgainForStepUp(t *testing.T) {
+	t.Parallel()
+	env := itest.Start(t)
+	ada := env.SignedUp(t, "ada@example.org")
+	authenticator := virtualwebauthn.NewAuthenticator()
+	credential := itest.PasskeyCredential(t)
+	authenticator.AddCredential(credential)
+	var made struct{ Options string }
+	ada.Call(t, http.MethodPost, "/api/v1/profile/second-factors/passkey", nil, http.StatusOK, &made)
+	attestation, err := virtualwebauthn.ParseAttestationOptions(publicKey(t, made.Options))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ada.Call(t, http.MethodPost, "/api/v1/profile/second-factors/passkey/confirmation", map[string]string{
+		"label": "MacBook", "password": itest.Password,
+		"response": virtualwebauthn.CreateAttestationResponse(relyingParty, authenticator, credential, *attestation),
+	}, http.StatusNoContent, nil)
+
+	var needs needsSecondFactor
+	ada.Call(t, http.MethodPost, "/api/v1/session/step-up", nil, http.StatusOK, &needs)
+	if !slices.Equal(needs.Methods, []string{"passkey"}) {
+		t.Fatalf("methods = %v", needs.Methods)
+	}
+	var asked struct{ Options string }
+	ada.Call(t, http.MethodPost, "/api/v1/session/step-up/passkey", nil, http.StatusOK, &asked)
+	assertion, err := virtualwebauthn.ParseAssertionOptions(publicKey(t, asked.Options))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ada.Call(t, http.MethodPost, "/api/v1/session/step-up/passkey/assertion", map[string]string{
+		"response": virtualwebauthn.CreateAssertionResponse(relyingParty, authenticator, credential, *assertion),
+	}, http.StatusNoContent, nil)
+}

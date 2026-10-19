@@ -14,8 +14,8 @@ import (
 )
 
 const appendAuditEvent = `-- name: AppendAuditEvent :exec
-INSERT INTO audit_events (id, at, kind, action, actor_id, user_id, client_id, group_id, group_name, role, email, reason)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+INSERT INTO audit_events (id, at, kind, action, actor_id, user_id, client_id, group_id, group_name, role, email, reason, minutes)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 `
 
 type AppendAuditEventParams struct {
@@ -31,6 +31,7 @@ type AppendAuditEventParams struct {
 	Role      pgtype.Text
 	Email     pgtype.Text
 	Reason    pgtype.Text
+	Minutes   pgtype.Int4
 }
 
 func (q *Queries) AppendAuditEvent(ctx context.Context, arg AppendAuditEventParams) error {
@@ -47,6 +48,7 @@ func (q *Queries) AppendAuditEvent(ctx context.Context, arg AppendAuditEventPara
 		arg.Role,
 		arg.Email,
 		arg.Reason,
+		arg.Minutes,
 	)
 	return err
 }
@@ -101,7 +103,7 @@ func (q *Queries) DeleteAuditEventsBefore(ctx context.Context, at time.Time) (in
 }
 
 const listAuditEvents = `-- name: ListAuditEvents :many
-SELECT id, at, kind, action, actor_id, user_id, client_id, group_id, group_name, role, email, reason
+SELECT id, at, kind, action, actor_id, user_id, client_id, group_id, group_name, role, email, reason, minutes
 FROM audit_events
 WHERE ($1::uuid IS NULL OR user_id = $1 OR actor_id = $1)
   AND ($2::text IS NULL OR client_id = $2)
@@ -150,6 +152,7 @@ func (q *Queries) ListAuditEvents(ctx context.Context, arg ListAuditEventsParams
 			&i.Role,
 			&i.Email,
 			&i.Reason,
+			&i.Minutes,
 		); err != nil {
 			return nil, err
 		}

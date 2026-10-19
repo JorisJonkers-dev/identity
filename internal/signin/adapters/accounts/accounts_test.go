@@ -20,6 +20,7 @@ type users struct {
 	user      usersdomain.User
 	signedOut uuid.UUID
 	actor     uuid.UUID
+	has       bool
 }
 
 func (u *users) SignedIn(context.Context, string) (usersdomain.User, usersapp.Session, error) {
@@ -30,6 +31,8 @@ func (u *users) SignOutEverywhere(_ context.Context, actor, id uuid.UUID) error 
 	u.signedOut, u.actor = id, actor
 	return u.err
 }
+
+func (u *users) HasSecondFactor(context.Context, uuid.UUID) (bool, error) { return u.has, u.err }
 
 func TestSignedInTranslatesTheSession(t *testing.T) {
 	at := time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC)
@@ -66,5 +69,25 @@ func TestClaimsAndSignOut(t *testing.T) {
 	u.err = errors.New("boom")
 	if _, err := a.Claims(context.Background(), id); err == nil {
 		t.Fatal("a failing lookup gave claims")
+	}
+}
+
+func TestSignedInSaysWhenTheSessionLastProvedTwoFactor(t *testing.T) {
+	at := time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC)
+	u := &users{session: usersapp.Session{TwoFactorAt: &at}}
+	if got, err := accounts.New(u).SignedIn(context.Background(), "tok"); err != nil || !got.TwoFactorAt.Equal(at) {
+		t.Fatalf("SignedIn = %+v, %v", got, err)
+	}
+}
+
+func TestASessionThatNeverProvedTwoFactorHasNoTimeForIt(t *testing.T) {
+	if got, err := accounts.New(&users{}).SignedIn(context.Background(), "tok"); err != nil || !got.TwoFactorAt.IsZero() {
+		t.Fatalf("SignedIn = %+v, %v", got, err)
+	}
+}
+
+func TestHasTwoFactorAsksTheUsersContext(t *testing.T) {
+	if has, err := accounts.New(&users{has: true}).HasTwoFactor(context.Background(), uuid.New()); !has || err != nil {
+		t.Fatalf("HasTwoFactor = %v, %v", has, err)
 	}
 }

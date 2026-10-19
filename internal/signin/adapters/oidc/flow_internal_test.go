@@ -36,6 +36,7 @@ type env struct {
 	requests *requests
 	accounts *accounts
 	access   *access
+	stepUps  stepUps
 	browser  *http.Client
 }
 
@@ -62,6 +63,8 @@ func serve(t *testing.T, requests app.Requests, accounts app.Accounts, access ap
 	t.Cleanup(srv.Close)
 	svc := app.New(requests, testClients, accounts, access, noLogouts{}, discard{}, time.Now, rand.Reader)
 	svc.SetClientSecrets(testSecrets)
+	ups := stepUps{}
+	svc.SetStepUps(ups)
 	var err error
 	h, err = New(Config{Issuer: srv.URL, Insecure: true, SessionCookie: cookieName}, svc, NewRing(testKey()), slog.New(slog.DiscardHandler), time.Now)
 	if err != nil {
@@ -71,6 +74,7 @@ func serve(t *testing.T, requests app.Requests, accounts app.Accounts, access ap
 		issuer:  srv.URL,
 		session: session,
 		cookies: map[string]string{},
+		stepUps: ups,
 		browser: &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
 			return http.ErrUseLastResponse
 		}},
@@ -234,6 +238,21 @@ func TestTokensCarryOnlyTheClientsOwnRoles(t *testing.T) {
 	if got := roles(accessClaims(t, tok.AccessToken)["roles"]); !slices.Equal(got, want) {
 		t.Fatalf("access token roles = %v, want %v", got, want)
 	}
+}
+
+func TestAStepUpAppSendsASessionThatNeverProvedTwoFactorToProveIt(t *testing.T) {
+	e := newEnv(t)
+	e.stepUps["web"] = 5
+	e.accounts.twoFactor = true
+	login := e.loginURL(t, authorizeQuery("web", "https://web.test/cb", ""))
+	redirect(t, e.get(t, login, true), http.StatusSeeOther, "/signin/step-up?authRequestID="+login[strings.Index(login, "=")+1:])
+}
+
+func TestAStepUpAppSendsAUserWithNoTwoFactorToSetItUp(t *testing.T) {
+	e := newEnv(t)
+	e.stepUps["web"] = 5
+	login := e.loginURL(t, authorizeQuery("web", "https://web.test/cb", ""))
+	redirect(t, e.get(t, login, true), http.StatusSeeOther, "/security/two-factor?for=step-up")
 }
 
 func TestAUserWithNoAppRoleGetsNoCode(t *testing.T) {

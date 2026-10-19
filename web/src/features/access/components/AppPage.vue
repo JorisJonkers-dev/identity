@@ -10,6 +10,8 @@ import BackLink from '../../../shared/BackLink.vue'
 import GlassSelect from '../../../shared/GlassSelect.vue'
 import Icon from '../../../shared/Icon'
 import { useAccess } from '../composables/useAccess'
+import { useStepUp } from '../composables/useStepUp'
+import { minutesOf, stepUpChoices, stepUpSummary } from '../stepUp'
 import { holders } from '../model'
 
 const route = useRoute()
@@ -18,6 +20,11 @@ const clientId = computed(() => String(route.params.clientId))
 const app = computed(() => overview.value?.clients.find((c) => c.id === clientId.value))
 const rotate = useAction(rotateClientSecretMutation())
 const asking = ref(false)
+const stepUp = useStepUp(clientId)
+const stepUpChoice = computed(() => String(stepUp.minutes.value ?? 0))
+function pickStepUp(choice: string) {
+  stepUp.set(minutesOf(choice))
+}
 const addable = (o: AccessOverview, role: string) => {
   return o.groups.filter((g) => !g.admins && !holders(o, clientId.value, role).some((h) => h.id === g.id)).map((g) => ({ value: g.id, label: g.name }))
 }
@@ -60,6 +67,12 @@ function rotateNow() {
           <button class="btn sm primary" type="button" @click="rotateNow">Replace secret</button>
         </div>
         <p v-if="rotate.error.value" role="alert" class="alert"><Icon name="alert" />{{ rotate.error.value }}</p>
+        <div class="row step-up">
+          <span class="row-ic"><Icon name="shield" /></span>
+          <span class="grow"><b>Ask for two-factor again</b><small>{{ stepUpSummary(stepUp.minutes.value, app.label) }}</small></span>
+          <GlassSelect :model-value="stepUpChoice" :options="stepUpChoices" :label="`Ask for two-factor again in ${app.label}`" small @pick="pickStepUp" />
+        </div>
+        <p v-if="stepUp.error.value" role="alert" class="alert"><Icon name="alert" />{{ stepUp.error.value }}</p>
       </section>
     </template>
   </AppShell>

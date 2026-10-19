@@ -282,6 +282,86 @@ describe('signing in', () => {
   })
 })
 
+describe('proving two-factor again for an app', () => {
+  const asks = (methods: string[]) => ({ 'POST /api/v1/session/step-up': Response.json({ methods }) })
+
+  it('asks for a code, then hands back to the Provider', async () => {
+    const leave = vi.spyOn(navigation, 'leave').mockImplementation(() => undefined)
+    const { wrapper, requests } = await mountAt('/signin/step-up?authRequestID=a1b2', { ...asks(['totp']), 'POST /api/v1/session/step-up/code': noContent() })
+    expect(wrapper.get('h1').text()).toBe('Enter your code')
+    expect(wrapper.get('.auth-box p.lead').text()).toBe('This app asks for two-factor again before it opens.')
+    await typeCode(wrapper, '492039')
+    expect(requests.find((r) => r.key === 'POST /api/v1/session/step-up/code')?.body).toEqual({ code: '492039' })
+    expect(leave).toHaveBeenCalledWith('/oidc/login?authRequestID=a1b2')
+    leave.mockRestore()
+  })
+
+  it('puts the cursor in the first code box', async () => {
+    const { wrapper } = await mountAt('/signin/step-up?authRequestID=a1b2', asks(['totp']), { attach: true })
+    expect(document.activeElement).toBe(wrapper.get('[aria-label="Digit 1 of 6"]').element)
+  })
+
+  it('proves it with a passkey', async () => {
+    const leave = vi.spyOn(navigation, 'leave').mockImplementation(() => undefined)
+    const get = vi.spyOn(passkeys, 'get').mockResolvedValue('{"id":"cred-1"}')
+    const { wrapper, requests } = await mountAt('/signin/step-up?authRequestID=a1b2', {
+      ...asks(['passkey']),
+      'POST /api/v1/session/step-up/passkey': Response.json({ options: '{"publicKey":{}}' }),
+      'POST /api/v1/session/step-up/passkey/assertion': noContent(),
+    })
+    expect(wrapper.get('h1').text()).toBe('Use your passkey')
+    await button(wrapper, 'Use your passkey').trigger('click')
+    await settle()
+    expect(requests.find((r) => r.key === 'POST /api/v1/session/step-up/passkey/assertion')?.body).toEqual({ response: '{"id":"cred-1"}' })
+    expect(leave).toHaveBeenCalledWith('/oidc/login?authRequestID=a1b2')
+    get.mockRestore()
+    leave.mockRestore()
+  })
+
+  it('says when the browser did not use the passkey', async () => {
+    const get = vi.spyOn(passkeys, 'get').mockRejectedValue(new Error('NotAllowedError'))
+    const { wrapper } = await mountAt('/signin/step-up?authRequestID=a1b2', { ...asks(['passkey']), 'POST /api/v1/session/step-up/passkey': Response.json({ options: '{"publicKey":{}}' }) })
+    await button(wrapper, 'Use your passkey').trigger('click')
+    await settle()
+    expect(wrapper.get('[role="alert"]').text()).toBe('Passkey check was cancelled. Try again.')
+    get.mockRestore()
+  })
+
+  it('says when the code is wrong', async () => {
+    const { wrapper } = await mountAt('/signin/step-up?authRequestID=a1b2', { ...asks(['totp']), 'POST /api/v1/session/step-up/code': problem(422, 'That code is wrong or was already used.') })
+    await typeCode(wrapper, '000000')
+    expect(wrapper.get('[role="alert"]').text()).toBe('That code is wrong or was already used.')
+  })
+
+  it('sends someone with no two-factor to set it up', async () => {
+    const { wrapper } = await mountAt('/signin/step-up?authRequestID=a1b2', { 'POST /api/v1/session/step-up': problem(409, 'Add a passkey or an authenticator app on the Security page first.') })
+    expect(wrapper.get('[role="alert"]').text()).toBe('Add a passkey or an authenticator app on the Security page first.')
+    expect(wrapper.get('a[href="/security/two-factor?for=step-up"]').text()).toBe('Set up two-factor')
+  })
+
+  it('signs in first when the session has ended', async () => {
+    const { router } = await mountAt('/signin/step-up?authRequestID=a1b2', { 'POST /api/v1/session/step-up': problem(401, 'Sign in.') })
+    expect(router.currentRoute.value.fullPath).toBe('/signin?authRequestID=a1b2')
+  })
+
+  it('offers the code and the passkey when the User has both', async () => {
+    const { wrapper } = await mountAt('/signin/step-up?authRequestID=a1b2', asks(['totp', 'passkey']))
+    expect(wrapper.find('[aria-label="Digit 1 of 6"]').exists()).toBe(true)
+    expect(wrapper.get('.or').text()).toBe('or')
+  })
+
+  it('signs in first, to go to the apps, when the session has ended and no app asked', async () => {
+    const { router } = await mountAt('/signin/step-up', { 'POST /api/v1/session/step-up': problem(401, 'Sign in.') })
+    expect(router.currentRoute.value.fullPath).toBe('/signin')
+  })
+
+  it('goes to the apps when no app asked', async () => {
+    const { wrapper, router } = await mountAt('/signin/step-up', { ...asks(['totp']), 'POST /api/v1/session/step-up/code': noContent(), 'GET /api/v1/profile': ada })
+    await typeCode(wrapper, '492039')
+    expect(router.currentRoute.value.path).toBe('/')
+  })
+})
+
 describe('the Account page', () => {
   const answers = (over: Record<string, unknown> = {}) => ({
     'GET /api/v1/profile': () => Response.json(profile(over)),

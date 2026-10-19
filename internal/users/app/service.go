@@ -31,6 +31,8 @@ var (
 	ErrSecondFactorNeeded = errors.New("the sign-in needs a Second Factor")
 	ErrInvalidCode        = errors.New("the code is wrong or was already used")
 	ErrUnavailable        = errors.New("second factors are not set up on this server")
+	// ErrNoSecondFactor is a User asked to prove a Second Factor they never added.
+	ErrNoSecondFactor = errors.New("the User has no Second Factor")
 )
 
 const (
@@ -64,6 +66,8 @@ type Session struct {
 	// Methods is how the session was proved, as RFC 8176 names them: "pwd", and "otp" once a
 	// Second Factor was.
 	Methods []string
+	// TwoFactorAt is when the session last proved a Second Factor; nil when it never did.
+	TwoFactorAt *time.Time
 }
 
 // Store is the users context's persistence.
@@ -88,7 +92,8 @@ type Store interface {
 	// DeleteOtherSessions ends every session of a User but the one keepTokenHash names, or every
 	// one when it is nil, and returns the ids of those it ended.
 	DeleteOtherSessions(ctx context.Context, userID uuid.UUID, keepTokenHash []byte) ([]uuid.UUID, error)
-	SetSessionMethods(ctx context.Context, tokenHash []byte, methods []string) error
+	// SetSessionMethods records how a session was proved, and that it proved a Second Factor at.
+	SetSessionMethods(ctx context.Context, tokenHash []byte, methods []string, at time.Time) error
 	// SaveChallenge makes or replaces the User's one challenge. Its spent attempts carry over unless
 	// the window that holds them began at or before windowSince.
 	SaveChallenge(ctx context.Context, c Challenge, windowSince time.Time) error
@@ -96,6 +101,9 @@ type Store interface {
 	// returns its User; ErrNotFound when there is none.
 	SpendChallengeAttempt(ctx context.Context, tokenHash []byte, maxAttempts int, now time.Time) (uuid.UUID, error)
 	DeleteChallenge(ctx context.Context, tokenHash []byte) error
+	// StepUpChallenge is the token hash of the challenge that proves a session again; ErrNotFound
+	// when it has none.
+	StepUpChallenge(ctx context.Context, sessionHash []byte) ([]byte, error)
 	TOTPFactors(ctx context.Context, userID uuid.UUID) ([]TOTPFactor, error)
 	CreateTOTPFactor(ctx context.Context, f TOTPFactor) error
 	// UseTOTPStep records a step newer than the factor's last, reporting whether it was newer.
@@ -344,7 +352,7 @@ func (s *Service) SignIn(ctx context.Context, rawEmail, password string) (string
 		return "", err
 	}
 	if has {
-		challenge, err := s.challenge(ctx, u.ID)
+		challenge, err := s.challenge(ctx, u.ID, nil)
 		if err != nil {
 			return "", err
 		}
@@ -372,6 +380,9 @@ func (s *Service) startSession(ctx context.Context, userID uuid.UUID, methods []
 	sess := Session{
 		TokenHash: hash, ID: id, UserID: userID, CreatedAt: now, LastSeenAt: now,
 		ExpiresAt: earliest(now.Add(sessionLifetime), end), Methods: methods,
+	}
+	if ProvedSecondFactor(methods) {
+		sess.TwoFactorAt = &now
 	}
 	if err := s.store.CreateSession(ctx, sess); err != nil {
 		return "", err

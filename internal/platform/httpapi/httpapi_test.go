@@ -52,6 +52,12 @@ func (users) CompleteSignInWithPasskey(context.Context, string, []byte) (string,
 	return "good", nil
 }
 func (users) StartPasskey(context.Context, uuid.UUID) ([]byte, error) { return nil, nil }
+func (users) StartStepUp(context.Context, string) ([]string, error)   { return nil, nil }
+func (users) StepUpWithCode(context.Context, string, string) error    { return nil }
+func (users) StepUpPasskeyOptions(context.Context, string) ([]byte, error) {
+	return nil, nil
+}
+func (users) StepUpWithPasskey(context.Context, string, []byte) error { return nil }
 func (users) ConfirmPasskey(context.Context, uuid.UUID, string, string, []byte, string) error {
 	return nil
 }
@@ -103,7 +109,7 @@ func (launcher) Icon(context.Context, string) (launcherdomain.Icon, error) {
 
 func serve(t *testing.T) *httptest.Server {
 	t.Helper()
-	h, err := httpapi.New(slog.New(slog.DiscardHandler), "1.2.3", users{}, access{}, auditweb.New(audit{}, nil), launcher{}, tokensweb.New(nil), signinweb.New(nil))
+	h, err := httpapi.New(slog.New(slog.DiscardHandler), "1.2.3", users{}, access{}, auditweb.New(audit{}, nil), launcher{}, tokensweb.New(nil), signinweb.New(nil, nil))
 	if err != nil {
 		t.Fatal(err)
 	}

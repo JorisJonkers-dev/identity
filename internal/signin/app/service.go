@@ -73,6 +73,8 @@ type Accounts interface {
 	SignedIn(ctx context.Context, sessionToken string) (domain.SignIn, error)
 	Claims(ctx context.Context, userID uuid.UUID) (Claims, error)
 	SignOutEverywhere(ctx context.Context, userID uuid.UUID) error
+	// HasTwoFactor reports whether the User added an authenticator app or a passkey.
+	HasTwoFactor(ctx context.Context, userID uuid.UUID) (bool, error)
 }
 
 // Access is the access context as sign-in needs it (docs/adr/0004).
@@ -91,6 +93,7 @@ type Service struct {
 	audit    Audit
 	tokens   PersonalTokens
 	secrets  SecretChecker
+	stepUps  StepUpSettings
 	now      func() time.Time
 	random   io.Reader
 }
@@ -143,7 +146,8 @@ func (s *Service) live(r domain.AuthRequest, err error) (domain.AuthRequest, err
 
 // Complete lets the Single sign-on session behind sessionToken vouch for request id. It fails with
 // ErrNoSession when there is no live session, so the caller asks the person to sign in, and with
-// ErrNoAccess when the User holds no App Role on the Client, so no code is issued.
+// ErrNoAccess when the User holds no App Role on the Client, so no code is issued, and with
+// ErrStepUpNeeded or ErrTwoFactorNeeded when the Client wants a fresher two-factor proof.
 func (s *Service) Complete(ctx context.Context, id uuid.UUID, sessionToken string) error {
 	r, err := s.Request(ctx, id)
 	if err != nil {
@@ -160,6 +164,9 @@ func (s *Service) Complete(ctx context.Context, id uuid.UUID, sessionToken strin
 	if len(roles) == 0 {
 		s.audit.Record(ctx, audit.Event{Action: audit.SignInFailed, User: signIn.UserID, Client: r.ClientID, Reason: audit.ReasonNoAccess})
 		return ErrNoAccess
+	}
+	if err := s.fresh(ctx, signIn, r.ClientID); err != nil {
+		return err
 	}
 	done, err := s.requests.CompleteRequest(ctx, id, signIn)
 	if err != nil {

@@ -1,0 +1,68 @@
+# Step-up (docs/adr/0019): an Admin sets, per Client, how fresh a session's two-factor proof must
+# be. A session records when it last proved two-factor, and a signed-in User proves it again
+# through a challenge bound to their session. A Client's setting is kept by id, so a Removed Client
+# comes back with it.
+databaseChangeLog:
+  - changeSet:
+      id: 0013-sessions-two-factor-at
+      author: identity
+      changes:
+        - addColumn:
+            tableName: sessions
+            columns:
+              - column: {name: two_factor_at, type: timestamptz}
+
+  # Sessions that proved two-factor before the column existed proved it no later than they began.
+  - changeSet:
+      id: 0013-sessions-two-factor-at-backfill
+      author: identity
+      changes:
+        - sql:
+            sql: UPDATE sessions SET two_factor_at = created_at WHERE methods && ARRAY['otp', 'hwk']
+      rollback:
+        - sql:
+            sql: UPDATE sessions SET two_factor_at = NULL
+
+  - changeSet:
+      id: 0013-step-up-challenges
+      author: identity
+      changes:
+        - addColumn:
+            tableName: sign_in_challenges
+            columns:
+              # The session a step-up challenge proves again; null for a sign-in's.
+              - column:
+                  name: session_hash
+                  type: bytea
+                  constraints: {unique: true, uniqueConstraintName: sign_in_challenges_session_key, foreignKeyName: sign_in_challenges_session_fk, references: sessions(token_hash), deleteCascade: true}
+
+  - changeSet:
+      id: 0013-create-step-up
+      author: identity
+      changes:
+        - createTable:
+            tableName: step_up
+            columns:
+              - column: {name: client_id, type: text, constraints: {primaryKey: true, nullable: false}}
+              - column: {name: minutes, type: integer, constraints: {nullable: false}}
+              - column: {name: changed_at, type: timestamptz, constraints: {nullable: false}}
+
+  - changeSet:
+      id: 0013-step-up-minutes
+      author: identity
+      changes:
+        - sql:
+            sql: ALTER TABLE step_up ADD CONSTRAINT step_up_minutes CHECK (minutes IN (5, 15, 60))
+      rollback:
+        - sql:
+            sql: ALTER TABLE step_up DROP CONSTRAINT step_up_minutes
+
+  - changeSet:
+      id: 0013-audit-events-minutes
+      author: identity
+      changes:
+        - addColumn:
+            tableName: audit_events
+            columns:
+              # A step-up change's window in minutes; 0 turns it off.
+              - column: {name: minutes, type: integer}

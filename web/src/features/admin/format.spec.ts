@@ -44,6 +44,8 @@ describe('an Audit Event reads as a sentence', () => {
     ['a token made', { action: 'token-minted', kind: 'tokens', user: noor }, '**Noor Bakker** created a token'],
     ['a token revoked', { action: 'token-revoked', kind: 'tokens', user: noor }, '**Noor Bakker** revoked a token'],
     ['an app given a new secret', { action: 'client-secret-rotated', actor: joris, client: grafana }, '**Joris** gave Grafana a new secret'],
+    ['step-up set', { action: 'step-up-changed', actor: joris, client: grafana, minutes: 15 }, '**Joris** set Grafana to ask for two-factor again after 15 minutes'],
+    ['step-up turned off', { action: 'step-up-changed', actor: joris, client: grafana, minutes: 0 }, '**Joris** turned off asking for two-factor again in Grafana'],
   ])('%s', (_, e, want) => {
     expect(sentence(e)).toBe(want)
   })

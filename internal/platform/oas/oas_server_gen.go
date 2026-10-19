@@ -109,6 +109,13 @@ type Handler interface {
 	//
 	// GET /api/v1/profile
 	GetProfile(ctx context.Context) (GetProfileRes, error)
+	// GetStepUp implements getStepUp operation.
+	//
+	// The Client's step-up window, 0 when it is off. Admins only, from a session that proved a Second
+	// Factor.
+	//
+	// GET /api/v1/apps/{clientId}/step-up
+	GetStepUp(ctx context.Context, params GetStepUpParams) (GetStepUpRes, error)
 	// GetVersion implements getVersion operation.
 	//
 	// The version of the build that is serving, for the Launcher's footer and for checks after a deploy.
@@ -193,6 +200,13 @@ type Handler interface {
 	//
 	// POST /api/v1/apps/{clientId}/secret
 	RotateClientSecret(ctx context.Context, params RotateClientSecretParams) (RotateClientSecretRes, error)
+	// SetStepUp implements setStepUp operation.
+	//
+	// Signing in to the Client then finishes only when the session proved two-factor within the window; 0
+	// turns step-up off. Admins only, from a session that proved a Second Factor.
+	//
+	// PUT /api/v1/apps/{clientId}/step-up
+	SetStepUp(ctx context.Context, req *StepUp, params SetStepUpParams) (SetStepUpRes, error)
 	// SignIn implements signIn operation.
 	//
 	// Checks an email and a password and starts a Single sign-on session in a host-only cookie. A wrong
@@ -226,6 +240,13 @@ type Handler interface {
 	//
 	// POST /api/v1/profile/second-factors/passkey
 	StartPasskey(ctx context.Context) (StartPasskeyRes, error)
+	// StartStepUp implements startStepUp operation.
+	//
+	// For an app that wants a fresh proof (step-up), starts proving the signed-in session again and says
+	// which kinds of Second Factor can prove it. A User with none is told to add one.
+	//
+	// POST /api/v1/session/step-up
+	StartStepUp(ctx context.Context) (StartStepUpRes, error)
 	// StartTOTP implements startTOTP operation.
 	//
 	// Makes a secret for a new authenticator app. It is kept, sealed by Vault, for ten minutes, until
@@ -233,6 +254,26 @@ type Handler interface {
 	//
 	// POST /api/v1/profile/second-factors/totp
 	StartTOTP(ctx context.Context) (StartTOTPRes, error)
+	// StepUpPasskeyOptions implements stepUpPasskeyOptions operation.
+	//
+	// Returns the WebAuthn options for the step-up startStepUp began.
+	//
+	// POST /api/v1/session/step-up/passkey
+	StepUpPasskeyOptions(ctx context.Context) (StepUpPasskeyOptionsRes, error)
+	// StepUpWithCode implements stepUpWithCode operation.
+	//
+	// Takes a code from the User's authenticator app for the step-up startStepUp began, and marks the
+	// session proved now. Five codes in fifteen minutes, as at sign-in; a code works once.
+	//
+	// POST /api/v1/session/step-up/code
+	StepUpWithCode(ctx context.Context, req *SecondFactorCode) (StepUpWithCodeRes, error)
+	// StepUpWithPasskey implements stepUpWithPasskey operation.
+	//
+	// Checks the browser's passkey answer for the step-up startStepUp began, and marks the session proved
+	// now. A refused answer counts as a wrong code.
+	//
+	// POST /api/v1/session/step-up/passkey/assertion
+	StepUpWithPasskey(ctx context.Context, req *PasskeyAssertion) (StepUpWithPasskeyRes, error)
 	// UnassignRole implements unassignRole operation.
 	//
 	// Removes an Assignment, also one on a Removed Client. Admins only.

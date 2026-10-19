@@ -30,6 +30,25 @@ func (s *secrets) Rotate(_ context.Context, actor app.Actor, clientID string) er
 	return s.err
 }
 
+// stepUps records what it was asked and answers minutes and err.
+type stepUps struct {
+	err     error
+	minutes int
+	actor   app.Actor
+	client  string
+	set     int
+}
+
+func (s *stepUps) StepUp(_ context.Context, actor app.Actor, clientID string) (int, error) {
+	s.actor, s.client = actor, clientID
+	return s.minutes, s.err
+}
+
+func (s *stepUps) Set(_ context.Context, actor app.Actor, clientID string, minutes int) error {
+	s.actor, s.client, s.set = actor, clientID, minutes
+	return s.err
+}
+
 func asRoot() context.Context {
 	return principal.With(context.Background(), principal.Principal{UserID: root, SecondFactor: true})
 }
@@ -37,7 +56,7 @@ func asRoot() context.Context {
 func TestAnAdminGivesAClientANewSecret(t *testing.T) {
 	t.Parallel()
 	s := &secrets{}
-	res, err := web.New(s).RotateClientSecret(asRoot(), oas.RotateClientSecretParams{ClientId: "grafana"})
+	res, err := web.New(s, nil).RotateClientSecret(asRoot(), oas.RotateClientSecretParams{ClientId: "grafana"})
 	if _, ok := res.(*oas.RotateClientSecretNoContent); err != nil || !ok {
 		t.Fatalf("RotateClientSecret = %+v, %v", res, err)
 	}
@@ -61,7 +80,7 @@ func TestARefusedRotationSaysWhy(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			res, err := web.New(&secrets{err: tc.err}).RotateClientSecret(asRoot(), oas.RotateClientSecretParams{ClientId: "grafana"})
+			res, err := web.New(&secrets{err: tc.err}, nil).RotateClientSecret(asRoot(), oas.RotateClientSecretParams{ClientId: "grafana"})
 			p, ok := res.(*oas.ProblemStatusCode)
 			if err != nil || !ok || p.StatusCode != tc.status || p.Response.Detail.Value != tc.detail {
 				t.Fatalf("RotateClientSecret = %+v, %v", res, err)
@@ -81,9 +100,57 @@ func TestAFailedRotationIsPassedOn(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			if _, err := web.New(&secrets{err: tc.err}).RotateClientSecret(asRoot(), oas.RotateClientSecretParams{}); !errors.Is(err, tc.err) {
+			if _, err := web.New(&secrets{err: tc.err}, nil).RotateClientSecret(asRoot(), oas.RotateClientSecretParams{}); !errors.Is(err, tc.err) {
 				t.Fatalf("err = %v", err)
 			}
 		})
+	}
+}
+
+func TestAnAdminReadsAClientsStepUp(t *testing.T) {
+	t.Parallel()
+	s := &stepUps{minutes: 15}
+	res, err := web.New(nil, s).GetStepUp(asRoot(), oas.GetStepUpParams{ClientId: "grafana"})
+	if got, ok := res.(*oas.StepUp); err != nil || !ok || got.Minutes != 15 || s.client != "grafana" || s.actor != (app.Actor{ID: root, SecondFactor: true}) {
+		t.Fatalf("GetStepUp = %+v, %v", res, err)
+	}
+}
+
+func TestAnAdminSetsAClientsStepUp(t *testing.T) {
+	t.Parallel()
+	s := &stepUps{}
+	res, err := web.New(nil, s).SetStepUp(asRoot(), &oas.StepUp{Minutes: 60}, oas.SetStepUpParams{ClientId: "grafana"})
+	if _, ok := res.(*oas.SetStepUpNoContent); err != nil || !ok || s.set != 60 || s.client != "grafana" || s.actor != (app.Actor{ID: root, SecondFactor: true}) {
+		t.Fatalf("SetStepUp = %+v, %v", res, err)
+	}
+}
+
+func TestARefusedStepUpSaysWhy(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name   string
+		err    error
+		status int
+		detail string
+	}{
+		{"not an Admin", app.ErrNotAdmin, 403, "Only Admins can change this."},
+		{"a window that is not offered", app.ErrInvalidStepUp, 422, "Choose Off, 5 minutes, 15 minutes or 60 minutes."},
+		{"an app that is gone", app.ErrNotFound, 404, "That app is not registered any more. Reload the page."},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			res, err := web.New(nil, &stepUps{err: tc.err}).SetStepUp(asRoot(), &oas.StepUp{}, oas.SetStepUpParams{ClientId: "grafana"})
+			p, ok := res.(*oas.ProblemStatusCode)
+			if err != nil || !ok || p.StatusCode != tc.status || p.Response.Detail.Value != tc.detail {
+				t.Fatalf("SetStepUp = %+v, %v", res, err)
+			}
+		})
+	}
+}
+
+func TestAStepUpThatCannotBeReadIsPassedOn(t *testing.T) {
+	t.Parallel()
+	if _, err := web.New(nil, &stepUps{err: errBoom}).GetStepUp(asRoot(), oas.GetStepUpParams{}); !errors.Is(err, errBoom) {
+		t.Fatalf("err = %v", err)
 	}
 }

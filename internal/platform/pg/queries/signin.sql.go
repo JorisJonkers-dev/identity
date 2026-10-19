@@ -55,6 +55,15 @@ func (q *Queries) AuthRequestByID(ctx context.Context, id uuid.UUID) (AuthReques
 	return i, err
 }
 
+const clearStepUp = `-- name: ClearStepUp :exec
+DELETE FROM step_up WHERE client_id = $1
+`
+
+func (q *Queries) ClearStepUp(ctx context.Context, clientID string) error {
+	_, err := q.db.Exec(ctx, clearStepUp, clientID)
+	return err
+}
+
 const completeAuthRequest = `-- name: CompleteAuthRequest :execrows
 UPDATE auth_requests SET user_id = $2, session_id = $3, auth_time = $4, methods = $5 WHERE id = $1 AND user_id IS NULL
 `
@@ -146,6 +155,33 @@ func (q *Queries) SaveAuthCode(ctx context.Context, arg SaveAuthCodeParams) (int
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const setStepUp = `-- name: SetStepUp :exec
+INSERT INTO step_up (client_id, minutes, changed_at) VALUES ($1, $2, $3)
+ON CONFLICT (client_id) DO UPDATE SET minutes = EXCLUDED.minutes, changed_at = EXCLUDED.changed_at
+`
+
+type SetStepUpParams struct {
+	ClientID  string
+	Minutes   int32
+	ChangedAt time.Time
+}
+
+func (q *Queries) SetStepUp(ctx context.Context, arg SetStepUpParams) error {
+	_, err := q.db.Exec(ctx, setStepUp, arg.ClientID, arg.Minutes, arg.ChangedAt)
+	return err
+}
+
+const stepUpMinutes = `-- name: StepUpMinutes :one
+SELECT minutes FROM step_up WHERE client_id = $1
+`
+
+func (q *Queries) StepUpMinutes(ctx context.Context, clientID string) (int32, error) {
+	row := q.db.QueryRow(ctx, stepUpMinutes, clientID)
+	var minutes int32
+	err := row.Scan(&minutes)
+	return minutes, err
 }
 
 const takeAuthRequestByCodeHash = `-- name: TakeAuthRequestByCodeHash :one

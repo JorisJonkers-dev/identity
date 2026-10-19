@@ -31,6 +31,7 @@ type AuditEvent struct {
 	Role      pgtype.Text
 	Email     pgtype.Text
 	Reason    pgtype.Text
+	Minutes   pgtype.Int4
 }
 
 type AuthRequest struct {
@@ -124,13 +125,14 @@ type SealedSecret struct {
 }
 
 type Session struct {
-	TokenHash  []byte
-	UserID     uuid.UUID
-	CreatedAt  time.Time
-	LastSeenAt time.Time
-	ExpiresAt  time.Time
-	ID         uuid.UUID
-	Methods    []string
+	TokenHash   []byte
+	UserID      uuid.UUID
+	CreatedAt   time.Time
+	LastSeenAt  time.Time
+	ExpiresAt   time.Time
+	ID          uuid.UUID
+	Methods     []string
+	TwoFactorAt *time.Time
 }
 
 type SessionClient struct {
@@ -145,6 +147,7 @@ type SignInChallenge struct {
 	ExpiresAt       time.Time
 	WindowStartedAt time.Time
 	PasskeyCeremony []byte
+	SessionHash     []byte
 }
 
 type SigningKey struct {
@@ -161,6 +164,12 @@ type Signup struct {
 	Name         string
 	PasswordHash string
 	ExpiresAt    time.Time
+}
+
+type StepUp struct {
+	ClientID  string
+	Minutes   int32
+	ChangedAt time.Time
 }
 
 type TotpEnrolment struct {

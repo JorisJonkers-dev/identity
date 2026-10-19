@@ -644,6 +644,87 @@ func decodeDeleteGroupParams(args [1]string, argsEscaped bool, r *http.Request) 
 	return params, nil
 }
 
+// GetStepUpParams is parameters of getStepUp operation.
+type GetStepUpParams struct {
+	// The Client, by its id.
+	ClientId ClientId
+}
+
+func unpackGetStepUpParams(packed middleware.Parameters) (params GetStepUpParams) {
+	{
+		key := middleware.ParameterKey{
+			Name: "clientId",
+			In:   "path",
+		}
+		params.ClientId = packed[key].(ClientId)
+	}
+	return params
+}
+
+func decodeGetStepUpParams(args [1]string, argsEscaped bool, r *http.Request) (params GetStepUpParams, _ error) {
+	// Decode path: clientId.
+	if err := func() error {
+		param := args[0]
+		if argsEscaped {
+			unescaped, err := url.PathUnescape(args[0])
+			if err != nil {
+				return errors.Wrap(err, "unescape path")
+			}
+			param = unescaped
+		}
+		if len(param) > 0 {
+			d := uri.NewPathDecoder(uri.PathDecoderConfig{
+				Param:   "clientId",
+				Value:   param,
+				Style:   uri.PathStyleSimple,
+				Explode: false,
+			})
+
+			if err := func() error {
+				var paramsDotClientIdVal string
+				if err := func() error {
+					val, err := d.DecodeValue()
+					if err != nil {
+						return err
+					}
+
+					c, err := conv.ToString(val)
+					if err != nil {
+						return err
+					}
+
+					paramsDotClientIdVal = c
+					return nil
+				}(); err != nil {
+					return err
+				}
+				params.ClientId = ClientId(paramsDotClientIdVal)
+				return nil
+			}(); err != nil {
+				return err
+			}
+			if err := func() error {
+				if err := params.ClientId.Validate(); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return err
+			}
+		} else {
+			return validate.ErrFieldRequired
+		}
+		return nil
+	}(); err != nil {
+		return params, &ogenerrors.DecodeParamError{
+			Name: "clientId",
+			In:   "path",
+			Err:  err,
+		}
+	}
+	return params, nil
+}
+
 // ListAuditEventsParams is parameters of listAuditEvents operation.
 type ListAuditEventsParams struct {
 	// Only events by or about this User.
@@ -1509,6 +1590,87 @@ func unpackRotateClientSecretParams(packed middleware.Parameters) (params Rotate
 }
 
 func decodeRotateClientSecretParams(args [1]string, argsEscaped bool, r *http.Request) (params RotateClientSecretParams, _ error) {
+	// Decode path: clientId.
+	if err := func() error {
+		param := args[0]
+		if argsEscaped {
+			unescaped, err := url.PathUnescape(args[0])
+			if err != nil {
+				return errors.Wrap(err, "unescape path")
+			}
+			param = unescaped
+		}
+		if len(param) > 0 {
+			d := uri.NewPathDecoder(uri.PathDecoderConfig{
+				Param:   "clientId",
+				Value:   param,
+				Style:   uri.PathStyleSimple,
+				Explode: false,
+			})
+
+			if err := func() error {
+				var paramsDotClientIdVal string
+				if err := func() error {
+					val, err := d.DecodeValue()
+					if err != nil {
+						return err
+					}
+
+					c, err := conv.ToString(val)
+					if err != nil {
+						return err
+					}
+
+					paramsDotClientIdVal = c
+					return nil
+				}(); err != nil {
+					return err
+				}
+				params.ClientId = ClientId(paramsDotClientIdVal)
+				return nil
+			}(); err != nil {
+				return err
+			}
+			if err := func() error {
+				if err := params.ClientId.Validate(); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return err
+			}
+		} else {
+			return validate.ErrFieldRequired
+		}
+		return nil
+	}(); err != nil {
+		return params, &ogenerrors.DecodeParamError{
+			Name: "clientId",
+			In:   "path",
+			Err:  err,
+		}
+	}
+	return params, nil
+}
+
+// SetStepUpParams is parameters of setStepUp operation.
+type SetStepUpParams struct {
+	// The Client, by its id.
+	ClientId ClientId
+}
+
+func unpackSetStepUpParams(packed middleware.Parameters) (params SetStepUpParams) {
+	{
+		key := middleware.ParameterKey{
+			Name: "clientId",
+			In:   "path",
+		}
+		params.ClientId = packed[key].(ClientId)
+	}
+	return params
+}
+
+func decodeSetStepUpParams(args [1]string, argsEscaped bool, r *http.Request) (params SetStepUpParams, _ error) {
 	// Decode path: clientId.
 	if err := func() error {
 		param := args[0]

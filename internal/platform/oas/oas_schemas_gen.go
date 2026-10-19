@@ -202,6 +202,7 @@ const (
 	AuditActionTokenMinted         AuditAction = "token-minted"
 	AuditActionTokenRevoked        AuditAction = "token-revoked"
 	AuditActionClientSecretRotated AuditAction = "client-secret-rotated"
+	AuditActionStepUpChanged       AuditAction = "step-up-changed"
 )
 
 // AllValues returns all AuditAction values.
@@ -226,6 +227,7 @@ func (AuditAction) AllValues() []AuditAction {
 		AuditActionTokenMinted,
 		AuditActionTokenRevoked,
 		AuditActionClientSecretRotated,
+		AuditActionStepUpChanged,
 	}
 }
 
@@ -269,6 +271,8 @@ func (s AuditAction) MarshalText() ([]byte, error) {
 	case AuditActionTokenRevoked:
 		return []byte(s), nil
 	case AuditActionClientSecretRotated:
+		return []byte(s), nil
+	case AuditActionStepUpChanged:
 		return []byte(s), nil
 	default:
 		return nil, errors.Errorf("invalid value: %q", s)
@@ -335,6 +339,9 @@ func (s *AuditAction) UnmarshalText(data []byte) error {
 	case AuditActionClientSecretRotated:
 		*s = AuditActionClientSecretRotated
 		return nil
+	case AuditActionStepUpChanged:
+		*s = AuditActionStepUpChanged
+		return nil
 	default:
 		return errors.Errorf("invalid value: %q", data)
 	}
@@ -385,6 +392,8 @@ type AuditEvent struct {
 	Email OptString `json:"email"`
 	// Why a sign-in failed.
 	Reason OptAuditEventReason `json:"reason"`
+	// The step-up window an Admin set, 0 for off.
+	Minutes OptAuditEventMinutes `json:"minutes"`
 }
 
 // GetID returns the value of ID.
@@ -442,6 +451,11 @@ func (s *AuditEvent) GetReason() OptAuditEventReason {
 	return s.Reason
 }
 
+// GetMinutes returns the value of Minutes.
+func (s *AuditEvent) GetMinutes() OptAuditEventMinutes {
+	return s.Minutes
+}
+
 // SetID sets the value of ID.
 func (s *AuditEvent) SetID(val ID) {
 	s.ID = val
@@ -495,6 +509,31 @@ func (s *AuditEvent) SetEmail(val OptString) {
 // SetReason sets the value of Reason.
 func (s *AuditEvent) SetReason(val OptAuditEventReason) {
 	s.Reason = val
+}
+
+// SetMinutes sets the value of Minutes.
+func (s *AuditEvent) SetMinutes(val OptAuditEventMinutes) {
+	s.Minutes = val
+}
+
+// The step-up window an Admin set, 0 for off.
+type AuditEventMinutes int32
+
+const (
+	AuditEventMinutes0  AuditEventMinutes = 0
+	AuditEventMinutes5  AuditEventMinutes = 5
+	AuditEventMinutes15 AuditEventMinutes = 15
+	AuditEventMinutes60 AuditEventMinutes = 60
+)
+
+// AllValues returns all AuditEventMinutes values.
+func (AuditEventMinutes) AllValues() []AuditEventMinutes {
+	return []AuditEventMinutes{
+		AuditEventMinutes0,
+		AuditEventMinutes5,
+		AuditEventMinutes15,
+		AuditEventMinutes60,
+	}
 }
 
 // Why a sign-in failed.
@@ -1274,6 +1313,52 @@ func (o OptAuditCursor) Or(d AuditCursor) AuditCursor {
 	return d
 }
 
+// NewOptAuditEventMinutes returns new OptAuditEventMinutes with value set to v.
+func NewOptAuditEventMinutes(v AuditEventMinutes) OptAuditEventMinutes {
+	return OptAuditEventMinutes{
+		Value: v,
+		Set:   true,
+	}
+}
+
+// OptAuditEventMinutes is optional AuditEventMinutes.
+type OptAuditEventMinutes struct {
+	Value AuditEventMinutes
+	Set   bool
+}
+
+// IsSet returns true if OptAuditEventMinutes was set.
+func (o OptAuditEventMinutes) IsSet() bool { return o.Set }
+
+// Reset unsets value.
+func (o *OptAuditEventMinutes) Reset() {
+	var v AuditEventMinutes
+	o.Value = v
+	o.Set = false
+}
+
+// SetTo sets value to v.
+func (o *OptAuditEventMinutes) SetTo(v AuditEventMinutes) {
+	o.Set = true
+	o.Value = v
+}
+
+// Get returns value and boolean that denotes whether value was set.
+func (o OptAuditEventMinutes) Get() (v AuditEventMinutes, ok bool) {
+	if !o.Set {
+		return v, false
+	}
+	return o.Value, true
+}
+
+// Or returns value if set, or given parameter if does not.
+func (o OptAuditEventMinutes) Or(d AuditEventMinutes) AuditEventMinutes {
+	if v, ok := o.Get(); ok {
+		return v
+	}
+	return d
+}
+
 // NewOptAuditEventReason returns new OptAuditEventReason with value set to v.
 func NewOptAuditEventReason(v AuditEventReason) OptAuditEventReason {
 	return OptAuditEventReason{
@@ -1763,8 +1848,9 @@ func (s *PasskeyOptions) SetOptions(val string) {
 	s.Options = val
 }
 
-func (*PasskeyOptions) passkeyOptionsRes() {}
-func (*PasskeyOptions) startPasskeyRes()   {}
+func (*PasskeyOptions) passkeyOptionsRes()       {}
+func (*PasskeyOptions) startPasskeyRes()         {}
+func (*PasskeyOptions) stepUpPasskeyOptionsRes() {}
 
 type Password string
 
@@ -2095,6 +2181,7 @@ func (*ProblemStatusCode) getAccessRes()                 {}
 func (*ProblemStatusCode) getDashboardRes()              {}
 func (*ProblemStatusCode) getLauncherRes()               {}
 func (*ProblemStatusCode) getProfileRes()                {}
+func (*ProblemStatusCode) getStepUpRes()                 {}
 func (*ProblemStatusCode) getVersionRes()                {}
 func (*ProblemStatusCode) listAuditEventsRes()           {}
 func (*ProblemStatusCode) listMyTokensRes()              {}
@@ -2108,12 +2195,17 @@ func (*ProblemStatusCode) renameGroupRes()               {}
 func (*ProblemStatusCode) revokeMyTokenRes()             {}
 func (*ProblemStatusCode) revokeUserTokenRes()           {}
 func (*ProblemStatusCode) rotateClientSecretRes()        {}
+func (*ProblemStatusCode) setStepUpRes()                 {}
 func (*ProblemStatusCode) signInRes()                    {}
 func (*ProblemStatusCode) signOutRes()                   {}
 func (*ProblemStatusCode) signOutUserRes()               {}
 func (*ProblemStatusCode) signUpRes()                    {}
 func (*ProblemStatusCode) startPasskeyRes()              {}
+func (*ProblemStatusCode) startStepUpRes()               {}
 func (*ProblemStatusCode) startTOTPRes()                 {}
+func (*ProblemStatusCode) stepUpPasskeyOptionsRes()      {}
+func (*ProblemStatusCode) stepUpWithCodeRes()            {}
+func (*ProblemStatusCode) stepUpWithPasskeyRes()         {}
 func (*ProblemStatusCode) unassignRoleRes()              {}
 func (*ProblemStatusCode) unassignUserRoleRes()          {}
 func (*ProblemStatusCode) updateProfileRes()             {}
@@ -2372,6 +2464,8 @@ func (s *SecondFactorNeeded) SetMethods(val []SecondFactorKind) {
 	s.Methods = val
 }
 
+func (*SecondFactorNeeded) startStepUpRes() {}
+
 // SecondFactorNeededHeaders wraps SecondFactorNeeded with response headers.
 type SecondFactorNeededHeaders struct {
 	SetCookie string
@@ -2443,6 +2537,11 @@ func (s *Session) SetAPIKey(val string) {
 func (s *Session) SetRoles(val []string) {
 	s.Roles = val
 }
+
+// SetStepUpNoContent is response for SetStepUp operation.
+type SetStepUpNoContent struct{}
+
+func (*SetStepUpNoContent) setStepUpRes() {}
 
 // An email and a password.
 // Ref: #/components/schemas/SignIn
@@ -2593,6 +2692,55 @@ func (s *SignUp) SetPassword(val Password) {
 type SignUpAccepted struct{}
 
 func (*SignUpAccepted) signUpRes() {}
+
+// How fresh a Client wants a session's two-factor proof (docs/adr/0019).
+// Ref: #/components/schemas/StepUp
+type StepUp struct {
+	// The window in minutes; 0 is off.
+	Minutes StepUpMinutes `json:"minutes"`
+}
+
+// GetMinutes returns the value of Minutes.
+func (s *StepUp) GetMinutes() StepUpMinutes {
+	return s.Minutes
+}
+
+// SetMinutes sets the value of Minutes.
+func (s *StepUp) SetMinutes(val StepUpMinutes) {
+	s.Minutes = val
+}
+
+func (*StepUp) getStepUpRes() {}
+
+// The window in minutes; 0 is off.
+type StepUpMinutes int32
+
+const (
+	StepUpMinutes0  StepUpMinutes = 0
+	StepUpMinutes5  StepUpMinutes = 5
+	StepUpMinutes15 StepUpMinutes = 15
+	StepUpMinutes60 StepUpMinutes = 60
+)
+
+// AllValues returns all StepUpMinutes values.
+func (StepUpMinutes) AllValues() []StepUpMinutes {
+	return []StepUpMinutes{
+		StepUpMinutes0,
+		StepUpMinutes5,
+		StepUpMinutes15,
+		StepUpMinutes60,
+	}
+}
+
+// StepUpWithCodeNoContent is response for StepUpWithCode operation.
+type StepUpWithCodeNoContent struct{}
+
+func (*StepUpWithCodeNoContent) stepUpWithCodeRes() {}
+
+// StepUpWithPasskeyNoContent is response for StepUpWithPasskey operation.
+type StepUpWithPasskeyNoContent struct{}
+
+func (*StepUpWithPasskeyNoContent) stepUpWithPasskeyRes() {}
 
 // A name for the new authenticator app, its first code, and the User's password, so a session someone
 // else holds cannot add one.

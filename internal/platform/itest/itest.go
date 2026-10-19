@@ -71,6 +71,29 @@ type Env struct {
 	db    *pg.Store
 	logs  *logBuffer
 	prune func(context.Context) (int64, error)
+	clock *clock
+}
+
+// clock is identity's clock in a test: the real time, plus however far the test moved it on.
+type clock struct {
+	mu    sync.Mutex
+	ahead time.Duration
+}
+
+func (c *clock) now() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return time.Now().Add(c.ahead)
+}
+
+// Now is the time as identity's use cases see it, for codes an authenticator would show then.
+func (e *Env) Now() time.Time { return e.clock.now() }
+
+// Pass moves identity's clock on by d, for what happens after a while.
+func (e *Env) Pass(d time.Duration) {
+	e.clock.mu.Lock()
+	defer e.clock.mu.Unlock()
+	e.clock.ahead += d
 }
 
 // logBuffer keeps what identity logs, for tests to read; requests log from many goroutines.
@@ -101,6 +124,7 @@ func Start(t *testing.T, cs ...signindomain.Client) *Env {
 	}
 	logs := &logBuffer{}
 	logger := slog.New(slog.NewJSONHandler(logs, nil))
+	clk := &clock{}
 	v := vault.New(shared.vaultAddr, vault.Token(vaultToken), &http.Client{Timeout: 5 * time.Second})
 	transit := v.Transit("transit")
 	built, err := assembly.New(t.Context(), assembly.Config{
@@ -114,6 +138,7 @@ func Start(t *testing.T, cs ...signindomain.Client) *Env {
 		Synced:    func() bool { return true },
 		Logger:    logger,
 		Version:   "itest",
+		Now:       clk.now,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -124,7 +149,7 @@ func Start(t *testing.T, cs ...signindomain.Client) *Env {
 	srv := httptest.NewUnstartedServer(server.New(logger, "itest", built.Routes).Handler())
 	srv.StartTLS()
 	t.Cleanup(srv.Close)
-	return &Env{srv: srv, db: store, logs: logs, prune: built.Prune}
+	return &Env{srv: srv, db: store, logs: logs, prune: built.Prune, clock: clk}
 }
 
 // Logs is every line identity logged so far, each decoded from its JSON.
@@ -286,24 +311,32 @@ func (e *Env) Admin(t *testing.T, email string) *Browser {
 	t.Helper()
 	b := e.SignedUp(t, email)
 	e.Promote(t, b.Email)
-	var setup struct{ Secret string }
-	b.Call(t, http.MethodPost, "/api/v1/profile/second-factors/totp", nil, http.StatusOK, &setup)
-	code, err := totp.GenerateCode(setup.Secret, time.Now())
-	if err != nil {
-		t.Fatal(err)
-	}
-	b.Call(t, http.MethodPost, "/api/v1/profile/second-factors/totp/confirmation",
-		map[string]string{"label": "Phone", "code": code, "password": Password}, http.StatusNoContent, nil)
+	secret := b.AddAuthenticator(t)
 	// Signing in again as an Admin is what caps the session at 12 hours; the code that added the app
 	// is spent, so the next step's code proves it.
 	b.Call(t, http.MethodDelete, "/api/v1/session", nil, http.StatusNoContent, nil)
 	b.Call(t, http.MethodPost, "/api/v1/session", map[string]string{"email": b.Email, "password": Password}, http.StatusAccepted, nil)
-	next, err := totp.GenerateCode(setup.Secret, time.Now().Add(30*time.Second))
+	next, err := totp.GenerateCode(secret, e.Now().Add(30*time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}
 	b.Call(t, http.MethodPost, "/api/v1/session/second-factor", map[string]string{"code": next}, http.StatusNoContent, nil)
 	return b
+}
+
+// AddAuthenticator adds an authenticator app to the signed-in User, confirmed with its first code,
+// and returns its secret, for the codes it shows later.
+func (b *Browser) AddAuthenticator(t *testing.T) string {
+	t.Helper()
+	var setup struct{ Secret string }
+	b.Call(t, http.MethodPost, "/api/v1/profile/second-factors/totp", nil, http.StatusOK, &setup)
+	code, err := totp.GenerateCode(setup.Secret, b.env.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	b.Call(t, http.MethodPost, "/api/v1/profile/second-factors/totp/confirmation",
+		map[string]string{"label": "Phone", "code": code, "password": Password}, http.StatusNoContent, nil)
+	return setup.Secret
 }
 
 // Promote puts the User signed up as email in the admins Group, as `identity admin promote` does.
@@ -365,6 +398,40 @@ func (b *Browser) Call(t *testing.T, method, path string, body any, want int, ou
 			t.Fatalf("%s %s: %v in %s", method, path, err, raw)
 		}
 	}
+}
+
+// Authorize starts a sign-in to the native Client c at its first redirect URI, as the app's sign-in
+// button does, and returns the login step identity sends the browser to.
+func (b *Browser) Authorize(t *testing.T, c signindomain.Client) string {
+	t.Helper()
+	q := url.Values{
+		"client_id": {c.ID}, "redirect_uri": {c.RedirectURIs[0]}, "response_type": {"code"}, "scope": {"openid"},
+		"state": {"st"}, "code_challenge": {"E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"}, "code_challenge_method": {"S256"},
+	}
+	return b.Follow(t, "/oidc/authorize?"+q.Encode())
+}
+
+// Follow gets target, a path or a URL on identity, and returns where the redirect it answers goes.
+func (b *Browser) Follow(t *testing.T, target string) string {
+	t.Helper()
+	u, err := url.Parse(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://"+Host+u.RequestURI(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := b.client.Do(req)
+	if err != nil {
+		t.Fatalf("GET %s: %v", target, err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	if res.StatusCode < 300 || res.StatusCode > 399 {
+		raw, _ := io.ReadAll(res.Body)
+		t.Fatalf("GET %s = %d %s, want a redirect", target, res.StatusCode, raw)
+	}
+	return res.Header.Get("Location")
 }
 
 // UserID is the id of the User signed up as email, read from the access page as an Admin sees it.

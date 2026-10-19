@@ -18,16 +18,57 @@ type UseCases interface {
 	Rotate(ctx context.Context, actor app.Actor, clientID string) error
 }
 
-// Apps implements the Client operations.
-type Apps struct{ uc UseCases }
+// StepUps is the step-up use cases.
+type StepUps interface {
+	StepUp(ctx context.Context, actor app.Actor, clientID string) (int, error)
+	Set(ctx context.Context, actor app.Actor, clientID string, minutes int) error
+}
 
-// New returns Apps calling uc.
-func New(uc UseCases) *Apps { return &Apps{uc: uc} }
+// Apps implements the Client operations.
+type Apps struct {
+	uc      UseCases
+	stepUps StepUps
+}
+
+// New returns Apps calling uc and stepUps.
+func New(uc UseCases, stepUps StepUps) *Apps { return &Apps{uc: uc, stepUps: stepUps} }
+
+func actor(ctx context.Context) app.Actor {
+	p := principal.From(ctx)
+	return app.Actor{ID: p.UserID, SecondFactor: p.SecondFactor}
+}
+
+// GetStepUp implements getStepUp.
+func (h *Apps) GetStepUp(ctx context.Context, params oas.GetStepUpParams) (oas.GetStepUpRes, error) {
+	minutes, err := h.stepUps.StepUp(ctx, actor(ctx), string(params.ClientId))
+	if err != nil {
+		return stepUpRefusal(err)
+	}
+	return &oas.StepUp{Minutes: oas.StepUpMinutes(minutes)}, nil //nolint:gosec // 0 to 60
+}
+
+// SetStepUp implements setStepUp.
+func (h *Apps) SetStepUp(ctx context.Context, req *oas.StepUp, params oas.SetStepUpParams) (oas.SetStepUpRes, error) {
+	if err := h.stepUps.Set(ctx, actor(ctx), string(params.ClientId), int(req.Minutes)); err != nil {
+		return stepUpRefusal(err)
+	}
+	return &oas.SetStepUpNoContent{}, nil
+}
+
+func stepUpRefusal(err error) (*oas.ProblemStatusCode, error) {
+	switch {
+	case errors.Is(err, app.ErrNotAdmin):
+		return problem(http.StatusForbidden, "Only Admins can change this."), nil
+	case errors.Is(err, app.ErrInvalidStepUp):
+		return problem(http.StatusUnprocessableEntity, "Choose Off, 5 minutes, 15 minutes or 60 minutes."), nil
+	default:
+		return refusal(err)
+	}
+}
 
 // RotateClientSecret implements rotateClientSecret.
 func (h *Apps) RotateClientSecret(ctx context.Context, params oas.RotateClientSecretParams) (oas.RotateClientSecretRes, error) {
-	p := principal.From(ctx)
-	if err := h.uc.Rotate(ctx, app.Actor{ID: p.UserID, SecondFactor: p.SecondFactor}, string(params.ClientId)); err != nil {
+	if err := h.uc.Rotate(ctx, actor(ctx), string(params.ClientId)); err != nil {
 		return refusal(err)
 	}
 	return &oas.RotateClientSecretNoContent{}, nil

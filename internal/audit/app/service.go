@@ -143,6 +143,9 @@ func attrs(e domain.Event) []slog.Attr {
 			a = append(a, slog.String(f.key, f.value))
 		}
 	}
+	if e.Action == domain.StepUpChanged {
+		a = append(a, slog.Int("minutes", e.Minutes))
+	}
 	return a
 }
 

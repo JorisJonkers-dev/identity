@@ -29,12 +29,15 @@ const (
 	enrolmentLifetime = 10 * time.Minute
 )
 
-// Challenge is a sign-in whose password was right, waiting for its Second Factor.
+// Challenge is a sign-in whose password was right, waiting for its Second Factor, or a session
+// proving one again for step-up (docs/adr/0019).
 type Challenge struct {
 	TokenHash       []byte
 	UserID          uuid.UUID
 	ExpiresAt       time.Time
 	WindowStartedAt time.Time
+	// SessionHash is the session a step-up challenge proves again; nil for a sign-in's.
+	SessionHash []byte
 }
 
 // TOTPFactor is an authenticator app a User enrolled; its secret is kept only sealed.
@@ -102,13 +105,13 @@ func (s *Service) hasSecondFactor(ctx context.Context, userID uuid.UUID) (bool, 
 	return len(factors) > 0, err
 }
 
-func (s *Service) challenge(ctx context.Context, userID uuid.UUID) (string, error) {
+func (s *Service) challenge(ctx context.Context, userID uuid.UUID, sessionHash []byte) (string, error) {
 	token, hash, err := s.token()
 	if err != nil {
 		return "", err
 	}
 	now := s.now()
-	c := Challenge{TokenHash: hash, UserID: userID, ExpiresAt: now.Add(challengeLifetime), WindowStartedAt: now}
+	c := Challenge{TokenHash: hash, UserID: userID, ExpiresAt: now.Add(challengeLifetime), WindowStartedAt: now, SessionHash: sessionHash}
 	if err := s.store.SaveChallenge(ctx, c, now.Add(-attemptWindow)); err != nil {
 		return "", err
 	}
@@ -119,27 +122,36 @@ func (s *Service) challenge(ctx context.Context, userID uuid.UUID) (string, erro
 // returns a session proved by both. A User gets five codes in fifteen minutes, however many times
 // they sign in, and a code works once.
 func (s *Service) CompleteSignIn(ctx context.Context, challenge, code string) (string, error) {
-	sealer, err := s.sealerOrErr()
+	userID, err := s.answerWithCode(ctx, hashOf(challenge), code)
 	if err != nil {
 		return "", err
 	}
-	hash := hashOf(challenge)
+	return s.startSession(ctx, userID, []string{methodPassword, methodOTP})
+}
+
+// answerWithCode spends one attempt of the challenge on a code from one of its User's
+// authenticators, and on a right one removes the challenge and returns the User.
+func (s *Service) answerWithCode(ctx context.Context, hash []byte, code string) (uuid.UUID, error) {
+	sealer, err := s.sealerOrErr()
+	if err != nil {
+		return uuid.Nil, err
+	}
 	now := s.now()
 	userID, err := s.store.SpendChallengeAttempt(ctx, hash, challengeAttempts, now)
 	if errors.Is(err, ErrNotFound) {
-		return "", ErrInvalidToken
+		return uuid.Nil, ErrInvalidToken
 	}
 	if err != nil {
-		return "", err
+		return uuid.Nil, err
 	}
 	factors, err := s.store.TOTPFactors(ctx, userID)
 	if err != nil {
-		return "", err
+		return uuid.Nil, err
 	}
 	for _, f := range factors {
 		secret, err := sealer.Open(ctx, f.SealedSecret)
 		if err != nil {
-			return "", err
+			return uuid.Nil, err
 		}
 		step, ok := s.matchTOTP(string(secret), code, now, f.LastStep)
 		if !ok {
@@ -147,17 +159,14 @@ func (s *Service) CompleteSignIn(ctx context.Context, challenge, code string) (s
 		}
 		used, err := s.store.UseTOTPStep(ctx, f.ID, step, now)
 		if err != nil {
-			return "", err
+			return uuid.Nil, err
 		}
 		if !used {
-			return "", s.failed(ctx, audit.Event{User: userID, Reason: audit.ReasonSecondFactor}, ErrInvalidCode)
+			return uuid.Nil, s.failed(ctx, audit.Event{User: userID, Reason: audit.ReasonSecondFactor}, ErrInvalidCode)
 		}
-		if err := s.store.DeleteChallenge(ctx, hash); err != nil {
-			return "", err
-		}
-		return s.startSession(ctx, userID, []string{methodPassword, methodOTP})
+		return userID, s.store.DeleteChallenge(ctx, hash)
 	}
-	return "", s.failed(ctx, audit.Event{User: userID, Reason: audit.ReasonSecondFactor}, ErrInvalidCode)
+	return uuid.Nil, s.failed(ctx, audit.Event{User: userID, Reason: audit.ReasonSecondFactor}, ErrInvalidCode)
 }
 
 // SecondFactors lists a User's authenticator apps and passkeys, oldest first.
@@ -257,7 +266,7 @@ func (s *Service) ConfirmTOTP(ctx context.Context, userID uuid.UUID, sessionToke
 // the password alone would outlive the new Second Factor, as they do not a password change.
 func (s *Service) proved(ctx context.Context, userID uuid.UUID, sessionToken, method string) error {
 	hash := hashOf(sessionToken)
-	if err := s.store.SetSessionMethods(ctx, hash, []string{methodPassword, method}); err != nil {
+	if err := s.store.SetSessionMethods(ctx, hash, []string{methodPassword, method}, s.now()); err != nil {
 		return err
 	}
 	_, err := s.endSessions(ctx, userID, hash)

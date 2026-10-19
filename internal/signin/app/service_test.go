@@ -147,13 +147,21 @@ type accounts struct {
 	sessionID  uuid.UUID
 	signedOut  uuid.UUID
 	failClaims error
+	// twoFactorAt is when Ada's session last proved two-factor; twoFactor whether she has any.
+	twoFactorAt time.Time
+	twoFactor   bool
+	failHas     error
 }
 
 func (a *accounts) SignedIn(_ context.Context, token string) (domain.SignIn, error) {
 	if token != "tok" {
 		return domain.SignIn{}, app.ErrNoSession
 	}
-	return domain.SignIn{UserID: a.ada, SessionID: a.sessionID, At: t0}, nil
+	return domain.SignIn{UserID: a.ada, SessionID: a.sessionID, At: t0, TwoFactorAt: a.twoFactorAt}, nil
+}
+
+func (a *accounts) HasTwoFactor(context.Context, uuid.UUID) (bool, error) {
+	return a.twoFactor, a.failHas
 }
 
 func (a *accounts) Claims(context.Context, uuid.UUID) (app.Claims, error) {

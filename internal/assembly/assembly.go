@@ -154,6 +154,9 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 	signIn := signinapp.New(signinpersistence.New(q), cfg.Index, accounts.New(users), access, logouts, recorder, now, rand.Reader)
 	secrets := signinapp.NewClientSecrets(signinpersistence.NewClientSecrets(q, cfg.Store, time.Now), secretstore.New(cfg.KV), cfg.Index, admins, recorder, rand.Reader)
 	signIn.SetClientSecrets(secrets)
+	stepUpSettings := signinpersistence.NewStepUps(q, now)
+	signIn.SetStepUps(stepUpSettings)
+	stepUps := signinapp.NewStepUps(stepUpSettings, cfg.Index, admins, recorder)
 	tokenContexts := tokenscontexts.New(signIn, access, cfg.Index)
 	tokens := tokensapp.New(tokenspersistence.New(q), tokenContexts, tokenContexts, admins, recorder, now, rand.Reader)
 	signIn.SetPersonalTokens(signintokens.New(tokens))
@@ -164,7 +167,7 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 		transport = http.DefaultTransport
 	}
 	launcher := launcherapp.New(launcherContexts, launcherContexts, launcherfetch.New(transport, iconTimeout), now)
-	api, err := httpapi.New(cfg.Logger, cfg.Version, users, access, auditweb.New(audit, cfg.Grafana), launcher, tokensweb.New(tokens), signinweb.New(secrets))
+	api, err := httpapi.New(cfg.Logger, cfg.Version, users, access, auditweb.New(audit, cfg.Grafana), launcher, tokensweb.New(tokens), signinweb.New(secrets, stepUps))
 	if err != nil {
 		return nil, err
 	}

@@ -61,6 +61,10 @@ type GetProfileRes interface {
 	getProfileRes()
 }
 
+type GetStepUpRes interface {
+	getStepUpRes()
+}
+
 type GetVersionRes interface {
 	getVersionRes()
 }
@@ -113,6 +117,10 @@ type RotateClientSecretRes interface {
 	rotateClientSecretRes()
 }
 
+type SetStepUpRes interface {
+	setStepUpRes()
+}
+
 type SignInRes interface {
 	signInRes()
 }
@@ -133,8 +141,24 @@ type StartPasskeyRes interface {
 	startPasskeyRes()
 }
 
+type StartStepUpRes interface {
+	startStepUpRes()
+}
+
 type StartTOTPRes interface {
 	startTOTPRes()
+}
+
+type StepUpPasskeyOptionsRes interface {
+	stepUpPasskeyOptionsRes()
+}
+
+type StepUpWithCodeRes interface {
+	stepUpWithCodeRes()
+}
+
+type StepUpWithPasskeyRes interface {
+	stepUpWithPasskeyRes()
 }
 
 type UnassignRoleRes interface {
