@@ -154,7 +154,7 @@ describe('deleting the account', () => {
   it('says what goes with the account', async () => {
     const { wrapper } = await mountAt('/security/delete', page())
     expect(wrapper.get('h1').text()).toBe('Delete your account')
-    expect(wrapper.get('.note.warn').text()).toBe('You are signed out everywhere, your tokens stop working and your access to every app ends. This cannot be undone.')
+    expect(wrapper.get('.note.warn').text()).toBe('You are signed out everywhere and lose access to every app. Your tokens stop working. This cannot be undone.')
   })
 
   it('deletes the account with the password', async () => {

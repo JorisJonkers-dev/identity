@@ -44,7 +44,7 @@ export function describeEvent(e: AuditEvent): Part[] {
     case 'password-changed':
       return [user, { text: ' changed their password' }]
     case 'account-deleted':
-      return [user, { text: ' deleted their account' }]
+      return [user, { text: ' deleted their own account' }]
     case 'email-changed':
       return [user, { text: ` changed their sign-in email from ${e.email ?? 'an earlier address'}${e.user?.email ? ` to ${e.user.email}` : ''}` }]
     case 'second-factor-added':

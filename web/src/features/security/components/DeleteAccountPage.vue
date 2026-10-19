@@ -29,7 +29,7 @@ watch(remove.status, (status) => {
   <AppShell v-else narrow>
     <BackLink to="/security" label="Security" />
     <header class="head"><h1>Delete your account</h1></header>
-    <p class="note warn" role="status"><Icon name="alert" />You are signed out everywhere, your tokens stop working and your access to every app ends. This cannot be undone.</p>
+    <p class="note warn" role="status"><Icon name="alert" />You are signed out everywhere and lose access to every app. Your tokens stop working. This cannot be undone.</p>
     <form class="glass group task" @submit.prevent="remove.run({ body: { password } })">
       <div class="field"><label class="label" for="del-pw">Password</label><input id="del-pw" v-model="password" class="input md" type="password" autocomplete="current-password" required /></div>
       <p v-if="remove.error.value && remove.status.value !== 403" role="alert" class="alert"><Icon name="alert" />{{ remove.error.value }}</p>
