@@ -22,6 +22,8 @@ export function describeEvent(e: AuditEvent): Part[] {
   const user: Part = { text: name(e.user), as: 'name' }
   const to = e.client ? ` to ${e.client.label}` : ''
   const group = e.groupName ?? 'a Group'
+  // A role given to a person directly names them; one given to a Group names the Group.
+  const holder = e.groupName === undefined && e.user ? name(e.user) : group
   const role: Part = { text: e.role ?? '', as: 'pill' }
   const client = e.client?.label ?? 'an app'
   switch (e.action) {
@@ -58,9 +60,9 @@ export function describeEvent(e: AuditEvent): Part[] {
     case 'member-removed':
       return [actor, { text: ` took ${name(e.user)} out of ${group}` }]
     case 'role-assigned':
-      return [actor, { text: ` gave ${group} ` }, role, { text: ` on ${client}` }]
+      return [actor, { text: ` gave ${holder} ` }, role, { text: ` on ${client}` }]
     case 'role-removed':
-      return [actor, { text: ' took ' }, role, { text: ` on ${client} away from ${group}` }]
+      return [actor, { text: ' took ' }, role, { text: ` on ${client} away from ${holder}` }]
     case 'token-minted':
       return [user, { text: ' created a token' }]
     case 'token-revoked':

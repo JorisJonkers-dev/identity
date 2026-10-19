@@ -48,7 +48,7 @@ export function token(over: Partial<PersonalToken> = {}): PersonalToken {
   }
 }
 
-/** Joris administers; Ada is in Family, which gives Grafana viewer and Jellyfin user; Noor waits for a Group. */
+/** Joris administers; Ada is in Family, which gives Grafana viewer and Jellyfin user; Noor waits for a role. */
 export function overview(over: Partial<AccessOverview> = {}): AccessOverview {
   return {
     groups: [
@@ -70,6 +70,7 @@ export function overview(over: Partial<AccessOverview> = {}): AccessOverview {
       { groupId: ids.family, clientId: 'grafana', role: 'viewer' },
       { groupId: ids.family, clientId: 'jellyfin', role: 'user' },
     ],
+    userAssignments: [],
     ...over,
   }
 }

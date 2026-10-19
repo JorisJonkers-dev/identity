@@ -188,4 +188,12 @@ func TestRolesComeFromAssignmentsOverPostgres(t *testing.T) {
 	if got := roles(accessClaims(t, signIn().AccessToken)["roles"]); !slices.Equal(got, []string{"viewer"}) {
 		t.Fatalf("roles after the Assignment went = %v", got)
 	}
+
+	// A role given to Ada herself joins the one her Group gives (docs/adr/0018).
+	if err := access.AssignUser(ctx, actor, accessdomain.UserAssignment{UserID: ada.ID, ClientID: "web", Role: "editor"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := roles(e.verify(t, "web", signIn().IDToken).Claims["roles"]); !slices.Equal(got, want) {
+		t.Fatalf("ID token roles with a direct Assignment = %v, want %v", got, want)
+	}
 }

@@ -26,6 +26,8 @@ type UseCases interface {
 	RemoveMember(ctx context.Context, actor app.Actor, m domain.Membership) error
 	Assign(ctx context.Context, actor app.Actor, a domain.Assignment) error
 	Unassign(ctx context.Context, actor app.Actor, a domain.Assignment) error
+	AssignUser(ctx context.Context, actor app.Actor, a domain.UserAssignment) error
+	UnassignUser(ctx context.Context, actor app.Actor, a domain.UserAssignment) error
 	SignOutUser(ctx context.Context, actor app.Actor, userID uuid.UUID) error
 }
 
@@ -46,10 +48,11 @@ func (h *Access) GetAccess(ctx context.Context) (oas.GetAccessRes, error) {
 		members[m.GroupID] = append(members[m.GroupID], oas.ID(m.UserID))
 	}
 	res := &oas.AccessOverview{
-		Groups:      make([]oas.Group, 0, len(o.Groups)),
-		Users:       make([]oas.Person, 0, len(o.People)),
-		Clients:     make([]oas.AccessClient, 0, len(o.Clients)),
-		Assignments: make([]oas.Assignment, 0, len(o.Assignments)),
+		Groups:          make([]oas.Group, 0, len(o.Groups)),
+		Users:           make([]oas.Person, 0, len(o.People)),
+		Clients:         make([]oas.AccessClient, 0, len(o.Clients)),
+		Assignments:     make([]oas.Assignment, 0, len(o.Assignments)),
+		UserAssignments: make([]oas.UserAssignment, 0, len(o.UserAssignments)),
 	}
 	for _, g := range o.Groups {
 		res.Groups = append(res.Groups, group(g, members[g.ID]))
@@ -67,6 +70,11 @@ func (h *Access) GetAccess(ctx context.Context) (oas.GetAccessRes, error) {
 	for _, a := range o.Assignments {
 		res.Assignments = append(res.Assignments, oas.Assignment{
 			GroupId: oas.ID(a.GroupID), ClientId: oas.ClientId(a.ClientID), Role: oas.AppRole(a.Role),
+		})
+	}
+	for _, a := range o.UserAssignments {
+		res.UserAssignments = append(res.UserAssignments, oas.UserAssignment{
+			UserId: oas.ID(a.UserID), ClientId: oas.ClientId(a.ClientID), Role: oas.AppRole(a.Role),
 		})
 	}
 	return res, nil
@@ -139,6 +147,24 @@ func (h *Access) UnassignRole(ctx context.Context, p oas.UnassignRoleParams) (oa
 		return refusal(err)
 	}
 	return &oas.UnassignRoleNoContent{}, nil
+}
+
+// AssignUserRole implements assignUserRole.
+func (h *Access) AssignUserRole(ctx context.Context, p oas.AssignUserRoleParams) (oas.AssignUserRoleRes, error) {
+	a := domain.UserAssignment{UserID: uuid.UUID(p.UserId), ClientID: string(p.ClientId), Role: string(p.Role)}
+	if err := h.uc.AssignUser(ctx, actor(ctx), a); err != nil {
+		return refusal(err)
+	}
+	return &oas.AssignUserRoleNoContent{}, nil
+}
+
+// UnassignUserRole implements unassignUserRole.
+func (h *Access) UnassignUserRole(ctx context.Context, p oas.UnassignUserRoleParams) (oas.UnassignUserRoleRes, error) {
+	a := domain.UserAssignment{UserID: uuid.UUID(p.UserId), ClientID: string(p.ClientId), Role: string(p.Role)}
+	if err := h.uc.UnassignUser(ctx, actor(ctx), a); err != nil {
+		return refusal(err)
+	}
+	return &oas.UnassignUserRoleNoContent{}, nil
 }
 
 func actor(ctx context.Context) app.Actor {

@@ -45,7 +45,7 @@ func Handler(countUnassigned func(context.Context) (int, error), logger *slog.Lo
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(
 		unassigned{
-			desc:  prometheus.NewDesc(Unassigned, "Confirmed Users in no Group, waiting for an Admin to place them (docs/adr/0005).", nil, nil),
+			desc:  prometheus.NewDesc(Unassigned, "Confirmed Users who hold no App Role, Admins aside, waiting for an Admin to place them (docs/adr/0005, 0018).", nil, nil),
 			count: countUnassigned, logger: logger,
 		},
 		collectors.NewGoCollector(),

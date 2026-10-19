@@ -39,6 +39,8 @@ describe('an Audit Event reads as a sentence', () => {
     ['a member removed', { action: 'member-removed', actor: joris, user: noor, groupName: 'Family' }, '**Joris** took Noor Bakker out of Family'],
     ['a role given', { action: 'role-assigned', actor: joris, groupName: 'Family', role: 'viewer', client: grafana }, '**Joris** gave Family [viewer] on Grafana'],
     ['a role taken away', { action: 'role-removed', actor: joris, groupName: 'Family', role: 'viewer', client: grafana }, '**Joris** took [viewer] on Grafana away from Family'],
+    ['a role given to a person', { action: 'role-assigned', actor: joris, user: noor, role: 'viewer', client: grafana }, '**Joris** gave Noor Bakker [viewer] on Grafana'],
+    ['a person’s role taken away', { action: 'role-removed', actor: joris, user: noor, role: 'viewer', client: grafana }, '**Joris** took [viewer] on Grafana away from Noor Bakker'],
     ['a token made', { action: 'token-minted', kind: 'tokens', user: noor }, '**Noor Bakker** created a token'],
     ['a token revoked', { action: 'token-revoked', kind: 'tokens', user: noor }, '**Noor Bakker** revoked a token'],
     ['an app given a new secret', { action: 'client-secret-rotated', actor: joris, client: grafana }, '**Joris** gave Grafana a new secret'],

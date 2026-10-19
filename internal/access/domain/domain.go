@@ -1,5 +1,5 @@
-// Package domain is the access context's core (docs/adr/0004): Groups of Users, and Assignments
-// giving a Group one App Role on one Client. It sees no transport, no persistence and no
+// Package domain is the access context's core (docs/adr/0004, 0018): Groups of Users, and
+// Assignments giving a Group or a User one App Role on one Client. It sees no transport, no persistence and no
 // generated code.
 package domain
 
@@ -48,6 +48,13 @@ type Membership struct {
 // Assignment gives a Group one App Role on one Client.
 type Assignment struct {
 	GroupID  uuid.UUID
+	ClientID string
+	Role     string
+}
+
+// UserAssignment gives one User one App Role on one Client directly, without a Group.
+type UserAssignment struct {
+	UserID   uuid.UUID
 	ClientID string
 	Role     string
 }

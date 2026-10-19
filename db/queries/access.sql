@@ -36,23 +36,35 @@ SELECT EXISTS (
 );
 
 -- name: ListAssignments :many
-SELECT group_id, client_id, role FROM assignments ORDER BY client_id, role;
+SELECT group_id::uuid AS group_id, client_id, role FROM assignments WHERE group_id IS NOT NULL ORDER BY client_id, role;
+
+-- name: ListUserAssignments :many
+SELECT user_id::uuid AS user_id, client_id, role FROM assignments WHERE user_id IS NOT NULL ORDER BY client_id, role;
 
 -- name: Assign :execrows
-INSERT INTO assignments (group_id, client_id, role) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING;
+INSERT INTO assignments (group_id, client_id, role) VALUES (sqlc.arg(group_id)::uuid, sqlc.arg(client_id), sqlc.arg(role)) ON CONFLICT DO NOTHING;
 
 -- name: Unassign :execrows
-DELETE FROM assignments WHERE group_id = $1 AND client_id = $2 AND role = $3;
+DELETE FROM assignments WHERE group_id = sqlc.arg(group_id)::uuid AND client_id = sqlc.arg(client_id) AND role = sqlc.arg(role);
+
+-- name: AssignUser :execrows
+INSERT INTO assignments (user_id, client_id, role) VALUES (sqlc.arg(user_id)::uuid, sqlc.arg(client_id), sqlc.arg(role)) ON CONFLICT DO NOTHING;
+
+-- name: UnassignUser :execrows
+DELETE FROM assignments WHERE user_id = sqlc.arg(user_id)::uuid AND client_id = sqlc.arg(client_id) AND role = sqlc.arg(role);
 
 -- name: RolesOf :many
--- A User's App Roles on a Client: the union over their Groups (docs/adr/0004).
-SELECT DISTINCT a.role FROM assignments a JOIN memberships m ON m.group_id = a.group_id
-WHERE m.user_id = $1 AND a.client_id = $2 ORDER BY a.role;
+-- A User's App Roles on a Client: their own and their Groups', combined (docs/adr/0018).
+SELECT DISTINCT a.role FROM assignments a
+WHERE a.client_id = sqlc.arg(client_id)
+  AND (a.user_id = sqlc.arg(user_id)::uuid OR a.group_id IN (SELECT m.group_id FROM memberships m WHERE m.user_id = sqlc.arg(user_id)::uuid))
+ORDER BY a.role;
 
 -- name: RolesByClient :many
--- Every App Role a User holds, per Client: the union over their Groups (docs/adr/0004).
-SELECT DISTINCT a.client_id, a.role FROM assignments a JOIN memberships m ON m.group_id = a.group_id
-WHERE m.user_id = $1 ORDER BY a.client_id, a.role;
+-- Every App Role a User holds, per Client: their own and their Groups', combined (docs/adr/0018).
+SELECT DISTINCT a.client_id, a.role FROM assignments a
+WHERE a.user_id = sqlc.arg(user_id)::uuid OR a.group_id IN (SELECT m.group_id FROM memberships m WHERE m.user_id = sqlc.arg(user_id)::uuid)
+ORDER BY a.client_id, a.role;
 
 -- name: AdminsGroup :one
 SELECT id, name, admins FROM groups WHERE admins;
@@ -61,9 +73,15 @@ SELECT id, name, admins FROM groups WHERE admins;
 SELECT count(*) FROM memberships m JOIN groups g ON g.id = m.group_id WHERE g.admins;
 
 -- name: CountUnassigned :one
--- Confirmed Users in no Group, the admins Group included (docs/adr/0005).
-SELECT count(*) FROM users u WHERE NOT EXISTS (SELECT 1 FROM memberships m WHERE m.user_id = u.id);
+-- Confirmed Users who hold no App Role by any route, Admins aside (docs/adr/0005, 0018).
+SELECT count(*) FROM users u WHERE NOT EXISTS (
+  SELECT 1 FROM assignments a
+  WHERE a.user_id = u.id OR a.group_id IN (SELECT m.group_id FROM memberships m WHERE m.user_id = u.id)
+) AND NOT EXISTS (SELECT 1 FROM memberships m JOIN groups g ON g.id = m.group_id WHERE g.admins AND m.user_id = u.id);
 
 -- name: ListUnassigned :many
 -- The Users CountUnassigned counts.
-SELECT u.id FROM users u WHERE NOT EXISTS (SELECT 1 FROM memberships m WHERE m.user_id = u.id);
+SELECT u.id FROM users u WHERE NOT EXISTS (
+  SELECT 1 FROM assignments a
+  WHERE a.user_id = u.id OR a.group_id IN (SELECT m.group_id FROM memberships m WHERE m.user_id = u.id)
+) AND NOT EXISTS (SELECT 1 FROM memberships m JOIN groups g ON g.id = m.group_id WHERE g.admins AND m.user_id = u.id);

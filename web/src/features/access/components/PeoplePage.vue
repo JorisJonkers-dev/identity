@@ -6,7 +6,7 @@ import PersonAvatar from '../../../shared/PersonAvatar.vue'
 import GlassSelect from '../../../shared/GlassSelect.vue'
 import Icon from '../../../shared/Icon'
 import { useAccess } from '../composables/useAccess'
-import { groupsOf } from '../model'
+import { groupsOf, unassigned } from '../model'
 
 const { overview, loadError, actionError, addMember } = useAccess()
 const find = ref('')
@@ -28,9 +28,9 @@ const people = computed(() => {
   if (!o) return []
   const q = find.value.trim().toLowerCase()
   return o.users
-    .map((u) => ({ ...u, groups: groupsOf(o, u.id) }))
-    .filter((u) => (!q || u.name.toLowerCase().includes(q) || u.email.includes(q)) && (!group.value || (group.value === 'none' ? u.groups.length === 0 : u.groups.some((g) => g.id === group.value))))
-    .sort((a, b) => (sort.value === 'unassigned' ? Number(a.groups.length > 0) - Number(b.groups.length > 0) : 0) || a.name.localeCompare(b.name))
+    .map((u) => ({ ...u, groups: groupsOf(o, u.id), waiting: unassigned(o, u.id) }))
+    .filter((u) => (!q || u.name.toLowerCase().includes(q) || u.email.includes(q)) && (!group.value || (group.value === 'none' ? u.waiting : u.groups.some((g) => g.id === group.value))))
+    .sort((a, b) => (sort.value === 'unassigned' ? Number(b.waiting) - Number(a.waiting) : 0) || a.name.localeCompare(b.name))
 })
 function pick(id: string, on: boolean) {
   const next = new Set(picked.value)
@@ -60,7 +60,7 @@ function bulkAdd(groupId: string) {
         <RouterLink class="who" :to="`/admin/people/${p.id}`"><PersonAvatar :name="p.name" /><span><b>{{ p.name }}</b><small>{{ p.email }}</small></span></RouterLink>
         <span class="tags">
           <span v-for="g in p.groups" :key="g.id" class="gtag">{{ g.name }}</span>
-          <span v-if="p.groups.length === 0" class="gtag warn">Unassigned</span>
+          <span v-if="p.waiting" class="gtag warn">Unassigned</span>
         </span>
         <RouterLink class="row-go" :to="`/admin/people/${p.id}`" :aria-label="`Open ${p.name}`"><Icon name="chevr" class="chevr" /></RouterLink>
       </div>

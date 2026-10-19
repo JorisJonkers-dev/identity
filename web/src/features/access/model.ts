@@ -38,6 +38,17 @@ export function accessOf(o: AccessOverview, userId: string): Map<string, Map<str
   return out
 }
 
+/** Whether a person holds a role on an app directly, without a Group. */
+export function holdsDirect(o: AccessOverview, userId: string, clientId: string, role: string): boolean {
+  return o.userAssignments.some((a) => a.userId === userId && a.clientId === clientId && a.role === role)
+}
+
+/** Whether a person waits for access: no role directly or through a Group, and no Admin. */
+export function unassigned(o: AccessOverview, userId: string): boolean {
+  const groups = groupsOf(o, userId)
+  return !groups.some((g) => g.admins) && !o.userAssignments.some((a) => a.userId === userId) && accessOf(o, userId).size === 0
+}
+
 /** Every role any app declares, sorted. */
 export function allRoles(o: AccessOverview): string[] {
   return [...new Set(o.clients.flatMap((c) => c.roles))].sort()

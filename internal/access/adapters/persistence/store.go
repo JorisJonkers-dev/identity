@@ -173,6 +173,28 @@ func (s *Store) Unassign(ctx context.Context, a domain.Assignment) (bool, error)
 	return n > 0, err
 }
 
+func (s *Store) UserAssignments(ctx context.Context) ([]domain.UserAssignment, error) {
+	rows, err := s.q.ListUserAssignments(ctx)
+	if err != nil {
+		return nil, err
+	}
+	as := make([]domain.UserAssignment, 0, len(rows))
+	for _, r := range rows {
+		as = append(as, domain.UserAssignment{UserID: r.UserID, ClientID: r.ClientID, Role: r.Role})
+	}
+	return as, nil
+}
+
+func (s *Store) AssignUser(ctx context.Context, a domain.UserAssignment) (bool, error) {
+	n, err := s.q.AssignUser(ctx, queries.AssignUserParams{UserID: a.UserID, ClientID: a.ClientID, Role: a.Role})
+	return n > 0, missing(err)
+}
+
+func (s *Store) UnassignUser(ctx context.Context, a domain.UserAssignment) (bool, error) {
+	n, err := s.q.UnassignUser(ctx, queries.UnassignUserParams{UserID: a.UserID, ClientID: a.ClientID, Role: a.Role})
+	return n > 0, err
+}
+
 func (s *Store) RolesOf(ctx context.Context, userID uuid.UUID, clientID string) ([]string, error) {
 	return s.q.RolesOf(ctx, queries.RolesOfParams{UserID: userID, ClientID: clientID})
 }

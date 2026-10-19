@@ -32,6 +32,16 @@ func (UnimplementedHandler) AssignRole(ctx context.Context, params AssignRolePar
 	return r, ht.ErrNotImplemented
 }
 
+// AssignUserRole implements assignUserRole operation.
+//
+// Makes an Assignment held by the User alone, without a Group. The Client must be in the cluster and
+// declare the App Role. Assigning twice changes nothing. Admins only.
+//
+// PUT /api/v1/access/users/{userId}/roles/{clientId}/{role}
+func (UnimplementedHandler) AssignUserRole(ctx context.Context, params AssignUserRoleParams) (r AssignUserRoleRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // ChangePassword implements changePassword operation.
 //
 // Replaces the password after checking the current one.
@@ -336,6 +346,16 @@ func (UnimplementedHandler) StartTOTP(ctx context.Context) (r StartTOTPRes, _ er
 //
 // DELETE /api/v1/access/groups/{groupId}/roles/{clientId}/{role}
 func (UnimplementedHandler) UnassignRole(ctx context.Context, params UnassignRoleParams) (r UnassignRoleRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// UnassignUserRole implements unassignUserRole operation.
+//
+// Removes an Assignment the User holds directly, also one on a Removed Client. Roles from the User's
+// Groups stay. Admins only.
+//
+// DELETE /api/v1/access/users/{userId}/roles/{clientId}/{role}
+func (UnimplementedHandler) UnassignUserRole(ctx context.Context, params UnassignUserRoleParams) (r UnassignUserRoleRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 

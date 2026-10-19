@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import {
   addMemberMutation,
   assignRoleMutation,
+  assignUserRoleMutation,
   createGroupMutation,
   deleteGroupMutation,
   getAccessOptions,
@@ -11,6 +12,7 @@ import {
   renameGroupMutation,
   signOutUserMutation,
   unassignRoleMutation,
+  unassignUserRoleMutation,
 } from '../../../infrastructure/api/@tanstack/vue-query.gen'
 import type { AccessOverview } from '../../../infrastructure/api/types.gen'
 import { describeError } from '../../../infrastructure/problem'
@@ -30,7 +32,9 @@ export function useAccess() {
   const assign = useAction(assignRoleMutation())
   const unassign = useAction(unassignRoleMutation())
   const signOut = useAction(signOutUserMutation())
-  const actions = [create, rename, remove, join, leave, assign, unassign, signOut]
+  const give = useAction(assignUserRoleMutation())
+  const take = useAction(unassignUserRoleMutation())
+  const actions = [create, rename, remove, join, leave, assign, unassign, signOut, give, take]
 
   const overview = computed<AccessOverview | undefined>(() => query.data.value)
   return {
@@ -66,6 +70,11 @@ export function useAccess() {
       const path = { groupId, clientId, role }
       if (held) assign.run({ path }, refresh)
       else unassign.run({ path }, refresh)
+    },
+    setUserRole: (userId: string, clientId: string, role: string, held: boolean) => {
+      const path = { userId, clientId, role }
+      if (held) give.run({ path }, refresh)
+      else take.run({ path }, refresh)
     },
   }
 }

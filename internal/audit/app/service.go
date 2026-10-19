@@ -59,7 +59,7 @@ type Person struct {
 // Directory names the Users and Clients events refer to, and counts what the dashboard shows.
 type Directory interface {
 	People(ctx context.Context) ([]Person, error)
-	// Unassigned is the Users in no Group.
+	// Unassigned is the Users who hold no App Role, Admins aside.
 	Unassigned(ctx context.Context) ([]uuid.UUID, error)
 	// ActiveSessions is how many Single sign-on sessions are live, and how many Users hold them.
 	ActiveSessions(ctx context.Context) (sessions, users int, err error)

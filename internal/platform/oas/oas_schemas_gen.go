@@ -65,8 +65,10 @@ type AccessOverview struct {
 	Users []Person `json:"users"`
 	// Every Client in the cluster, by label.
 	Clients []AccessClient `json:"clients"`
-	// Every Assignment.
+	// Every Assignment held by a Group.
 	Assignments []Assignment `json:"assignments"`
+	// Every Assignment held by a User directly.
+	UserAssignments []UserAssignment `json:"userAssignments"`
 }
 
 // GetGroups returns the value of Groups.
@@ -89,6 +91,11 @@ func (s *AccessOverview) GetAssignments() []Assignment {
 	return s.Assignments
 }
 
+// GetUserAssignments returns the value of UserAssignments.
+func (s *AccessOverview) GetUserAssignments() []UserAssignment {
+	return s.UserAssignments
+}
+
 // SetGroups sets the value of Groups.
 func (s *AccessOverview) SetGroups(val []Group) {
 	s.Groups = val
@@ -109,6 +116,11 @@ func (s *AccessOverview) SetAssignments(val []Assignment) {
 	s.Assignments = val
 }
 
+// SetUserAssignments sets the value of UserAssignments.
+func (s *AccessOverview) SetUserAssignments(val []UserAssignment) {
+	s.UserAssignments = val
+}
+
 func (*AccessOverview) getAccessRes() {}
 
 // AddMemberNoContent is response for AddMember operation.
@@ -122,6 +134,11 @@ type AppRole string
 type AssignRoleNoContent struct{}
 
 func (*AssignRoleNoContent) assignRoleRes() {}
+
+// AssignUserRoleNoContent is response for AssignUserRole operation.
+type AssignUserRoleNoContent struct{}
+
+func (*AssignUserRoleNoContent) assignUserRoleRes() {}
 
 // A Group holding one App Role on one Client.
 // Ref: #/components/schemas/Assignment
@@ -770,7 +787,7 @@ type Count int32
 type Dashboard struct {
 	Users         Count `json:"users"`
 	UsersThisWeek Count `json:"usersThisWeek"`
-	// The Users waiting for a Group, the newest first.
+	// The Users waiting for an App Role, the newest first.
 	Unassigned    []WaitingUser `json:"unassigned"`
 	SignIns       Count         `json:"signIns"`
 	FailedSignIns Count         `json:"failedSignIns"`
@@ -2065,6 +2082,7 @@ func (s *ProblemStatusCode) SetResponse(val Problem) {
 
 func (*ProblemStatusCode) addMemberRes()                 {}
 func (*ProblemStatusCode) assignRoleRes()                {}
+func (*ProblemStatusCode) assignUserRoleRes()            {}
 func (*ProblemStatusCode) changePasswordRes()            {}
 func (*ProblemStatusCode) completeSignInRes()            {}
 func (*ProblemStatusCode) completeSignInWithPasskeyRes() {}
@@ -2097,6 +2115,7 @@ func (*ProblemStatusCode) signUpRes()                    {}
 func (*ProblemStatusCode) startPasskeyRes()              {}
 func (*ProblemStatusCode) startTOTPRes()                 {}
 func (*ProblemStatusCode) unassignRoleRes()              {}
+func (*ProblemStatusCode) unassignUserRoleRes()          {}
 func (*ProblemStatusCode) updateProfileRes()             {}
 
 // The signed-in User.
@@ -2752,6 +2771,49 @@ type UnassignRoleNoContent struct{}
 
 func (*UnassignRoleNoContent) unassignRoleRes() {}
 
+// UnassignUserRoleNoContent is response for UnassignUserRole operation.
+type UnassignUserRoleNoContent struct{}
+
+func (*UnassignUserRoleNoContent) unassignUserRoleRes() {}
+
+// A User holding one App Role on one Client directly, without a Group.
+// Ref: #/components/schemas/UserAssignment
+type UserAssignment struct {
+	UserId   ID       `json:"userId"`
+	ClientId ClientId `json:"clientId"`
+	Role     AppRole  `json:"role"`
+}
+
+// GetUserId returns the value of UserId.
+func (s *UserAssignment) GetUserId() ID {
+	return s.UserId
+}
+
+// GetClientId returns the value of ClientId.
+func (s *UserAssignment) GetClientId() ClientId {
+	return s.ClientId
+}
+
+// GetRole returns the value of Role.
+func (s *UserAssignment) GetRole() AppRole {
+	return s.Role
+}
+
+// SetUserId sets the value of UserId.
+func (s *UserAssignment) SetUserId(val ID) {
+	s.UserId = val
+}
+
+// SetClientId sets the value of ClientId.
+func (s *UserAssignment) SetClientId(val ClientId) {
+	s.ClientId = val
+}
+
+// SetRole sets the value of Role.
+func (s *UserAssignment) SetRole(val AppRole) {
+	s.Role = val
+}
+
 // The running build.
 // Ref: #/components/schemas/Version
 type Version struct {
@@ -2771,7 +2833,7 @@ func (s *Version) SetVersion(val string) {
 
 func (*Version) getVersionRes() {}
 
-// A User waiting for a Group, and when they confirmed their email.
+// A User waiting for an App Role, and when they confirmed their email.
 // Ref: #/components/schemas/WaitingUser
 type WaitingUser struct {
 	ID          ID        `json:"id"`

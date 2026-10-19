@@ -599,6 +599,39 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/access/users/{userId}/roles/{clientId}/{role}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+      - $ref: "#/components/parameters/ClientId"
+      - $ref: "#/components/parameters/Role"
+    put:
+      operationId: assignUserRole
+      summary: Give a User an App Role on a Client directly
+      description: >-
+        Makes an Assignment held by the User alone, without a Group. The Client must be in the
+        cluster and declare the App Role. Assigning twice changes nothing. Admins only.
+      tags: [access]
+      responses:
+        "204":
+          description: The User holds the App Role directly.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: unassignUserRole
+      summary: Take a User's direct App Role
+      description: >-
+        Removes an Assignment the User holds directly, also one on a Removed Client. Roles from
+        the User's Groups stay. Admins only.
+      tags: [access]
+      responses:
+        "204":
+          description: The User does not hold the App Role directly.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /api/v1/audit:
     get:
       operationId: listAuditEvents
@@ -1029,7 +1062,7 @@ components:
       minimum: 0
       maximum: 2147483647
     WaitingUser:
-      description: A User waiting for a Group, and when they confirmed their email.
+      description: A User waiting for an App Role, and when they confirmed their email.
       type: object
       additionalProperties: false
       required: [id, email, name, confirmedAt]
@@ -1073,7 +1106,7 @@ components:
         unassigned:
           type: array
           maxItems: 10000
-          description: The Users waiting for a Group, the newest first.
+          description: The Users waiting for an App Role, the newest first.
           items:
             $ref: "#/components/schemas/WaitingUser"
         signIns:
@@ -1366,13 +1399,25 @@ components:
           $ref: "#/components/schemas/ClientId"
         role:
           $ref: "#/components/schemas/AppRole"
+    UserAssignment:
+      description: A User holding one App Role on one Client directly, without a Group.
+      type: object
+      additionalProperties: false
+      required: [userId, clientId, role]
+      properties:
+        userId:
+          $ref: "#/components/schemas/Id"
+        clientId:
+          $ref: "#/components/schemas/ClientId"
+        role:
+          $ref: "#/components/schemas/AppRole"
     AccessOverview:
       description: >-
         Every Group with its members, every User, every Client in the cluster, and every
         Assignment, including those on Removed Clients, which give no access while it is away.
       type: object
       additionalProperties: false
-      required: [groups, users, clients, assignments]
+      required: [groups, users, clients, assignments, userAssignments]
       properties:
         groups:
           type: array
@@ -1395,9 +1440,15 @@ components:
         assignments:
           type: array
           maxItems: 1000000
-          description: Every Assignment.
+          description: Every Assignment held by a Group.
           items:
             $ref: "#/components/schemas/Assignment"
+        userAssignments:
+          type: array
+          maxItems: 1000000
+          description: Every Assignment held by a User directly.
+          items:
+            $ref: "#/components/schemas/UserAssignment"
     SecondFactorNeeded:
       description: The sign-in waits for a Second Factor.
       type: object

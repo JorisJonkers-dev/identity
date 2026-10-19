@@ -137,6 +137,16 @@ func TestTheAppTheTokenIsForSeesItsUserAndTheRolesTheyHoldNow(t *testing.T) {
 	}
 }
 
+func TestTheAppTheTokenIsForSeesRolesHeldDirectlyAndThroughGroups(t *testing.T) {
+	t.Parallel()
+	w := start(t)
+	w.admin.Call(t, http.MethodPut, "/api/v1/access/users/"+w.adaID+"/roles/grafana/user", nil, http.StatusNoContent, nil)
+	got := w.env.Introspect(t, "grafana", grafanaSecret, w.mint(t).Secret)
+	if roles, _ := got["roles"].([]any); !slices.Equal(roles, []any{"user", "viewer"}) {
+		t.Fatalf("roles = %v", got["roles"])
+	}
+}
+
 func TestAnotherAppSeesTheTokenAsInactive(t *testing.T) {
 	t.Parallel()
 	w := start(t)

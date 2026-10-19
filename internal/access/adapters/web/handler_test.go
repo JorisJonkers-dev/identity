@@ -66,6 +66,16 @@ func (u *useCases) Unassign(_ context.Context, actor app.Actor, a domain.Assignm
 	return u.err
 }
 
+func (u *useCases) AssignUser(_ context.Context, actor app.Actor, a domain.UserAssignment) error {
+	u.actor, u.asked = actor, append(u.asked, a)
+	return u.err
+}
+
+func (u *useCases) UnassignUser(_ context.Context, actor app.Actor, a domain.UserAssignment) error {
+	u.actor, u.asked = actor, append(u.asked, a)
+	return u.err
+}
+
 func (u *useCases) SignOutUser(_ context.Context, actor app.Actor, userID uuid.UUID) error {
 	u.actor, u.asked = actor, append(u.asked, userID)
 	return u.err
@@ -93,11 +103,12 @@ var asAdmin = app.Actor{ID: admin, SecondFactor: true}
 
 func TestTheOverviewCarriesGroupsWithTheirMembersPeopleClientsAndAssignments(t *testing.T) {
 	uc := &useCases{overview: app.Overview{
-		Groups:      []domain.Group{{ID: family, Name: "Family"}},
-		Memberships: []domain.Membership{{GroupID: family, UserID: ada}},
-		Assignments: []domain.Assignment{{GroupID: family, ClientID: "grafana", Role: "viewer"}},
-		Clients:     []domain.Client{{ID: "grafana", Label: "Grafana", Roles: []string{"user", "viewer"}}},
-		People:      []domain.Person{{ID: ada, Email: "ada@example.org", Name: "Ada"}},
+		Groups:          []domain.Group{{ID: family, Name: "Family"}},
+		Memberships:     []domain.Membership{{GroupID: family, UserID: ada}},
+		Assignments:     []domain.Assignment{{GroupID: family, ClientID: "grafana", Role: "viewer"}},
+		UserAssignments: []domain.UserAssignment{{UserID: ada, ClientID: "grafana", Role: "user"}},
+		Clients:         []domain.Client{{ID: "grafana", Label: "Grafana", Roles: []string{"user", "viewer"}}},
+		People:          []domain.Person{{ID: ada, Email: "ada@example.org", Name: "Ada"}},
 	}}
 	res, err := web.New(uc).GetAccess(signedIn())
 	o, ok := res.(*oas.AccessOverview)
@@ -115,6 +126,9 @@ func TestTheOverviewCarriesGroupsWithTheirMembersPeopleClientsAndAssignments(t *
 	}
 	if len(o.Assignments) != 1 || o.Assignments[0] != (oas.Assignment{GroupId: oas.ID(family), ClientId: "grafana", Role: "viewer"}) {
 		t.Fatalf("assignments = %+v", o.Assignments)
+	}
+	if len(o.UserAssignments) != 1 || o.UserAssignments[0] != (oas.UserAssignment{UserId: oas.ID(ada), ClientId: "grafana", Role: "user"}) {
+		t.Fatalf("user assignments = %+v", o.UserAssignments)
 	}
 }
 
@@ -185,6 +199,24 @@ func TestTakingAnAppRoleSendsTheGroupClientAndRole(t *testing.T) {
 	}
 }
 
+func TestGivingAPersonAnAppRoleSendsThePersonClientAndRole(t *testing.T) {
+	uc := &useCases{}
+	res, err := web.New(uc).AssignUserRole(signedIn(), oas.AssignUserRoleParams{UserId: oas.ID(ada), ClientId: "grafana", Role: "viewer"})
+	want := domain.UserAssignment{UserID: ada, ClientID: "grafana", Role: "viewer"}
+	if _, ok := res.(*oas.AssignUserRoleNoContent); err != nil || !ok || uc.asked[0] != want || uc.actor != asAdmin {
+		t.Fatalf("AssignUserRole = %#v, %v, asked %v", res, err, uc.asked)
+	}
+}
+
+func TestTakingAPersonsAppRoleSendsThePersonClientAndRole(t *testing.T) {
+	uc := &useCases{}
+	res, err := web.New(uc).UnassignUserRole(signedIn(), oas.UnassignUserRoleParams{UserId: oas.ID(ada), ClientId: "grafana", Role: "viewer"})
+	want := domain.UserAssignment{UserID: ada, ClientID: "grafana", Role: "viewer"}
+	if _, ok := res.(*oas.UnassignUserRoleNoContent); err != nil || !ok || uc.asked[0] != want || uc.actor != asAdmin {
+		t.Fatalf("UnassignUserRole = %#v, %v, asked %v", res, err, uc.asked)
+	}
+}
+
 func TestSigningAUserOutSendsWhoToSignOut(t *testing.T) {
 	uc := &useCases{}
 	res, err := web.New(uc).SignOutUser(signedIn(), oas.SignOutUserParams{UserId: oas.ID(ada)})
@@ -239,6 +271,12 @@ func TestEveryOperationAnswersARefusalAsAProblem(t *testing.T) {
 			return h.UnassignRole(signedIn(), oas.UnassignRoleParams{GroupId: gid})
 		}},
 		{"signing a User out", func(h *web.Access) (any, error) { return h.SignOutUser(signedIn(), oas.SignOutUserParams{}) }},
+		{"giving a person an App Role", func(h *web.Access) (any, error) {
+			return h.AssignUserRole(signedIn(), oas.AssignUserRoleParams{})
+		}},
+		{"taking a person's App Role", func(h *web.Access) (any, error) {
+			return h.UnassignUserRole(signedIn(), oas.UnassignUserRoleParams{})
+		}},
 	} {
 		t.Run(op.name, func(t *testing.T) {
 			res, err := op.call(web.New(&useCases{err: app.ErrNotAdmin}))

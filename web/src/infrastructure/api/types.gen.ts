@@ -128,7 +128,7 @@ export type MintedToken = {
 export type Count = number;
 
 /**
- * A User waiting for a Group, and when they confirmed their email.
+ * A User waiting for an App Role, and when they confirmed their email.
  */
 export type WaitingUser = {
     id: Id;
@@ -156,7 +156,7 @@ export type Dashboard = {
     users: Count;
     usersThisWeek: Count;
     /**
-     * The Users waiting for a Group, the newest first.
+     * The Users waiting for an App Role, the newest first.
      */
     unassigned: Array<WaitingUser>;
     signIns: Count;
@@ -407,6 +407,15 @@ export type Assignment = {
 };
 
 /**
+ * A User holding one App Role on one Client directly, without a Group.
+ */
+export type UserAssignment = {
+    userId: Id;
+    clientId: ClientId;
+    role: AppRole;
+};
+
+/**
  * Every Group with its members, every User, every Client in the cluster, and every Assignment, including those on Removed Clients, which give no access while it is away.
  */
 export type AccessOverview = {
@@ -423,9 +432,13 @@ export type AccessOverview = {
      */
     clients: Array<AccessClient>;
     /**
-     * Every Assignment.
+     * Every Assignment held by a Group.
      */
     assignments: Array<Assignment>;
+    /**
+     * Every Assignment held by a User directly.
+     */
+    userAssignments: Array<UserAssignment>;
 };
 
 /**
@@ -1459,6 +1472,90 @@ export type AssignRoleResponses = {
 };
 
 export type AssignRoleResponse = AssignRoleResponses[keyof AssignRoleResponses];
+
+export type UnassignUserRoleData = {
+    body?: never;
+    path: {
+        /**
+         * The User.
+         */
+        userId: Id;
+        /**
+         * The Client, by its id.
+         */
+        clientId: ClientId;
+        /**
+         * The App Role.
+         */
+        role: AppRole;
+    };
+    query?: never;
+    url: '/api/v1/access/users/{userId}/roles/{clientId}/{role}';
+};
+
+export type UnassignUserRoleErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type UnassignUserRoleError = UnassignUserRoleErrors[keyof UnassignUserRoleErrors];
+
+export type UnassignUserRoleResponses = {
+    /**
+     * The User does not hold the App Role directly.
+     */
+    204: void;
+};
+
+export type UnassignUserRoleResponse = UnassignUserRoleResponses[keyof UnassignUserRoleResponses];
+
+export type AssignUserRoleData = {
+    body?: never;
+    path: {
+        /**
+         * The User.
+         */
+        userId: Id;
+        /**
+         * The Client, by its id.
+         */
+        clientId: ClientId;
+        /**
+         * The App Role.
+         */
+        role: AppRole;
+    };
+    query?: never;
+    url: '/api/v1/access/users/{userId}/roles/{clientId}/{role}';
+};
+
+export type AssignUserRoleErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type AssignUserRoleError = AssignUserRoleErrors[keyof AssignUserRoleErrors];
+
+export type AssignUserRoleResponses = {
+    /**
+     * The User holds the App Role directly.
+     */
+    204: void;
+};
+
+export type AssignUserRoleResponse = AssignUserRoleResponses[keyof AssignUserRoleResponses];
 
 export type ListAuditEventsData = {
     body?: never;

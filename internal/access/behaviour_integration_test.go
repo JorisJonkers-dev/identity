@@ -9,13 +9,18 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/JorisJonkers-dev/identity/internal/platform/itest"
 	signindomain "github.com/JorisJonkers-dev/identity/internal/signin/domain"
 )
 
-var grafana = signindomain.Client{
-	ID: "grafana", SignIn: signindomain.Native, Host: "grafana.test", Label: "Grafana", Roles: []string{"user", "viewer", "editor"},
-}
+var (
+	grafana = signindomain.Client{
+		ID: "grafana", SignIn: signindomain.Native, Host: "grafana.test", Label: "Grafana", Roles: []string{"user", "viewer", "editor"},
+	}
+	stats = signindomain.Client{ID: "stats", SignIn: signindomain.Gated, Host: "stats.test", Label: "Stats", Roles: []string{"user", "editor"}}
+)
 
 type group struct {
 	ID      string
@@ -26,9 +31,12 @@ type group struct {
 
 type assignment struct{ GroupID, ClientID, Role string }
 
+type userAssignment struct{ UserID, ClientID, Role string }
+
 type overview struct {
-	Groups      []group
-	Assignments []assignment
+	Groups          []group
+	Assignments     []assignment
+	UserAssignments []userAssignment
 }
 
 type problem struct{ Detail string }
@@ -180,6 +188,75 @@ func TestAnAdminTakesAnAppRoleAway(t *testing.T) {
 	admin.Call(t, http.MethodDelete, role, nil, http.StatusNoContent, nil)
 	if as := read(t, admin).Assignments; len(as) != 0 {
 		t.Fatalf("Assignments = %+v, want none", as)
+	}
+}
+
+func TestAnAdminGivesAPersonAnAppRoleDirectly(t *testing.T) {
+	t.Parallel()
+	env := itest.Start(t, grafana)
+	admin := env.Admin(t, "root@example.org")
+	ada := admin.UserID(t, env.SignedUp(t, "ada@example.org").Email)
+	admin.Call(t, http.MethodPut, "/api/v1/access/users/"+ada+"/roles/grafana/viewer", nil, http.StatusNoContent, nil)
+	if as := read(t, admin).UserAssignments; !slices.Equal(as, []userAssignment{{ada, "grafana", "viewer"}}) {
+		t.Fatalf("UserAssignments = %+v", as)
+	}
+}
+
+func TestAnAdminTakesAPersonsDirectAppRoleAway(t *testing.T) {
+	t.Parallel()
+	env := itest.Start(t, grafana)
+	admin := env.Admin(t, "root@example.org")
+	role := "/api/v1/access/users/" + admin.UserID(t, env.SignedUp(t, "ada@example.org").Email) + "/roles/grafana/viewer"
+	admin.Call(t, http.MethodPut, role, nil, http.StatusNoContent, nil)
+	admin.Call(t, http.MethodDelete, role, nil, http.StatusNoContent, nil)
+	if as := read(t, admin).UserAssignments; len(as) != 0 {
+		t.Fatalf("UserAssignments = %+v, want none", as)
+	}
+}
+
+func TestADirectAppRoleTheClientDoesNotDeclareIsRefused(t *testing.T) {
+	t.Parallel()
+	env := itest.Start(t, grafana)
+	admin := env.Admin(t, "root@example.org")
+	ada := admin.UserID(t, env.SignedUp(t, "ada@example.org").Email)
+	refused(t, admin, http.MethodPut, "/api/v1/access/users/"+ada+"/roles/grafana/owner", nil,
+		http.StatusUnprocessableEntity, "That app has no such role.")
+}
+
+func TestADirectAppRoleForSomeoneWhoDoesNotExistIsRefused(t *testing.T) {
+	t.Parallel()
+	admin := itest.Start(t, grafana).Admin(t, "root@example.org")
+	refused(t, admin, http.MethodPut, "/api/v1/access/users/"+uuid.NewString()+"/roles/grafana/viewer", nil,
+		http.StatusNotFound, "That Group or person no longer exists. Reload the page.")
+}
+
+func TestAPersonSeesAnAppTheyHoldADirectRoleOnInTheLauncher(t *testing.T) {
+	t.Parallel()
+	env := itest.Start(t, grafana)
+	admin := env.Admin(t, "root@example.org")
+	ada := env.SignedUp(t, "ada@example.org")
+	admin.Call(t, http.MethodPut, "/api/v1/access/users/"+admin.UserID(t, ada.Email)+"/roles/grafana/viewer", nil, http.StatusNoContent, nil)
+	var l struct{ Apps []struct{ ID string } }
+	ada.Call(t, http.MethodGet, "/api/v1/launcher", nil, http.StatusOK, &l)
+	if len(l.Apps) != 1 || l.Apps[0].ID != "grafana" {
+		t.Fatalf("apps = %+v", l.Apps)
+	}
+}
+
+func TestDirectAndGroupAppRolesCombineAtTheGate(t *testing.T) {
+	t.Parallel()
+	env := itest.Start(t, stats)
+	admin := env.Admin(t, "root@example.org")
+	ada := env.SignedUp(t, "ada@example.org")
+	adaID := admin.UserID(t, ada.Email)
+	family := createFamily(t, admin)
+	admin.Call(t, http.MethodPut, "/api/v1/access/groups/"+family.ID+"/members/"+adaID, nil, http.StatusNoContent, nil)
+	admin.Call(t, http.MethodPut, "/api/v1/access/groups/"+family.ID+"/roles/stats/user", nil, http.StatusNoContent, nil)
+	admin.Call(t, http.MethodPut, "/api/v1/access/users/"+adaID+"/roles/stats/editor", nil, http.StatusNoContent, nil)
+	var m struct{ Secret string }
+	ada.Call(t, http.MethodPost, "/api/v1/profile/tokens", map[string]any{"name": "script", "clientId": "stats", "days": 30}, http.StatusCreated, &m)
+	if res := env.GateCheck(t, "stats.test", "Bearer "+m.Secret); res.Header.Get("X-Auth-Request-Roles") != "user,editor" {
+		t.Fatalf("check = %d %v", res.StatusCode, res.Header)
 	}
 }
 

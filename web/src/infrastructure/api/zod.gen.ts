@@ -132,7 +132,7 @@ export const zAuditPerson = z.object({
 });
 
 /**
- * A User waiting for a Group, and when they confirmed their email.
+ * A User waiting for an App Role, and when they confirmed their email.
  */
 export const zWaitingUser = z.object({
     id: zId,
@@ -356,13 +356,23 @@ export const zAssignment = z.object({
 });
 
 /**
+ * A User holding one App Role on one Client directly, without a Group.
+ */
+export const zUserAssignment = z.object({
+    userId: zId,
+    clientId: zClientId,
+    role: zAppRole
+});
+
+/**
  * Every Group with its members, every User, every Client in the cluster, and every Assignment, including those on Removed Clients, which give no access while it is away.
  */
 export const zAccessOverview = z.object({
     groups: z.array(zGroup).max(10000),
     users: z.array(zPerson).max(100000),
     clients: z.array(zAccessClient).max(10000),
-    assignments: z.array(zAssignment).max(1000000)
+    assignments: z.array(zAssignment).max(1000000),
+    userAssignments: z.array(zUserAssignment).max(1000000)
 });
 
 /**
@@ -682,6 +692,28 @@ export const zAssignRolePath = z.object({
  * The Group holds the App Role.
  */
 export const zAssignRoleResponse = z.void();
+
+export const zUnassignUserRolePath = z.object({
+    userId: zId,
+    clientId: zClientId,
+    role: zAppRole
+});
+
+/**
+ * The User does not hold the App Role directly.
+ */
+export const zUnassignUserRoleResponse = z.void();
+
+export const zAssignUserRolePath = z.object({
+    userId: zId,
+    clientId: zClientId,
+    role: zAppRole
+});
+
+/**
+ * The User holds the App Role directly.
+ */
+export const zAssignUserRoleResponse = z.void();
 
 export const zListAuditEventsQuery = z.object({
     user: zId.optional(),

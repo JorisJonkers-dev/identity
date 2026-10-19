@@ -52,6 +52,43 @@ func TestTheDashboardListsTheUsersWaitingForAGroup(t *testing.T) {
 	}
 }
 
+func TestAPersonWithOnlyADirectAppRoleIsNotWaiting(t *testing.T) {
+	t.Parallel()
+	env := itest.Start(t, grafana)
+	admin := env.Admin(t, "root@example.org")
+	ada := env.SignedUp(t, "ada@example.org")
+	admin.Call(t, http.MethodPut, "/api/v1/access/users/"+admin.UserID(t, ada.Email)+"/roles/grafana/user", nil, http.StatusNoContent, nil)
+	if d := read(t, admin); len(d.Unassigned) != 0 {
+		t.Fatalf("unassigned = %+v", d.Unassigned)
+	}
+}
+
+func TestAPersonWhoLosesTheirLastAppRoleWaitsAgain(t *testing.T) {
+	t.Parallel()
+	env := itest.Start(t, grafana)
+	admin := env.Admin(t, "root@example.org")
+	ada := env.SignedUp(t, "ada@example.org")
+	role := "/api/v1/access/users/" + admin.UserID(t, ada.Email) + "/roles/grafana/user"
+	admin.Call(t, http.MethodPut, role, nil, http.StatusNoContent, nil)
+	admin.Call(t, http.MethodDelete, role, nil, http.StatusNoContent, nil)
+	if d := read(t, admin); len(d.Unassigned) != 1 || d.Unassigned[0].Email != ada.Email {
+		t.Fatalf("unassigned = %+v", d.Unassigned)
+	}
+}
+
+func TestAPersonInAGroupThatGivesNoAppRoleIsStillWaiting(t *testing.T) {
+	t.Parallel()
+	env := itest.Start(t)
+	admin := env.Admin(t, "root@example.org")
+	ada := env.SignedUp(t, "ada@example.org")
+	var g struct{ ID string }
+	admin.Call(t, http.MethodPost, "/api/v1/access/groups", map[string]string{"name": "Family"}, http.StatusCreated, &g)
+	admin.Call(t, http.MethodPut, "/api/v1/access/groups/"+g.ID+"/members/"+admin.UserID(t, ada.Email), nil, http.StatusNoContent, nil)
+	if d := read(t, admin); len(d.Unassigned) != 1 || d.Unassigned[0].Email != ada.Email {
+		t.Fatalf("unassigned = %+v", d.Unassigned)
+	}
+}
+
 func TestTheDashboardCountsSignInsAndFailedSignInsOverADay(t *testing.T) {
 	t.Parallel()
 	env := itest.Start(t)

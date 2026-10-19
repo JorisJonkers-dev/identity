@@ -53,18 +53,23 @@ type Store interface {
 	IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error)
 	AdminsGroup(ctx context.Context) (domain.Group, error)
 	CountAdmins(ctx context.Context) (int, error)
-	// CountUnassigned is the confirmed Users in no Group.
+	// CountUnassigned is the confirmed Users, Admins aside, who hold no App Role by any route.
 	CountUnassigned(ctx context.Context) (int, error)
-	// Unassigned is the confirmed Users in no Group.
+	// Unassigned is the Users CountUnassigned counts.
 	Unassigned(ctx context.Context) ([]uuid.UUID, error)
 	Assignments(ctx context.Context) ([]domain.Assignment, error)
 	// Assign is ErrNotFound when the Group is not there, and reports whether it is new.
 	Assign(ctx context.Context, a domain.Assignment) (bool, error)
 	// Unassign reports whether the Assignment was there.
 	Unassign(ctx context.Context, a domain.Assignment) (bool, error)
-	// RolesOf is the App Roles a User's Groups hold on a Client.
+	UserAssignments(ctx context.Context) ([]domain.UserAssignment, error)
+	// AssignUser is ErrNotFound when the User is not there, and reports whether it is new.
+	AssignUser(ctx context.Context, a domain.UserAssignment) (bool, error)
+	// UnassignUser reports whether the Assignment was there.
+	UnassignUser(ctx context.Context, a domain.UserAssignment) (bool, error)
+	// RolesOf is the App Roles a User holds on a Client, directly and through their Groups.
 	RolesOf(ctx context.Context, userID uuid.UUID, clientID string) ([]string, error)
-	// RolesByClient is every App Role a User's Groups hold, per Client.
+	// RolesByClient is every App Role a User holds, directly and through their Groups, per Client.
 	RolesByClient(ctx context.Context, userID uuid.UUID) (map[string][]string, error)
 }
 
@@ -92,8 +97,10 @@ type Overview struct {
 	Memberships []domain.Membership
 	// Assignments includes those on Removed Clients, which give no access while it is away.
 	Assignments []domain.Assignment
-	Clients     []domain.Client
-	People      []domain.Person
+	// UserAssignments is the App Roles given to Users directly, on Removed Clients too.
+	UserAssignments []domain.UserAssignment
+	Clients         []domain.Client
+	People          []domain.Person
 }
 
 // Service is the access use cases.
@@ -137,18 +144,18 @@ func (s *Service) Promote(ctx context.Context, userID uuid.UUID, force bool) err
 	return err
 }
 
-// Unassigned is how many Users wait in no Group, for the signup alert.
+// Unassigned is how many Users wait for an App Role, for the signup alert.
 func (s *Service) Unassigned(ctx context.Context) (int, error) {
 	return s.store.CountUnassigned(ctx)
 }
 
-// UnassignedUsers is who waits in no Group, for the dashboard's queue.
+// UnassignedUsers is who waits for an App Role, for the dashboard's queue.
 func (s *Service) UnassignedUsers(ctx context.Context) ([]uuid.UUID, error) {
 	return s.store.Unassigned(ctx)
 }
 
-// Roles is the App Roles a User holds on a Client: the union over their Groups. Being an Admin
-// adds none.
+// Roles is the App Roles a User holds on a Client: their own and their Groups', combined. Being an
+// Admin adds none.
 func (s *Service) Roles(ctx context.Context, userID uuid.UUID, clientID string) ([]string, error) {
 	return s.store.RolesOf(ctx, userID, clientID)
 }
@@ -187,6 +194,9 @@ func (s *Service) Overview(ctx context.Context, actor Actor) (Overview, error) {
 		return Overview{}, err
 	}
 	if o.Assignments, err = s.store.Assignments(ctx); err != nil {
+		return Overview{}, err
+	}
+	if o.UserAssignments, err = s.store.UserAssignments(ctx); err != nil {
 		return Overview{}, err
 	}
 	if o.People, err = s.people.People(ctx); err != nil {
@@ -332,6 +342,37 @@ func (s *Service) Unassign(ctx context.Context, actor Actor, a domain.Assignment
 			e.GroupName = g.Name
 		}
 		s.audit.Record(ctx, e)
+	}
+	return err
+}
+
+// AssignUser gives one User an App Role the Client declares, without a Group (docs/adr/0018).
+func (s *Service) AssignUser(ctx context.Context, actor Actor, a domain.UserAssignment) error {
+	if err := s.admin(ctx, actor); err != nil {
+		return err
+	}
+	c, ok := s.clients.Client(ctx, a.ClientID)
+	if !ok {
+		return ErrUnknownClient
+	}
+	if !c.Declares(a.Role) {
+		return ErrUnknownRole
+	}
+	assigned, err := s.store.AssignUser(ctx, a)
+	if assigned {
+		s.audit.Record(ctx, audit.Event{Action: audit.RoleAssigned, Actor: actor.ID, User: a.UserID, Client: a.ClientID, Role: a.Role})
+	}
+	return err
+}
+
+// UnassignUser takes an App Role from a User, also on a Removed Client. Their Groups' roles stay.
+func (s *Service) UnassignUser(ctx context.Context, actor Actor, a domain.UserAssignment) error {
+	if err := s.admin(ctx, actor); err != nil {
+		return err
+	}
+	removed, err := s.store.UnassignUser(ctx, a)
+	if removed {
+		s.audit.Record(ctx, audit.Event{Action: audit.RoleRemoved, Actor: actor.ID, User: a.UserID, Client: a.ClientID, Role: a.Role})
 	}
 	return err
 }
