@@ -31,7 +31,9 @@ const (
 	// EmailChanged is a User's sign-in email changing; Email is the address it replaced.
 	EmailChanged Action = "email-changed"
 	// AccountDeleted is a User deleting their account, or an Admin deleting it for them.
-	AccountDeleted      Action = "account-deleted"
+	AccountDeleted Action = "account-deleted"
+	// PasswordReset is a User choosing a new password through a mailed link.
+	PasswordReset       Action = "password-reset"
 	SecondFactorAdded   Action = "second-factor-added"
 	SecondFactorRemoved Action = "second-factor-removed"
 	AdminPromoted       Action = "admin-promoted"
@@ -57,7 +59,7 @@ func (a Action) Kind() Kind {
 	switch a {
 	case SignedIn, SignInFailed, SignedOut:
 		return KindSignIn
-	case UserCreated, UserRenamed, PasswordChanged, EmailChanged, AccountDeleted, SecondFactorAdded, SecondFactorRemoved, AdminPromoted:
+	case UserCreated, UserRenamed, PasswordChanged, EmailChanged, AccountDeleted, PasswordReset, SecondFactorAdded, SecondFactorRemoved, AdminPromoted:
 		return KindPeople
 	case GroupCreated, GroupRenamed, GroupDeleted, MemberAdded, MemberRemoved, RoleAssigned, RoleRemoved, ClientSecretRotated, StepUpChanged:
 		return KindAccess

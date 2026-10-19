@@ -107,6 +107,13 @@ CREATE TABLE public.passkeys (
     CONSTRAINT passkeys_label_length CHECK (((label = btrim(label)) AND ((char_length(label) >= 1) AND (char_length(label) <= 64))))
 );
 
+CREATE TABLE public.password_resets (
+    user_id uuid NOT NULL,
+    token_hash bytea NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    proved_at timestamp with time zone
+);
+
 CREATE TABLE public.personal_tokens (
     id uuid NOT NULL,
     user_id uuid NOT NULL,
@@ -242,6 +249,12 @@ ALTER TABLE ONLY public.passkeys
 ALTER TABLE ONLY public.passkeys
     ADD CONSTRAINT passkeys_pkey PRIMARY KEY (id);
 
+ALTER TABLE ONLY public.password_resets
+    ADD CONSTRAINT password_resets_pkey PRIMARY KEY (user_id);
+
+ALTER TABLE ONLY public.password_resets
+    ADD CONSTRAINT password_resets_token_key UNIQUE (token_hash);
+
 ALTER TABLE ONLY public.personal_tokens
     ADD CONSTRAINT personal_tokens_hash_key UNIQUE (token_hash);
 
@@ -364,6 +377,9 @@ ALTER TABLE ONLY public.passkey_enrolments
 
 ALTER TABLE ONLY public.passkeys
     ADD CONSTRAINT passkeys_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.password_resets
+    ADD CONSTRAINT password_resets_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.personal_tokens
     ADD CONSTRAINT personal_tokens_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;

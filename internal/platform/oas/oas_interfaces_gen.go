@@ -9,6 +9,10 @@ type AskEmailChangeRes interface {
 	askEmailChangeRes()
 }
 
+type AskPasswordResetRes interface {
+	askPasswordResetRes()
+}
+
 type AssignRoleRes interface {
 	assignRoleRes()
 }
@@ -23,6 +27,14 @@ type CancelEmailChangeRes interface {
 
 type ChangePasswordRes interface {
 	changePasswordRes()
+}
+
+type CheckPasswordResetRes interface {
+	checkPasswordResetRes()
+}
+
+type CompletePasswordResetRes interface {
+	completePasswordResetRes()
 }
 
 type CompleteSignInRes interface {
@@ -123,6 +135,18 @@ type RemoveSecondFactorRes interface {
 
 type RenameGroupRes interface {
 	renameGroupRes()
+}
+
+type ResetPasskeyOptionsRes interface {
+	resetPasskeyOptionsRes()
+}
+
+type ResetWithCodeRes interface {
+	resetWithCodeRes()
+}
+
+type ResetWithPasskeyRes interface {
+	resetWithPasskeyRes()
 }
 
 type RevokeMyTokenRes interface {

@@ -14,6 +14,7 @@ import (
 	"github.com/JorisJonkers-dev/identity/internal/platform/httpx"
 	"github.com/JorisJonkers-dev/identity/internal/platform/oas"
 	"github.com/JorisJonkers-dev/identity/internal/platform/principal"
+	"github.com/JorisJonkers-dev/identity/internal/platform/remote"
 	"github.com/JorisJonkers-dev/identity/internal/users/app"
 	"github.com/JorisJonkers-dev/identity/internal/users/domain"
 )
@@ -57,6 +58,12 @@ type UseCases interface {
 	CancelEmailChange(ctx context.Context, userID uuid.UUID) error
 	ConfirmEmailChange(ctx context.Context, token string) error
 	DeleteAccount(ctx context.Context, userID uuid.UUID, sessionToken, password string) error
+	AskPasswordReset(ctx context.Context, email string) error
+	CheckPasswordReset(ctx context.Context, token string) ([]string, error)
+	ResetWithCode(ctx context.Context, token, code string) error
+	ResetPasskeyOptions(ctx context.Context, token string) ([]byte, error)
+	ResetWithPasskey(ctx context.Context, token string, response []byte) error
+	CompletePasswordReset(ctx context.Context, token, password string) error
 	SecondFactors(ctx context.Context, userID uuid.UUID) ([]app.Factor, error)
 	StartTOTP(ctx context.Context, userID uuid.UUID) (app.TOTPSetup, error)
 	ConfirmTOTP(ctx context.Context, userID uuid.UUID, sessionToken, label, code, password string) error
@@ -430,6 +437,69 @@ func (h *Handler) DeleteAccount(ctx context.Context, req *oas.PasswordCheck) (oa
 		return nil, err
 	}
 	return &oas.DeleteAccountNoContent{SetCookie: cookie("", expireNow).String()}, nil
+}
+
+// AskPasswordReset implements askPasswordReset.
+func (h *Handler) AskPasswordReset(ctx context.Context, req *oas.EmailAddress) (oas.AskPasswordResetRes, error) {
+	ctx = app.WithClient(ctx, remote.From(ctx))
+	if err := h.uc.AskPasswordReset(ctx, string(req.Email)); err != nil {
+		return refusal(err)
+	}
+	return &oas.AskPasswordResetAccepted{}, nil
+}
+
+// CheckPasswordReset implements checkPasswordReset.
+func (h *Handler) CheckPasswordReset(ctx context.Context, req *oas.LinkToken) (oas.CheckPasswordResetRes, error) {
+	kinds, err := h.uc.CheckPasswordReset(ctx, req.Token)
+	if err != nil {
+		return resetRefusal(err)
+	}
+	return &oas.ResetCheck{Methods: needs(kinds).Methods}, nil
+}
+
+// ResetWithCode implements resetWithCode.
+func (h *Handler) ResetWithCode(ctx context.Context, req *oas.ResetCode) (oas.ResetWithCodeRes, error) {
+	if err := h.uc.ResetWithCode(ctx, req.Token, req.Code); err != nil {
+		return resetRefusal(err)
+	}
+	return &oas.ResetWithCodeNoContent{}, nil
+}
+
+// ResetPasskeyOptions implements resetPasskeyOptions.
+func (h *Handler) ResetPasskeyOptions(ctx context.Context, req *oas.LinkToken) (oas.ResetPasskeyOptionsRes, error) {
+	options, err := h.uc.ResetPasskeyOptions(ctx, req.Token)
+	if err != nil {
+		return resetRefusal(err)
+	}
+	return &oas.PasskeyOptions{Options: string(options)}, nil
+}
+
+// ResetWithPasskey implements resetWithPasskey.
+func (h *Handler) ResetWithPasskey(ctx context.Context, req *oas.ResetPasskey) (oas.ResetWithPasskeyRes, error) {
+	if err := h.uc.ResetWithPasskey(ctx, req.Token, []byte(req.Response)); err != nil {
+		return resetRefusal(err)
+	}
+	return &oas.ResetWithPasskeyNoContent{}, nil
+}
+
+// CompletePasswordReset implements completePasswordReset.
+func (h *Handler) CompletePasswordReset(ctx context.Context, req *oas.ResetCompletion) (oas.CompletePasswordResetRes, error) {
+	if err := h.uc.CompletePasswordReset(ctx, req.Token, string(req.Password)); err != nil {
+		return resetRefusal(err)
+	}
+	return &oas.CompletePasswordResetNoContent{}, nil
+}
+
+// resetRefusal is refusal, with what a reset adds: a spent link, or two-factor not yet proved.
+func resetRefusal(err error) (*oas.ProblemStatusCode, error) {
+	switch {
+	case errors.Is(err, app.ErrInvalidToken):
+		return problem(http.StatusUnprocessableEntity, "This link has expired or was already used. Ask for a new one."), nil
+	case errors.Is(err, app.ErrFreshTwoFactorNeeded):
+		return problem(http.StatusForbidden, "Confirm it is you with two-factor first."), nil
+	default:
+		return refusal(err)
+	}
 }
 
 // GetProfile implements getProfile.

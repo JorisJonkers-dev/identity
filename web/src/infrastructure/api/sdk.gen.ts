@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddMemberData, AddMemberErrors, AddMemberResponses, AskEmailChangeData, AskEmailChangeErrors, AskEmailChangeResponses, AssignRoleData, AssignRoleErrors, AssignRoleResponses, AssignUserRoleData, AssignUserRoleErrors, AssignUserRoleResponses, CancelEmailChangeData, CancelEmailChangeErrors, CancelEmailChangeResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, CompleteSignInData, CompleteSignInErrors, CompleteSignInResponses, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyErrors, CompleteSignInWithPasskeyResponses, ConfirmEmailChangeData, ConfirmEmailChangeErrors, ConfirmEmailChangeResponses, ConfirmEmailData, ConfirmEmailErrors, ConfirmEmailResponses, ConfirmPasskeyData, ConfirmPasskeyErrors, ConfirmPasskeyResponses, ConfirmTotpData, ConfirmTotpErrors, ConfirmTotpResponses, CreateGroupData, CreateGroupErrors, CreateGroupResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteGroupData, DeleteGroupErrors, DeleteGroupResponses, GetAccessData, GetAccessErrors, GetAccessResponses, GetDashboardData, GetDashboardErrors, GetDashboardResponses, GetLauncherData, GetLauncherErrors, GetLauncherResponses, GetProfileData, GetProfileErrors, GetProfileResponses, GetStepUpData, GetStepUpErrors, GetStepUpResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListAuditEventsData, ListAuditEventsErrors, ListAuditEventsResponses, ListDevicesData, ListDevicesErrors, ListDevicesResponses, ListMyTokensData, ListMyTokensErrors, ListMyTokensResponses, ListSecondFactorsData, ListSecondFactorsErrors, ListSecondFactorsResponses, ListUserTokensData, ListUserTokensErrors, ListUserTokensResponses, MintTokenData, MintTokenErrors, MintTokenResponses, PasskeyOptionsData, PasskeyOptionsErrors, PasskeyOptionsResponses, RemoveMemberData, RemoveMemberErrors, RemoveMemberResponses, RemoveSecondFactorData, RemoveSecondFactorErrors, RemoveSecondFactorResponses, RenameGroupData, RenameGroupErrors, RenameGroupResponses, RevokeMyTokenData, RevokeMyTokenErrors, RevokeMyTokenResponses, RevokeUserTokenData, RevokeUserTokenErrors, RevokeUserTokenResponses, RotateClientSecretData, RotateClientSecretErrors, RotateClientSecretResponses, SetStepUpData, SetStepUpErrors, SetStepUpResponses, SignInData, SignInErrors, SignInResponses, SignOutData, SignOutDeviceData, SignOutDeviceErrors, SignOutDeviceResponses, SignOutErrors, SignOutOtherDevicesData, SignOutOtherDevicesErrors, SignOutOtherDevicesResponses, SignOutResponses, SignOutUserData, SignOutUserErrors, SignOutUserResponses, SignUpData, SignUpErrors, SignUpResponses, StartPasskeyData, StartPasskeyErrors, StartPasskeyResponses, StartStepUpData, StartStepUpErrors, StartStepUpResponses, StartTotpData, StartTotpErrors, StartTotpResponses, StepUpPasskeyOptionsData, StepUpPasskeyOptionsErrors, StepUpPasskeyOptionsResponses, StepUpWithCodeData, StepUpWithCodeErrors, StepUpWithCodeResponses, StepUpWithPasskeyData, StepUpWithPasskeyErrors, StepUpWithPasskeyResponses, UnassignRoleData, UnassignRoleErrors, UnassignRoleResponses, UnassignUserRoleData, UnassignUserRoleErrors, UnassignUserRoleResponses, UpdateProfileData, UpdateProfileErrors, UpdateProfileResponses } from './types.gen';
-import { zAddMemberPath, zAddMemberResponse, zAskEmailChangeBody, zAssignRolePath, zAssignRoleResponse, zAssignUserRolePath, zAssignUserRoleResponse, zCancelEmailChangeResponse, zChangePasswordBody, zChangePasswordResponse, zCompleteSignInBody, zCompleteSignInResponse, zCompleteSignInWithPasskeyBody, zCompleteSignInWithPasskeyResponse, zConfirmEmailBody, zConfirmEmailChangeBody, zConfirmEmailChangeResponse, zConfirmEmailResponse, zConfirmPasskeyBody, zConfirmPasskeyResponse, zConfirmTotpBody, zConfirmTotpResponse, zCreateGroupBody, zCreateGroupResponse, zDeleteAccountBody, zDeleteAccountResponse, zDeleteGroupPath, zDeleteGroupResponse, zGetAccessResponse, zGetDashboardResponse, zGetLauncherResponse, zGetProfileResponse, zGetStepUpPath, zGetStepUpResponse, zGetVersionResponse, zListAuditEventsQuery, zListAuditEventsResponse, zListDevicesResponse, zListMyTokensResponse, zListSecondFactorsResponse, zListUserTokensPath, zListUserTokensResponse, zMintTokenBody, zMintTokenResponse, zPasskeyOptionsResponse, zRemoveMemberPath, zRemoveMemberResponse, zRemoveSecondFactorBody, zRemoveSecondFactorPath, zRemoveSecondFactorResponse, zRenameGroupBody, zRenameGroupPath, zRenameGroupResponse, zRevokeMyTokenPath, zRevokeMyTokenResponse, zRevokeUserTokenPath, zRevokeUserTokenResponse, zRotateClientSecretPath, zRotateClientSecretResponse, zSetStepUpBody, zSetStepUpPath, zSetStepUpResponse, zSignInBody, zSignInResponse, zSignOutDevicePath, zSignOutDeviceResponse, zSignOutOtherDevicesResponse, zSignOutResponse, zSignOutUserPath, zSignOutUserResponse, zSignUpBody, zStartPasskeyResponse, zStartStepUpResponse, zStartTotpResponse, zStepUpPasskeyOptionsResponse, zStepUpWithCodeBody, zStepUpWithCodeResponse, zStepUpWithPasskeyBody, zStepUpWithPasskeyResponse, zUnassignRolePath, zUnassignRoleResponse, zUnassignUserRolePath, zUnassignUserRoleResponse, zUpdateProfileBody, zUpdateProfileResponse } from './zod.gen';
+import type { AddMemberData, AddMemberErrors, AddMemberResponses, AskEmailChangeData, AskEmailChangeErrors, AskEmailChangeResponses, AskPasswordResetData, AskPasswordResetErrors, AskPasswordResetResponses, AssignRoleData, AssignRoleErrors, AssignRoleResponses, AssignUserRoleData, AssignUserRoleErrors, AssignUserRoleResponses, CancelEmailChangeData, CancelEmailChangeErrors, CancelEmailChangeResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, CheckPasswordResetData, CheckPasswordResetErrors, CheckPasswordResetResponses, CompletePasswordResetData, CompletePasswordResetErrors, CompletePasswordResetResponses, CompleteSignInData, CompleteSignInErrors, CompleteSignInResponses, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyErrors, CompleteSignInWithPasskeyResponses, ConfirmEmailChangeData, ConfirmEmailChangeErrors, ConfirmEmailChangeResponses, ConfirmEmailData, ConfirmEmailErrors, ConfirmEmailResponses, ConfirmPasskeyData, ConfirmPasskeyErrors, ConfirmPasskeyResponses, ConfirmTotpData, ConfirmTotpErrors, ConfirmTotpResponses, CreateGroupData, CreateGroupErrors, CreateGroupResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteGroupData, DeleteGroupErrors, DeleteGroupResponses, GetAccessData, GetAccessErrors, GetAccessResponses, GetDashboardData, GetDashboardErrors, GetDashboardResponses, GetLauncherData, GetLauncherErrors, GetLauncherResponses, GetProfileData, GetProfileErrors, GetProfileResponses, GetStepUpData, GetStepUpErrors, GetStepUpResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListAuditEventsData, ListAuditEventsErrors, ListAuditEventsResponses, ListDevicesData, ListDevicesErrors, ListDevicesResponses, ListMyTokensData, ListMyTokensErrors, ListMyTokensResponses, ListSecondFactorsData, ListSecondFactorsErrors, ListSecondFactorsResponses, ListUserTokensData, ListUserTokensErrors, ListUserTokensResponses, MintTokenData, MintTokenErrors, MintTokenResponses, PasskeyOptionsData, PasskeyOptionsErrors, PasskeyOptionsResponses, RemoveMemberData, RemoveMemberErrors, RemoveMemberResponses, RemoveSecondFactorData, RemoveSecondFactorErrors, RemoveSecondFactorResponses, RenameGroupData, RenameGroupErrors, RenameGroupResponses, ResetPasskeyOptionsData, ResetPasskeyOptionsErrors, ResetPasskeyOptionsResponses, ResetWithCodeData, ResetWithCodeErrors, ResetWithCodeResponses, ResetWithPasskeyData, ResetWithPasskeyErrors, ResetWithPasskeyResponses, RevokeMyTokenData, RevokeMyTokenErrors, RevokeMyTokenResponses, RevokeUserTokenData, RevokeUserTokenErrors, RevokeUserTokenResponses, RotateClientSecretData, RotateClientSecretErrors, RotateClientSecretResponses, SetStepUpData, SetStepUpErrors, SetStepUpResponses, SignInData, SignInErrors, SignInResponses, SignOutData, SignOutDeviceData, SignOutDeviceErrors, SignOutDeviceResponses, SignOutErrors, SignOutOtherDevicesData, SignOutOtherDevicesErrors, SignOutOtherDevicesResponses, SignOutResponses, SignOutUserData, SignOutUserErrors, SignOutUserResponses, SignUpData, SignUpErrors, SignUpResponses, StartPasskeyData, StartPasskeyErrors, StartPasskeyResponses, StartStepUpData, StartStepUpErrors, StartStepUpResponses, StartTotpData, StartTotpErrors, StartTotpResponses, StepUpPasskeyOptionsData, StepUpPasskeyOptionsErrors, StepUpPasskeyOptionsResponses, StepUpWithCodeData, StepUpWithCodeErrors, StepUpWithCodeResponses, StepUpWithPasskeyData, StepUpWithPasskeyErrors, StepUpWithPasskeyResponses, UnassignRoleData, UnassignRoleErrors, UnassignRoleResponses, UnassignUserRoleData, UnassignUserRoleErrors, UnassignUserRoleResponses, UpdateProfileData, UpdateProfileErrors, UpdateProfileResponses } from './types.gen';
+import { zAddMemberPath, zAddMemberResponse, zAskEmailChangeBody, zAskPasswordResetBody, zAssignRolePath, zAssignRoleResponse, zAssignUserRolePath, zAssignUserRoleResponse, zCancelEmailChangeResponse, zChangePasswordBody, zChangePasswordResponse, zCheckPasswordResetBody, zCheckPasswordResetResponse, zCompletePasswordResetBody, zCompletePasswordResetResponse, zCompleteSignInBody, zCompleteSignInResponse, zCompleteSignInWithPasskeyBody, zCompleteSignInWithPasskeyResponse, zConfirmEmailBody, zConfirmEmailChangeBody, zConfirmEmailChangeResponse, zConfirmEmailResponse, zConfirmPasskeyBody, zConfirmPasskeyResponse, zConfirmTotpBody, zConfirmTotpResponse, zCreateGroupBody, zCreateGroupResponse, zDeleteAccountBody, zDeleteAccountResponse, zDeleteGroupPath, zDeleteGroupResponse, zGetAccessResponse, zGetDashboardResponse, zGetLauncherResponse, zGetProfileResponse, zGetStepUpPath, zGetStepUpResponse, zGetVersionResponse, zListAuditEventsQuery, zListAuditEventsResponse, zListDevicesResponse, zListMyTokensResponse, zListSecondFactorsResponse, zListUserTokensPath, zListUserTokensResponse, zMintTokenBody, zMintTokenResponse, zPasskeyOptionsResponse, zRemoveMemberPath, zRemoveMemberResponse, zRemoveSecondFactorBody, zRemoveSecondFactorPath, zRemoveSecondFactorResponse, zRenameGroupBody, zRenameGroupPath, zRenameGroupResponse, zResetPasskeyOptionsBody, zResetPasskeyOptionsResponse, zResetWithCodeBody, zResetWithCodeResponse, zResetWithPasskeyBody, zResetWithPasskeyResponse, zRevokeMyTokenPath, zRevokeMyTokenResponse, zRevokeUserTokenPath, zRevokeUserTokenResponse, zRotateClientSecretPath, zRotateClientSecretResponse, zSetStepUpBody, zSetStepUpPath, zSetStepUpResponse, zSignInBody, zSignInResponse, zSignOutDevicePath, zSignOutDeviceResponse, zSignOutOtherDevicesResponse, zSignOutResponse, zSignOutUserPath, zSignOutUserResponse, zSignUpBody, zStartPasskeyResponse, zStartStepUpResponse, zStartTotpResponse, zStepUpPasskeyOptionsResponse, zStepUpWithCodeBody, zStepUpWithCodeResponse, zStepUpWithPasskeyBody, zStepUpWithPasskeyResponse, zUnassignRolePath, zUnassignRoleResponse, zUnassignUserRolePath, zUnassignUserRoleResponse, zUpdateProfileBody, zUpdateProfileResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -89,6 +89,125 @@ export const confirmEmailChange = <ThrowOnError extends boolean = false>(options
     }).parseAsync(data),
     responseValidator: async (data) => await zConfirmEmailChangeResponse.parseAsync(data),
     url: '/api/v1/email-changes/confirmation',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Ask for a password reset
+ *
+ * Mails a link to choose a new password, valid once for 30 minutes, when the email belongs to a User. Answers the same whether or not it does; requests are limited per address and per client.
+ */
+export const askPasswordReset = <ThrowOnError extends boolean = false>(options: Options<AskPasswordResetData, ThrowOnError>): RequestResult<AskPasswordResetResponses, AskPasswordResetErrors, ThrowOnError> => (options.client ?? client).post<AskPasswordResetResponses, AskPasswordResetErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zAskPasswordResetBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    url: '/api/v1/password-resets',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Check a password reset link
+ *
+ * Says which kinds of two-factor the reset must be proved with first; none when the User has none or proved it already.
+ */
+export const checkPasswordReset = <ThrowOnError extends boolean = false>(options: Options<CheckPasswordResetData, ThrowOnError>): RequestResult<CheckPasswordResetResponses, CheckPasswordResetErrors, ThrowOnError> => (options.client ?? client).post<CheckPasswordResetResponses, CheckPasswordResetErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zCheckPasswordResetBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zCheckPasswordResetResponse.parseAsync(data),
+    url: '/api/v1/password-resets/check',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Prove a password reset with an authenticator code
+ *
+ * Takes a code from the User's authenticator app for the reset. Five codes in fifteen minutes.
+ */
+export const resetWithCode = <ThrowOnError extends boolean = false>(options: Options<ResetWithCodeData, ThrowOnError>): RequestResult<ResetWithCodeResponses, ResetWithCodeErrors, ThrowOnError> => (options.client ?? client).post<ResetWithCodeResponses, ResetWithCodeErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zResetWithCodeBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zResetWithCodeResponse.parseAsync(data),
+    url: '/api/v1/password-resets/code',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Start proving a password reset with a passkey
+ *
+ * Returns the WebAuthn options for the reset; checkPasswordReset must have run first.
+ */
+export const resetPasskeyOptions = <ThrowOnError extends boolean = false>(options: Options<ResetPasskeyOptionsData, ThrowOnError>): RequestResult<ResetPasskeyOptionsResponses, ResetPasskeyOptionsErrors, ThrowOnError> => (options.client ?? client).post<ResetPasskeyOptionsResponses, ResetPasskeyOptionsErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zResetPasskeyOptionsBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zResetPasskeyOptionsResponse.parseAsync(data),
+    url: '/api/v1/password-resets/passkey',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Prove a password reset with a passkey
+ *
+ * Checks the browser's passkey answer for the reset. A refused answer counts as a wrong code.
+ */
+export const resetWithPasskey = <ThrowOnError extends boolean = false>(options: Options<ResetWithPasskeyData, ThrowOnError>): RequestResult<ResetWithPasskeyResponses, ResetWithPasskeyErrors, ThrowOnError> => (options.client ?? client).post<ResetWithPasskeyResponses, ResetWithPasskeyErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zResetWithPasskeyBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zResetWithPasskeyResponse.parseAsync(data),
+    url: '/api/v1/password-resets/passkey/assertion',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Choose a new password
+ *
+ * Sets the new password, ends every session and mails the User. A User with two-factor must have proved the reset first. The link works once.
+ */
+export const completePasswordReset = <ThrowOnError extends boolean = false>(options: Options<CompletePasswordResetData, ThrowOnError>): RequestResult<CompletePasswordResetResponses, CompletePasswordResetErrors, ThrowOnError> => (options.client ?? client).post<CompletePasswordResetResponses, CompletePasswordResetErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zCompletePasswordResetBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zCompletePasswordResetResponse.parseAsync(data),
+    url: '/api/v1/password-resets/completion',
     ...options,
     headers: {
         'Content-Type': 'application/json',

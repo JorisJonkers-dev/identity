@@ -102,6 +102,12 @@ type Store interface {
 	DeleteEmailChange(ctx context.Context, userID uuid.UUID) error
 	// UpdateEmail is ErrEmailTaken when another User has the address.
 	UpdateEmail(ctx context.Context, userID uuid.UUID, email domain.Email) error
+	SavePasswordReset(ctx context.Context, r PasswordReset) error
+	// PasswordResetByHash is ErrNotFound when no reset has the token hash.
+	PasswordResetByHash(ctx context.Context, tokenHash []byte) (PasswordReset, error)
+	ProvePasswordReset(ctx context.Context, userID uuid.UUID, at time.Time) error
+	// TakePasswordReset removes a reset, and reports whether it was there.
+	TakePasswordReset(ctx context.Context, tokenHash []byte) (bool, error)
 	// DeleteUser deletes a User with their sessions and Personal Tokens, returning their ids; it is
 	// ErrLastAdmin for the last Admin, even when two deletions race.
 	DeleteUser(ctx context.Context, userID uuid.UUID) (Deleted, error)
@@ -191,6 +197,8 @@ type Service struct {
 	webauthn  WebAuthn
 	admins    Admins
 	signedOut SignedOut
+	// resets counts password reset requests per address and per client.
+	resets limiter
 	// tokensDeleted is told which Personal Tokens went with a deleted User.
 	tokensDeleted func(ctx context.Context, tokenIDs []uuid.UUID)
 	audit         Audit

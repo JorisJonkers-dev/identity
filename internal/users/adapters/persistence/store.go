@@ -228,6 +228,27 @@ func (s *Store) UpdateEmail(ctx context.Context, userID uuid.UUID, email domain.
 	return err
 }
 
+func (s *Store) SavePasswordReset(ctx context.Context, r app.PasswordReset) error {
+	return s.q.SavePasswordReset(ctx, queries.SavePasswordResetParams{UserID: r.UserID, TokenHash: r.TokenHash, ExpiresAt: r.ExpiresAt})
+}
+
+func (s *Store) PasswordResetByHash(ctx context.Context, hash []byte) (app.PasswordReset, error) {
+	r, err := s.q.PasswordResetByHash(ctx, hash)
+	if err != nil {
+		return app.PasswordReset{}, notFound(err)
+	}
+	return app.PasswordReset{UserID: r.UserID, TokenHash: r.TokenHash, ExpiresAt: r.ExpiresAt, ProvedAt: r.ProvedAt}, nil
+}
+
+func (s *Store) ProvePasswordReset(ctx context.Context, userID uuid.UUID, at time.Time) error {
+	return s.q.ProvePasswordReset(ctx, queries.ProvePasswordResetParams{UserID: userID, ProvedAt: &at})
+}
+
+func (s *Store) TakePasswordReset(ctx context.Context, hash []byte) (bool, error) {
+	n, err := s.q.TakePasswordReset(ctx, hash)
+	return n > 0, err
+}
+
 func (s *Store) TouchSession(ctx context.Context, hash []byte, lastSeen, expires time.Time) error {
 	return s.q.TouchSession(ctx, queries.TouchSessionParams{TokenHash: hash, LastSeenAt: lastSeen, ExpiresAt: expires})
 }

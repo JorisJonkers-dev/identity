@@ -188,3 +188,18 @@ DELETE FROM personal_tokens WHERE user_id = $1 RETURNING id;
 -- Memberships, direct Assignments, factors and pending changes go with the User; Audit Events,
 -- which keep only ids, stay.
 DELETE FROM users WHERE id = $1;
+
+-- name: SavePasswordReset :exec
+-- A User has one reset at a time; asking again replaces it.
+INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES ($1, $2, $3)
+ON CONFLICT (user_id) DO UPDATE SET token_hash = EXCLUDED.token_hash, expires_at = EXCLUDED.expires_at, proved_at = NULL;
+
+-- name: PasswordResetByHash :one
+SELECT user_id, token_hash, expires_at, proved_at FROM password_resets WHERE token_hash = $1;
+
+-- name: ProvePasswordReset :exec
+UPDATE password_resets SET proved_at = $2 WHERE user_id = $1;
+
+-- name: TakePasswordReset :execrows
+-- Finishing a reset spends its link; of two racing, one gets it.
+DELETE FROM password_resets WHERE token_hash = $1;

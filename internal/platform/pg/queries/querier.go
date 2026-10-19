@@ -99,10 +99,12 @@ type Querier interface {
 	LockKeys(ctx context.Context) error
 	PasskeyEnrolment(ctx context.Context, userID uuid.UUID) (PasskeyEnrolmentRow, error)
 	PasskeysOfUser(ctx context.Context, userID uuid.UUID) ([]Passkey, error)
+	PasswordResetByHash(ctx context.Context, tokenHash []byte) (PasswordReset, error)
 	PersonalTokenByHash(ctx context.Context, tokenHash []byte) (PersonalTokenByHashRow, error)
 	PersonalTokenByID(ctx context.Context, id uuid.UUID) (PersonalTokenByIDRow, error)
 	// Readiness: the database answers a query, not only a connection.
 	Ping(ctx context.Context) (int32, error)
+	ProvePasswordReset(ctx context.Context, arg ProvePasswordResetParams) error
 	RemoveMember(ctx context.Context, arg RemoveMemberParams) (int64, error)
 	RenameGroup(ctx context.Context, arg RenameGroupParams) (int64, error)
 	// Revokes a User's token once; a second revocation, or another User's token, changes nothing.
@@ -118,6 +120,8 @@ type Querier interface {
 	SaveAuthCode(ctx context.Context, arg SaveAuthCodeParams) (int64, error)
 	// A User has one pending email change; asking again replaces it.
 	SaveEmailChange(ctx context.Context, arg SaveEmailChangeParams) error
+	// A User has one reset at a time; asking again replaces it.
+	SavePasswordReset(ctx context.Context, arg SavePasswordResetParams) error
 	SealedSecret(ctx context.Context, name string) (string, error)
 	SessionByHash(ctx context.Context, tokenHash []byte) (SessionByHashRow, error)
 	SessionByID(ctx context.Context, id uuid.UUID) (SessionByIDRow, error)
@@ -146,6 +150,8 @@ type Querier interface {
 	TakeEmailChange(ctx context.Context, tokenHash []byte) (EmailChange, error)
 	// Redeeming a code removes it in the same statement, so a code works once.
 	TakeGateCode(ctx context.Context, codeHash []byte) (TakeGateCodeRow, error)
+	// Finishing a reset spends its link; of two racing, one gets it.
+	TakePasswordReset(ctx context.Context, tokenHash []byte) (int64, error)
 	// The Clients the ended sessions signed into, removed as they are read.
 	TakeSessionClients(ctx context.Context, sessionIds []uuid.UUID) ([]SessionClient, error)
 	// A token's last use is written at most once a minute, not on every check.

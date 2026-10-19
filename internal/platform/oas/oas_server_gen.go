@@ -21,6 +21,13 @@ type Handler interface {
 	//
 	// POST /api/v1/profile/email-change
 	AskEmailChange(ctx context.Context, req *EmailChange) (AskEmailChangeRes, error)
+	// AskPasswordReset implements askPasswordReset operation.
+	//
+	// Mails a link to choose a new password, valid once for 30 minutes, when the email belongs to a User.
+	// Answers the same whether or not it does; requests are limited per address and per client.
+	//
+	// POST /api/v1/password-resets
+	AskPasswordReset(ctx context.Context, req *EmailAddress) (AskPasswordResetRes, error)
 	// AssignRole implements assignRole operation.
 	//
 	// Makes an Assignment. The Client must be in the cluster and declare the App Role, and the admins
@@ -47,6 +54,20 @@ type Handler interface {
 	//
 	// POST /api/v1/profile/password
 	ChangePassword(ctx context.Context, req *PasswordChange) (ChangePasswordRes, error)
+	// CheckPasswordReset implements checkPasswordReset operation.
+	//
+	// Says which kinds of two-factor the reset must be proved with first; none when the User has none or
+	// proved it already.
+	//
+	// POST /api/v1/password-resets/check
+	CheckPasswordReset(ctx context.Context, req *LinkToken) (CheckPasswordResetRes, error)
+	// CompletePasswordReset implements completePasswordReset operation.
+	//
+	// Sets the new password, ends every session and mails the User. A User with two-factor must have
+	// proved the reset first. The link works once.
+	//
+	// POST /api/v1/password-resets/completion
+	CompletePasswordReset(ctx context.Context, req *ResetCompletion) (CompletePasswordResetRes, error)
 	// CompleteSignIn implements completeSignIn operation.
 	//
 	// Takes a code from the User's authenticator app for the sign-in the challenge cookie names, and
@@ -217,6 +238,24 @@ type Handler interface {
 	//
 	// PATCH /api/v1/access/groups/{groupId}
 	RenameGroup(ctx context.Context, req *GroupDraft, params RenameGroupParams) (RenameGroupRes, error)
+	// ResetPasskeyOptions implements resetPasskeyOptions operation.
+	//
+	// Returns the WebAuthn options for the reset; checkPasswordReset must have run first.
+	//
+	// POST /api/v1/password-resets/passkey
+	ResetPasskeyOptions(ctx context.Context, req *LinkToken) (ResetPasskeyOptionsRes, error)
+	// ResetWithCode implements resetWithCode operation.
+	//
+	// Takes a code from the User's authenticator app for the reset. Five codes in fifteen minutes.
+	//
+	// POST /api/v1/password-resets/code
+	ResetWithCode(ctx context.Context, req *ResetCode) (ResetWithCodeRes, error)
+	// ResetWithPasskey implements resetWithPasskey operation.
+	//
+	// Checks the browser's passkey answer for the reset. A refused answer counts as a wrong code.
+	//
+	// POST /api/v1/password-resets/passkey/assertion
+	ResetWithPasskey(ctx context.Context, req *ResetPasskey) (ResetWithPasskeyRes, error)
 	// RevokeMyToken implements revokeMyToken operation.
 	//
 	// The token is refused from now on. Revoking it twice changes nothing.

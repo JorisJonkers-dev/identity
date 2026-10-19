@@ -31,6 +31,7 @@ describe('an Audit Event reads as a sentence', () => {
     ['a new password', { action: 'password-changed', user: noor }, '**Noor Bakker** changed their password'],
     ['a new email', { action: 'email-changed', user: noor, email: 'old@example.org' }, '**Noor Bakker** changed their sign-in email from old@example.org to noor@example.org'],
     ['a new email of someone since deleted', { action: 'email-changed', user: { id: noor.id }, email: 'old@example.org' }, '**a deleted User** changed their sign-in email from old@example.org'],
+    ['a password reset', { action: 'password-reset', user: noor }, '**Noor Bakker** reset their password through a mailed link'],
     ['an account deleted', { action: 'account-deleted', user: { id: noor.id } }, '**a deleted User** deleted their own account'],
     ['a new email from an address no longer known', { action: 'email-changed', user: noor }, '**Noor Bakker** changed their sign-in email from an earlier address to noor@example.org'],
     ['a Second Factor added', { action: 'second-factor-added', user: noor }, '**Noor Bakker** added a Second Factor'],
