@@ -184,6 +184,11 @@ DELETE FROM sessions WHERE user_id = $1 RETURNING id;
 -- name: DeletePersonalTokensOfUser :many
 DELETE FROM personal_tokens WHERE user_id = $1 RETURNING id;
 
+-- name: ConnectedAppAccessTokensOfUser :many
+-- Their Connected Apps go with the User by cascade; these are the access tokens the Gate may cache.
+SELECT t.id FROM connected_app_tokens t JOIN connected_apps c ON c.id = t.connected_app_id
+WHERE c.user_id = $1 AND t.kind = 'access';
+
 -- name: DeleteUser :execrows
 -- Memberships, direct Assignments, factors and pending changes go with the User; Audit Events,
 -- which keep only ids, stay.

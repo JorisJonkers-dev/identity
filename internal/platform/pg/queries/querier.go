@@ -28,6 +28,8 @@ type Querier interface {
 	CompleteAuthRequest(ctx context.Context, arg CompleteAuthRequestParams) (int64, error)
 	// A live access token, found by the id its sealed form carries.
 	ConnectedAppAccess(ctx context.Context, id uuid.UUID) (ConnectedAppAccessRow, error)
+	// Their Connected Apps go with the User by cascade; these are the access tokens the Gate may cache.
+	ConnectedAppAccessTokensOfUser(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
 	ConnectedAppByID(ctx context.Context, id uuid.UUID) (ConnectedAppByIDRow, error)
 	ConnectedAppFor(ctx context.Context, arg ConnectedAppForParams) (uuid.UUID, error)
 	ConnectedAppRefresh(ctx context.Context, hash []byte) (ConnectedAppRefreshRow, error)
