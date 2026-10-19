@@ -11,6 +11,7 @@ import { useSecurity } from '../composables/useSecurity'
 
 const route = useRoute()
 const forAdmin = computed(() => route.query.for === 'admin')
+const forApp = computed(() => route.query.for === 'step-up')
 const { factors, loadError, passkeysSupported, addPasskey, remove } = useSecurity()
 const removing = ref<SecondFactor | null>(null)
 const adding = ref(false)
@@ -41,6 +42,7 @@ function confirmAdd() {
     <BackLink to="/security" label="Security" />
     <header class="head"><h1>Two-factor</h1></header>
     <p v-if="forAdmin" class="note warn" role="status"><Icon name="shield" />Admin pages need two-factor. Add a passkey or an authenticator app, then sign in again.</p>
+    <p v-if="forApp" class="note warn" role="status"><Icon name="shield" />The app you opened needs two-factor. Add a passkey or an authenticator app, then open the app again.</p>
     <p v-if="loadError" role="alert" class="alert"><Icon name="alert" />{{ loadError }}</p>
     <div class="task">
       <div class="task-main">

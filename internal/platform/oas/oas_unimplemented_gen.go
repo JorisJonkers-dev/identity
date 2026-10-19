@@ -159,6 +159,16 @@ func (UnimplementedHandler) GetProfile(ctx context.Context) (r GetProfileRes, _ 
 	return r, ht.ErrNotImplemented
 }
 
+// GetStepUp implements getStepUp operation.
+//
+// The Client's step-up window, 0 when it is off. Admins only, from a session that proved a Second
+// Factor.
+//
+// GET /api/v1/apps/{clientId}/step-up
+func (UnimplementedHandler) GetStepUp(ctx context.Context, params GetStepUpParams) (r GetStepUpRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // GetVersion implements getVersion operation.
 //
 // The version of the build that is serving, for the Launcher's footer and for checks after a deploy.
@@ -282,6 +292,16 @@ func (UnimplementedHandler) RotateClientSecret(ctx context.Context, params Rotat
 	return r, ht.ErrNotImplemented
 }
 
+// SetStepUp implements setStepUp operation.
+//
+// Signing in to the Client then finishes only when the session proved two-factor within the window; 0
+// turns step-up off. Admins only, from a session that proved a Second Factor.
+//
+// PUT /api/v1/apps/{clientId}/step-up
+func (UnimplementedHandler) SetStepUp(ctx context.Context, req *StepUp, params SetStepUpParams) (r SetStepUpRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // SignIn implements signIn operation.
 //
 // Checks an email and a password and starts a Single sign-on session in a host-only cookie. A wrong
@@ -330,6 +350,16 @@ func (UnimplementedHandler) StartPasskey(ctx context.Context) (r StartPasskeyRes
 	return r, ht.ErrNotImplemented
 }
 
+// StartStepUp implements startStepUp operation.
+//
+// For an app that wants a fresh proof (step-up), starts proving the signed-in session again and says
+// which kinds of Second Factor can prove it. A User with none is told to add one.
+//
+// POST /api/v1/session/step-up
+func (UnimplementedHandler) StartStepUp(ctx context.Context) (r StartStepUpRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // StartTOTP implements startTOTP operation.
 //
 // Makes a secret for a new authenticator app. It is kept, sealed by Vault, for ten minutes, until
@@ -337,6 +367,35 @@ func (UnimplementedHandler) StartPasskey(ctx context.Context) (r StartPasskeyRes
 //
 // POST /api/v1/profile/second-factors/totp
 func (UnimplementedHandler) StartTOTP(ctx context.Context) (r StartTOTPRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// StepUpPasskeyOptions implements stepUpPasskeyOptions operation.
+//
+// Returns the WebAuthn options for the step-up startStepUp began.
+//
+// POST /api/v1/session/step-up/passkey
+func (UnimplementedHandler) StepUpPasskeyOptions(ctx context.Context) (r StepUpPasskeyOptionsRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// StepUpWithCode implements stepUpWithCode operation.
+//
+// Takes a code from the User's authenticator app for the step-up startStepUp began, and marks the
+// session proved now. Five codes in fifteen minutes, as at sign-in; a code works once.
+//
+// POST /api/v1/session/step-up/code
+func (UnimplementedHandler) StepUpWithCode(ctx context.Context, req *SecondFactorCode) (r StepUpWithCodeRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// StepUpWithPasskey implements stepUpWithPasskey operation.
+//
+// Checks the browser's passkey answer for the step-up startStepUp began, and marks the session proved
+// now. A refused answer counts as a wrong code.
+//
+// POST /api/v1/session/step-up/passkey/assertion
+func (UnimplementedHandler) StepUpWithPasskey(ctx context.Context, req *PasskeyAssertion) (r StepUpWithPasskeyRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 

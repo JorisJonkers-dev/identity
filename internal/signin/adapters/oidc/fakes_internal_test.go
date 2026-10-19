@@ -160,6 +160,19 @@ type accounts struct {
 	signedOut  []uuid.UUID
 	failClaims error
 	failOut    error
+	twoFactor  bool
+}
+
+func (a *accounts) HasTwoFactor(context.Context, uuid.UUID) (bool, error) { return a.twoFactor, nil }
+
+// stepUps is every Client's step-up window in minutes; one not listed has it off.
+type stepUps map[string]int
+
+func (s stepUps) StepUp(_ context.Context, clientID string) (int, error) { return s[clientID], nil }
+
+func (s stepUps) SetStepUp(_ context.Context, clientID string, minutes int) error {
+	s[clientID] = minutes
+	return nil
 }
 
 func (a *accounts) SignedIn(_ context.Context, token string) (domain.SignIn, error) {

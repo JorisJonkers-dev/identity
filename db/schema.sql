@@ -22,7 +22,8 @@ CREATE TABLE public.audit_events (
     group_name text,
     role text,
     email text,
-    reason text
+    reason text,
+    minutes integer
 );
 
 CREATE TABLE public.auth_requests (
@@ -129,7 +130,8 @@ CREATE TABLE public.sessions (
     last_seen_at timestamp with time zone NOT NULL,
     expires_at timestamp with time zone NOT NULL,
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    methods text[] DEFAULT '{pwd}'::text[] NOT NULL
+    methods text[] DEFAULT '{pwd}'::text[] NOT NULL,
+    two_factor_at timestamp with time zone
 );
 
 CREATE TABLE public.sign_in_challenges (
@@ -138,7 +140,8 @@ CREATE TABLE public.sign_in_challenges (
     attempts integer DEFAULT 0 NOT NULL,
     expires_at timestamp with time zone NOT NULL,
     window_started_at timestamp with time zone NOT NULL,
-    passkey_ceremony bytea
+    passkey_ceremony bytea,
+    session_hash bytea
 );
 
 CREATE TABLE public.signing_keys (
@@ -155,6 +158,13 @@ CREATE TABLE public.signups (
     name text NOT NULL,
     password_hash text NOT NULL,
     expires_at timestamp with time zone NOT NULL
+);
+
+CREATE TABLE public.step_up (
+    client_id text NOT NULL,
+    minutes integer NOT NULL,
+    changed_at timestamp with time zone NOT NULL,
+    CONSTRAINT step_up_minutes CHECK ((minutes = ANY (ARRAY[5, 15, 60])))
 );
 
 CREATE TABLE public.totp_enrolments (
@@ -240,6 +250,9 @@ ALTER TABLE ONLY public.sign_in_challenges
     ADD CONSTRAINT sign_in_challenges_pkey PRIMARY KEY (token_hash);
 
 ALTER TABLE ONLY public.sign_in_challenges
+    ADD CONSTRAINT sign_in_challenges_session_key UNIQUE (session_hash);
+
+ALTER TABLE ONLY public.sign_in_challenges
     ADD CONSTRAINT sign_in_challenges_user_key UNIQUE (user_id);
 
 ALTER TABLE ONLY public.signing_keys
@@ -247,6 +260,9 @@ ALTER TABLE ONLY public.signing_keys
 
 ALTER TABLE ONLY public.signups
     ADD CONSTRAINT signups_pkey PRIMARY KEY (token_hash);
+
+ALTER TABLE ONLY public.step_up
+    ADD CONSTRAINT step_up_pkey PRIMARY KEY (client_id);
 
 ALTER TABLE ONLY public.totp_enrolments
     ADD CONSTRAINT totp_enrolments_pkey PRIMARY KEY (user_id);
@@ -337,6 +353,9 @@ ALTER TABLE ONLY public.personal_tokens
 
 ALTER TABLE ONLY public.sessions
     ADD CONSTRAINT sessions_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.sign_in_challenges
+    ADD CONSTRAINT sign_in_challenges_session_fk FOREIGN KEY (session_hash) REFERENCES public.sessions(token_hash) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.sign_in_challenges
     ADD CONSTRAINT sign_in_challenges_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;

@@ -377,6 +377,8 @@ func (s AuditAction) Validate() error {
 		return nil
 	case "client-secret-rotated":
 		return nil
+	case "step-up-changed":
+		return nil
 	default:
 		return errors.Errorf("invalid value: %v", s)
 	}
@@ -626,10 +628,43 @@ func (s *AuditEvent) Validate() error {
 			Error: err,
 		})
 	}
+	if err := func() error {
+		if value, ok := s.Minutes.Get(); ok {
+			if err := func() error {
+				if err := value.Validate(); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return err
+			}
+		}
+		return nil
+	}(); err != nil {
+		failures = append(failures, validate.FieldError{
+			Name:  "minutes",
+			Error: err,
+		})
+	}
 	if len(failures) > 0 {
 		return &validate.Error{Fields: failures}
 	}
 	return nil
+}
+
+func (s AuditEventMinutes) Validate() error {
+	switch s {
+	case 0:
+		return nil
+	case 5:
+		return nil
+	case 15:
+		return nil
+	case 60:
+		return nil
+	default:
+		return errors.Errorf("invalid value: %v", s)
+	}
 }
 
 func (s AuditEventReason) Validate() error {
@@ -2552,6 +2587,44 @@ func (s *SignUp) Validate() error {
 		return &validate.Error{Fields: failures}
 	}
 	return nil
+}
+
+func (s *StepUp) Validate() error {
+	if s == nil {
+		return validate.ErrNilPointer
+	}
+
+	var failures []validate.FieldError
+	if err := func() error {
+		if err := s.Minutes.Validate(); err != nil {
+			return err
+		}
+		return nil
+	}(); err != nil {
+		failures = append(failures, validate.FieldError{
+			Name:  "minutes",
+			Error: err,
+		})
+	}
+	if len(failures) > 0 {
+		return &validate.Error{Fields: failures}
+	}
+	return nil
+}
+
+func (s StepUpMinutes) Validate() error {
+	switch s {
+	case 0:
+		return nil
+	case 5:
+		return nil
+	case 15:
+		return nil
+	case 60:
+		return nil
+	default:
+		return errors.Errorf("invalid value: %v", s)
+	}
 }
 
 func (s *TOTPConfirmation) Validate() error {

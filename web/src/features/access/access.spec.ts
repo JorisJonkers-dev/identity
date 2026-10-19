@@ -18,6 +18,14 @@ function server(start: AccessOverview = overview()) {
     'GET /api/v1/dashboard': () => Response.json(dashboard()),
     'GET /api/v1/access': () => Response.json(o),
   }
+  let stepUp = 0
+  for (const c of o.clients) {
+    answers[`GET /api/v1/apps/${c.id}/step-up`] = () => Response.json({ minutes: stepUp })
+    answers[`PUT /api/v1/apps/${c.id}/step-up`] = () => {
+      stepUp = 15
+      return ok()
+    }
+  }
   for (const g of o.groups) {
     for (const c of o.clients) {
       for (const r of c.roles) {
@@ -447,6 +455,7 @@ describe('the Apps page', () => {
 })
 
 describe('an app’s page', () => {
+  const stepUpRow = (wrapper: VueWrapper) => wrapper.get('.row.step-up')
   const block = (wrapper: VueWrapper, role: string) => {
     const found = wrapper.findAll('.role-block').find((b) => b.get('.role').text() === role)
     if (!found) throw new Error(`no role ${role}`)
@@ -501,6 +510,24 @@ describe('an app’s page', () => {
     await button(wrapper.get('.confirm'), 'Replace secret').trigger('click')
     await settle()
     expect(wrapper.get('[role="alert"]').text()).toBe('Grafana signs in without a secret.')
+  })
+
+  it('says step-up is off until an Admin sets it', async () => {
+    const { wrapper } = await mountAt('/admin/apps/grafana', server().answers)
+    expect(stepUpRow(wrapper).get('small').text()).toBe('Off. Signed-in people open Grafana without a new check.')
+  })
+
+  it('sets how fresh two-factor must be to open the app', async () => {
+    const { wrapper, requests } = await mountAt('/admin/apps/grafana', server().answers)
+    await pick(wrapper, 'Ask for two-factor again in Grafana', '15 minutes')
+    expect(requests.find((r) => r.key === 'PUT /api/v1/apps/grafana/step-up')?.body).toEqual({ minutes: 15 })
+    expect(stepUpRow(wrapper).get('small').text()).toBe('Asks for two-factor again after 15 minutes.')
+  })
+
+  it('shows a refused step-up', async () => {
+    const { wrapper } = await mountAt('/admin/apps/grafana', { ...server().answers, 'PUT /api/v1/apps/grafana/step-up': () => problem(422, 'Choose Off, 5 minutes, 15 minutes or 60 minutes.') })
+    await pick(wrapper, 'Ask for two-factor again in Grafana', '5 minutes')
+    expect(wrapper.get('[role="alert"]').text()).toBe('Choose Off, 5 minutes, 15 minutes or 60 minutes.')
   })
 
   it('goes back to the apps', async () => {

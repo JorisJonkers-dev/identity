@@ -194,11 +194,46 @@ func TestASessionRecordsTheSecondFactorItProved(t *testing.T) {
 	s, _, u := stored(t)
 	sess := session(u, "hash")
 	_ = s.CreateSession(ctx, sess)
-	if err := s.SetSessionMethods(ctx, sess.TokenHash, []string{"pwd", "otp"}); err != nil {
+	at := t0.Add(time.Minute)
+	if err := s.SetSessionMethods(ctx, sess.TokenHash, []string{"pwd", "otp"}, at); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := s.SessionByHash(ctx, sess.TokenHash); !slices.Equal(got.Methods, []string{"pwd", "otp"}) {
-		t.Fatalf("methods = %v", got.Methods)
+	if got, _ := s.SessionByHash(ctx, sess.TokenHash); !slices.Equal(got.Methods, []string{"pwd", "otp"}) || got.TwoFactorAt == nil || !got.TwoFactorAt.Equal(at) {
+		t.Fatalf("methods = %v, at %v", got.Methods, got.TwoFactorAt)
+	}
+}
+
+func TestASessionStartedWithASecondFactorSaysWhen(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	sess := session(u, "hash")
+	sess.Methods, sess.TwoFactorAt = []string{"pwd", "otp"}, &t0
+	_ = s.CreateSession(ctx, sess)
+	if got, _ := s.SessionByID(ctx, sess.ID); got.TwoFactorAt == nil || !got.TwoFactorAt.Equal(t0) {
+		t.Fatalf("two-factor at %v", got.TwoFactorAt)
+	}
+}
+
+func TestAStepUpChallengeIsFoundByItsSession(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	sess := session(u, "hash")
+	_ = s.CreateSession(ctx, sess)
+	c := app.Challenge{TokenHash: []byte("step-up"), UserID: u.ID, ExpiresAt: t0.Add(5 * time.Minute), WindowStartedAt: t0, SessionHash: sess.TokenHash}
+	_ = s.SaveChallenge(ctx, c, t0.Add(-15*time.Minute))
+	if got, err := s.StepUpChallenge(ctx, sess.TokenHash); err != nil || string(got) != "step-up" {
+		t.Fatalf("StepUpChallenge = %q, %v", got, err)
+	}
+}
+
+func TestASignInChallengeIsNoSessionsStepUp(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	sess := session(u, "hash")
+	_ = s.CreateSession(ctx, sess)
+	_ = s.SaveChallenge(ctx, app.Challenge{TokenHash: []byte("sign-in"), UserID: u.ID, ExpiresAt: t0.Add(5 * time.Minute), WindowStartedAt: t0}, t0.Add(-15*time.Minute))
+	if _, err := s.StepUpChallenge(ctx, sess.TokenHash); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("StepUpChallenge = %v", err)
 	}
 }
 

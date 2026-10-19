@@ -171,6 +171,15 @@ func TestARecordedEventIsLoggedAsJSONWithOnlyWhatItNames(t *testing.T) {
 	}
 }
 
+func TestAStepUpChangeIsLoggedWithItsWindow(t *testing.T) {
+	t.Parallel()
+	f := newFixture(counting())
+	f.Record(context.Background(), domain.Event{Action: domain.StepUpChanged, Actor: admin, Client: "grafana", Minutes: 15})
+	if got := f.lines(t)[0]["audit"].(map[string]any); got["minutes"] != float64(15) {
+		t.Fatalf("logged %v", got)
+	}
+}
+
 func TestAnEventTheDatabaseRefusesIsStillLoggedAndTheRefusalWithIt(t *testing.T) {
 	t.Parallel()
 	f := newFixture(counting())

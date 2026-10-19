@@ -80,4 +80,6 @@ type SignIn struct {
 	At time.Time
 	// Methods is how the session was proved, as RFC 8176 names them.
 	Methods []string
+	// TwoFactorAt is when the session last proved two-factor; zero when it never did.
+	TwoFactorAt time.Time
 }

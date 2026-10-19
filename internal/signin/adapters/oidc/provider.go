@@ -20,6 +20,8 @@ const (
 	loginPath = "/oidc/login"
 	// noAccessPath is the web app's page for a User holding no App Role on the Client.
 	noAccessPath = "/no-access"
+	// twoFactorSetupPath is where a User with no two-factor goes when an app wants it.
+	twoFactorSetupPath = "/security/two-factor?for=step-up"
 	// bindingCookie ties an authorization request to the browser that started it.
 	bindingCookie = "__Host-identity_authorize"
 )
@@ -155,6 +157,10 @@ func (l *login) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/signin?authRequestID="+id.String(), http.StatusSeeOther) //nolint:gosec // a fixed path and a parsed UUID
 	case errors.Is(err, app.ErrNoAccess):
 		http.Redirect(w, r, noAccessPath, http.StatusSeeOther)
+	case errors.Is(err, app.ErrStepUpNeeded):
+		http.Redirect(w, r, "/signin/step-up?authRequestID="+id.String(), http.StatusSeeOther) //nolint:gosec // a fixed path and a parsed UUID
+	case errors.Is(err, app.ErrTwoFactorNeeded):
+		http.Redirect(w, r, twoFactorSetupPath, http.StatusSeeOther)
 	case errors.Is(err, app.ErrNotFound):
 		httpx.WriteProblem(w, http.StatusBadRequest, "This sign-in has expired or was already used. Start again from the app.")
 	default:

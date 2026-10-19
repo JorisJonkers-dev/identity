@@ -23,10 +23,10 @@ SELECT email, name, password_hash, expires_at FROM signups WHERE token_hash = $1
 DELETE FROM signups WHERE token_hash = $1;
 
 -- name: CreateSession :exec
-INSERT INTO sessions (token_hash, id, user_id, created_at, last_seen_at, expires_at, methods) VALUES ($1, $2, $3, $4, $4, $5, $6);
+INSERT INTO sessions (token_hash, id, user_id, created_at, last_seen_at, expires_at, methods, two_factor_at) VALUES ($1, $2, $3, $4, $4, $5, $6, $7);
 
 -- name: SessionByHash :one
-SELECT token_hash, id, user_id, created_at, last_seen_at, expires_at, methods FROM sessions WHERE token_hash = $1;
+SELECT token_hash, id, user_id, created_at, last_seen_at, expires_at, methods, two_factor_at FROM sessions WHERE token_hash = $1;
 
 -- name: TouchSession :exec
 UPDATE sessions SET last_seen_at = $2, expires_at = $3 WHERE token_hash = $1;
@@ -40,15 +40,16 @@ DELETE FROM sessions WHERE user_id = $1 AND token_hash IS DISTINCT FROM sqlc.nar
 SELECT id, email, name, password_hash, created_at FROM users ORDER BY lower(name), email;
 
 -- name: SetSessionMethods :exec
--- A session that has just proved a Second Factor says so from then on.
-UPDATE sessions SET methods = $2 WHERE token_hash = $1;
+-- A session that has just proved a Second Factor says so from then on, and when.
+UPDATE sessions SET methods = $2, two_factor_at = $3 WHERE token_hash = $1;
 
 -- name: UpsertChallenge :exec
 -- A User has one challenge. A new sign-in replaces its token and expiry; its wrong codes still
 -- count until the window that began with the first of them has passed.
-INSERT INTO sign_in_challenges (token_hash, user_id, expires_at, window_started_at) VALUES ($1, $2, $3, $4)
+INSERT INTO sign_in_challenges (token_hash, user_id, expires_at, window_started_at, session_hash) VALUES ($1, $2, $3, $4, sqlc.narg(session_hash))
 ON CONFLICT (user_id) DO UPDATE SET
   token_hash = EXCLUDED.token_hash,
+  session_hash = EXCLUDED.session_hash,
   passkey_ceremony = NULL,
   expires_at = EXCLUDED.expires_at,
   attempts = CASE WHEN sign_in_challenges.window_started_at <= sqlc.arg(window_since) THEN 0 ELSE sign_in_challenges.attempts END,
@@ -59,6 +60,10 @@ ON CONFLICT (user_id) DO UPDATE SET
 UPDATE sign_in_challenges SET attempts = attempts + 1
 WHERE token_hash = $1 AND attempts < $2 AND expires_at > $3
 RETURNING user_id;
+
+-- name: StepUpChallenge :one
+-- The step-up challenge that proves this session again, if it has one.
+SELECT token_hash FROM sign_in_challenges WHERE session_hash = $1;
 
 -- name: DeleteChallenge :exec
 DELETE FROM sign_in_challenges WHERE token_hash = $1;
@@ -133,7 +138,7 @@ FROM taken WHERE c.token_hash = taken.taken_hash AND c.passkey_ceremony IS NOT N
 RETURNING taken.user_id, taken.passkey_ceremony;
 
 -- name: SessionByID :one
-SELECT token_hash, id, user_id, created_at, last_seen_at, expires_at, methods FROM sessions WHERE id = $1;
+SELECT token_hash, id, user_id, created_at, last_seen_at, expires_at, methods, two_factor_at FROM sessions WHERE id = $1;
 
 -- name: CountActiveSessions :one
 SELECT count(*) AS sessions, count(DISTINCT user_id) AS users FROM sessions WHERE expires_at > $1;

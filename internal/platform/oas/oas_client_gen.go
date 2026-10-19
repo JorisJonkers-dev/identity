@@ -131,6 +131,13 @@ type Invoker interface {
 	//
 	// GET /api/v1/profile
 	GetProfile(ctx context.Context) (GetProfileRes, error)
+	// GetStepUp invokes getStepUp operation.
+	//
+	// The Client's step-up window, 0 when it is off. Admins only, from a session that proved a Second
+	// Factor.
+	//
+	// GET /api/v1/apps/{clientId}/step-up
+	GetStepUp(ctx context.Context, params GetStepUpParams) (GetStepUpRes, error)
 	// GetVersion invokes getVersion operation.
 	//
 	// The version of the build that is serving, for the Launcher's footer and for checks after a deploy.
@@ -215,6 +222,13 @@ type Invoker interface {
 	//
 	// POST /api/v1/apps/{clientId}/secret
 	RotateClientSecret(ctx context.Context, params RotateClientSecretParams) (RotateClientSecretRes, error)
+	// SetStepUp invokes setStepUp operation.
+	//
+	// Signing in to the Client then finishes only when the session proved two-factor within the window; 0
+	// turns step-up off. Admins only, from a session that proved a Second Factor.
+	//
+	// PUT /api/v1/apps/{clientId}/step-up
+	SetStepUp(ctx context.Context, request *StepUp, params SetStepUpParams) (SetStepUpRes, error)
 	// SignIn invokes signIn operation.
 	//
 	// Checks an email and a password and starts a Single sign-on session in a host-only cookie. A wrong
@@ -248,6 +262,13 @@ type Invoker interface {
 	//
 	// POST /api/v1/profile/second-factors/passkey
 	StartPasskey(ctx context.Context) (StartPasskeyRes, error)
+	// StartStepUp invokes startStepUp operation.
+	//
+	// For an app that wants a fresh proof (step-up), starts proving the signed-in session again and says
+	// which kinds of Second Factor can prove it. A User with none is told to add one.
+	//
+	// POST /api/v1/session/step-up
+	StartStepUp(ctx context.Context) (StartStepUpRes, error)
 	// StartTOTP invokes startTOTP operation.
 	//
 	// Makes a secret for a new authenticator app. It is kept, sealed by Vault, for ten minutes, until
@@ -255,6 +276,26 @@ type Invoker interface {
 	//
 	// POST /api/v1/profile/second-factors/totp
 	StartTOTP(ctx context.Context) (StartTOTPRes, error)
+	// StepUpPasskeyOptions invokes stepUpPasskeyOptions operation.
+	//
+	// Returns the WebAuthn options for the step-up startStepUp began.
+	//
+	// POST /api/v1/session/step-up/passkey
+	StepUpPasskeyOptions(ctx context.Context) (StepUpPasskeyOptionsRes, error)
+	// StepUpWithCode invokes stepUpWithCode operation.
+	//
+	// Takes a code from the User's authenticator app for the step-up startStepUp began, and marks the
+	// session proved now. Five codes in fifteen minutes, as at sign-in; a code works once.
+	//
+	// POST /api/v1/session/step-up/code
+	StepUpWithCode(ctx context.Context, request *SecondFactorCode) (StepUpWithCodeRes, error)
+	// StepUpWithPasskey invokes stepUpWithPasskey operation.
+	//
+	// Checks the browser's passkey answer for the step-up startStepUp began, and marks the session proved
+	// now. A refused answer counts as a wrong code.
+	//
+	// POST /api/v1/session/step-up/passkey/assertion
+	StepUpWithPasskey(ctx context.Context, request *PasskeyAssertion) (StepUpWithPasskeyRes, error)
 	// UnassignRole invokes unassignRole operation.
 	//
 	// Removes an Assignment, also one on a Removed Client. Admins only.
@@ -2205,6 +2246,142 @@ func (c *Client) sendGetProfile(ctx context.Context) (res GetProfileRes, err err
 	return result, nil
 }
 
+// GetStepUp invokes getStepUp operation.
+//
+// The Client's step-up window, 0 when it is off. Admins only, from a session that proved a Second
+// Factor.
+//
+// GET /api/v1/apps/{clientId}/step-up
+func (c *Client) GetStepUp(ctx context.Context, params GetStepUpParams) (GetStepUpRes, error) {
+	res, err := c.sendGetStepUp(ctx, params)
+	return res, err
+}
+
+func (c *Client) sendGetStepUp(ctx context.Context, params GetStepUpParams) (res GetStepUpRes, err error) {
+	otelAttrs := []attribute.KeyValue{
+		otelogen.OperationID("getStepUp"),
+		semconv.HTTPRequestMethodKey.String("GET"),
+		semconv.URLTemplateKey.String("/api/v1/apps/{clientId}/step-up"),
+	}
+	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
+
+	// Run stopwatch.
+	startTime := time.Now()
+	defer func() {
+		// Use floating point division here for higher precision (instead of Millisecond method).
+		elapsedDuration := time.Since(startTime)
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
+	}()
+
+	// Increment request counter.
+	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+
+	// Start a span for this request.
+	ctx, span := c.cfg.Tracer.Start(ctx, GetStepUpOperation,
+		trace.WithAttributes(otelAttrs...),
+		clientSpanKind,
+	)
+	// Track stage for error reporting.
+	var stage string
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, stage)
+			c.errors.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+		}
+		span.End()
+	}()
+
+	stage = "BuildURL"
+	u := uri.Clone(c.requestURL(ctx))
+	var pathParts [3]string
+	pathParts[0] = "/api/v1/apps/"
+	{
+		// Encode "clientId" parameter.
+		e := uri.NewPathEncoder(uri.PathEncoderConfig{
+			Param:   "clientId",
+			Style:   uri.PathStyleSimple,
+			Explode: false,
+		})
+		if err := func() error {
+			if unwrapped := string(params.ClientId); true {
+				return e.EncodeValue(conv.StringToString(unwrapped))
+			}
+			return nil
+		}(); err != nil {
+			return res, errors.Wrap(err, "encode path")
+		}
+		encoded, err := e.Result()
+		if err != nil {
+			return res, errors.Wrap(err, "encode path")
+		}
+		pathParts[1] = encoded
+	}
+	pathParts[2] = "/step-up"
+	uri.AddPathParts(u, pathParts[:]...)
+
+	stage = "EncodeRequest"
+	r, err := ht.NewRequest(ctx, "GET", u)
+	if err != nil {
+		return res, errors.Wrap(err, "create request")
+	}
+
+	{
+		type bitset = [1]uint8
+		var satisfied bitset
+		{
+			stage = "Security:Session"
+			switch err := c.securitySession(ctx, GetStepUpOperation, r); {
+			case err == nil: // if NO error
+				satisfied[0] |= 1 << 0
+			case errors.Is(err, ogenerrors.ErrSkipClientSecurity):
+				// Skip this security.
+			default:
+				return res, errors.Wrap(err, "security \"Session\"")
+			}
+		}
+
+		if ok := func() bool {
+		nextRequirement:
+			for _, requirement := range []bitset{
+				{0b00000001},
+			} {
+				for i, mask := range requirement {
+					if satisfied[i]&mask != mask {
+						continue nextRequirement
+					}
+				}
+				return true
+			}
+			return false
+		}(); !ok {
+			return res, ogenerrors.ErrSecurityRequirementIsNotSatisfied
+		}
+	}
+
+	stage = "SendRequest"
+	resp, err := c.cfg.Client.Do(r)
+	if err != nil {
+		return res, errors.Wrap(err, "do request")
+	}
+	body := resp.Body
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
+
+	stage = "DecodeResponse"
+	result, err := decodeGetStepUpResponse(resp)
+	if err != nil {
+		return res, errors.Wrap(err, "decode response")
+	}
+
+	return result, nil
+}
+
 // GetVersion invokes getVersion operation.
 //
 // The version of the build that is serving, for the Launcher's footer and for checks after a deploy.
@@ -3931,6 +4108,145 @@ func (c *Client) sendRotateClientSecret(ctx context.Context, params RotateClient
 	return result, nil
 }
 
+// SetStepUp invokes setStepUp operation.
+//
+// Signing in to the Client then finishes only when the session proved two-factor within the window; 0
+// turns step-up off. Admins only, from a session that proved a Second Factor.
+//
+// PUT /api/v1/apps/{clientId}/step-up
+func (c *Client) SetStepUp(ctx context.Context, request *StepUp, params SetStepUpParams) (SetStepUpRes, error) {
+	res, err := c.sendSetStepUp(ctx, request, params)
+	return res, err
+}
+
+func (c *Client) sendSetStepUp(ctx context.Context, request *StepUp, params SetStepUpParams) (res SetStepUpRes, err error) {
+	otelAttrs := []attribute.KeyValue{
+		otelogen.OperationID("setStepUp"),
+		semconv.HTTPRequestMethodKey.String("PUT"),
+		semconv.URLTemplateKey.String("/api/v1/apps/{clientId}/step-up"),
+	}
+	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
+
+	// Run stopwatch.
+	startTime := time.Now()
+	defer func() {
+		// Use floating point division here for higher precision (instead of Millisecond method).
+		elapsedDuration := time.Since(startTime)
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
+	}()
+
+	// Increment request counter.
+	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+
+	// Start a span for this request.
+	ctx, span := c.cfg.Tracer.Start(ctx, SetStepUpOperation,
+		trace.WithAttributes(otelAttrs...),
+		clientSpanKind,
+	)
+	// Track stage for error reporting.
+	var stage string
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, stage)
+			c.errors.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+		}
+		span.End()
+	}()
+
+	stage = "BuildURL"
+	u := uri.Clone(c.requestURL(ctx))
+	var pathParts [3]string
+	pathParts[0] = "/api/v1/apps/"
+	{
+		// Encode "clientId" parameter.
+		e := uri.NewPathEncoder(uri.PathEncoderConfig{
+			Param:   "clientId",
+			Style:   uri.PathStyleSimple,
+			Explode: false,
+		})
+		if err := func() error {
+			if unwrapped := string(params.ClientId); true {
+				return e.EncodeValue(conv.StringToString(unwrapped))
+			}
+			return nil
+		}(); err != nil {
+			return res, errors.Wrap(err, "encode path")
+		}
+		encoded, err := e.Result()
+		if err != nil {
+			return res, errors.Wrap(err, "encode path")
+		}
+		pathParts[1] = encoded
+	}
+	pathParts[2] = "/step-up"
+	uri.AddPathParts(u, pathParts[:]...)
+
+	stage = "EncodeRequest"
+	r, err := ht.NewRequest(ctx, "PUT", u)
+	if err != nil {
+		return res, errors.Wrap(err, "create request")
+	}
+	if err := encodeSetStepUpRequest(request, r); err != nil {
+		return res, errors.Wrap(err, "encode request")
+	}
+
+	{
+		type bitset = [1]uint8
+		var satisfied bitset
+		{
+			stage = "Security:Session"
+			switch err := c.securitySession(ctx, SetStepUpOperation, r); {
+			case err == nil: // if NO error
+				satisfied[0] |= 1 << 0
+			case errors.Is(err, ogenerrors.ErrSkipClientSecurity):
+				// Skip this security.
+			default:
+				return res, errors.Wrap(err, "security \"Session\"")
+			}
+		}
+
+		if ok := func() bool {
+		nextRequirement:
+			for _, requirement := range []bitset{
+				{0b00000001},
+			} {
+				for i, mask := range requirement {
+					if satisfied[i]&mask != mask {
+						continue nextRequirement
+					}
+				}
+				return true
+			}
+			return false
+		}(); !ok {
+			return res, ogenerrors.ErrSecurityRequirementIsNotSatisfied
+		}
+	}
+
+	stage = "SendRequest"
+	resp, err := c.cfg.Client.Do(r)
+	if err != nil {
+		return res, errors.Wrap(err, "do request")
+	}
+	body := resp.Body
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
+
+	stage = "DecodeResponse"
+	result, err := decodeSetStepUpResponse(resp)
+	if err != nil {
+		return res, errors.Wrap(err, "decode response")
+	}
+
+	return result, nil
+}
+
 // SignIn invokes signIn operation.
 //
 // Checks an email and a password and starts a Single sign-on session in a host-only cookie. A wrong
@@ -4461,6 +4777,120 @@ func (c *Client) sendStartPasskey(ctx context.Context) (res StartPasskeyRes, err
 	return result, nil
 }
 
+// StartStepUp invokes startStepUp operation.
+//
+// For an app that wants a fresh proof (step-up), starts proving the signed-in session again and says
+// which kinds of Second Factor can prove it. A User with none is told to add one.
+//
+// POST /api/v1/session/step-up
+func (c *Client) StartStepUp(ctx context.Context) (StartStepUpRes, error) {
+	res, err := c.sendStartStepUp(ctx)
+	return res, err
+}
+
+func (c *Client) sendStartStepUp(ctx context.Context) (res StartStepUpRes, err error) {
+	otelAttrs := []attribute.KeyValue{
+		otelogen.OperationID("startStepUp"),
+		semconv.HTTPRequestMethodKey.String("POST"),
+		semconv.URLTemplateKey.String("/api/v1/session/step-up"),
+	}
+	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
+
+	// Run stopwatch.
+	startTime := time.Now()
+	defer func() {
+		// Use floating point division here for higher precision (instead of Millisecond method).
+		elapsedDuration := time.Since(startTime)
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
+	}()
+
+	// Increment request counter.
+	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+
+	// Start a span for this request.
+	ctx, span := c.cfg.Tracer.Start(ctx, StartStepUpOperation,
+		trace.WithAttributes(otelAttrs...),
+		clientSpanKind,
+	)
+	// Track stage for error reporting.
+	var stage string
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, stage)
+			c.errors.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+		}
+		span.End()
+	}()
+
+	stage = "BuildURL"
+	u := uri.Clone(c.requestURL(ctx))
+	var pathParts [1]string
+	pathParts[0] = "/api/v1/session/step-up"
+	uri.AddPathParts(u, pathParts[:]...)
+
+	stage = "EncodeRequest"
+	r, err := ht.NewRequest(ctx, "POST", u)
+	if err != nil {
+		return res, errors.Wrap(err, "create request")
+	}
+
+	{
+		type bitset = [1]uint8
+		var satisfied bitset
+		{
+			stage = "Security:Session"
+			switch err := c.securitySession(ctx, StartStepUpOperation, r); {
+			case err == nil: // if NO error
+				satisfied[0] |= 1 << 0
+			case errors.Is(err, ogenerrors.ErrSkipClientSecurity):
+				// Skip this security.
+			default:
+				return res, errors.Wrap(err, "security \"Session\"")
+			}
+		}
+
+		if ok := func() bool {
+		nextRequirement:
+			for _, requirement := range []bitset{
+				{0b00000001},
+			} {
+				for i, mask := range requirement {
+					if satisfied[i]&mask != mask {
+						continue nextRequirement
+					}
+				}
+				return true
+			}
+			return false
+		}(); !ok {
+			return res, ogenerrors.ErrSecurityRequirementIsNotSatisfied
+		}
+	}
+
+	stage = "SendRequest"
+	resp, err := c.cfg.Client.Do(r)
+	if err != nil {
+		return res, errors.Wrap(err, "do request")
+	}
+	body := resp.Body
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
+
+	stage = "DecodeResponse"
+	result, err := decodeStartStepUpResponse(resp)
+	if err != nil {
+		return res, errors.Wrap(err, "decode response")
+	}
+
+	return result, nil
+}
+
 // StartTOTP invokes startTOTP operation.
 //
 // Makes a secret for a new authenticator app. It is kept, sealed by Vault, for ten minutes, until
@@ -4568,6 +4998,353 @@ func (c *Client) sendStartTOTP(ctx context.Context) (res StartTOTPRes, err error
 
 	stage = "DecodeResponse"
 	result, err := decodeStartTOTPResponse(resp)
+	if err != nil {
+		return res, errors.Wrap(err, "decode response")
+	}
+
+	return result, nil
+}
+
+// StepUpPasskeyOptions invokes stepUpPasskeyOptions operation.
+//
+// Returns the WebAuthn options for the step-up startStepUp began.
+//
+// POST /api/v1/session/step-up/passkey
+func (c *Client) StepUpPasskeyOptions(ctx context.Context) (StepUpPasskeyOptionsRes, error) {
+	res, err := c.sendStepUpPasskeyOptions(ctx)
+	return res, err
+}
+
+func (c *Client) sendStepUpPasskeyOptions(ctx context.Context) (res StepUpPasskeyOptionsRes, err error) {
+	otelAttrs := []attribute.KeyValue{
+		otelogen.OperationID("stepUpPasskeyOptions"),
+		semconv.HTTPRequestMethodKey.String("POST"),
+		semconv.URLTemplateKey.String("/api/v1/session/step-up/passkey"),
+	}
+	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
+
+	// Run stopwatch.
+	startTime := time.Now()
+	defer func() {
+		// Use floating point division here for higher precision (instead of Millisecond method).
+		elapsedDuration := time.Since(startTime)
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
+	}()
+
+	// Increment request counter.
+	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+
+	// Start a span for this request.
+	ctx, span := c.cfg.Tracer.Start(ctx, StepUpPasskeyOptionsOperation,
+		trace.WithAttributes(otelAttrs...),
+		clientSpanKind,
+	)
+	// Track stage for error reporting.
+	var stage string
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, stage)
+			c.errors.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+		}
+		span.End()
+	}()
+
+	stage = "BuildURL"
+	u := uri.Clone(c.requestURL(ctx))
+	var pathParts [1]string
+	pathParts[0] = "/api/v1/session/step-up/passkey"
+	uri.AddPathParts(u, pathParts[:]...)
+
+	stage = "EncodeRequest"
+	r, err := ht.NewRequest(ctx, "POST", u)
+	if err != nil {
+		return res, errors.Wrap(err, "create request")
+	}
+
+	{
+		type bitset = [1]uint8
+		var satisfied bitset
+		{
+			stage = "Security:Session"
+			switch err := c.securitySession(ctx, StepUpPasskeyOptionsOperation, r); {
+			case err == nil: // if NO error
+				satisfied[0] |= 1 << 0
+			case errors.Is(err, ogenerrors.ErrSkipClientSecurity):
+				// Skip this security.
+			default:
+				return res, errors.Wrap(err, "security \"Session\"")
+			}
+		}
+
+		if ok := func() bool {
+		nextRequirement:
+			for _, requirement := range []bitset{
+				{0b00000001},
+			} {
+				for i, mask := range requirement {
+					if satisfied[i]&mask != mask {
+						continue nextRequirement
+					}
+				}
+				return true
+			}
+			return false
+		}(); !ok {
+			return res, ogenerrors.ErrSecurityRequirementIsNotSatisfied
+		}
+	}
+
+	stage = "SendRequest"
+	resp, err := c.cfg.Client.Do(r)
+	if err != nil {
+		return res, errors.Wrap(err, "do request")
+	}
+	body := resp.Body
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
+
+	stage = "DecodeResponse"
+	result, err := decodeStepUpPasskeyOptionsResponse(resp)
+	if err != nil {
+		return res, errors.Wrap(err, "decode response")
+	}
+
+	return result, nil
+}
+
+// StepUpWithCode invokes stepUpWithCode operation.
+//
+// Takes a code from the User's authenticator app for the step-up startStepUp began, and marks the
+// session proved now. Five codes in fifteen minutes, as at sign-in; a code works once.
+//
+// POST /api/v1/session/step-up/code
+func (c *Client) StepUpWithCode(ctx context.Context, request *SecondFactorCode) (StepUpWithCodeRes, error) {
+	res, err := c.sendStepUpWithCode(ctx, request)
+	return res, err
+}
+
+func (c *Client) sendStepUpWithCode(ctx context.Context, request *SecondFactorCode) (res StepUpWithCodeRes, err error) {
+	otelAttrs := []attribute.KeyValue{
+		otelogen.OperationID("stepUpWithCode"),
+		semconv.HTTPRequestMethodKey.String("POST"),
+		semconv.URLTemplateKey.String("/api/v1/session/step-up/code"),
+	}
+	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
+
+	// Run stopwatch.
+	startTime := time.Now()
+	defer func() {
+		// Use floating point division here for higher precision (instead of Millisecond method).
+		elapsedDuration := time.Since(startTime)
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
+	}()
+
+	// Increment request counter.
+	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+
+	// Start a span for this request.
+	ctx, span := c.cfg.Tracer.Start(ctx, StepUpWithCodeOperation,
+		trace.WithAttributes(otelAttrs...),
+		clientSpanKind,
+	)
+	// Track stage for error reporting.
+	var stage string
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, stage)
+			c.errors.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+		}
+		span.End()
+	}()
+
+	stage = "BuildURL"
+	u := uri.Clone(c.requestURL(ctx))
+	var pathParts [1]string
+	pathParts[0] = "/api/v1/session/step-up/code"
+	uri.AddPathParts(u, pathParts[:]...)
+
+	stage = "EncodeRequest"
+	r, err := ht.NewRequest(ctx, "POST", u)
+	if err != nil {
+		return res, errors.Wrap(err, "create request")
+	}
+	if err := encodeStepUpWithCodeRequest(request, r); err != nil {
+		return res, errors.Wrap(err, "encode request")
+	}
+
+	{
+		type bitset = [1]uint8
+		var satisfied bitset
+		{
+			stage = "Security:Session"
+			switch err := c.securitySession(ctx, StepUpWithCodeOperation, r); {
+			case err == nil: // if NO error
+				satisfied[0] |= 1 << 0
+			case errors.Is(err, ogenerrors.ErrSkipClientSecurity):
+				// Skip this security.
+			default:
+				return res, errors.Wrap(err, "security \"Session\"")
+			}
+		}
+
+		if ok := func() bool {
+		nextRequirement:
+			for _, requirement := range []bitset{
+				{0b00000001},
+			} {
+				for i, mask := range requirement {
+					if satisfied[i]&mask != mask {
+						continue nextRequirement
+					}
+				}
+				return true
+			}
+			return false
+		}(); !ok {
+			return res, ogenerrors.ErrSecurityRequirementIsNotSatisfied
+		}
+	}
+
+	stage = "SendRequest"
+	resp, err := c.cfg.Client.Do(r)
+	if err != nil {
+		return res, errors.Wrap(err, "do request")
+	}
+	body := resp.Body
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
+
+	stage = "DecodeResponse"
+	result, err := decodeStepUpWithCodeResponse(resp)
+	if err != nil {
+		return res, errors.Wrap(err, "decode response")
+	}
+
+	return result, nil
+}
+
+// StepUpWithPasskey invokes stepUpWithPasskey operation.
+//
+// Checks the browser's passkey answer for the step-up startStepUp began, and marks the session proved
+// now. A refused answer counts as a wrong code.
+//
+// POST /api/v1/session/step-up/passkey/assertion
+func (c *Client) StepUpWithPasskey(ctx context.Context, request *PasskeyAssertion) (StepUpWithPasskeyRes, error) {
+	res, err := c.sendStepUpWithPasskey(ctx, request)
+	return res, err
+}
+
+func (c *Client) sendStepUpWithPasskey(ctx context.Context, request *PasskeyAssertion) (res StepUpWithPasskeyRes, err error) {
+	otelAttrs := []attribute.KeyValue{
+		otelogen.OperationID("stepUpWithPasskey"),
+		semconv.HTTPRequestMethodKey.String("POST"),
+		semconv.URLTemplateKey.String("/api/v1/session/step-up/passkey/assertion"),
+	}
+	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
+
+	// Run stopwatch.
+	startTime := time.Now()
+	defer func() {
+		// Use floating point division here for higher precision (instead of Millisecond method).
+		elapsedDuration := time.Since(startTime)
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
+	}()
+
+	// Increment request counter.
+	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+
+	// Start a span for this request.
+	ctx, span := c.cfg.Tracer.Start(ctx, StepUpWithPasskeyOperation,
+		trace.WithAttributes(otelAttrs...),
+		clientSpanKind,
+	)
+	// Track stage for error reporting.
+	var stage string
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, stage)
+			c.errors.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+		}
+		span.End()
+	}()
+
+	stage = "BuildURL"
+	u := uri.Clone(c.requestURL(ctx))
+	var pathParts [1]string
+	pathParts[0] = "/api/v1/session/step-up/passkey/assertion"
+	uri.AddPathParts(u, pathParts[:]...)
+
+	stage = "EncodeRequest"
+	r, err := ht.NewRequest(ctx, "POST", u)
+	if err != nil {
+		return res, errors.Wrap(err, "create request")
+	}
+	if err := encodeStepUpWithPasskeyRequest(request, r); err != nil {
+		return res, errors.Wrap(err, "encode request")
+	}
+
+	{
+		type bitset = [1]uint8
+		var satisfied bitset
+		{
+			stage = "Security:Session"
+			switch err := c.securitySession(ctx, StepUpWithPasskeyOperation, r); {
+			case err == nil: // if NO error
+				satisfied[0] |= 1 << 0
+			case errors.Is(err, ogenerrors.ErrSkipClientSecurity):
+				// Skip this security.
+			default:
+				return res, errors.Wrap(err, "security \"Session\"")
+			}
+		}
+
+		if ok := func() bool {
+		nextRequirement:
+			for _, requirement := range []bitset{
+				{0b00000001},
+			} {
+				for i, mask := range requirement {
+					if satisfied[i]&mask != mask {
+						continue nextRequirement
+					}
+				}
+				return true
+			}
+			return false
+		}(); !ok {
+			return res, ogenerrors.ErrSecurityRequirementIsNotSatisfied
+		}
+	}
+
+	stage = "SendRequest"
+	resp, err := c.cfg.Client.Do(r)
+	if err != nil {
+		return res, errors.Wrap(err, "do request")
+	}
+	body := resp.Body
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
+
+	stage = "DecodeResponse"
+	result, err := decodeStepUpWithPasskeyResponse(resp)
 	if err != nil {
 		return res, errors.Wrap(err, "decode response")
 	}

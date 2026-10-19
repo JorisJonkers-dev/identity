@@ -96,6 +96,11 @@ describe('the Two-factor page', () => {
     expect(wrapper.get('.note.warn').text()).toBe('Admin pages need two-factor. Add a passkey or an authenticator app, then sign in again.')
   })
 
+  it('tells someone an app sent here why', async () => {
+    const { wrapper } = await mountAt('/security/two-factor?for=step-up', page())
+    expect(wrapper.get('.note.warn').text()).toBe('The app you opened needs two-factor. Add a passkey or an authenticator app, then open the app again.')
+  })
+
   it('removes a way after asking for the password', async () => {
     let factors = [phone]
     const { wrapper, requests } = await mountAt('/security/two-factor', {

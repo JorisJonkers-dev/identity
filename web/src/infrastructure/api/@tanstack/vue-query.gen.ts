@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/vue-query';
 
 import { client } from '../client.gen';
-import { addMember, assignRole, assignUserRole, changePassword, completeSignIn, completeSignInWithPasskey, confirmEmail, confirmPasskey, confirmTotp, createGroup, deleteGroup, getAccess, getDashboard, getLauncher, getProfile, getVersion, listAuditEvents, listMyTokens, listSecondFactors, listUserTokens, mintToken, type Options, passkeyOptions, removeMember, removeSecondFactor, renameGroup, revokeMyToken, revokeUserToken, rotateClientSecret, signIn, signOut, signOutUser, signUp, startPasskey, startTotp, unassignRole, unassignUserRole, updateProfile } from '../sdk.gen';
-import type { AddMemberData, AddMemberError, AddMemberResponse, AssignRoleData, AssignRoleError, AssignRoleResponse, AssignUserRoleData, AssignUserRoleError, AssignUserRoleResponse, AuditCursor, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CompleteSignInData, CompleteSignInError, CompleteSignInResponse, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyError, CompleteSignInWithPasskeyResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, ConfirmPasskeyData, ConfirmPasskeyError, ConfirmPasskeyResponse, ConfirmTotpData, ConfirmTotpError, ConfirmTotpResponse, CreateGroupData, CreateGroupError, CreateGroupResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, GetAccessData, GetAccessError, GetAccessResponse, GetDashboardData, GetDashboardError, GetDashboardResponse, GetLauncherData, GetLauncherError, GetLauncherResponse, GetProfileData, GetProfileError, GetProfileResponse, GetVersionData, GetVersionError, GetVersionResponse, ListAuditEventsData, ListAuditEventsError, ListAuditEventsResponse, ListMyTokensData, ListMyTokensError, ListMyTokensResponse, ListSecondFactorsData, ListSecondFactorsError, ListSecondFactorsResponse, ListUserTokensData, ListUserTokensError, ListUserTokensResponse, MintTokenData, MintTokenError, MintTokenResponse, PasskeyOptionsData, PasskeyOptionsError, PasskeyOptionsResponse, RemoveMemberData, RemoveMemberError, RemoveMemberResponse, RemoveSecondFactorData, RemoveSecondFactorError, RemoveSecondFactorResponse, RenameGroupData, RenameGroupError, RenameGroupResponse, RevokeMyTokenData, RevokeMyTokenError, RevokeMyTokenResponse, RevokeUserTokenData, RevokeUserTokenError, RevokeUserTokenResponse, RotateClientSecretData, RotateClientSecretError, RotateClientSecretResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutError, SignOutResponse, SignOutUserData, SignOutUserError, SignOutUserResponse, SignUpData, SignUpError, StartPasskeyData, StartPasskeyError, StartPasskeyResponse, StartTotpData, StartTotpError, StartTotpResponse, UnassignRoleData, UnassignRoleError, UnassignRoleResponse, UnassignUserRoleData, UnassignUserRoleError, UnassignUserRoleResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
+import { addMember, assignRole, assignUserRole, changePassword, completeSignIn, completeSignInWithPasskey, confirmEmail, confirmPasskey, confirmTotp, createGroup, deleteGroup, getAccess, getDashboard, getLauncher, getProfile, getStepUp, getVersion, listAuditEvents, listMyTokens, listSecondFactors, listUserTokens, mintToken, type Options, passkeyOptions, removeMember, removeSecondFactor, renameGroup, revokeMyToken, revokeUserToken, rotateClientSecret, setStepUp, signIn, signOut, signOutUser, signUp, startPasskey, startStepUp, startTotp, stepUpPasskeyOptions, stepUpWithCode, stepUpWithPasskey, unassignRole, unassignUserRole, updateProfile } from '../sdk.gen';
+import type { AddMemberData, AddMemberError, AddMemberResponse, AssignRoleData, AssignRoleError, AssignRoleResponse, AssignUserRoleData, AssignUserRoleError, AssignUserRoleResponse, AuditCursor, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CompleteSignInData, CompleteSignInError, CompleteSignInResponse, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyError, CompleteSignInWithPasskeyResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, ConfirmPasskeyData, ConfirmPasskeyError, ConfirmPasskeyResponse, ConfirmTotpData, ConfirmTotpError, ConfirmTotpResponse, CreateGroupData, CreateGroupError, CreateGroupResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, GetAccessData, GetAccessError, GetAccessResponse, GetDashboardData, GetDashboardError, GetDashboardResponse, GetLauncherData, GetLauncherError, GetLauncherResponse, GetProfileData, GetProfileError, GetProfileResponse, GetStepUpData, GetStepUpError, GetStepUpResponse, GetVersionData, GetVersionError, GetVersionResponse, ListAuditEventsData, ListAuditEventsError, ListAuditEventsResponse, ListMyTokensData, ListMyTokensError, ListMyTokensResponse, ListSecondFactorsData, ListSecondFactorsError, ListSecondFactorsResponse, ListUserTokensData, ListUserTokensError, ListUserTokensResponse, MintTokenData, MintTokenError, MintTokenResponse, PasskeyOptionsData, PasskeyOptionsError, PasskeyOptionsResponse, RemoveMemberData, RemoveMemberError, RemoveMemberResponse, RemoveSecondFactorData, RemoveSecondFactorError, RemoveSecondFactorResponse, RenameGroupData, RenameGroupError, RenameGroupResponse, RevokeMyTokenData, RevokeMyTokenError, RevokeMyTokenResponse, RevokeUserTokenData, RevokeUserTokenError, RevokeUserTokenResponse, RotateClientSecretData, RotateClientSecretError, RotateClientSecretResponse, SetStepUpData, SetStepUpError, SetStepUpResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutError, SignOutResponse, SignOutUserData, SignOutUserError, SignOutUserResponse, SignUpData, SignUpError, StartPasskeyData, StartPasskeyError, StartPasskeyResponse, StartStepUpData, StartStepUpError, StartStepUpResponse, StartTotpData, StartTotpError, StartTotpResponse, StepUpPasskeyOptionsData, StepUpPasskeyOptionsError, StepUpPasskeyOptionsResponse, StepUpWithCodeData, StepUpWithCodeError, StepUpWithCodeResponse, StepUpWithPasskeyData, StepUpWithPasskeyError, StepUpWithPasskeyResponse, UnassignRoleData, UnassignRoleError, UnassignRoleResponse, UnassignUserRoleData, UnassignUserRoleError, UnassignUserRoleResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -318,6 +318,82 @@ export const completeSignInWithPasskeyMutation = (options?: Partial<Options<Comp
     const mutationOptions: UseMutationOptions<CompleteSignInWithPasskeyResponse, CompleteSignInWithPasskeyError, Options<CompleteSignInWithPasskeyData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await completeSignInWithPasskey({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Start proving two-factor again
+ *
+ * For an app that wants a fresh proof (step-up), starts proving the signed-in session again and says which kinds of Second Factor can prove it. A User with none is told to add one.
+ */
+export const startStepUpMutation = (options?: Partial<Options<StartStepUpData>>): UseMutationOptions<StartStepUpResponse, StartStepUpError, Options<StartStepUpData>> => {
+    const mutationOptions: UseMutationOptions<StartStepUpResponse, StartStepUpError, Options<StartStepUpData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await startStepUp({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Prove two-factor again with an authenticator code
+ *
+ * Takes a code from the User's authenticator app for the step-up startStepUp began, and marks the session proved now. Five codes in fifteen minutes, as at sign-in; a code works once.
+ */
+export const stepUpWithCodeMutation = (options?: Partial<Options<StepUpWithCodeData>>): UseMutationOptions<StepUpWithCodeResponse, StepUpWithCodeError, Options<StepUpWithCodeData>> => {
+    const mutationOptions: UseMutationOptions<StepUpWithCodeResponse, StepUpWithCodeError, Options<StepUpWithCodeData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await stepUpWithCode({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Start proving two-factor again with a passkey
+ *
+ * Returns the WebAuthn options for the step-up startStepUp began.
+ */
+export const stepUpPasskeyOptionsMutation = (options?: Partial<Options<StepUpPasskeyOptionsData>>): UseMutationOptions<StepUpPasskeyOptionsResponse, StepUpPasskeyOptionsError, Options<StepUpPasskeyOptionsData>> => {
+    const mutationOptions: UseMutationOptions<StepUpPasskeyOptionsResponse, StepUpPasskeyOptionsError, Options<StepUpPasskeyOptionsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await stepUpPasskeyOptions({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Prove two-factor again with a passkey
+ *
+ * Checks the browser's passkey answer for the step-up startStepUp began, and marks the session proved now. A refused answer counts as a wrong code.
+ */
+export const stepUpWithPasskeyMutation = (options?: Partial<Options<StepUpWithPasskeyData>>): UseMutationOptions<StepUpWithPasskeyResponse, StepUpWithPasskeyError, Options<StepUpWithPasskeyData>> => {
+    const mutationOptions: UseMutationOptions<StepUpWithPasskeyResponse, StepUpWithPasskeyError, Options<StepUpWithPasskeyData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await stepUpWithPasskey({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -802,6 +878,45 @@ export const rotateClientSecretMutation = (options?: Partial<Options<RotateClien
     const mutationOptions: UseMutationOptions<RotateClientSecretResponse, RotateClientSecretError, Options<RotateClientSecretData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await rotateClientSecret({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getStepUpQueryKey = (options: Options<GetStepUpData>) => createQueryKey('getStepUp', options);
+
+/**
+ * How fresh a Client wants two-factor
+ *
+ * The Client's step-up window, 0 when it is off. Admins only, from a session that proved a Second Factor.
+ */
+export const getStepUpOptions = (options: Options<GetStepUpData>) => queryOptions<GetStepUpResponse, GetStepUpError, GetStepUpResponse, ReturnType<typeof getStepUpQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getStepUp({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getStepUpQueryKey(options)
+});
+
+/**
+ * Set how fresh a Client wants two-factor
+ *
+ * Signing in to the Client then finishes only when the session proved two-factor within the window; 0 turns step-up off. Admins only, from a session that proved a Second Factor.
+ */
+export const setStepUpMutation = (options?: Partial<Options<SetStepUpData>>): UseMutationOptions<SetStepUpResponse, SetStepUpError, Options<SetStepUpData>> => {
+    const mutationOptions: UseMutationOptions<SetStepUpResponse, SetStepUpError, Options<SetStepUpData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setStepUp({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

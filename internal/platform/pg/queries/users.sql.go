@@ -75,16 +75,17 @@ func (q *Queries) CreatePasskey(ctx context.Context, arg CreatePasskeyParams) er
 }
 
 const createSession = `-- name: CreateSession :exec
-INSERT INTO sessions (token_hash, id, user_id, created_at, last_seen_at, expires_at, methods) VALUES ($1, $2, $3, $4, $4, $5, $6)
+INSERT INTO sessions (token_hash, id, user_id, created_at, last_seen_at, expires_at, methods, two_factor_at) VALUES ($1, $2, $3, $4, $4, $5, $6, $7)
 `
 
 type CreateSessionParams struct {
-	TokenHash []byte
-	ID        uuid.UUID
-	UserID    uuid.UUID
-	CreatedAt time.Time
-	ExpiresAt time.Time
-	Methods   []string
+	TokenHash   []byte
+	ID          uuid.UUID
+	UserID      uuid.UUID
+	CreatedAt   time.Time
+	ExpiresAt   time.Time
+	Methods     []string
+	TwoFactorAt *time.Time
 }
 
 func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) error {
@@ -95,6 +96,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) er
 		arg.CreatedAt,
 		arg.ExpiresAt,
 		arg.Methods,
+		arg.TwoFactorAt,
 	)
 	return err
 }
@@ -351,17 +353,18 @@ func (q *Queries) PasskeysOfUser(ctx context.Context, userID uuid.UUID) ([]Passk
 }
 
 const sessionByHash = `-- name: SessionByHash :one
-SELECT token_hash, id, user_id, created_at, last_seen_at, expires_at, methods FROM sessions WHERE token_hash = $1
+SELECT token_hash, id, user_id, created_at, last_seen_at, expires_at, methods, two_factor_at FROM sessions WHERE token_hash = $1
 `
 
 type SessionByHashRow struct {
-	TokenHash  []byte
-	ID         uuid.UUID
-	UserID     uuid.UUID
-	CreatedAt  time.Time
-	LastSeenAt time.Time
-	ExpiresAt  time.Time
-	Methods    []string
+	TokenHash   []byte
+	ID          uuid.UUID
+	UserID      uuid.UUID
+	CreatedAt   time.Time
+	LastSeenAt  time.Time
+	ExpiresAt   time.Time
+	Methods     []string
+	TwoFactorAt *time.Time
 }
 
 func (q *Queries) SessionByHash(ctx context.Context, tokenHash []byte) (SessionByHashRow, error) {
@@ -375,22 +378,24 @@ func (q *Queries) SessionByHash(ctx context.Context, tokenHash []byte) (SessionB
 		&i.LastSeenAt,
 		&i.ExpiresAt,
 		&i.Methods,
+		&i.TwoFactorAt,
 	)
 	return i, err
 }
 
 const sessionByID = `-- name: SessionByID :one
-SELECT token_hash, id, user_id, created_at, last_seen_at, expires_at, methods FROM sessions WHERE id = $1
+SELECT token_hash, id, user_id, created_at, last_seen_at, expires_at, methods, two_factor_at FROM sessions WHERE id = $1
 `
 
 type SessionByIDRow struct {
-	TokenHash  []byte
-	ID         uuid.UUID
-	UserID     uuid.UUID
-	CreatedAt  time.Time
-	LastSeenAt time.Time
-	ExpiresAt  time.Time
-	Methods    []string
+	TokenHash   []byte
+	ID          uuid.UUID
+	UserID      uuid.UUID
+	CreatedAt   time.Time
+	LastSeenAt  time.Time
+	ExpiresAt   time.Time
+	Methods     []string
+	TwoFactorAt *time.Time
 }
 
 func (q *Queries) SessionByID(ctx context.Context, id uuid.UUID) (SessionByIDRow, error) {
@@ -404,6 +409,7 @@ func (q *Queries) SessionByID(ctx context.Context, id uuid.UUID) (SessionByIDRow
 		&i.LastSeenAt,
 		&i.ExpiresAt,
 		&i.Methods,
+		&i.TwoFactorAt,
 	)
 	return i, err
 }
@@ -428,17 +434,18 @@ func (q *Queries) SetChallengeCeremony(ctx context.Context, arg SetChallengeCere
 }
 
 const setSessionMethods = `-- name: SetSessionMethods :exec
-UPDATE sessions SET methods = $2 WHERE token_hash = $1
+UPDATE sessions SET methods = $2, two_factor_at = $3 WHERE token_hash = $1
 `
 
 type SetSessionMethodsParams struct {
-	TokenHash []byte
-	Methods   []string
+	TokenHash   []byte
+	Methods     []string
+	TwoFactorAt *time.Time
 }
 
-// A session that has just proved a Second Factor says so from then on.
+// A session that has just proved a Second Factor says so from then on, and when.
 func (q *Queries) SetSessionMethods(ctx context.Context, arg SetSessionMethodsParams) error {
-	_, err := q.db.Exec(ctx, setSessionMethods, arg.TokenHash, arg.Methods)
+	_, err := q.db.Exec(ctx, setSessionMethods, arg.TokenHash, arg.Methods, arg.TwoFactorAt)
 	return err
 }
 
@@ -483,6 +490,18 @@ func (q *Queries) SpendChallengeAttempt(ctx context.Context, arg SpendChallengeA
 	var user_id uuid.UUID
 	err := row.Scan(&user_id)
 	return user_id, err
+}
+
+const stepUpChallenge = `-- name: StepUpChallenge :one
+SELECT token_hash FROM sign_in_challenges WHERE session_hash = $1
+`
+
+// The step-up challenge that proves this session again, if it has one.
+func (q *Queries) StepUpChallenge(ctx context.Context, sessionHash []byte) ([]byte, error) {
+	row := q.db.QueryRow(ctx, stepUpChallenge, sessionHash)
+	var token_hash []byte
+	err := row.Scan(&token_hash)
+	return token_hash, err
 }
 
 const tOTPEnrolment = `-- name: TOTPEnrolment :one
@@ -608,13 +627,14 @@ func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPassword
 }
 
 const upsertChallenge = `-- name: UpsertChallenge :exec
-INSERT INTO sign_in_challenges (token_hash, user_id, expires_at, window_started_at) VALUES ($1, $2, $3, $4)
+INSERT INTO sign_in_challenges (token_hash, user_id, expires_at, window_started_at, session_hash) VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (user_id) DO UPDATE SET
   token_hash = EXCLUDED.token_hash,
+  session_hash = EXCLUDED.session_hash,
   passkey_ceremony = NULL,
   expires_at = EXCLUDED.expires_at,
-  attempts = CASE WHEN sign_in_challenges.window_started_at <= $5 THEN 0 ELSE sign_in_challenges.attempts END,
-  window_started_at = CASE WHEN sign_in_challenges.window_started_at <= $5 THEN EXCLUDED.window_started_at ELSE sign_in_challenges.window_started_at END
+  attempts = CASE WHEN sign_in_challenges.window_started_at <= $6 THEN 0 ELSE sign_in_challenges.attempts END,
+  window_started_at = CASE WHEN sign_in_challenges.window_started_at <= $6 THEN EXCLUDED.window_started_at ELSE sign_in_challenges.window_started_at END
 `
 
 type UpsertChallengeParams struct {
@@ -622,6 +642,7 @@ type UpsertChallengeParams struct {
 	UserID          uuid.UUID
 	ExpiresAt       time.Time
 	WindowStartedAt time.Time
+	SessionHash     []byte
 	WindowSince     time.Time
 }
 
@@ -633,6 +654,7 @@ func (q *Queries) UpsertChallenge(ctx context.Context, arg UpsertChallengeParams
 		arg.UserID,
 		arg.ExpiresAt,
 		arg.WindowStartedAt,
+		arg.SessionHash,
 		arg.WindowSince,
 	)
 	return err

@@ -34,7 +34,8 @@ export const zAuditAction = z.enum([
     'role-removed',
     'token-minted',
     'token-revoked',
-    'client-secret-rotated'
+    'client-secret-rotated',
+    'step-up-changed'
 ]);
 
 /**
@@ -239,6 +240,12 @@ export const zAuditEvent = z.object({
         'password',
         'second-factor',
         'no-access'
+    ]).optional(),
+    minutes: z.union([
+        z.literal(0),
+        z.literal(5),
+        z.literal(15),
+        z.literal(60)
     ]).optional()
 });
 
@@ -373,6 +380,18 @@ export const zAccessOverview = z.object({
     clients: z.array(zAccessClient).max(10000),
     assignments: z.array(zAssignment).max(1000000),
     userAssignments: z.array(zUserAssignment).max(1000000)
+});
+
+/**
+ * How fresh a Client wants a session's two-factor proof (docs/adr/0019).
+ */
+export const zStepUp = z.object({
+    minutes: z.union([
+        z.literal(0),
+        z.literal(5),
+        z.literal(15),
+        z.literal(60)
+    ])
 });
 
 /**
@@ -588,6 +607,30 @@ export const zCompleteSignInWithPasskeyBody = zPasskeyAssertion;
 export const zCompleteSignInWithPasskeyResponse = z.void();
 
 /**
+ * The kinds of Second Factor the User has.
+ */
+export const zStartStepUpResponse = zSecondFactorNeeded;
+
+export const zStepUpWithCodeBody = zSecondFactorCode;
+
+/**
+ * The session proved two-factor now.
+ */
+export const zStepUpWithCodeResponse = z.void();
+
+/**
+ * The options for navigator.credentials.get.
+ */
+export const zStepUpPasskeyOptionsResponse = zPasskeyOptions;
+
+export const zStepUpWithPasskeyBody = zPasskeyAssertion;
+
+/**
+ * The session proved two-factor now.
+ */
+export const zStepUpWithPasskeyResponse = z.void();
+
+/**
  * The options for navigator.credentials.create.
  */
 export const zStartPasskeyResponse = zPasskeyOptions;
@@ -780,3 +823,23 @@ export const zRotateClientSecretPath = z.object({
  * The new secret is written.
  */
 export const zRotateClientSecretResponse = z.void();
+
+export const zGetStepUpPath = z.object({
+    clientId: zClientId
+});
+
+/**
+ * The Client's step-up.
+ */
+export const zGetStepUpResponse = zStepUp;
+
+export const zSetStepUpBody = zStepUp;
+
+export const zSetStepUpPath = z.object({
+    clientId: zClientId
+});
+
+/**
+ * The Client's step-up is set.
+ */
+export const zSetStepUpResponse = z.void();

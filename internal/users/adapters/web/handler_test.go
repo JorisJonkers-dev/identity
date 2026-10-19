@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -71,6 +72,26 @@ func (u *useCases) PasskeyOptions(_ context.Context, challenge string) ([]byte, 
 func (u *useCases) CompleteSignInWithPasskey(_ context.Context, challenge string, response []byte) (string, error) {
 	u.asked = append(u.asked, challenge, string(response))
 	return u.token, u.err
+}
+
+func (u *useCases) StartStepUp(_ context.Context, token string) ([]string, error) {
+	u.asked = append(u.asked, token)
+	return u.kinds, u.err
+}
+
+func (u *useCases) StepUpWithCode(_ context.Context, token, code string) error {
+	u.asked = append(u.asked, token, code)
+	return u.err
+}
+
+func (u *useCases) StepUpPasskeyOptions(_ context.Context, token string) ([]byte, error) {
+	u.asked = append(u.asked, token)
+	return []byte(`{"publicKey":{}}`), u.err
+}
+
+func (u *useCases) StepUpWithPasskey(_ context.Context, token string, response []byte) error {
+	u.asked = append(u.asked, token, string(response))
+	return u.err
 }
 
 func (u *useCases) StartPasskey(context.Context, uuid.UUID) ([]byte, error) {
@@ -540,5 +561,85 @@ func TestAddingAPasskeyInTheProfile(t *testing.T) {
 	}
 	if _, err := web.New(&useCases{err: boom}, admins{}).CompleteSignInWithPasskey(ctx, &oas.PasskeyAssertion{}); !errors.Is(err, boom) {
 		t.Errorf("CompleteSignInWithPasskey = %v", err)
+	}
+}
+
+func TestStartingStepUpSendsTheSessionAndAnswersTheKinds(t *testing.T) {
+	uc := &useCases{kinds: []string{"totp", "passkey"}}
+	h := web.New(uc, admins{})
+	res, err := h.StartStepUp(signedIn(t, h))
+	got, ok := res.(*oas.SecondFactorNeeded)
+	if err != nil || !ok || len(got.Methods) != 2 || got.Methods[1] != "passkey" || !slices.Equal(uc.asked, []string{"tok"}) {
+		t.Fatalf("StartStepUp = %#v, %v, asked %v", res, err, uc.asked)
+	}
+}
+
+func TestStepUpWithACodeSendsTheSessionAndTheCode(t *testing.T) {
+	uc := &useCases{}
+	h := web.New(uc, admins{})
+	res, err := h.StepUpWithCode(signedIn(t, h), &oas.SecondFactorCode{Code: "123456"})
+	if _, ok := res.(*oas.StepUpWithCodeNoContent); err != nil || !ok || !slices.Equal(uc.asked, []string{"tok", "123456"}) {
+		t.Fatalf("StepUpWithCode = %#v, %v, asked %v", res, err, uc.asked)
+	}
+}
+
+func TestStepUpPasskeyOptionsSendTheSession(t *testing.T) {
+	uc := &useCases{}
+	h := web.New(uc, admins{})
+	res, err := h.StepUpPasskeyOptions(signedIn(t, h))
+	if got, ok := res.(*oas.PasskeyOptions); err != nil || !ok || got.Options != `{"publicKey":{}}` || !slices.Equal(uc.asked, []string{"tok"}) {
+		t.Fatalf("StepUpPasskeyOptions = %#v, %v", res, err)
+	}
+}
+
+func TestStepUpWithAPasskeySendsTheSessionAndTheAnswer(t *testing.T) {
+	uc := &useCases{}
+	h := web.New(uc, admins{})
+	res, err := h.StepUpWithPasskey(signedIn(t, h), &oas.PasskeyAssertion{Response: "signed"})
+	if _, ok := res.(*oas.StepUpWithPasskeyNoContent); err != nil || !ok || !slices.Equal(uc.asked, []string{"tok", "signed"}) {
+		t.Fatalf("StepUpWithPasskey = %#v, %v", res, err)
+	}
+}
+
+func TestEachStepUpRefusalSaysWhatToDo(t *testing.T) {
+	for _, tc := range []struct {
+		err    error
+		status int
+		detail string
+	}{
+		{app.ErrNoSecondFactor, http.StatusConflict, "Add a passkey or an authenticator app on the Security page first."},
+		{app.ErrInvalidToken, http.StatusUnauthorized, "This check expired, or you entered too many wrong codes. Start again from the app. After five wrong codes, wait 15 minutes before you try again."},
+		{app.ErrInvalidCode, http.StatusUnprocessableEntity, "That code is wrong or was already used. Enter the code your authenticator app shows now."},
+	} {
+		t.Run(tc.err.Error(), func(t *testing.T) {
+			res, err := web.New(&useCases{err: tc.err}, admins{}).StepUpWithCode(context.Background(), &oas.SecondFactorCode{})
+			p, ok := res.(*oas.ProblemStatusCode)
+			if err != nil || !ok || p.StatusCode != tc.status || p.Response.Detail.Value != tc.detail {
+				t.Fatalf("StepUpWithCode = %#v, %v", res, err)
+			}
+		})
+	}
+}
+
+func TestEveryStepUpOperationAnswersARefusalAsAProblem(t *testing.T) {
+	for _, op := range []struct {
+		name string
+		call func(h *web.Handler) (any, error)
+	}{
+		{"starting", func(h *web.Handler) (any, error) { return h.StartStepUp(context.Background()) }},
+		{"a code", func(h *web.Handler) (any, error) {
+			return h.StepUpWithCode(context.Background(), &oas.SecondFactorCode{})
+		}},
+		{"passkey options", func(h *web.Handler) (any, error) { return h.StepUpPasskeyOptions(context.Background()) }},
+		{"a passkey", func(h *web.Handler) (any, error) {
+			return h.StepUpWithPasskey(context.Background(), &oas.PasskeyAssertion{})
+		}},
+	} {
+		t.Run(op.name, func(t *testing.T) {
+			res, err := op.call(web.New(&useCases{err: app.ErrInvalidToken}, admins{}))
+			if p, ok := res.(*oas.ProblemStatusCode); err != nil || !ok || p.StatusCode != http.StatusUnauthorized {
+				t.Fatalf("got %#v, %v", res, err)
+			}
+		})
 	}
 }

@@ -144,8 +144,17 @@ func TestAnEventLeavesOutWhatItDoesNotName(t *testing.T) {
 	t.Parallel()
 	entry := app.Entry{Event: domain.Event{ID: uuid.New(), At: t0, Action: domain.SignedOut}, Kind: domain.KindSignIn}
 	got := list(t, &useCases{page: app.Page{Entries: []app.Entry{entry}}}, oas.ListAuditEventsParams{}).(*oas.AuditPage).Events[0]
-	if got.Actor.Set || got.User.Set || got.Client.Set || got.GroupName.Set || got.Role.Set || got.Email.Set || got.Reason.Set {
+	if got.Actor.Set || got.User.Set || got.Client.Set || got.GroupName.Set || got.Role.Set || got.Email.Set || got.Reason.Set || got.Minutes.Set {
 		t.Fatalf("event = %+v", got)
+	}
+}
+
+func TestAStepUpChangeCarriesItsWindowEvenWhenItIsOff(t *testing.T) {
+	t.Parallel()
+	entry := app.Entry{Event: domain.Event{ID: uuid.New(), At: t0, Action: domain.StepUpChanged, Minutes: 0}, Kind: domain.KindAccess}
+	got := list(t, &useCases{page: app.Page{Entries: []app.Entry{entry}}}, oas.ListAuditEventsParams{}).(*oas.AuditPage).Events[0]
+	if got.Minutes != oas.NewOptAuditEventMinutes(0) {
+		t.Fatalf("minutes = %+v", got.Minutes)
 	}
 }
 

@@ -150,6 +150,20 @@ func encodeRenameGroupRequest(
 	return nil
 }
 
+func encodeSetStepUpRequest(
+	req *StepUp,
+	r *http.Request,
+) error {
+	const contentType = "application/json"
+	e := new(jx.Encoder)
+	{
+		req.Encode(e)
+	}
+	encoded := e.Bytes()
+	ht.SetBody(r, bytes.NewReader(encoded), contentType)
+	return nil
+}
+
 func encodeSignInRequest(
 	req *SignIn,
 	r *http.Request,
@@ -166,6 +180,34 @@ func encodeSignInRequest(
 
 func encodeSignUpRequest(
 	req *SignUp,
+	r *http.Request,
+) error {
+	const contentType = "application/json"
+	e := new(jx.Encoder)
+	{
+		req.Encode(e)
+	}
+	encoded := e.Bytes()
+	ht.SetBody(r, bytes.NewReader(encoded), contentType)
+	return nil
+}
+
+func encodeStepUpWithCodeRequest(
+	req *SecondFactorCode,
+	r *http.Request,
+) error {
+	const contentType = "application/json"
+	e := new(jx.Encoder)
+	{
+		req.Encode(e)
+	}
+	encoded := e.Bytes()
+	ht.SetBody(r, bytes.NewReader(encoded), contentType)
+	return nil
+}
+
+func encodeStepUpWithPasskeyRequest(
+	req *PasskeyAssertion,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"

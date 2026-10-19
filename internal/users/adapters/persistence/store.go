@@ -110,7 +110,7 @@ func (s *Store) DeleteSignup(ctx context.Context, hash []byte) error {
 func (s *Store) CreateSession(ctx context.Context, sess app.Session) error {
 	return s.q.CreateSession(ctx, queries.CreateSessionParams{
 		TokenHash: sess.TokenHash, ID: sess.ID, UserID: sess.UserID, CreatedAt: sess.CreatedAt, ExpiresAt: sess.ExpiresAt,
-		Methods: sess.Methods,
+		Methods: sess.Methods, TwoFactorAt: sess.TwoFactorAt,
 	})
 }
 
@@ -122,6 +122,7 @@ func (s *Store) SessionByHash(ctx context.Context, hash []byte) (app.Session, er
 	return app.Session{
 		TokenHash: row.TokenHash, ID: row.ID, UserID: row.UserID,
 		CreatedAt: row.CreatedAt, LastSeenAt: row.LastSeenAt, ExpiresAt: row.ExpiresAt, Methods: row.Methods,
+		TwoFactorAt: row.TwoFactorAt,
 	}, nil
 }
 
@@ -133,6 +134,7 @@ func (s *Store) SessionByID(ctx context.Context, id uuid.UUID) (app.Session, err
 	return app.Session{
 		TokenHash: row.TokenHash, ID: row.ID, UserID: row.UserID,
 		CreatedAt: row.CreatedAt, LastSeenAt: row.LastSeenAt, ExpiresAt: row.ExpiresAt, Methods: row.Methods,
+		TwoFactorAt: row.TwoFactorAt,
 	}, nil
 }
 
@@ -144,14 +146,20 @@ func (s *Store) DeleteOtherSessions(ctx context.Context, userID uuid.UUID, keep 
 	return s.q.DeleteOtherSessions(ctx, queries.DeleteOtherSessionsParams{UserID: userID, Keep: keep})
 }
 
-func (s *Store) SetSessionMethods(ctx context.Context, hash []byte, methods []string) error {
-	return s.q.SetSessionMethods(ctx, queries.SetSessionMethodsParams{TokenHash: hash, Methods: methods})
+func (s *Store) SetSessionMethods(ctx context.Context, hash []byte, methods []string, at time.Time) error {
+	return s.q.SetSessionMethods(ctx, queries.SetSessionMethodsParams{TokenHash: hash, Methods: methods, TwoFactorAt: &at})
 }
 
 func (s *Store) SaveChallenge(ctx context.Context, c app.Challenge, windowSince time.Time) error {
 	return s.q.UpsertChallenge(ctx, queries.UpsertChallengeParams{
 		TokenHash: c.TokenHash, UserID: c.UserID, ExpiresAt: c.ExpiresAt, WindowStartedAt: c.WindowStartedAt, WindowSince: windowSince,
+		SessionHash: c.SessionHash,
 	})
+}
+
+func (s *Store) StepUpChallenge(ctx context.Context, sessionHash []byte) ([]byte, error) {
+	hash, err := s.q.StepUpChallenge(ctx, sessionHash)
+	return hash, notFound(err)
 }
 
 func (s *Store) SpendChallengeAttempt(ctx context.Context, hash []byte, maxAttempts int, now time.Time) (uuid.UUID, error) {
