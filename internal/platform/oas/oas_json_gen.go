@@ -1147,6 +1147,8 @@ func (s *AuditEventReason) Decode(d *jx.Decoder) error {
 		*s = AuditEventReasonSecondFactor
 	case AuditEventReasonNoAccess:
 		*s = AuditEventReasonNoAccess
+	case AuditEventReasonTokenReused:
+		*s = AuditEventReasonTokenReused
 	default:
 		*s = AuditEventReason(v)
 	}

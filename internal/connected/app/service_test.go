@@ -670,6 +670,29 @@ func TestARefreshTokenSpentTwiceRevokesItsConnectedApp(t *testing.T) {
 	}
 }
 
+func TestARefreshTokenSpentTwiceIsAnAuditEventSayingSo(t *testing.T) {
+	f := newFixture()
+	_, appID := f.connected(t)
+	secret, _ := f.IssueRefresh(ctx, appID)
+	_, _ = f.Refresh(ctx, secret)
+	_, _ = f.Refresh(ctx, secret)
+	want := audit.Event{Action: audit.ConnectedAppRevoked, User: ada, Client: "kb", AppName: "Claude Code", Reason: audit.ReasonTokenReused}
+	if len(*f.events) != 1 || (*f.events)[0] != want {
+		t.Fatalf("events = %+v", *f.events)
+	}
+}
+
+func TestARefreshTokenSpentTwiceForAConnectedAppAlreadyGoneIsRefused(t *testing.T) {
+	f := newFixture()
+	_, appID := f.connected(t)
+	secret, _ := f.IssueRefresh(ctx, appID)
+	_, _ = f.Refresh(ctx, secret)
+	delete(f.store.apps, appID)
+	if _, err := f.Refresh(ctx, secret); !errors.Is(err, app.ErrInvalidToken) || len(*f.events) != 0 {
+		t.Fatalf("err = %v, events %+v", err, *f.events)
+	}
+}
+
 func TestARefreshTokenIsRefused(t *testing.T) {
 	for _, c := range []struct {
 		name   string
@@ -700,6 +723,7 @@ func TestARefreshFails(t *testing.T) {
 		{"when the token cannot be read", func(f *fixture) { f.store.fail["Refresh"] = errBoom }, false},
 		{"when it cannot be spent", func(f *fixture) { f.store.fail["Spend"] = errBoom }, false},
 		{"when a reused one's Connected App cannot be revoked", func(f *fixture) { f.store.fail["DeleteConnectedApp"] = errBoom }, true},
+		{"when a reused one's Connected App cannot be read", func(f *fixture) { f.store.fail["ConnectedApp"] = errBoom }, true},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			f := newFixture()

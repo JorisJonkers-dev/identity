@@ -86,11 +86,13 @@ func (a Action) Kind() Kind {
 	return ""
 }
 
-// Why a sign-in failed.
+// Why a sign-in failed, or why a Connected App was disconnected with no one asking.
 const (
 	ReasonPassword     = "password"
 	ReasonSecondFactor = "second-factor"
 	ReasonNoAccess     = "no-access"
+	// ReasonTokenReused is a Connected App's refresh token spent twice, so one of them leaked.
+	ReasonTokenReused = "token-reused"
 )
 
 // Event is one Audit Event. Zero ids and empty strings are absent.

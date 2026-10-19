@@ -1644,8 +1644,10 @@ components:
           description: The address a failed sign-in gave; it may belong to no User.
         reason:
           type: string
-          enum: [password, second-factor, no-access]
-          description: Why a sign-in failed.
+          enum: [password, second-factor, no-access, token-reused]
+          description: >-
+            Why a sign-in failed, or, as token-reused, why a Connected App was disconnected: its
+            refresh token was spent twice.
         minutes:
           type: integer
           format: int32

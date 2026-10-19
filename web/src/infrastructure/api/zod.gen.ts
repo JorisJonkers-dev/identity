@@ -331,7 +331,8 @@ export const zAuditEvent = z.object({
     reason: z.enum([
         'password',
         'second-factor',
-        'no-access'
+        'no-access',
+        'token-reused'
     ]).optional(),
     minutes: z.union([
         z.literal(0),

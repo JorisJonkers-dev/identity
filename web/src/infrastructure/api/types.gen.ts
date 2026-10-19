@@ -54,9 +54,9 @@ export type AuditEvent = {
      */
     email?: string;
     /**
-     * Why a sign-in failed.
+     * Why a sign-in failed, or, as token-reused, why a Connected App was disconnected: its refresh token was spent twice.
      */
-    reason?: 'password' | 'second-factor' | 'no-access';
+    reason?: 'password' | 'second-factor' | 'no-access' | 'token-reused';
     /**
      * The step-up window an Admin set, 0 for off.
      */

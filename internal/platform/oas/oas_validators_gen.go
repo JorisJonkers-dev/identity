@@ -759,6 +759,8 @@ func (s AuditEventReason) Validate() error {
 		return nil
 	case "no-access":
 		return nil
+	case "token-reused":
+		return nil
 	default:
 		return errors.Errorf("invalid value: %v", s)
 	}

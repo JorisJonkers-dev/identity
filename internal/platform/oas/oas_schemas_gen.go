@@ -494,7 +494,8 @@ type AuditEvent struct {
 	Role      OptAppRole     `json:"role"`
 	// The address a failed sign-in gave; it may belong to no User.
 	Email OptString `json:"email"`
-	// Why a sign-in failed.
+	// Why a sign-in failed, or, as token-reused, why a Connected App was disconnected: its refresh token
+	// was spent twice.
 	Reason OptAuditEventReason `json:"reason"`
 	// The step-up window an Admin set, 0 for off.
 	Minutes OptAuditEventMinutes `json:"minutes"`
@@ -664,13 +665,15 @@ func (AuditEventMinutes) AllValues() []AuditEventMinutes {
 	}
 }
 
-// Why a sign-in failed.
+// Why a sign-in failed, or, as token-reused, why a Connected App was disconnected: its refresh token
+// was spent twice.
 type AuditEventReason string
 
 const (
 	AuditEventReasonPassword     AuditEventReason = "password"
 	AuditEventReasonSecondFactor AuditEventReason = "second-factor"
 	AuditEventReasonNoAccess     AuditEventReason = "no-access"
+	AuditEventReasonTokenReused  AuditEventReason = "token-reused"
 )
 
 // AllValues returns all AuditEventReason values.
@@ -679,6 +682,7 @@ func (AuditEventReason) AllValues() []AuditEventReason {
 		AuditEventReasonPassword,
 		AuditEventReasonSecondFactor,
 		AuditEventReasonNoAccess,
+		AuditEventReasonTokenReused,
 	}
 }
 
@@ -690,6 +694,8 @@ func (s AuditEventReason) MarshalText() ([]byte, error) {
 	case AuditEventReasonSecondFactor:
 		return []byte(s), nil
 	case AuditEventReasonNoAccess:
+		return []byte(s), nil
+	case AuditEventReasonTokenReused:
 		return []byte(s), nil
 	default:
 		return nil, errors.Errorf("invalid value: %q", s)
@@ -707,6 +713,9 @@ func (s *AuditEventReason) UnmarshalText(data []byte) error {
 		return nil
 	case AuditEventReasonNoAccess:
 		*s = AuditEventReasonNoAccess
+		return nil
+	case AuditEventReasonTokenReused:
+		*s = AuditEventReasonTokenReused
 		return nil
 	default:
 		return errors.Errorf("invalid value: %q", data)

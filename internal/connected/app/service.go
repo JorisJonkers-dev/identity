@@ -349,10 +349,7 @@ func (s *Service) Refresh(ctx context.Context, secret string) (RefreshToken, err
 		return RefreshToken{}, err
 	}
 	if !spent {
-		if err := s.end(ctx, t.AppID); err != nil {
-			return RefreshToken{}, err
-		}
-		return RefreshToken{}, ErrInvalidToken
+		return RefreshToken{}, s.reused(ctx, t.AppID)
 	}
 	return t, nil
 }
@@ -409,6 +406,23 @@ func (s *Service) Revoke(ctx context.Context, userID, id uuid.UUID) error {
 	}
 	s.audit.Record(ctx, audit.Event{Action: audit.ConnectedAppRevoked, User: userID, Client: app.ClientID, AppName: app.Name})
 	return nil
+}
+
+// reused ends a Connected App whose refresh token was spent twice, as an Audit Event, and answers
+// ErrInvalidToken: the second spender gets nothing.
+func (s *Service) reused(ctx context.Context, appID uuid.UUID) error {
+	app, err := s.store.ConnectedApp(ctx, appID)
+	if errors.Is(err, ErrNotFound) {
+		return ErrInvalidToken
+	}
+	if err != nil {
+		return err
+	}
+	if err := s.end(ctx, appID); err != nil {
+		return err
+	}
+	s.audit.Record(ctx, audit.Event{Action: audit.ConnectedAppRevoked, User: app.UserID, Client: app.ClientID, AppName: app.Name, Reason: audit.ReasonTokenReused})
+	return ErrInvalidToken
 }
 
 func (s *Service) end(ctx context.Context, id uuid.UUID) error {
