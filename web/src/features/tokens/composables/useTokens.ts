@@ -22,7 +22,6 @@ export function useTokens() {
   return {
     tokens: computed(() => query.data.value?.tokens),
     clients: computed(() => query.data.value?.clients ?? []),
-    isLoading: query.isPending,
     loadError: computed(() => (query.error.value ? describeError(query.error.value) : null)),
     actionError: computed(() => mint.error.value ?? revoke.error.value),
     secret,

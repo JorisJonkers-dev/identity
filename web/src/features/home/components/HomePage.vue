@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { adminMail } from '../../../shared/contact'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import type { LauncherApp } from '../../../infrastructure/api/types.gen'
@@ -23,14 +24,13 @@ function matches(app: LauncherApp): boolean {
 }
 // "/" puts the cursor in the search, as the design's keycap says.
 function slash(e: KeyboardEvent) {
-  const typing = /INPUT|TEXTAREA|SELECT/.test((document.activeElement as HTMLElement | null)?.tagName ?? '')
-  if (e.key === '/' && !typing) {
+  if (e.key === '/' && !(document.activeElement instanceof HTMLInputElement)) {
     e.preventDefault()
     search.value?.focus()
   }
 }
-onMounted(() => document.addEventListener('keydown', slash))
-onBeforeUnmount(() => document.removeEventListener('keydown', slash))
+onMounted(() => { document.addEventListener('keydown', slash); })
+onBeforeUnmount(() => { document.removeEventListener('keydown', slash); })
 </script>
 
 <template>
@@ -48,7 +48,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', slash))
         <span v-else>{{ ending.length }} tokens expire within 7 days.</span>
         <RouterLink class="btn sm" to="/tokens">Renew</RouterLink>
       </div>
-      <div v-if="apps.length === 0" class="glass apps-empty"><p>No apps yet.</p></div>
+      <div v-if="apps.length === 0" class="glass apps-empty"><p>No apps yet. An Admin adds you to a Group.</p><a class="link" :href="adminMail">Contact an Admin</a></div>
       <p v-else-if="!apps.some(matches)" class="soft">No app matches “{{ find }}”.</p>
       <div v-else class="apps">
         <a v-for="app in apps.filter(matches)" :key="app.id" class="app" :href="app.launchUrl">
@@ -73,6 +73,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', slash))
         <RouterLink class="btn primary xl wide" to="/signin">Sign in</RouterLink>
         <RouterLink class="btn xl wide" to="/signup">Sign up</RouterLink>
       </div>
+      <VersionLine />
     </div>
   </AuthShell>
 </template>

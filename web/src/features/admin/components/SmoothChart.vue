@@ -4,12 +4,9 @@ import { smoothChart, ticks } from '../chart'
 
 const props = defineProps<{ values: number[]; labels: string[]; tone: 'ok' | 'bad'; summary: string }>()
 const id = useId()
-const max = computed(() => {
-  const most = Math.max(1, ...props.values)
-  return ticks(most).at(-1) ?? most
-})
+const max = computed(() => ticks(Math.max(1, ...props.values))[3])
 const chart = computed(() => smoothChart(props.values, props.labels, max.value))
-const marks = computed(() => [0, 6, 12, 18, props.labels.length - 1].map((i) => ({ i, label: props.labels[i] ?? '' })))
+const marks = computed(() => [0, 6, 12, 18, props.labels.length - 1].map((i) => ({ i, label: props.labels[i] as string })))
 </script>
 
 <template>

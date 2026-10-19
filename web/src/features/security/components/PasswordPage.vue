@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import { adminMail } from '../../../shared/contact'
 import { ref } from 'vue'
 import AppShell from '../../../shared/AppShell.vue'
-import Crumb from '../../../shared/Crumb.vue'
+import BackLink from '../../../shared/BackLink.vue'
 import Icon from '../../../shared/Icon'
 import { useProfile } from '../../account/composables/useProfile'
 
@@ -21,7 +22,7 @@ function submit() {
 
 <template>
   <AppShell narrow>
-    <Crumb to="/security" label="Security" />
+    <BackLink to="/security" label="Security" />
     <header class="head"><h1>Password</h1></header>
     <div class="task">
       <form class="glass task-form task-main" novalidate @submit.prevent="submit">
@@ -35,7 +36,7 @@ function submit() {
         <p v-if="changePassword.error.value" role="alert" class="alert"><Icon name="alert" />{{ changePassword.error.value }}</p>
         <div class="form-save"><span class="hint">Other devices are signed out.</span><button class="btn primary" type="submit" :disabled="changePassword.isPending.value">Change password</button></div>
       </form>
-      <aside class="task-aside glass"><b>Forgot it?</b><a class="btn sm" href="mailto:admin@jorisjonkers.dev"><Icon name="mail" />Contact an Admin</a></aside>
+      <aside class="task-aside glass"><b>Forgot it?</b><a class="btn sm" :href="adminMail"><Icon name="mail" />Contact an Admin</a></aside>
     </div>
   </AppShell>
 </template>

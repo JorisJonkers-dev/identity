@@ -1,11 +1,14 @@
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
-import { flushPromises, mount } from '@vue/test-utils'
-import { expect, vi } from 'vitest'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
+import { afterEach, expect, vi } from 'vitest'
 import { createMemoryHistory } from 'vue-router'
 import { configureApi } from '../infrastructure/http'
 import { checkStub } from './contract'
 import App from './App.vue'
 import { createAppRouter } from './router'
+
+// A page left mounted keeps its document listeners, and they leak into the next test.
+enableAutoUnmount(afterEach)
 
 /** What a test answers a request with: a response, or a function making one per request. */
 type Answer = Response | (() => Response) | (() => Promise<Response>)
@@ -18,7 +21,7 @@ export function problem(status: number, detail: string): Response {
 }
 
 /** Mounts the app at path, answering each "METHOD /path" from answers and recording the requests. */
-export async function mountAt(path: string, answers: Record<string, Answer>) {
+export async function mountAt(path: string, answers: Record<string, Answer>, options: { attach?: boolean } = {}) {
   const requests: { key: string; body: unknown }[] = []
   const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = new Request(input, init)
@@ -35,7 +38,11 @@ export async function mountAt(path: string, answers: Record<string, Answer>) {
   const router = createAppRouter(createMemoryHistory())
   await router.push(path)
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  const wrapper = mount(App, { global: { plugins: [router, [VueQueryPlugin, { queryClient }]] } })
+  const wrapper = mount(App, {
+    global: { plugins: [router, [VueQueryPlugin, { queryClient }]] },
+    // Focus needs the page in the document.
+    attachTo: options.attach ? document.body : undefined,
+  })
   await router.isReady()
   await settle()
   return { wrapper, router, requests }

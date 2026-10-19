@@ -3,8 +3,9 @@ import { nextTick, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import AppShell from '../../../shared/AppShell.vue'
 import CodeBoxes from '../../../shared/CodeBoxes.vue'
-import Crumb from '../../../shared/Crumb.vue'
+import BackLink from '../../../shared/BackLink.vue'
 import Icon from '../../../shared/Icon'
+import { useCopy } from '../../../shared/useCopy'
 import { useSecurity } from '../composables/useSecurity'
 import QrCode from './QrCode.vue'
 
@@ -19,23 +20,15 @@ const step = ref<Step>('scan')
 const code = ref('')
 const label = ref('Phone')
 const password = ref('')
-const copied = ref(false)
-onMounted(() => start.run())
-const codeBoxes = ref<InstanceType<typeof CodeBoxes> | null>(null)
+const { copied, copy } = useCopy()
+onMounted(() => { start.run(); })
+const codeBoxes = ref<{ focus: () => void } | null>(null)
 watch(step, (s) => {
   if (s === 'code') void nextTick(() => codeBoxes.value?.focus())
 })
 
-function index(s: Step): number {
-  return s === 'done' ? steps.length : steps.findIndex((x) => x.key === s)
-}
-function copy() {
-  if (!setup.value) return
-  void navigator.clipboard.writeText(setup.value.secret).then(() => {
-    copied.value = true
-    setTimeout(() => (copied.value = false), 1400)
-  })
-}
+// The steps show only until the last is done.
+const index = (s: Step) => steps.findIndex((x) => x.key === s)
 function finish() {
   confirm.run(label.value, code.value, password.value, () => (step.value = 'done'))
 }
@@ -43,7 +36,7 @@ function finish() {
 
 <template>
   <AppShell narrow>
-    <Crumb to="/security/two-factor" label="Two-factor" />
+    <BackLink to="/security/two-factor" label="Two-factor" />
     <header class="head"><h1>Set up two-factor</h1></header>
     <ol v-if="step !== 'done'" class="steps">
       <li v-for="(s, i) in steps" :key="s.key" :class="{ on: s.key === step, done: i < index(step) }" :aria-current="s.key === step ? 'step' : undefined">
@@ -57,7 +50,7 @@ function finish() {
         <div class="qr"><QrCode :value="setup.uri" label="QR code for your authenticator app" /></div>
         <div class="qr-side">
           <span class="label">Can't scan? Type this key</span>
-          <div class="secret"><code>{{ setup.secret }}</code><button class="btn sm" type="button" @click="copy"><Icon name="copy" />{{ copied ? 'Copied' : 'Copy' }}</button></div>
+          <div class="secret"><code>{{ setup.secret }}</code><button class="btn sm" type="button" @click="copy(setup.secret)"><Icon name="copy" />{{ copied ? 'Copied' : 'Copy' }}</button></div>
         </div>
       </div>
       <div class="form-save"><button class="btn primary" type="button" :disabled="!setup" @click="step = 'code'">I have scanned it</button></div>

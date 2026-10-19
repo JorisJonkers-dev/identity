@@ -29,16 +29,21 @@ const { events, loadError, hasOlder, loadingOlder, older, users, clients } = use
 const now = new Date()
 const userOptions = computed(() => [{ value: '', label: 'Everyone' }, ...users.value.map((u) => ({ value: u.id, label: u.name }))])
 const clientOptions = computed(() => [{ value: '', label: 'All apps' }, ...clients.value.map((c) => ({ value: c.id, label: c.label }))])
-const user = computed({ get: () => filter.value.user, set: (v: string) => narrow({ user: v }) })
-const client = computed({ get: () => filter.value.client, set: (v: string) => narrow({ client: v }) })
+const user = computed({ get: () => filter.value.user, set: (v: string) => {
+  narrow({ user: v })
+} })
+const client = computed({ get: () => filter.value.client, set: (v: string) => {
+  narrow({ client: v })
+} })
 
 /** The events, a day at a time. */
 const days = computed(() => {
   const out: { day: string; events: AuditEvent[] }[] = []
   for (const e of events.value ?? []) {
     const day = dayOf(e.at, now)
-    if (out.at(-1)?.day !== day) out.push({ day, events: [] })
-    out.at(-1)!.events.push(e)
+    const last = out.at(-1)
+    if (last?.day === day) last.events.push(e)
+    else out.push({ day, events: [e] })
   }
   return out
 })

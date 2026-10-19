@@ -30,9 +30,11 @@ const browserRefused = ref<string | null>(null)
 const keyError = computed(() => browserRefused.value ?? keyOptions.error.value ?? keyAnswer.error.value)
 // The first field takes the cursor, and so does the code once the password is right.
 const emailField = ref<HTMLInputElement | null>(null)
-const codeBoxes = ref<InstanceType<typeof CodeBoxes> | null>(null)
+const codeBoxes = ref<{ focus: () => void } | null>(null)
 onMounted(() => emailField.value?.focus())
-watch(methods, () => void nextTick(() => codeBoxes.value?.focus()))
+watch(methods, () => {
+  void nextTick(() => codeBoxes.value?.focus())
+})
 const keyBusy = computed(() => keyOptions.isPending.value || keyAnswer.isPending.value)
 
 // Set when an app sent the person here to sign in; once signed in, the Provider finishes for it.
@@ -55,7 +57,7 @@ function usePasskey() {
   browserRefused.value = null
   keyOptions.run({}, (o) => {
     passkeys.get(o.options).then(
-      (response) => keyAnswer.run({ body: { response } }, signedIn),
+      (response) => { keyAnswer.run({ body: { response } }, signedIn); },
       () => (browserRefused.value = 'Passkey sign-in did not finish.'),
     )
   })

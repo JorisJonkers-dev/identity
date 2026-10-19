@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import AppShell from '../../../shared/AppShell.vue'
-import Avatar from '../../../shared/Avatar.vue'
+import PersonAvatar from '../../../shared/PersonAvatar.vue'
 import GlassSelect from '../../../shared/GlassSelect.vue'
 import Icon from '../../../shared/Icon'
 import { useAccess } from '../composables/useAccess'
@@ -57,7 +57,7 @@ function bulkAdd(groupId: string) {
       <div class="lt-h cols-people2"><span /><span>Person</span><span>Groups</span><span /></div>
       <div v-for="p in people" :key="p.id" :class="['lt-r cols-people2', { picked: picked.has(p.id) }]">
         <label class="pick"><input type="checkbox" :checked="picked.has(p.id)" :aria-label="`Select ${p.name}`" @change="pick(p.id, ($event.target as HTMLInputElement).checked)" /><span class="box"><Icon name="check" /></span></label>
-        <RouterLink class="who" :to="`/admin/people/${p.id}`"><Avatar :name="p.name" /><span><b>{{ p.name }}</b><small>{{ p.email }}</small></span></RouterLink>
+        <RouterLink class="who" :to="`/admin/people/${p.id}`"><PersonAvatar :name="p.name" /><span><b>{{ p.name }}</b><small>{{ p.email }}</small></span></RouterLink>
         <span class="tags">
           <span v-for="g in p.groups" :key="g.id" class="gtag">{{ g.name }}</span>
           <span v-if="p.groups.length === 0" class="gtag warn">Unassigned</span>

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import AppShell from '../../../shared/AppShell.vue'
-import Avatar from '../../../shared/Avatar.vue'
+import PersonAvatar from '../../../shared/PersonAvatar.vue'
 import Icon from '../../../shared/Icon'
 import { useLauncher } from '../../home/composables/useLauncher'
 import { useSecurity } from '../../security/composables/useSecurity'
@@ -13,11 +13,9 @@ const { factors } = useSecurity()
 const { apps } = useLauncher()
 const editing = ref(false)
 const name = ref('')
-const since = computed(() =>
-  profile.value ? new Date(profile.value.createdAt).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) : '',
-)
-function edit() {
-  name.value = profile.value?.name ?? ''
+const since = (at: string) => new Date(at).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
+function edit(current: string) {
+  name.value = current
   editing.value = true
 }
 function save() {
@@ -31,14 +29,14 @@ function save() {
     <p v-if="loadError" role="alert" class="alert"><Icon name="alert" />{{ loadError }}</p>
     <template v-if="profile">
       <section class="glass hero">
-        <div class="hero-av"><Avatar :name="profile.name" size="xxl" /></div>
+        <div class="hero-av"><PersonAvatar :name="profile.name" size="xxl" /></div>
         <div class="hero-t">
           <h1>{{ profile.name }}</h1>
           <p>{{ profile.email }}</p>
           <div class="pills">
             <span v-if="profile.admin" class="pill accent"><Icon name="shield" />Admin</span>
             <span v-if="apps" class="pill"><Icon name="apps" />{{ apps.length }} apps</span>
-            <span class="pill">Since {{ since }}</span>
+            <span class="pill">Since {{ since(profile.createdAt) }}</span>
           </div>
         </div>
       </section>
@@ -54,7 +52,7 @@ function save() {
             <span class="set-ic"><Icon name="user" /></span>
             <span class="set-v"><small>Name</small><b>{{ profile.name }}</b></span>
             <span v-if="rename.isDone.value" class="inline-ok"><Icon name="check" />Saved</span>
-            <button class="btn sm" type="button" @click="edit"><Icon name="pencil" />Edit</button>
+            <button class="btn sm" type="button" @click="edit(profile.name)"><Icon name="pencil" />Edit</button>
           </div>
           <p v-if="rename.error.value" role="alert" class="alert"><Icon name="alert" />{{ rename.error.value }}</p>
           <div class="set-row">

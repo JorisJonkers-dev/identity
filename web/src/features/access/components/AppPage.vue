@@ -2,10 +2,11 @@
 import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { rotateClientSecretMutation } from '../../../infrastructure/api/@tanstack/vue-query.gen'
+import type { AccessOverview } from '../../../infrastructure/api/types.gen'
 import { useAction } from '../../../infrastructure/useAction'
 import AppIcon from '../../../shared/AppIcon.vue'
 import AppShell from '../../../shared/AppShell.vue'
-import Crumb from '../../../shared/Crumb.vue'
+import BackLink from '../../../shared/BackLink.vue'
 import GlassSelect from '../../../shared/GlassSelect.vue'
 import Icon from '../../../shared/Icon'
 import { useAccess } from '../composables/useAccess'
@@ -17,8 +18,9 @@ const clientId = computed(() => String(route.params.clientId))
 const app = computed(() => overview.value?.clients.find((c) => c.id === clientId.value))
 const rotate = useAction(rotateClientSecretMutation())
 const asking = ref(false)
-const addable = (role: string) =>
-  (overview.value?.groups ?? []).filter((g) => !g.admins && !holders(overview.value!, clientId.value, role).some((h) => h.id === g.id)).map((g) => ({ value: g.id, label: g.name }))
+const addable = (o: AccessOverview, role: string) => {
+  return o.groups.filter((g) => !g.admins && !holders(o, clientId.value, role).some((h) => h.id === g.id)).map((g) => ({ value: g.id, label: g.name }))
+}
 function rotateNow() {
   asking.value = false
   rotate.run({ path: { clientId: clientId.value } })
@@ -27,7 +29,7 @@ function rotateNow() {
 
 <template>
   <AppShell admin narrow>
-    <Crumb to="/admin/apps" label="Apps" />
+    <BackLink to="/admin/apps" label="Apps" />
     <p v-if="loadError || actionError" role="alert" class="alert"><Icon name="alert" />{{ loadError ?? actionError }}</p>
     <template v-if="overview && app">
       <header class="app-head glass"><AppIcon :label="app.label" size="xl" /><div><h1>{{ app.label }}</h1><span class="mono soft">{{ app.id }}</span></div></header>
@@ -41,7 +43,7 @@ function rotateNow() {
               <span v-for="g in holders(overview, app.id, r)" :key="g.id" class="gchip">{{ g.name }}<button type="button" :aria-label="`Take ${r} from ${g.name}`" @click="setRole(g.id, app.id, r, false)"><Icon name="x" /></button></span>
               <span v-if="holders(overview, app.id, r).length === 0" class="soft">None</span>
             </div>
-            <GlassSelect :options="addable(r)" :label="`Give ${r} to a Group`" placeholder="Add a Group" small @pick="(g) => setRole(g, app!.id, r, true)" />
+            <GlassSelect :options="addable(overview, r)" :label="`Give ${r} to a Group`" placeholder="Add a Group" small @pick="(g) => setRole(g, app!.id, r, true)" />
           </div>
         </div>
       </section>

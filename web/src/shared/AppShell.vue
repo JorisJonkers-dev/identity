@@ -3,9 +3,10 @@ import { useQuery } from '@tanstack/vue-query'
 import { computed, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { getDashboardOptions, getProfileOptions, signOutMutation } from '../infrastructure/api/@tanstack/vue-query.gen'
+import { zProblem } from '../infrastructure/api/zod.gen'
 import { navigation } from '../infrastructure/navigation'
 import { useAction } from '../infrastructure/useAction'
-import Avatar from './Avatar.vue'
+import PersonAvatar from './PersonAvatar.vue'
 import Icon from './Icon'
 
 /** Every signed-in page: one centred bar, a Personal or Admin view, and the page below it. */
@@ -16,6 +17,15 @@ const profile = useQuery({ ...getProfileOptions(), retry: false })
 const me = computed(() => profile.data.value)
 const dashboard = useQuery(computed(() => ({ ...getDashboardOptions(), retry: false, enabled: me.value?.admin === true })))
 const waiting = computed(() => dashboard.data.value?.unassigned.length ?? 0)
+
+// A signed-in page with nobody signed in sends them to sign in.
+watch(
+  () => zProblem.safeParse(profile.error.value).data?.status,
+  (status) => {
+    if (status === 401) void router.replace('/signin')
+  },
+  { immediate: true },
+)
 
 // The admin pages are for Admins whose session proved a Second Factor (docs/adr/0005).
 watch(
@@ -49,7 +59,7 @@ function current(to: string): boolean {
 
 const signOut = useAction(signOutMutation())
 function leave() {
-  signOut.run({}, () => navigation.leave('/'))
+  signOut.run({}, () => { navigation.leave('/'); })
 }
 </script>
 
@@ -81,9 +91,9 @@ function leave() {
           </nav>
         </details>
         <details v-if="me" class="menu">
-          <summary class="me-btn" :aria-label="me.name"><Avatar :name="me.name" /><Icon name="chev" /></summary>
+          <summary class="me-btn" :aria-label="me.name"><PersonAvatar :name="me.name" /><Icon name="chev" /></summary>
           <div class="sheet">
-            <div class="sheet-who"><Avatar :name="me.name" size="lg" /><div><b>{{ me.name }}</b><small>{{ me.email }}</small></div></div>
+            <div class="sheet-who"><PersonAvatar :name="me.name" size="lg" /><div><b>{{ me.name }}</b><small>{{ me.email }}</small></div></div>
             <RouterLink to="/account">Account</RouterLink><RouterLink to="/security">Security</RouterLink><RouterLink to="/tokens">Tokens</RouterLink>
             <hr />
             <button class="row" type="button" :disabled="signOut.isPending.value" @click="leave"><Icon name="logout" />Sign out</button>

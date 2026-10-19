@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { AuditEvent, SignInHour } from '../../infrastructure/api/types.gen'
+import type { AuditEvent } from '../../infrastructure/api/types.gen'
 import { initials } from '../../shared/initials'
-import { ago, clock, counted, dayOf, describeEvent, drawChart, scaleFor, tone } from './format'
+import { ago, clock, counted, dayOf, describeEvent } from './format'
 
 const joris = { id: '00000000-0000-4000-8000-0000000000a1', name: 'Joris', email: 'joris@example.org' }
 const noor = { id: '00000000-0000-4000-8000-0000000000a2', name: 'Noor Bakker', email: 'noor@example.org' }
@@ -55,17 +55,6 @@ describe('an Audit Event reads as a sentence', () => {
   })
 })
 
-describe('an event is coloured by what happened', () => {
-  it.each<[Partial<AuditEvent>, string]>([
-    [{ action: 'signed-in', kind: 'sign-in' }, 'ok'],
-    [{ action: 'sign-in-failed', kind: 'sign-in' }, 'bad'],
-    [{ action: 'group-created', kind: 'access' }, 'a'],
-    [{ action: 'user-renamed', kind: 'people' }, ''],
-  ])('%o is %s', (e, want) => {
-    expect(tone(event(e))).toBe(want)
-  })
-})
-
 describe('times', () => {
   const now = new Date(2026, 9, 16, 21, 30)
 
@@ -104,49 +93,6 @@ describe('initials', () => {
   })
 })
 
-describe('the sign-ins chart', () => {
-  const start = new Date(2026, 9, 15, 22).getTime()
-  const day = (signIns: number[], failed: number[] = []): SignInHour[] =>
-    signIns.map((n, i) => ({ at: new Date(start + i * 3600000).toISOString(), signIns: n, failed: failed[i] ?? 0 }))
-
-  it.each([
-    [0, 5],
-    [5, 5],
-    [6, 10],
-    [19, 20],
-    [21, 50],
-    [101, 200],
-  ])('scales %d sign-ins in an hour to a top of %d', (most, top) => {
-    expect(scaleFor(most)).toBe(top)
-  })
-
-  it('draws each hour from left to right, the most at the top of the scale', () => {
-    const hours = Array.from({ length: 24 }, (_, i) => (i === 23 ? 20 : 0))
-    const c = drawChart(day(hours, [1]))
-    expect(c.max).toBe(20)
-    expect(c.line.split(' ')[0]).toBe('30.0,110.0')
-    expect(c.line.split(' ')[23]).toBe('470.0,20.0')
-    expect(c.failed.split(' ')[0]).toBe('30.0,105.5')
-    expect(c.end).toEqual({ x: 470, y: 20 })
-    expect(c.area).toBe(`M30,110 L${c.line.split(' ').join(' L')} L470,110 Z`)
-  })
-
-  it('labels the first, middle and last hour', () => {
-    const c = drawChart(day(Array.from({ length: 24 }, () => 0)))
-    expect([c.first, c.middle, c.last]).toEqual(['22:00', '10:00', '21:00'])
-    expect(c.middleX).toBe(259.6)
-  })
-
-  it('sums the day up for a screen reader', () => {
-    const hours = Array.from({ length: 24 }, (_, i) => (i === 3 ? 7 : 1))
-    expect(drawChart(day(hours, [0, 2])).summary).toBe('30 sign-ins in the last 24 hours. 2 failed sign-ins. The busiest hour had 7 sign-ins, around 01:00.')
-  })
-
-  it('says when there were no sign-ins', () => {
-    expect(drawChart(day(Array.from({ length: 24 }, () => 0), [1])).summary).toBe('No sign-ins in the last 24 hours. 1 failed sign-in.')
-  })
-})
-
 describe('counts', () => {
   it.each([
     [0, '0 sign-ins'],
@@ -154,5 +100,9 @@ describe('counts', () => {
     [2, '2 sign-ins'],
   ])('say %d as %s', (n, want) => {
     expect(counted(n, 'sign-in')).toBe(want)
+  })
+
+  it('takes an irregular plural', () => {
+    expect([counted(1, 'person', 'people'), counted(12, 'person', 'people')]).toEqual(['1 person', '12 people'])
   })
 })

@@ -8,7 +8,8 @@ import { useSecurity } from '../composables/useSecurity'
 const { factors, loadError } = useSecurity()
 const kinds = computed(() => {
   const k = new Set(factors.value.map((f) => f.kind))
-  return [k.has('passkey') && 'Passkey', k.has('totp') && 'authenticator app'].filter(Boolean).join(' and ')
+  const said = [k.has('passkey') && 'passkey', k.has('totp') && 'authenticator app'].filter(Boolean).join(' and ')
+  return said.charAt(0).toUpperCase() + said.slice(1)
 })
 const latest = computed(() => factors.value.at(-1))
 function day(at: string): string {

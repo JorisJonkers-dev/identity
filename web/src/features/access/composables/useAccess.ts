@@ -35,7 +35,6 @@ export function useAccess() {
   const overview = computed<AccessOverview | undefined>(() => query.data.value)
   return {
     overview,
-    isLoading: query.isPending,
     loadError: computed(() => (query.error.value ? describeError(query.error.value) : null)),
     actionError: computed(() => actions.map((a) => a.error.value).find((e) => e !== null) ?? null),
     createGroup: (name: string, done: () => void) => {

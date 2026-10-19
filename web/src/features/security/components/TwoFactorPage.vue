@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { adminMail } from '../../../shared/contact'
 import { computed, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import type { SecondFactor } from '../../../infrastructure/api/types.gen'
 import AppShell from '../../../shared/AppShell.vue'
-import Crumb from '../../../shared/Crumb.vue'
+import BackLink from '../../../shared/BackLink.vue'
 import Icon from '../../../shared/Icon'
+import DialogScrim from '../../../shared/DialogScrim.vue'
 import { useSecurity } from '../composables/useSecurity'
 
 const route = useRoute()
@@ -25,8 +27,8 @@ function close() {
   password.value = ''
   label.value = ''
 }
-function confirmRemove() {
-  if (removing.value) remove.run(removing.value.id, password.value)
+function confirmRemove(factor: SecondFactor) {
+  remove.run(factor.id, password.value)
   close()
 }
 function confirmAdd() {
@@ -36,7 +38,7 @@ function confirmAdd() {
 
 <template>
   <AppShell narrow>
-    <Crumb to="/security" label="Security" />
+    <BackLink to="/security" label="Security" />
     <header class="head"><h1>Two-factor</h1></header>
     <p v-if="forAdmin" class="note warn" role="status"><Icon name="shield" />Admin pages need two-factor. Add a passkey or an authenticator app, then sign in again.</p>
     <p v-if="loadError" role="alert" class="alert"><Icon name="alert" />{{ loadError }}</p>
@@ -63,23 +65,23 @@ function confirmAdd() {
           <button v-if="passkeysSupported" class="btn" type="button" @click="adding = true"><Icon name="plus" />Add a passkey</button>
         </div>
       </div>
-      <aside class="task-aside glass"><b>Lost your phone?</b><a class="btn sm" href="mailto:admin@jorisjonkers.dev"><Icon name="mail" />Contact an Admin</a></aside>
+      <aside class="task-aside glass"><b>Lost your phone?</b><a class="btn sm" :href="adminMail"><Icon name="mail" />Contact an Admin</a></aside>
     </div>
 
-    <div v-if="removing" class="scrim" @click.self="close">
-      <form class="dialog glass strong" role="dialog" aria-modal="true" aria-labelledby="rm-h" @submit.prevent="confirmRemove">
+    <DialogScrim v-if="removing" @close="close">
+      <form class="dialog glass strong" role="dialog" aria-modal="true" aria-labelledby="rm-h" @submit.prevent="confirmRemove(removing)">
         <h2 id="rm-h">Remove {{ removing.kind === 'passkey' ? 'this passkey' : 'the authenticator app' }}?</h2>
         <div class="field"><label class="label" for="rm-pw">Password</label><input id="rm-pw" v-model="password" class="input md" type="password" autocomplete="current-password" required /></div>
         <div class="btn-row end"><button class="btn" type="button" @click="close">Cancel</button><button class="btn danger-solid" type="submit" :disabled="remove.isPending.value">Remove</button></div>
       </form>
-    </div>
-    <div v-if="adding" class="scrim" @click.self="close">
+    </DialogScrim>
+    <DialogScrim v-if="adding" @close="close">
       <form class="dialog glass strong" role="dialog" aria-modal="true" aria-labelledby="pk-h" @submit.prevent="confirmAdd">
         <h2 id="pk-h">Add a passkey</h2>
         <div class="field"><label class="label" for="pk-l">Name</label><input id="pk-l" v-model="label" class="input md" placeholder="MacBook Pro" required /></div>
         <div class="field"><label class="label" for="pk-pw">Password</label><input id="pk-pw" v-model="password" class="input md" type="password" autocomplete="current-password" required /></div>
         <div class="btn-row end"><button class="btn" type="button" @click="close">Cancel</button><button class="btn primary" type="submit" :disabled="addPasskey.isPending.value">Add passkey</button></div>
       </form>
-    </div>
+    </DialogScrim>
   </AppShell>
 </template>

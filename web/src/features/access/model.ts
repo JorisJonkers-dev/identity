@@ -42,3 +42,8 @@ export function accessOf(o: AccessOverview, userId: string): Map<string, Map<str
 export function allRoles(o: AccessOverview): string[] {
   return [...new Set(o.clients.flatMap((c) => c.roles))].sort()
 }
+
+/** The Group a page shows: the one asked for, else the first that gives app roles, else the admins, which identity always has. */
+export function groupToShow(o: AccessOverview, id: unknown): Group {
+  return o.groups.find((g) => g.id === id) ?? o.groups.find((g) => !g.admins) ?? (o.groups[0] as Group)
+}
