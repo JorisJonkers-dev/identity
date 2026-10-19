@@ -40,6 +40,9 @@ CREATE TABLE user_service_permissions (
     PRIMARY KEY (user_id, service)
 );`
 
+// oldPassword is a password auth-api hashed with bcrypt, before the import.
+const oldPassword = "an old bcrypt password" //nolint:gosec // a test fixture, not a credential
+
 // legacyTOTP is the base32 secret auth-api keeps, unpadded, for an authenticator app.
 const legacyTOTP = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP"
 
@@ -141,7 +144,7 @@ func (w *importWorld) signIn(t *testing.T, email, password string, want int) *it
 }
 
 var (
-	ada   = legacyPerson{email: "ada@example.org", first: "Ada", last: "Lovelace", role: "USER", password: "an old bcrypt password", confirmed: true, services: []string{"JELLYFIN", "GRAFANA"}}
+	ada   = legacyPerson{email: "ada@example.org", first: "Ada", last: "Lovelace", role: "USER", password: oldPassword, confirmed: true, services: []string{"JELLYFIN", "GRAFANA"}}
 	grace = legacyPerson{email: "grace@example.org", first: "Grace", last: "Hopper", role: "ADMIN", password: "another old password", confirmed: true, totp: legacyTOTP}
 )
 
@@ -235,11 +238,11 @@ func TestAnAuthAPIAdminJoinsTheAdminsGroup(t *testing.T) {
 }
 
 func TestAServiceMapsToTheClientNamedForIt(t *testing.T) {
-	w := newImportWorld(t, legacyPerson{email: "lin@example.org", first: "Lin", role: "USER", password: "an old bcrypt password", confirmed: true, services: []string{"MEDIA"}})
+	w := newImportWorld(t, legacyPerson{email: "lin@example.org", first: "Lin", role: "USER", password: oldPassword, confirmed: true, services: []string{"MEDIA"}})
 
 	w.run(t, "--client", "MEDIA=jellyfin")
 
-	b := w.signIn(t, "lin@example.org", "an old bcrypt password", http.StatusNoContent)
+	b := w.signIn(t, "lin@example.org", oldPassword, http.StatusNoContent)
 	var launcher struct{ Apps []struct{ ID string } }
 	b.Call(t, http.MethodGet, "/api/v1/launcher", nil, http.StatusOK, &launcher)
 	if !slices.ContainsFunc(launcher.Apps, func(a struct{ ID string }) bool { return a.ID == jellyfin.ID }) {
@@ -248,7 +251,7 @@ func TestAServiceMapsToTheClientNamedForIt(t *testing.T) {
 }
 
 func TestAnUnconfirmedEmailIsNotImported(t *testing.T) {
-	w := newImportWorld(t, legacyPerson{email: "new@example.org", first: "New", role: "USER", password: "an old bcrypt password"})
+	w := newImportWorld(t, legacyPerson{email: "new@example.org", first: "New", role: "USER", password: oldPassword})
 
 	out := w.run(t)
 
