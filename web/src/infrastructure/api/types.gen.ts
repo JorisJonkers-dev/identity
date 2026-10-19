@@ -456,6 +456,32 @@ export type StepUp = {
 };
 
 /**
+ * One of the User's Single sign-on sessions.
+ */
+export type Device = {
+    id: Id;
+    /**
+     * The browser and operating system, as "Firefox on macOS".
+     */
+    label: string;
+    /**
+     * When the session was last used, to the minute.
+     */
+    lastSeenAt: string;
+    /**
+     * Whether this is the session asking.
+     */
+    current: boolean;
+};
+
+/**
+ * The User's Devices, the most recently seen first.
+ */
+export type Devices = {
+    devices: Array<Device>;
+};
+
+/**
  * The sign-in waits for a Second Factor.
  */
 export type SecondFactorNeeded = {
@@ -627,6 +653,11 @@ export type UserId = Id;
  * The Client, by its id.
  */
 export type ClientId2 = ClientId;
+
+/**
+ * The Device.
+ */
+export type DeviceId = Id;
 
 /**
  * The Personal Token.
@@ -1190,6 +1221,98 @@ export type StepUpWithPasskeyResponses = {
 };
 
 export type StepUpWithPasskeyResponse = StepUpWithPasskeyResponses[keyof StepUpWithPasskeyResponses];
+
+export type ListDevicesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/profile/devices';
+};
+
+export type ListDevicesErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type ListDevicesError = ListDevicesErrors[keyof ListDevicesErrors];
+
+export type ListDevicesResponses = {
+    /**
+     * The Devices.
+     */
+    200: Devices;
+};
+
+export type ListDevicesResponse = ListDevicesResponses[keyof ListDevicesResponses];
+
+export type SignOutDeviceData = {
+    body?: never;
+    path: {
+        /**
+         * The Device.
+         */
+        deviceId: Id;
+    };
+    query?: never;
+    url: '/api/v1/profile/devices/{deviceId}';
+};
+
+export type SignOutDeviceErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type SignOutDeviceError = SignOutDeviceErrors[keyof SignOutDeviceErrors];
+
+export type SignOutDeviceResponses = {
+    /**
+     * The Device is signed out.
+     */
+    204: void;
+};
+
+export type SignOutDeviceResponse = SignOutDeviceResponses[keyof SignOutDeviceResponses];
+
+export type SignOutOtherDevicesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/profile/other-devices/sign-out';
+};
+
+export type SignOutOtherDevicesErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type SignOutOtherDevicesError = SignOutOtherDevicesErrors[keyof SignOutOtherDevicesErrors];
+
+export type SignOutOtherDevicesResponses = {
+    /**
+     * Only this Device is signed in.
+     */
+    204: void;
+};
+
+export type SignOutOtherDevicesResponse = SignOutOtherDevicesResponses[keyof SignOutOtherDevicesResponses];
 
 export type StartPasskeyData = {
     body?: never;

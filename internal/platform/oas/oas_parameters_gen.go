@@ -1734,6 +1734,79 @@ func decodeSetStepUpParams(args [1]string, argsEscaped bool, r *http.Request) (p
 	return params, nil
 }
 
+// SignOutDeviceParams is parameters of signOutDevice operation.
+type SignOutDeviceParams struct {
+	// The Device.
+	DeviceId ID
+}
+
+func unpackSignOutDeviceParams(packed middleware.Parameters) (params SignOutDeviceParams) {
+	{
+		key := middleware.ParameterKey{
+			Name: "deviceId",
+			In:   "path",
+		}
+		params.DeviceId = packed[key].(ID)
+	}
+	return params
+}
+
+func decodeSignOutDeviceParams(args [1]string, argsEscaped bool, r *http.Request) (params SignOutDeviceParams, _ error) {
+	// Decode path: deviceId.
+	if err := func() error {
+		param := args[0]
+		if argsEscaped {
+			unescaped, err := url.PathUnescape(args[0])
+			if err != nil {
+				return errors.Wrap(err, "unescape path")
+			}
+			param = unescaped
+		}
+		if len(param) > 0 {
+			d := uri.NewPathDecoder(uri.PathDecoderConfig{
+				Param:   "deviceId",
+				Value:   param,
+				Style:   uri.PathStyleSimple,
+				Explode: false,
+			})
+
+			if err := func() error {
+				var paramsDotDeviceIdVal uuid.UUID
+				if err := func() error {
+					val, err := d.DecodeValue()
+					if err != nil {
+						return err
+					}
+
+					c, err := conv.ToUUID(val)
+					if err != nil {
+						return err
+					}
+
+					paramsDotDeviceIdVal = c
+					return nil
+				}(); err != nil {
+					return err
+				}
+				params.DeviceId = ID(paramsDotDeviceIdVal)
+				return nil
+			}(); err != nil {
+				return err
+			}
+		} else {
+			return validate.ErrFieldRequired
+		}
+		return nil
+	}(); err != nil {
+		return params, &ogenerrors.DecodeParamError{
+			Name: "deviceId",
+			In:   "path",
+			Err:  err,
+		}
+	}
+	return params, nil
+}
+
 // SignOutUserParams is parameters of signOutUser operation.
 type SignOutUserParams struct {
 	// The User.

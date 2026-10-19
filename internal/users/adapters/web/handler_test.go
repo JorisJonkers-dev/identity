@@ -33,6 +33,7 @@ type useCases struct {
 	factors    []app.Factor
 	kinds      []string
 	kindsErr   error
+	devices    []app.Device
 }
 
 func (u *useCases) SignUp(context.Context, string, string, string) error { return u.err }
@@ -91,6 +92,21 @@ func (u *useCases) StepUpPasskeyOptions(_ context.Context, token string) ([]byte
 
 func (u *useCases) StepUpWithPasskey(_ context.Context, token string, response []byte) error {
 	u.asked = append(u.asked, token, string(response))
+	return u.err
+}
+
+func (u *useCases) Devices(_ context.Context, _ uuid.UUID, token string) ([]app.Device, error) {
+	u.asked = append(u.asked, token)
+	return u.devices, u.err
+}
+
+func (u *useCases) SignOutDevice(_ context.Context, _, deviceID uuid.UUID) error {
+	u.asked = append(u.asked, deviceID.String())
+	return u.err
+}
+
+func (u *useCases) SignOutOtherDevices(_ context.Context, _ uuid.UUID, token string) error {
+	u.asked = append(u.asked, token)
 	return u.err
 }
 
@@ -639,6 +655,66 @@ func TestEveryStepUpOperationAnswersARefusalAsAProblem(t *testing.T) {
 			res, err := op.call(web.New(&useCases{err: app.ErrInvalidToken}, admins{}))
 			if p, ok := res.(*oas.ProblemStatusCode); err != nil || !ok || p.StatusCode != http.StatusUnauthorized {
 				t.Fatalf("got %#v, %v", res, err)
+			}
+		})
+	}
+}
+
+func TestTheDevicesListCarriesEachSessionAndMarksThisOne(t *testing.T) {
+	seen := time.Date(2026, 10, 19, 9, 0, 0, 0, time.UTC)
+	id := uuid.New()
+	uc := &useCases{devices: []app.Device{{ID: id, Label: "Firefox on macOS", LastSeenAt: seen, Current: true}}}
+	h := web.New(uc, admins{})
+	res, err := h.ListDevices(signedIn(t, h))
+	got, ok := res.(*oas.Devices)
+	if err != nil || !ok || len(got.Devices) != 1 || got.Devices[0] != (oas.Device{ID: oas.ID(id), Label: "Firefox on macOS", LastSeenAt: seen, Current: true}) || uc.asked[0] != "tok" {
+		t.Fatalf("ListDevices = %#v, %v", res, err)
+	}
+}
+
+func TestSigningOutADeviceSendsWhichOne(t *testing.T) {
+	uc := &useCases{}
+	h := web.New(uc, admins{})
+	id := uuid.New()
+	res, err := h.SignOutDevice(signedIn(t, h), oas.SignOutDeviceParams{DeviceId: oas.ID(id)})
+	if _, ok := res.(*oas.SignOutDeviceNoContent); err != nil || !ok || uc.asked[0] != id.String() {
+		t.Fatalf("SignOutDevice = %#v, %v", res, err)
+	}
+}
+
+func TestADeviceAlreadySignedOutIsNotFound(t *testing.T) {
+	h := web.New(&useCases{err: app.ErrNotFound}, admins{})
+	res, err := h.SignOutDevice(context.Background(), oas.SignOutDeviceParams{})
+	if p, ok := res.(*oas.ProblemStatusCode); err != nil || !ok || p.StatusCode != http.StatusNotFound || p.Response.Detail.Value != "That device is already signed out. Reload the page." {
+		t.Fatalf("SignOutDevice = %#v, %v", res, err)
+	}
+}
+
+func TestSigningOutOtherDevicesSendsThisSession(t *testing.T) {
+	uc := &useCases{}
+	h := web.New(uc, admins{})
+	res, err := h.SignOutOtherDevices(signedIn(t, h))
+	if _, ok := res.(*oas.SignOutOtherDevicesNoContent); err != nil || !ok || uc.asked[0] != "tok" {
+		t.Fatalf("SignOutOtherDevices = %#v, %v", res, err)
+	}
+}
+
+var errBoom = errors.New("boom")
+
+func TestADevicesFailureIsPassedOn(t *testing.T) {
+	for _, op := range []struct {
+		name string
+		call func(h *web.Handler) (any, error)
+	}{
+		{"listing", func(h *web.Handler) (any, error) { return h.ListDevices(context.Background()) }},
+		{"signing one out", func(h *web.Handler) (any, error) {
+			return h.SignOutDevice(context.Background(), oas.SignOutDeviceParams{})
+		}},
+		{"signing the others out", func(h *web.Handler) (any, error) { return h.SignOutOtherDevices(context.Background()) }},
+	} {
+		t.Run(op.name, func(t *testing.T) {
+			if _, err := op.call(web.New(&useCases{err: errBoom}, admins{})); !errors.Is(err, errBoom) {
+				t.Fatalf("err = %v", err)
 			}
 		})
 	}

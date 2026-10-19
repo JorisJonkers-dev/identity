@@ -456,6 +456,33 @@ func (s *store) TouchSession(_ context.Context, hash []byte, lastSeen, expires t
 	return nil
 }
 
+func (s *store) SessionsOf(_ context.Context, userID uuid.UUID, now time.Time) ([]app.Session, error) {
+	if err := s.fail["SessionsOf"]; err != nil {
+		return nil, err
+	}
+	var out []app.Session
+	for _, sess := range s.sessions {
+		if sess.UserID == userID && now.Before(sess.ExpiresAt) {
+			out = append(out, sess)
+		}
+	}
+	slices.SortFunc(out, func(a, b app.Session) int { return b.LastSeenAt.Compare(a.LastSeenAt) })
+	return out, nil
+}
+
+func (s *store) DeleteSession(_ context.Context, userID, id uuid.UUID) (bool, error) {
+	if err := s.fail["DeleteSession"]; err != nil {
+		return false, err
+	}
+	for k, sess := range s.sessions {
+		if sess.UserID == userID && sess.ID == id {
+			delete(s.sessions, k)
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (s *store) DeleteOtherSessions(_ context.Context, userID uuid.UUID, keep []byte) ([]uuid.UUID, error) {
 	if err := s.fail["DeleteOtherSessions"]; err != nil {
 		return nil, err

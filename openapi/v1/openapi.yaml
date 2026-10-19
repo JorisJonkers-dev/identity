@@ -461,6 +461,56 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/profile/devices:
+    get:
+      operationId: listDevices
+      summary: The signed-in User's Devices
+      description: >-
+        Each live Single sign-on session, by the browser and operating system it was started from,
+        the most recently seen first. The session asking is marked. No IP address or location is
+        kept.
+      tags: [profile]
+      responses:
+        "200":
+          description: The Devices.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Devices"
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/profile/devices/{deviceId}:
+    parameters:
+      - $ref: "#/components/parameters/DeviceId"
+    delete:
+      operationId: signOutDevice
+      summary: Sign one Device out
+      description: >-
+        Ends that session. Apps it signed in to that support back-channel logout are told; the
+        User's other Devices stay signed in.
+      tags: [profile]
+      responses:
+        "204":
+          description: The Device is signed out.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/profile/other-devices/sign-out:
+    post:
+      operationId: signOutOtherDevices
+      summary: Sign every other Device out
+      description: Ends every session of the User but the one asking.
+      tags: [profile]
+      responses:
+        "204":
+          description: Only this Device is signed in.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /api/v1/profile/second-factors/passkey:
     post:
       operationId: startPasskey
@@ -957,6 +1007,13 @@ components:
       description: The Client, by its id.
       schema:
         $ref: "#/components/schemas/ClientId"
+    DeviceId:
+      name: deviceId
+      in: path
+      required: true
+      description: The Device.
+      schema:
+        $ref: "#/components/schemas/Id"
     PatId:
       name: patId
       in: path
@@ -1589,6 +1646,38 @@ components:
           maximum: 60
           enum: [0, 5, 15, 60]
           description: The window in minutes; 0 is off.
+    Device:
+      description: One of the User's Single sign-on sessions.
+      type: object
+      additionalProperties: false
+      required: [id, label, lastSeenAt, current]
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        label:
+          type: string
+          maxLength: 64
+          description: The browser and operating system, as "Firefox on macOS".
+          example: Firefox on macOS
+        lastSeenAt:
+          type: string
+          format: date-time
+          maxLength: 64
+          description: When the session was last used, to the minute.
+        current:
+          type: boolean
+          description: Whether this is the session asking.
+    Devices:
+      description: The User's Devices, the most recently seen first.
+      type: object
+      additionalProperties: false
+      required: [devices]
+      properties:
+        devices:
+          type: array
+          maxItems: 1000
+          items:
+            $ref: "#/components/schemas/Device"
     SecondFactorNeeded:
       description: The sign-in waits for a Second Factor.
       type: object

@@ -68,6 +68,8 @@ type Session struct {
 	Methods []string
 	// TwoFactorAt is when the session last proved a Second Factor; nil when it never did.
 	TwoFactorAt *time.Time
+	// Device is the browser and operating system the session was started from.
+	Device string
 }
 
 // Store is the users context's persistence.
@@ -89,6 +91,10 @@ type Store interface {
 	// SessionByID is ErrNotFound when there is none.
 	SessionByID(ctx context.Context, id uuid.UUID) (Session, error)
 	TouchSession(ctx context.Context, tokenHash []byte, lastSeen, expires time.Time) error
+	// SessionsOf is a User's sessions live at now, the most recently seen first.
+	SessionsOf(ctx context.Context, userID uuid.UUID, now time.Time) ([]Session, error)
+	// DeleteSession ends one of a User's sessions, and reports whether it was theirs.
+	DeleteSession(ctx context.Context, userID, id uuid.UUID) (bool, error)
 	// DeleteOtherSessions ends every session of a User but the one keepTokenHash names, or every
 	// one when it is nil, and returns the ids of those it ended.
 	DeleteOtherSessions(ctx context.Context, userID uuid.UUID, keepTokenHash []byte) ([]uuid.UUID, error)
@@ -379,7 +385,7 @@ func (s *Service) startSession(ctx context.Context, userID uuid.UUID, methods []
 	}
 	sess := Session{
 		TokenHash: hash, ID: id, UserID: userID, CreatedAt: now, LastSeenAt: now,
-		ExpiresAt: earliest(now.Add(sessionLifetime), end), Methods: methods,
+		ExpiresAt: earliest(now.Add(sessionLifetime), end), Methods: methods, Device: deviceOf(ctx),
 	}
 	if ProvedSecondFactor(methods) {
 		sess.TwoFactorAt = &now

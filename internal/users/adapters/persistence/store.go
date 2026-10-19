@@ -110,7 +110,7 @@ func (s *Store) DeleteSignup(ctx context.Context, hash []byte) error {
 func (s *Store) CreateSession(ctx context.Context, sess app.Session) error {
 	return s.q.CreateSession(ctx, queries.CreateSessionParams{
 		TokenHash: sess.TokenHash, ID: sess.ID, UserID: sess.UserID, CreatedAt: sess.CreatedAt, ExpiresAt: sess.ExpiresAt,
-		Methods: sess.Methods, TwoFactorAt: sess.TwoFactorAt,
+		Methods: sess.Methods, TwoFactorAt: sess.TwoFactorAt, Device: sess.Device,
 	})
 }
 
@@ -136,6 +136,23 @@ func (s *Store) SessionByID(ctx context.Context, id uuid.UUID) (app.Session, err
 		CreatedAt: row.CreatedAt, LastSeenAt: row.LastSeenAt, ExpiresAt: row.ExpiresAt, Methods: row.Methods,
 		TwoFactorAt: row.TwoFactorAt,
 	}, nil
+}
+
+func (s *Store) SessionsOf(ctx context.Context, userID uuid.UUID, now time.Time) ([]app.Session, error) {
+	rows, err := s.q.SessionsOfUser(ctx, queries.SessionsOfUserParams{UserID: userID, ExpiresAt: now})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]app.Session, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, app.Session{TokenHash: r.TokenHash, ID: r.ID, UserID: userID, Device: r.Device, CreatedAt: r.CreatedAt, LastSeenAt: r.LastSeenAt})
+	}
+	return out, nil
+}
+
+func (s *Store) DeleteSession(ctx context.Context, userID, id uuid.UUID) (bool, error) {
+	n, err := s.q.DeleteSessionOfUser(ctx, queries.DeleteSessionOfUserParams{ID: id, UserID: userID})
+	return n > 0, err
 }
 
 func (s *Store) TouchSession(ctx context.Context, hash []byte, lastSeen, expires time.Time) error {

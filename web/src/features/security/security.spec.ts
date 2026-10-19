@@ -1,4 +1,4 @@
-import type { VueWrapper } from '@vue/test-utils'
+import type { DOMWrapper, VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { profile } from '../../app/fixtures'
 import { mountAt, problem, settle } from '../../app/testing'
@@ -18,7 +18,7 @@ const page = (factors: SecondFactor[] = []) => ({
   'GET /api/v1/profile/second-factors': () => Response.json({ factors }),
 })
 
-function button(wrapper: VueWrapper, text: string) {
+function button(wrapper: { findAll: (selector: string) => DOMWrapper<Element>[] }, text: string) {
   const found = wrapper.findAll('button').find((b) => b.text() === text)
   if (!found) throw new Error(`no button ${text}`)
   return found
@@ -59,6 +59,81 @@ describe('the Security page', () => {
 
   it('shows the problem when the list cannot load', async () => {
     const { wrapper } = await mountAt('/security', { ...page(), 'GET /api/v1/profile/second-factors': problem(500, 'Something went wrong. Try again.') })
+    expect(wrapper.get('[role="alert"]').text()).toBe('Something went wrong. Try again.')
+  })
+})
+
+describe('the Devices page', () => {
+  const mac = { id: '00000000-0000-4000-8000-0000000000d1', label: 'Firefox on macOS', lastSeenAt: new Date(Date.now() - 30_000).toISOString(), current: true }
+  const iphone = { id: '00000000-0000-4000-8000-0000000000d2', label: 'Safari on iOS', lastSeenAt: new Date(Date.now() - 3 * 3600_000).toISOString(), current: false }
+  const ipad = { id: '00000000-0000-4000-8000-0000000000d3', label: 'Safari on iPadOS', lastSeenAt: new Date(Date.now() - 30 * 3600_000).toISOString(), current: false }
+  function devicesPage(start = [mac, iphone, ipad]) {
+    let devices = start
+    return {
+      'GET /api/v1/profile': () => Response.json(profile()),
+      'GET /api/v1/profile/devices': () => Response.json({ devices }),
+      [`DELETE /api/v1/profile/devices/${iphone.id}`]: () => {
+        devices = devices.filter((d) => d.id !== iphone.id)
+        return ok()
+      },
+      'POST /api/v1/profile/other-devices/sign-out': () => {
+        devices = devices.filter((d) => d.current)
+        return ok()
+      },
+    }
+  }
+  const rows = (wrapper: VueWrapper) => wrapper.findAll('.device')
+
+  it('is a row on the Security page', async () => {
+    const { wrapper } = await mountAt('/security', page())
+    expect(wrapper.get('a[href="/security/devices"] b').text()).toBe('Devices')
+  })
+
+  it('lists each device by browser and system, this one marked, with when it was last used', async () => {
+    const { wrapper } = await mountAt('/security/devices', devicesPage())
+    expect(rows(wrapper).map((r) => r.get('b').text())).toEqual(['Firefox on macOS', 'Safari on iOS', 'Safari on iPadOS'])
+    expect(rows(wrapper).map((r) => r.get('small').text())).toEqual(['This device', 'Last used 3h ago', 'Last used yesterday'])
+    expect(rows(wrapper)[0]?.find('button').exists()).toBe(false)
+  })
+
+  it('signs one device out', async () => {
+    const { wrapper, requests } = await mountAt('/security/devices', devicesPage())
+    await button(rows(wrapper)[1] as DOMWrapper<Element>, 'Sign out').trigger('click')
+    await settle()
+    expect(requests.some((r) => r.key === `DELETE /api/v1/profile/devices/${iphone.id}`)).toBe(true)
+    expect(rows(wrapper).map((r) => r.get('b').text())).toEqual(['Firefox on macOS', 'Safari on iPadOS'])
+  })
+
+  it('signs every other device out', async () => {
+    const { wrapper, requests } = await mountAt('/security/devices', devicesPage())
+    await button(wrapper, 'Sign out all other devices').trigger('click')
+    await settle()
+    expect(requests.some((r) => r.key === 'POST /api/v1/profile/other-devices/sign-out')).toBe(true)
+    expect(rows(wrapper)).toHaveLength(1)
+  })
+
+  it('offers no sign-out of others when this is the only device', async () => {
+    const { wrapper } = await mountAt('/security/devices', devicesPage([mac]))
+    expect(wrapper.findAll('button').some((b) => b.text() === 'Sign out all other devices')).toBe(false)
+    expect(wrapper.get('.empty-state').text()).toBe('You are signed in on this device only.')
+  })
+
+  it('shows a refused sign-out', async () => {
+    const { wrapper } = await mountAt('/security/devices', { ...devicesPage(), [`DELETE /api/v1/profile/devices/${iphone.id}`]: () => problem(404, 'That device is already signed out. Reload the page.') })
+    await button(rows(wrapper)[1] as DOMWrapper<Element>, 'Sign out').trigger('click')
+    await settle()
+    expect(wrapper.get('[role="alert"]').text()).toBe('That device is already signed out. Reload the page.')
+  })
+
+  it('shows a refused sign-out of the other devices', async () => {
+    const { wrapper } = await mountAt('/security/devices', { ...devicesPage(), 'POST /api/v1/profile/other-devices/sign-out': () => problem(500, 'Something went wrong. Try again.') })
+    await button(wrapper, 'Sign out all other devices').trigger('click')
+    await settle()
+    expect(wrapper.get('[role="alert"]').text()).toBe('Something went wrong. Try again.')
+  })
+
+  it('shows the problem when the devices cannot load', async () => {
+    const { wrapper } = await mountAt('/security/devices', { ...devicesPage(), 'GET /api/v1/profile/devices': () => problem(500, 'Something went wrong. Try again.') })
     expect(wrapper.get('[role="alert"]').text()).toBe('Something went wrong. Try again.')
   })
 })

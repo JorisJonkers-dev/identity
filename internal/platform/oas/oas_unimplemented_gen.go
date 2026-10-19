@@ -189,6 +189,16 @@ func (UnimplementedHandler) ListAuditEvents(ctx context.Context, params ListAudi
 	return r, ht.ErrNotImplemented
 }
 
+// ListDevices implements listDevices operation.
+//
+// Each live Single sign-on session, by the browser and operating system it was started from, the most
+// recently seen first. The session asking is marked. No IP address or location is kept.
+//
+// GET /api/v1/profile/devices
+func (UnimplementedHandler) ListDevices(ctx context.Context) (r ListDevicesRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // ListMyTokens implements listMyTokens operation.
 //
 // The signed-in User's tokens, newest first, and the Clients they may mint one for.
@@ -318,6 +328,25 @@ func (UnimplementedHandler) SignIn(ctx context.Context, req *SignIn) (r SignInRe
 //
 // DELETE /api/v1/session
 func (UnimplementedHandler) SignOut(ctx context.Context) (r SignOutRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// SignOutDevice implements signOutDevice operation.
+//
+// Ends that session. Apps it signed in to that support back-channel logout are told; the User's other
+// Devices stay signed in.
+//
+// DELETE /api/v1/profile/devices/{deviceId}
+func (UnimplementedHandler) SignOutDevice(ctx context.Context, params SignOutDeviceParams) (r SignOutDeviceRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// SignOutOtherDevices implements signOutOtherDevices operation.
+//
+// Ends every session of the User but the one asking.
+//
+// POST /api/v1/profile/other-devices/sign-out
+func (UnimplementedHandler) SignOutOtherDevices(ctx context.Context) (r SignOutOtherDevicesRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 

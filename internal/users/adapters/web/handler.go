@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JorisJonkers-dev/identity/internal/platform/device"
 	"github.com/JorisJonkers-dev/identity/internal/platform/httpx"
 	"github.com/JorisJonkers-dev/identity/internal/platform/oas"
 	"github.com/JorisJonkers-dev/identity/internal/platform/principal"
@@ -48,6 +49,9 @@ type UseCases interface {
 	StepUpWithCode(ctx context.Context, sessionToken, code string) error
 	StepUpPasskeyOptions(ctx context.Context, sessionToken string) ([]byte, error)
 	StepUpWithPasskey(ctx context.Context, sessionToken string, response []byte) error
+	Devices(ctx context.Context, userID uuid.UUID, sessionToken string) ([]app.Device, error)
+	SignOutDevice(ctx context.Context, userID, deviceID uuid.UUID) error
+	SignOutOtherDevices(ctx context.Context, userID uuid.UUID, sessionToken string) error
 	SecondFactors(ctx context.Context, userID uuid.UUID) ([]app.Factor, error)
 	StartTOTP(ctx context.Context, userID uuid.UUID) (app.TOTPSetup, error)
 	ConfirmTOTP(ctx context.Context, userID uuid.UUID, sessionToken, label, code, password string) error
@@ -127,6 +131,7 @@ func (h *Handler) ConfirmEmail(ctx context.Context, req *oas.Confirmation) (oas.
 
 // SignIn implements signIn.
 func (h *Handler) SignIn(ctx context.Context, req *oas.SignIn) (oas.SignInRes, error) {
+	ctx = app.WithDevice(ctx, device.From(ctx))
 	token, err := h.uc.SignIn(ctx, req.Email, string(req.Password))
 	if errors.Is(err, app.ErrSecondFactorNeeded) {
 		kinds, err := h.uc.ChallengeKinds(ctx, token)
@@ -146,6 +151,7 @@ func (h *Handler) SignIn(ctx context.Context, req *oas.SignIn) (oas.SignInRes, e
 
 // CompleteSignIn implements completeSignIn.
 func (h *Handler) CompleteSignIn(ctx context.Context, req *oas.SecondFactorCode) (oas.CompleteSignInRes, error) {
+	ctx = app.WithDevice(ctx, device.From(ctx))
 	challenge, _ := ctx.Value(challengeKey{}).(string)
 	token, err := h.uc.CompleteSignIn(ctx, challenge, req.Code)
 	if errors.Is(err, app.ErrInvalidToken) {
@@ -176,6 +182,7 @@ func (h *Handler) PasskeyOptions(ctx context.Context) (oas.PasskeyOptionsRes, er
 
 // CompleteSignInWithPasskey implements completeSignInWithPasskey.
 func (h *Handler) CompleteSignInWithPasskey(ctx context.Context, req *oas.PasskeyAssertion) (oas.CompleteSignInWithPasskeyRes, error) {
+	ctx = app.WithDevice(ctx, device.From(ctx))
 	challenge, _ := ctx.Value(challengeKey{}).(string)
 	token, err := h.uc.CompleteSignInWithPasskey(ctx, challenge, []byte(req.Response))
 	switch {
@@ -240,6 +247,41 @@ func stepUpRefusal(err error) (*oas.ProblemStatusCode, error) {
 	default:
 		return refusal(err)
 	}
+}
+
+// ListDevices implements listDevices.
+func (h *Handler) ListDevices(ctx context.Context) (oas.ListDevicesRes, error) {
+	s := current(ctx)
+	devices, err := h.uc.Devices(ctx, s.user.ID, s.token)
+	if err != nil {
+		return nil, err
+	}
+	res := &oas.Devices{Devices: make([]oas.Device, 0, len(devices))}
+	for _, d := range devices {
+		res.Devices = append(res.Devices, oas.Device{ID: oas.ID(d.ID), Label: d.Label, LastSeenAt: d.LastSeenAt, Current: d.Current})
+	}
+	return res, nil
+}
+
+// SignOutDevice implements signOutDevice.
+func (h *Handler) SignOutDevice(ctx context.Context, p oas.SignOutDeviceParams) (oas.SignOutDeviceRes, error) {
+	err := h.uc.SignOutDevice(ctx, current(ctx).user.ID, uuid.UUID(p.DeviceId))
+	if errors.Is(err, app.ErrNotFound) {
+		return problem(http.StatusNotFound, "That device is already signed out. Reload the page."), nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &oas.SignOutDeviceNoContent{}, nil
+}
+
+// SignOutOtherDevices implements signOutOtherDevices.
+func (h *Handler) SignOutOtherDevices(ctx context.Context) (oas.SignOutOtherDevicesRes, error) {
+	s := current(ctx)
+	if err := h.uc.SignOutOtherDevices(ctx, s.user.ID, s.token); err != nil {
+		return nil, err
+	}
+	return &oas.SignOutOtherDevicesNoContent{}, nil
 }
 
 // StartPasskey implements startPasskey.

@@ -23,10 +23,18 @@ SELECT email, name, password_hash, expires_at FROM signups WHERE token_hash = $1
 DELETE FROM signups WHERE token_hash = $1;
 
 -- name: CreateSession :exec
-INSERT INTO sessions (token_hash, id, user_id, created_at, last_seen_at, expires_at, methods, two_factor_at) VALUES ($1, $2, $3, $4, $4, $5, $6, $7);
+INSERT INTO sessions (token_hash, id, user_id, created_at, last_seen_at, expires_at, methods, two_factor_at, device) VALUES ($1, $2, $3, $4, $4, $5, $6, $7, $8);
 
 -- name: SessionByHash :one
 SELECT token_hash, id, user_id, created_at, last_seen_at, expires_at, methods, two_factor_at FROM sessions WHERE token_hash = $1;
+
+-- name: SessionsOfUser :many
+-- A User's live sessions, the most recently seen first: their Devices.
+SELECT token_hash, id, device, created_at, last_seen_at FROM sessions
+WHERE user_id = $1 AND expires_at > $2 ORDER BY last_seen_at DESC, id;
+
+-- name: DeleteSessionOfUser :execrows
+DELETE FROM sessions WHERE id = $1 AND user_id = $2;
 
 -- name: TouchSession :exec
 UPDATE sessions SET last_seen_at = $2, expires_at = $3 WHERE token_hash = $1;
