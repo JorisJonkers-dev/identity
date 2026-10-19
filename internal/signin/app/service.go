@@ -94,6 +94,7 @@ type Service struct {
 	tokens   PersonalTokens
 	secrets  SecretChecker
 	stepUps  StepUpSettings
+	consents Consents
 	now      func() time.Time
 	random   io.Reader
 }
@@ -147,7 +148,8 @@ func (s *Service) live(r domain.AuthRequest, err error) (domain.AuthRequest, err
 // Complete lets the Single sign-on session behind sessionToken vouch for request id. It fails with
 // ErrNoSession when there is no live session, so the caller asks the person to sign in, and with
 // ErrNoAccess when the User holds no App Role on the Client, so no code is issued, and with
-// ErrStepUpNeeded or ErrTwoFactorNeeded when the Client wants a fresher two-factor proof.
+// ErrStepUpNeeded or ErrTwoFactorNeeded when the Client wants a fresher two-factor proof. A
+// Connected App's request fails with ErrConsentNeeded until the User has consented to it.
 func (s *Service) Complete(ctx context.Context, id uuid.UUID, sessionToken string) error {
 	r, err := s.Request(ctx, id)
 	if err != nil {
@@ -157,28 +159,59 @@ func (s *Service) Complete(ctx context.Context, id uuid.UUID, sessionToken strin
 	if err != nil {
 		return err
 	}
-	roles, err := s.Roles(ctx, signIn.UserID, r.ClientID)
-	if err != nil {
+	if r.Resource != "" {
+		return s.completeConnected(ctx, r, signIn)
+	}
+	if _, err := s.admit(ctx, signIn, r.ClientID); err != nil {
 		return err
+	}
+	if err := s.complete(ctx, r, signIn); err != nil {
+		return err
+	}
+	if err := s.requests.AddSessionClient(ctx, signIn.SessionID, r.ClientID); err != nil {
+		return err
+	}
+	s.audit.Record(ctx, audit.Event{Action: audit.SignedIn, User: signIn.UserID, Client: r.ClientID})
+	return nil
+}
+
+// completeConnected completes a Connected App's request the User consented to before. Its
+// sign-in is not one to the Client, so no back-channel logout or Audit Event follows it.
+func (s *Service) completeConnected(ctx context.Context, r domain.AuthRequest, signIn domain.SignIn) error {
+	if s.consents == nil {
+		return ErrNotConnectable
+	}
+	if _, err := s.admit(ctx, signIn, r.Resource); err != nil {
+		return err
+	}
+	if err := s.consents.Consented(ctx, signIn.UserID, r.ClientID, r.Resource); err != nil {
+		return err
+	}
+	return s.complete(ctx, r, signIn)
+}
+
+// admit is the User's App Roles on a Client, while they hold one and their session is as fresh
+// as the Client wants.
+func (s *Service) admit(ctx context.Context, signIn domain.SignIn, clientID string) ([]string, error) {
+	roles, err := s.Roles(ctx, signIn.UserID, clientID)
+	if err != nil {
+		return nil, err
 	}
 	if len(roles) == 0 {
-		s.audit.Record(ctx, audit.Event{Action: audit.SignInFailed, User: signIn.UserID, Client: r.ClientID, Reason: audit.ReasonNoAccess})
-		return ErrNoAccess
+		s.audit.Record(ctx, audit.Event{Action: audit.SignInFailed, User: signIn.UserID, Client: clientID, Reason: audit.ReasonNoAccess})
+		return nil, ErrNoAccess
 	}
-	if err := s.fresh(ctx, signIn, r.ClientID); err != nil {
-		return err
-	}
-	done, err := s.requests.CompleteRequest(ctx, id, signIn)
+	return roles, s.fresh(ctx, signIn, clientID)
+}
+
+func (s *Service) complete(ctx context.Context, r domain.AuthRequest, signIn domain.SignIn) error {
+	done, err := s.requests.CompleteRequest(ctx, r.ID, signIn)
 	if err != nil {
 		return err
 	}
 	if !done {
 		return ErrNotFound
 	}
-	if err := s.requests.AddSessionClient(ctx, signIn.SessionID, r.ClientID); err != nil {
-		return err
-	}
-	s.audit.Record(ctx, audit.Event{Action: audit.SignedIn, User: signIn.UserID, Client: r.ClientID})
 	return nil
 }
 

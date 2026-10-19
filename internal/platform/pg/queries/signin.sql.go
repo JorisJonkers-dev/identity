@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const addSessionClient = `-- name: AddSessionClient :exec
@@ -94,8 +95,8 @@ func (q *Queries) CompleteAuthRequest(ctx context.Context, arg CompleteAuthReque
 
 const createAuthRequest = `-- name: CreateAuthRequest :exec
 INSERT INTO auth_requests (id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode,
-    code_challenge, code_challenge_method, created_at, expires_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    code_challenge, code_challenge_method, created_at, expires_at, resource)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 `
 
 type CreateAuthRequestParams struct {
@@ -111,6 +112,7 @@ type CreateAuthRequestParams struct {
 	CodeChallengeMethod string
 	CreatedAt           time.Time
 	ExpiresAt           time.Time
+	Resource            pgtype.Text
 }
 
 func (q *Queries) CreateAuthRequest(ctx context.Context, arg CreateAuthRequestParams) error {
@@ -127,6 +129,7 @@ func (q *Queries) CreateAuthRequest(ctx context.Context, arg CreateAuthRequestPa
 		arg.CodeChallengeMethod,
 		arg.CreatedAt,
 		arg.ExpiresAt,
+		arg.Resource,
 	)
 	return err
 }

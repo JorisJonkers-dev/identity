@@ -87,7 +87,7 @@ databaseChangeLog:
         - addColumn:
             tableName: auth_requests
             columns:
-              # The MCP resource (RFC 8707) a Connected App's authorize request names.
+              # The Client a Connected App's authorize request names as its MCP resource (RFC 8707).
               - column: {name: resource, type: text}
 
   - changeSet:

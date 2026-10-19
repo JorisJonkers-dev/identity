@@ -68,6 +68,8 @@ type AuthRequest struct {
 	CodeChallengeMethod string
 	CreatedAt           time.Time
 	ExpiresAt           time.Time
+	// Resource is the Client a Connected App's request is for (identity#23); empty for any other.
+	Resource string
 	// SignIn is who completed the request; nil until someone has.
 	SignIn *SignIn
 }
