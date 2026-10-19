@@ -70,11 +70,12 @@ tasks:
       - vacuum lint --details --fail-severity error openapi/v1/openapi.yaml
 
   lint:web:
-    desc: ESLint (type-checked, a11y) and vue-tsc
+    desc: ESLint (type-checked, a11y), vue-tsc, and dependency-cruiser over the web app's layers
     deps: [install]
     cmds:
       - pnpm --filter @{{.APP}}/web lint
       - pnpm --filter @{{.APP}}/web typecheck
+      - pnpm --filter @{{.APP}}/web lint:deps
 
   lint:actions:
     desc: actionlint on every workflow

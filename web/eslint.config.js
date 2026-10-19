@@ -4,7 +4,7 @@ import vueA11y from 'eslint-plugin-vuejs-accessibility'
 import { playwrightStepsConfig } from '@jorisjonkers-dev/vue-web-commons/eslint-testing'
 
 export default tseslint.config(
-  { ignores: ['dist/**', 'coverage/**', 'src/infrastructure/api/**', 'playwright-report/**', 'test-results/**'] },
+  { ignores: ['dist/**', 'coverage/**', 'src/infrastructure/api/**', 'playwright-report/**', 'test-results/**', '.dependency-cruiser.cjs'] },
   ...tseslint.configs.strictTypeChecked,
   ...pluginVue.configs['flat/recommended'],
   ...vueA11y.configs['flat/recommended'],
