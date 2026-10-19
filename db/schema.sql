@@ -131,7 +131,8 @@ CREATE TABLE public.sessions (
     expires_at timestamp with time zone NOT NULL,
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     methods text[] DEFAULT '{pwd}'::text[] NOT NULL,
-    two_factor_at timestamp with time zone
+    two_factor_at timestamp with time zone,
+    device text DEFAULT 'Unknown device'::text NOT NULL
 );
 
 CREATE TABLE public.sign_in_challenges (

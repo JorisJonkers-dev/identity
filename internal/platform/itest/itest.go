@@ -363,6 +363,8 @@ type Browser struct {
 	client *http.Client
 	// Email is who signed up in it, if anyone.
 	Email string
+	// UserAgent is the browser it says it is, when set.
+	UserAgent string
 }
 
 // Call sends body as JSON and fails t unless the answer has status want; out, when not nil, gets
@@ -383,6 +385,9 @@ func (b *Browser) Call(t *testing.T, method, path string, body any, want int, ou
 	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
+	}
+	if b.UserAgent != "" {
+		req.Header.Set("User-Agent", b.UserAgent)
 	}
 	res, err := b.client.Do(req)
 	if err != nil {
@@ -432,6 +437,16 @@ func (b *Browser) Follow(t *testing.T, target string) string {
 		t.Fatalf("GET %s = %d %s, want a redirect", target, res.StatusCode, raw)
 	}
 	return res.Header.Get("Location")
+}
+
+// SignedInAgain is another browser of the User b signed up, signed in with the password alone, saying
+// it is userAgent.
+func (b *Browser) SignedInAgain(t *testing.T, userAgent string) *Browser {
+	t.Helper()
+	other := b.env.Browser()
+	other.Email, other.UserAgent = b.Email, userAgent
+	other.Call(t, http.MethodPost, "/api/v1/session", map[string]string{"email": b.Email, "password": Password}, http.StatusNoContent, nil)
+	return other
 }
 
 // UserID is the id of the User signed up as email, read from the access page as an Admin sees it.

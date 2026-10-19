@@ -56,6 +56,7 @@ type Querier interface {
 	DeleteOtherSessions(ctx context.Context, arg DeleteOtherSessionsParams) ([]uuid.UUID, error)
 	DeletePasskey(ctx context.Context, arg DeletePasskeyParams) (int64, error)
 	DeletePasskeyEnrolment(ctx context.Context, userID uuid.UUID) error
+	DeleteSessionOfUser(ctx context.Context, arg DeleteSessionOfUserParams) (int64, error)
 	// A key no token can still need: it stopped signing before a time.
 	DeleteSigningKeysEndedBefore(ctx context.Context, signsUntil time.Time) error
 	DeleteSignup(ctx context.Context, tokenHash []byte) error
@@ -107,6 +108,8 @@ type Querier interface {
 	SealedSecret(ctx context.Context, name string) (string, error)
 	SessionByHash(ctx context.Context, tokenHash []byte) (SessionByHashRow, error)
 	SessionByID(ctx context.Context, id uuid.UUID) (SessionByIDRow, error)
+	// A User's live sessions, the most recently seen first: their Devices.
+	SessionsOfUser(ctx context.Context, arg SessionsOfUserParams) ([]SessionsOfUserRow, error)
 	// The WebAuthn ceremony a sign-in started; only an unexpired challenge takes one.
 	SetChallengeCeremony(ctx context.Context, arg SetChallengeCeremonyParams) (int64, error)
 	// A session that has just proved a Second Factor says so from then on, and when.

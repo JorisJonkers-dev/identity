@@ -673,3 +673,32 @@ func TestFailuresOtherThanNotFoundPassThrough(t *testing.T) {
 		t.Fatalf("a cancelled take = %v", err)
 	}
 }
+
+func TestAUsersLiveSessionsAreListedTheMostRecentlySeenFirst(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	old, recent, gone := session(u, "old"), session(u, "recent"), session(u, "gone")
+	old.Device, recent.Device = "Firefox on macOS", "Safari on iOS"
+	recent.CreatedAt = t0.Add(time.Minute)
+	gone.ExpiresAt = t0
+	for _, sess := range []app.Session{old, recent, gone} {
+		_ = s.CreateSession(ctx, sess)
+	}
+	_ = s.TouchSession(ctx, recent.TokenHash, t0.Add(2*time.Minute), t0.Add(time.Hour))
+	got, err := s.SessionsOf(ctx, u.ID, t0.Add(time.Second))
+	if err != nil || len(got) != 2 || got[0].Device != "Safari on iOS" || got[1].Device != "Firefox on macOS" || !bytes.Equal(got[1].TokenHash, old.TokenHash) {
+		t.Fatalf("SessionsOf = %+v, %v", got, err)
+	}
+}
+
+func TestDeletingASessionSaysWhetherItWasTheUsers(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	sess := session(u, "hash")
+	_ = s.CreateSession(ctx, sess)
+	other, _ := s.DeleteSession(ctx, uuid.New(), sess.ID)
+	theirs, err := s.DeleteSession(ctx, u.ID, sess.ID)
+	if other || !theirs || err != nil {
+		t.Fatalf("someone else's %v, theirs %v, %v", other, theirs, err)
+	}
+}

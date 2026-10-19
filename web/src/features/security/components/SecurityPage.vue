@@ -33,6 +33,11 @@ function day(at: string): string {
         <span :class="['state', factors.length ? 'ok' : 'off']">{{ factors.length ? 'On' : 'Off' }}</span>
         <Icon name="chevr" class="chevr" />
       </RouterLink>
+      <RouterLink class="row link-row" to="/security/devices">
+        <span class="row-ic"><Icon name="monitor" /></span>
+        <span class="grow"><b>Devices</b><small>Where you are signed in</small></span>
+        <Icon name="chevr" class="chevr" />
+      </RouterLink>
       <RouterLink class="row link-row" to="/security/password">
         <span class="row-ic"><Icon name="key" /></span>
         <span class="grow"><b>Password</b><small>Other devices are signed out when it changes</small></span>

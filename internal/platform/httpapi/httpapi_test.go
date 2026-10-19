@@ -58,6 +58,11 @@ func (users) StepUpPasskeyOptions(context.Context, string) ([]byte, error) {
 	return nil, nil
 }
 func (users) StepUpWithPasskey(context.Context, string, []byte) error { return nil }
+func (users) Devices(context.Context, uuid.UUID, string) ([]app.Device, error) {
+	return nil, nil
+}
+func (users) SignOutDevice(context.Context, uuid.UUID, uuid.UUID) error    { return nil }
+func (users) SignOutOtherDevices(context.Context, uuid.UUID, string) error { return nil }
 func (users) ConfirmPasskey(context.Context, uuid.UUID, string, string, []byte, string) error {
 	return nil
 }

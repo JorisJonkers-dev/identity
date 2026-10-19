@@ -133,6 +133,7 @@ type Session struct {
 	ID          uuid.UUID
 	Methods     []string
 	TwoFactorAt *time.Time
+	Device      string
 }
 
 type SessionClient struct {

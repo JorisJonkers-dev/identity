@@ -41,3 +41,6 @@ databaseChangeLog:
   - include:
       file: 0013-step-up.yaml
       relativeToChangelogFile: true
+  - include:
+      file: 0014-devices.yaml
+      relativeToChangelogFile: true

@@ -1,0 +1,11 @@
+# Devices (identity#78): each Single sign-on session names the browser and operating system it was
+# started from, and nothing more: no user agent, no IP address, no location.
+databaseChangeLog:
+  - changeSet:
+      id: 0014-sessions-device
+      author: identity
+      changes:
+        - addColumn:
+            tableName: sessions
+            columns:
+              - column: {name: device, type: text, defaultValue: Unknown device, constraints: {nullable: false}}

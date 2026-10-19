@@ -75,7 +75,7 @@ func (q *Queries) CreatePasskey(ctx context.Context, arg CreatePasskeyParams) er
 }
 
 const createSession = `-- name: CreateSession :exec
-INSERT INTO sessions (token_hash, id, user_id, created_at, last_seen_at, expires_at, methods, two_factor_at) VALUES ($1, $2, $3, $4, $4, $5, $6, $7)
+INSERT INTO sessions (token_hash, id, user_id, created_at, last_seen_at, expires_at, methods, two_factor_at, device) VALUES ($1, $2, $3, $4, $4, $5, $6, $7, $8)
 `
 
 type CreateSessionParams struct {
@@ -86,6 +86,7 @@ type CreateSessionParams struct {
 	ExpiresAt   time.Time
 	Methods     []string
 	TwoFactorAt *time.Time
+	Device      string
 }
 
 func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) error {
@@ -97,6 +98,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) er
 		arg.ExpiresAt,
 		arg.Methods,
 		arg.TwoFactorAt,
+		arg.Device,
 	)
 	return err
 }
@@ -236,6 +238,23 @@ DELETE FROM passkey_enrolments WHERE user_id = $1
 func (q *Queries) DeletePasskeyEnrolment(ctx context.Context, userID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deletePasskeyEnrolment, userID)
 	return err
+}
+
+const deleteSessionOfUser = `-- name: DeleteSessionOfUser :execrows
+DELETE FROM sessions WHERE id = $1 AND user_id = $2
+`
+
+type DeleteSessionOfUserParams struct {
+	ID     uuid.UUID
+	UserID uuid.UUID
+}
+
+func (q *Queries) DeleteSessionOfUser(ctx context.Context, arg DeleteSessionOfUserParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteSessionOfUser, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const deleteSignup = `-- name: DeleteSignup :exec
@@ -412,6 +431,51 @@ func (q *Queries) SessionByID(ctx context.Context, id uuid.UUID) (SessionByIDRow
 		&i.TwoFactorAt,
 	)
 	return i, err
+}
+
+const sessionsOfUser = `-- name: SessionsOfUser :many
+SELECT token_hash, id, device, created_at, last_seen_at FROM sessions
+WHERE user_id = $1 AND expires_at > $2 ORDER BY last_seen_at DESC, id
+`
+
+type SessionsOfUserParams struct {
+	UserID    uuid.UUID
+	ExpiresAt time.Time
+}
+
+type SessionsOfUserRow struct {
+	TokenHash  []byte
+	ID         uuid.UUID
+	Device     string
+	CreatedAt  time.Time
+	LastSeenAt time.Time
+}
+
+// A User's live sessions, the most recently seen first: their Devices.
+func (q *Queries) SessionsOfUser(ctx context.Context, arg SessionsOfUserParams) ([]SessionsOfUserRow, error) {
+	rows, err := q.db.Query(ctx, sessionsOfUser, arg.UserID, arg.ExpiresAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SessionsOfUserRow{}
+	for rows.Next() {
+		var i SessionsOfUserRow
+		if err := rows.Scan(
+			&i.TokenHash,
+			&i.ID,
+			&i.Device,
+			&i.CreatedAt,
+			&i.LastSeenAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const setChallengeCeremony = `-- name: SetChallengeCeremony :execrows

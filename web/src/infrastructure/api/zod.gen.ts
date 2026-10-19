@@ -395,6 +395,23 @@ export const zStepUp = z.object({
 });
 
 /**
+ * One of the User's Single sign-on sessions.
+ */
+export const zDevice = z.object({
+    id: zId,
+    label: z.string().max(64),
+    lastSeenAt: z.iso.datetime({ offset: true }),
+    current: z.boolean()
+});
+
+/**
+ * The User's Devices, the most recently seen first.
+ */
+export const zDevices = z.object({
+    devices: z.array(zDevice).max(1000)
+});
+
+/**
  * An authenticator app or a passkey.
  */
 export const zSecondFactorKind = z.enum(['totp', 'passkey']);
@@ -509,6 +526,11 @@ export const zUserId = zId;
  * The Client, by its id.
  */
 export const zClientId2 = zClientId;
+
+/**
+ * The Device.
+ */
+export const zDeviceId = zId;
 
 /**
  * The Personal Token.
@@ -629,6 +651,25 @@ export const zStepUpWithPasskeyBody = zPasskeyAssertion;
  * The session proved two-factor now.
  */
 export const zStepUpWithPasskeyResponse = z.void();
+
+/**
+ * The Devices.
+ */
+export const zListDevicesResponse = zDevices;
+
+export const zSignOutDevicePath = z.object({
+    deviceId: zId
+});
+
+/**
+ * The Device is signed out.
+ */
+export const zSignOutDeviceResponse = z.void();
+
+/**
+ * Only this Device is signed in.
+ */
+export const zSignOutOtherDevicesResponse = z.void();
 
 /**
  * The options for navigator.credentials.create.

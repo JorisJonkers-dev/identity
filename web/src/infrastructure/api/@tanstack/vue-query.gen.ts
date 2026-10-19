@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/vue-query';
 
 import { client } from '../client.gen';
-import { addMember, assignRole, assignUserRole, changePassword, completeSignIn, completeSignInWithPasskey, confirmEmail, confirmPasskey, confirmTotp, createGroup, deleteGroup, getAccess, getDashboard, getLauncher, getProfile, getStepUp, getVersion, listAuditEvents, listMyTokens, listSecondFactors, listUserTokens, mintToken, type Options, passkeyOptions, removeMember, removeSecondFactor, renameGroup, revokeMyToken, revokeUserToken, rotateClientSecret, setStepUp, signIn, signOut, signOutUser, signUp, startPasskey, startStepUp, startTotp, stepUpPasskeyOptions, stepUpWithCode, stepUpWithPasskey, unassignRole, unassignUserRole, updateProfile } from '../sdk.gen';
-import type { AddMemberData, AddMemberError, AddMemberResponse, AssignRoleData, AssignRoleError, AssignRoleResponse, AssignUserRoleData, AssignUserRoleError, AssignUserRoleResponse, AuditCursor, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CompleteSignInData, CompleteSignInError, CompleteSignInResponse, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyError, CompleteSignInWithPasskeyResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, ConfirmPasskeyData, ConfirmPasskeyError, ConfirmPasskeyResponse, ConfirmTotpData, ConfirmTotpError, ConfirmTotpResponse, CreateGroupData, CreateGroupError, CreateGroupResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, GetAccessData, GetAccessError, GetAccessResponse, GetDashboardData, GetDashboardError, GetDashboardResponse, GetLauncherData, GetLauncherError, GetLauncherResponse, GetProfileData, GetProfileError, GetProfileResponse, GetStepUpData, GetStepUpError, GetStepUpResponse, GetVersionData, GetVersionError, GetVersionResponse, ListAuditEventsData, ListAuditEventsError, ListAuditEventsResponse, ListMyTokensData, ListMyTokensError, ListMyTokensResponse, ListSecondFactorsData, ListSecondFactorsError, ListSecondFactorsResponse, ListUserTokensData, ListUserTokensError, ListUserTokensResponse, MintTokenData, MintTokenError, MintTokenResponse, PasskeyOptionsData, PasskeyOptionsError, PasskeyOptionsResponse, RemoveMemberData, RemoveMemberError, RemoveMemberResponse, RemoveSecondFactorData, RemoveSecondFactorError, RemoveSecondFactorResponse, RenameGroupData, RenameGroupError, RenameGroupResponse, RevokeMyTokenData, RevokeMyTokenError, RevokeMyTokenResponse, RevokeUserTokenData, RevokeUserTokenError, RevokeUserTokenResponse, RotateClientSecretData, RotateClientSecretError, RotateClientSecretResponse, SetStepUpData, SetStepUpError, SetStepUpResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutError, SignOutResponse, SignOutUserData, SignOutUserError, SignOutUserResponse, SignUpData, SignUpError, StartPasskeyData, StartPasskeyError, StartPasskeyResponse, StartStepUpData, StartStepUpError, StartStepUpResponse, StartTotpData, StartTotpError, StartTotpResponse, StepUpPasskeyOptionsData, StepUpPasskeyOptionsError, StepUpPasskeyOptionsResponse, StepUpWithCodeData, StepUpWithCodeError, StepUpWithCodeResponse, StepUpWithPasskeyData, StepUpWithPasskeyError, StepUpWithPasskeyResponse, UnassignRoleData, UnassignRoleError, UnassignRoleResponse, UnassignUserRoleData, UnassignUserRoleError, UnassignUserRoleResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
+import { addMember, assignRole, assignUserRole, changePassword, completeSignIn, completeSignInWithPasskey, confirmEmail, confirmPasskey, confirmTotp, createGroup, deleteGroup, getAccess, getDashboard, getLauncher, getProfile, getStepUp, getVersion, listAuditEvents, listDevices, listMyTokens, listSecondFactors, listUserTokens, mintToken, type Options, passkeyOptions, removeMember, removeSecondFactor, renameGroup, revokeMyToken, revokeUserToken, rotateClientSecret, setStepUp, signIn, signOut, signOutDevice, signOutOtherDevices, signOutUser, signUp, startPasskey, startStepUp, startTotp, stepUpPasskeyOptions, stepUpWithCode, stepUpWithPasskey, unassignRole, unassignUserRole, updateProfile } from '../sdk.gen';
+import type { AddMemberData, AddMemberError, AddMemberResponse, AssignRoleData, AssignRoleError, AssignRoleResponse, AssignUserRoleData, AssignUserRoleError, AssignUserRoleResponse, AuditCursor, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CompleteSignInData, CompleteSignInError, CompleteSignInResponse, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyError, CompleteSignInWithPasskeyResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, ConfirmPasskeyData, ConfirmPasskeyError, ConfirmPasskeyResponse, ConfirmTotpData, ConfirmTotpError, ConfirmTotpResponse, CreateGroupData, CreateGroupError, CreateGroupResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, GetAccessData, GetAccessError, GetAccessResponse, GetDashboardData, GetDashboardError, GetDashboardResponse, GetLauncherData, GetLauncherError, GetLauncherResponse, GetProfileData, GetProfileError, GetProfileResponse, GetStepUpData, GetStepUpError, GetStepUpResponse, GetVersionData, GetVersionError, GetVersionResponse, ListAuditEventsData, ListAuditEventsError, ListAuditEventsResponse, ListDevicesData, ListDevicesError, ListDevicesResponse, ListMyTokensData, ListMyTokensError, ListMyTokensResponse, ListSecondFactorsData, ListSecondFactorsError, ListSecondFactorsResponse, ListUserTokensData, ListUserTokensError, ListUserTokensResponse, MintTokenData, MintTokenError, MintTokenResponse, PasskeyOptionsData, PasskeyOptionsError, PasskeyOptionsResponse, RemoveMemberData, RemoveMemberError, RemoveMemberResponse, RemoveSecondFactorData, RemoveSecondFactorError, RemoveSecondFactorResponse, RenameGroupData, RenameGroupError, RenameGroupResponse, RevokeMyTokenData, RevokeMyTokenError, RevokeMyTokenResponse, RevokeUserTokenData, RevokeUserTokenError, RevokeUserTokenResponse, RotateClientSecretData, RotateClientSecretError, RotateClientSecretResponse, SetStepUpData, SetStepUpError, SetStepUpResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutDeviceData, SignOutDeviceError, SignOutDeviceResponse, SignOutError, SignOutOtherDevicesData, SignOutOtherDevicesError, SignOutOtherDevicesResponse, SignOutResponse, SignOutUserData, SignOutUserError, SignOutUserResponse, SignUpData, SignUpError, StartPasskeyData, StartPasskeyError, StartPasskeyResponse, StartStepUpData, StartStepUpError, StartStepUpResponse, StartTotpData, StartTotpError, StartTotpResponse, StepUpPasskeyOptionsData, StepUpPasskeyOptionsError, StepUpPasskeyOptionsResponse, StepUpWithCodeData, StepUpWithCodeError, StepUpWithCodeResponse, StepUpWithPasskeyData, StepUpWithPasskeyError, StepUpWithPasskeyResponse, UnassignRoleData, UnassignRoleError, UnassignRoleResponse, UnassignUserRoleData, UnassignUserRoleError, UnassignUserRoleResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -394,6 +394,64 @@ export const stepUpWithPasskeyMutation = (options?: Partial<Options<StepUpWithPa
     const mutationOptions: UseMutationOptions<StepUpWithPasskeyResponse, StepUpWithPasskeyError, Options<StepUpWithPasskeyData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await stepUpWithPasskey({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listDevicesQueryKey = (options?: Options<ListDevicesData>) => createQueryKey('listDevices', options);
+
+/**
+ * The signed-in User's Devices
+ *
+ * Each live Single sign-on session, by the browser and operating system it was started from, the most recently seen first. The session asking is marked. No IP address or location is kept.
+ */
+export const listDevicesOptions = (options?: Options<ListDevicesData>) => queryOptions<ListDevicesResponse, ListDevicesError, ListDevicesResponse, ReturnType<typeof listDevicesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listDevices({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listDevicesQueryKey(options)
+});
+
+/**
+ * Sign one Device out
+ *
+ * Ends that session. Apps it signed in to that support back-channel logout are told; the User's other Devices stay signed in.
+ */
+export const signOutDeviceMutation = (options?: Partial<Options<SignOutDeviceData>>): UseMutationOptions<SignOutDeviceResponse, SignOutDeviceError, Options<SignOutDeviceData>> => {
+    const mutationOptions: UseMutationOptions<SignOutDeviceResponse, SignOutDeviceError, Options<SignOutDeviceData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await signOutDevice({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Sign every other Device out
+ *
+ * Ends every session of the User but the one asking.
+ */
+export const signOutOtherDevicesMutation = (options?: Partial<Options<SignOutOtherDevicesData>>): UseMutationOptions<SignOutOtherDevicesResponse, SignOutOtherDevicesError, Options<SignOutOtherDevicesData>> => {
+    const mutationOptions: UseMutationOptions<SignOutOtherDevicesResponse, SignOutOtherDevicesError, Options<SignOutOtherDevicesData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await signOutOtherDevices({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

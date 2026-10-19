@@ -130,6 +130,13 @@ type Handler interface {
 	//
 	// GET /api/v1/audit
 	ListAuditEvents(ctx context.Context, params ListAuditEventsParams) (ListAuditEventsRes, error)
+	// ListDevices implements listDevices operation.
+	//
+	// Each live Single sign-on session, by the browser and operating system it was started from, the most
+	// recently seen first. The session asking is marked. No IP address or location is kept.
+	//
+	// GET /api/v1/profile/devices
+	ListDevices(ctx context.Context) (ListDevicesRes, error)
 	// ListMyTokens implements listMyTokens operation.
 	//
 	// The signed-in User's tokens, newest first, and the Clients they may mint one for.
@@ -220,6 +227,19 @@ type Handler interface {
 	//
 	// DELETE /api/v1/session
 	SignOut(ctx context.Context) (SignOutRes, error)
+	// SignOutDevice implements signOutDevice operation.
+	//
+	// Ends that session. Apps it signed in to that support back-channel logout are told; the User's other
+	// Devices stay signed in.
+	//
+	// DELETE /api/v1/profile/devices/{deviceId}
+	SignOutDevice(ctx context.Context, params SignOutDeviceParams) (SignOutDeviceRes, error)
+	// SignOutOtherDevices implements signOutOtherDevices operation.
+	//
+	// Ends every session of the User but the one asking.
+	//
+	// POST /api/v1/profile/other-devices/sign-out
+	SignOutOtherDevices(ctx context.Context) (SignOutOtherDevicesRes, error)
 	// SignOutUser implements signOutUser operation.
 	//
 	// Ends all of the User's sessions. Apps that support back-channel logout are told, and apps behind the

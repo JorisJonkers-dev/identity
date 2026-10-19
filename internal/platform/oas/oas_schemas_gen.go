@@ -946,6 +946,76 @@ type DeleteGroupNoContent struct{}
 
 func (*DeleteGroupNoContent) deleteGroupRes() {}
 
+// One of the User's Single sign-on sessions.
+// Ref: #/components/schemas/Device
+type Device struct {
+	ID ID `json:"id"`
+	// The browser and operating system, as "Firefox on macOS".
+	Label string `json:"label"`
+	// When the session was last used, to the minute.
+	LastSeenAt time.Time `json:"lastSeenAt"`
+	// Whether this is the session asking.
+	Current bool `json:"current"`
+}
+
+// GetID returns the value of ID.
+func (s *Device) GetID() ID {
+	return s.ID
+}
+
+// GetLabel returns the value of Label.
+func (s *Device) GetLabel() string {
+	return s.Label
+}
+
+// GetLastSeenAt returns the value of LastSeenAt.
+func (s *Device) GetLastSeenAt() time.Time {
+	return s.LastSeenAt
+}
+
+// GetCurrent returns the value of Current.
+func (s *Device) GetCurrent() bool {
+	return s.Current
+}
+
+// SetID sets the value of ID.
+func (s *Device) SetID(val ID) {
+	s.ID = val
+}
+
+// SetLabel sets the value of Label.
+func (s *Device) SetLabel(val string) {
+	s.Label = val
+}
+
+// SetLastSeenAt sets the value of LastSeenAt.
+func (s *Device) SetLastSeenAt(val time.Time) {
+	s.LastSeenAt = val
+}
+
+// SetCurrent sets the value of Current.
+func (s *Device) SetCurrent(val bool) {
+	s.Current = val
+}
+
+// The User's Devices, the most recently seen first.
+// Ref: #/components/schemas/Devices
+type Devices struct {
+	Devices []Device `json:"devices"`
+}
+
+// GetDevices returns the value of Devices.
+func (s *Devices) GetDevices() []Device {
+	return s.Devices
+}
+
+// SetDevices sets the value of Devices.
+func (s *Devices) SetDevices(val []Device) {
+	s.Devices = val
+}
+
+func (*Devices) listDevicesRes() {}
+
 type Email string
 
 // A named set of Users.
@@ -2184,6 +2254,7 @@ func (*ProblemStatusCode) getProfileRes()                {}
 func (*ProblemStatusCode) getStepUpRes()                 {}
 func (*ProblemStatusCode) getVersionRes()                {}
 func (*ProblemStatusCode) listAuditEventsRes()           {}
+func (*ProblemStatusCode) listDevicesRes()               {}
 func (*ProblemStatusCode) listMyTokensRes()              {}
 func (*ProblemStatusCode) listSecondFactorsRes()         {}
 func (*ProblemStatusCode) listUserTokensRes()            {}
@@ -2197,6 +2268,8 @@ func (*ProblemStatusCode) revokeUserTokenRes()           {}
 func (*ProblemStatusCode) rotateClientSecretRes()        {}
 func (*ProblemStatusCode) setStepUpRes()                 {}
 func (*ProblemStatusCode) signInRes()                    {}
+func (*ProblemStatusCode) signOutDeviceRes()             {}
+func (*ProblemStatusCode) signOutOtherDevicesRes()       {}
 func (*ProblemStatusCode) signOutRes()                   {}
 func (*ProblemStatusCode) signOutUserRes()               {}
 func (*ProblemStatusCode) signUpRes()                    {}
@@ -2627,6 +2700,11 @@ func (s *SignInNoContent) SetSetCookie(val string) {
 
 func (*SignInNoContent) signInRes() {}
 
+// SignOutDeviceNoContent is response for SignOutDevice operation.
+type SignOutDeviceNoContent struct{}
+
+func (*SignOutDeviceNoContent) signOutDeviceRes() {}
+
 // SignOutNoContent is response for SignOut operation.
 type SignOutNoContent struct {
 	SetCookie string
@@ -2643,6 +2721,11 @@ func (s *SignOutNoContent) SetSetCookie(val string) {
 }
 
 func (*SignOutNoContent) signOutRes() {}
+
+// SignOutOtherDevicesNoContent is response for SignOutOtherDevices operation.
+type SignOutOtherDevicesNoContent struct{}
+
+func (*SignOutOtherDevicesNoContent) signOutOtherDevicesRes() {}
 
 // SignOutUserNoContent is response for SignOutUser operation.
 type SignOutUserNoContent struct{}

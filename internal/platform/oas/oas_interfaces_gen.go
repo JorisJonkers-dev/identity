@@ -73,6 +73,10 @@ type ListAuditEventsRes interface {
 	listAuditEventsRes()
 }
 
+type ListDevicesRes interface {
+	listDevicesRes()
+}
+
 type ListMyTokensRes interface {
 	listMyTokensRes()
 }
@@ -123,6 +127,14 @@ type SetStepUpRes interface {
 
 type SignInRes interface {
 	signInRes()
+}
+
+type SignOutDeviceRes interface {
+	signOutDeviceRes()
+}
+
+type SignOutOtherDevicesRes interface {
+	signOutOtherDevicesRes()
 }
 
 type SignOutRes interface {

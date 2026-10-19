@@ -48,6 +48,9 @@ type UseCases interface {
 	StepUpWithCode(ctx context.Context, sessionToken, code string) error
 	StepUpPasskeyOptions(ctx context.Context, sessionToken string) ([]byte, error)
 	StepUpWithPasskey(ctx context.Context, sessionToken string, response []byte) error
+	Devices(ctx context.Context, userID uuid.UUID, sessionToken string) ([]app.Device, error)
+	SignOutDevice(ctx context.Context, userID, deviceID uuid.UUID) error
+	SignOutOtherDevices(ctx context.Context, userID uuid.UUID, sessionToken string) error
 	SecondFactors(ctx context.Context, userID uuid.UUID) ([]app.Factor, error)
 	StartTOTP(ctx context.Context, userID uuid.UUID) (app.TOTPSetup, error)
 	ConfirmTOTP(ctx context.Context, userID uuid.UUID, sessionToken, label, code, password string) error
@@ -240,6 +243,41 @@ func stepUpRefusal(err error) (*oas.ProblemStatusCode, error) {
 	default:
 		return refusal(err)
 	}
+}
+
+// ListDevices implements listDevices.
+func (h *Handler) ListDevices(ctx context.Context) (oas.ListDevicesRes, error) {
+	s := current(ctx)
+	devices, err := h.uc.Devices(ctx, s.user.ID, s.token)
+	if err != nil {
+		return nil, err
+	}
+	res := &oas.Devices{Devices: make([]oas.Device, 0, len(devices))}
+	for _, d := range devices {
+		res.Devices = append(res.Devices, oas.Device{ID: oas.ID(d.ID), Label: d.Label, LastSeenAt: d.LastSeenAt, Current: d.Current})
+	}
+	return res, nil
+}
+
+// SignOutDevice implements signOutDevice.
+func (h *Handler) SignOutDevice(ctx context.Context, p oas.SignOutDeviceParams) (oas.SignOutDeviceRes, error) {
+	err := h.uc.SignOutDevice(ctx, current(ctx).user.ID, uuid.UUID(p.DeviceId))
+	if errors.Is(err, app.ErrNotFound) {
+		return problem(http.StatusNotFound, "That device is already signed out. Reload the page."), nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &oas.SignOutDeviceNoContent{}, nil
+}
+
+// SignOutOtherDevices implements signOutOtherDevices.
+func (h *Handler) SignOutOtherDevices(ctx context.Context) (oas.SignOutOtherDevicesRes, error) {
+	s := current(ctx)
+	if err := h.uc.SignOutOtherDevices(ctx, s.user.ID, s.token); err != nil {
+		return nil, err
+	}
+	return &oas.SignOutOtherDevicesNoContent{}, nil
 }
 
 // StartPasskey implements startPasskey.
