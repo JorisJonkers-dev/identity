@@ -79,3 +79,8 @@ func (s *Service) stepUpChallenge(ctx context.Context, sessionToken string) ([]b
 func (s *Service) HasSecondFactor(ctx context.Context, userID uuid.UUID) (bool, error) {
 	return s.hasSecondFactor(ctx, userID)
 }
+
+// UsersWithTwoFactor is every User who added an authenticator app or a passkey.
+func (s *Service) UsersWithTwoFactor(ctx context.Context) ([]uuid.UUID, error) {
+	return s.store.UsersWithTwoFactor(ctx)
+}

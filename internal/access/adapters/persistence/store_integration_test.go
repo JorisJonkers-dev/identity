@@ -503,3 +503,49 @@ func TestUnassigningSaysWhetherTheAssignmentWasThere(t *testing.T) {
 		t.Fatalf("first %v, again %v, %v", first, again, err)
 	}
 }
+
+func TestATwoFactorGroupHoldsBackItsRolesFromAMemberWithoutTwoFactor(t *testing.T) {
+	f := open(t)
+	family, friends := f.group(t, "Family"), f.group(t, "Friends")
+	ada := f.user(t, "ada@example.org")
+	for g, role := range map[uuid.UUID]string{family.ID: "viewer", friends.ID: "user"} {
+		_, _ = f.s.AddMember(f.ctx, domain.Membership{GroupID: g, UserID: ada})
+		_, _ = f.s.Assign(f.ctx, domain.Assignment{GroupID: g, ClientID: "grafana", Role: role})
+	}
+	_ = f.s.SetGroupTwoFactor(f.ctx, family.ID, true)
+	if roles, err := f.s.RolesOf(f.ctx, ada, "grafana"); err != nil || !slices.Equal(roles, []string{"user"}) {
+		t.Fatalf("RolesOf = %v, %v", roles, err)
+	}
+	if held, err := f.s.RolesByClient(f.ctx, ada); err != nil || !slices.Equal(held["grafana"], []string{"user"}) {
+		t.Fatalf("RolesByClient = %v, %v", held, err)
+	}
+}
+
+func TestATwoFactorGroupGivesItsRolesToAMemberWithTwoFactor(t *testing.T) {
+	f := open(t)
+	family := f.group(t, "Family")
+	ada := f.user(t, "ada@example.org")
+	_, _ = f.s.AddMember(f.ctx, domain.Membership{GroupID: family.ID, UserID: ada})
+	_, _ = f.s.Assign(f.ctx, domain.Assignment{GroupID: family.ID, ClientID: "grafana", Role: "viewer"})
+	_ = f.s.SetGroupTwoFactor(f.ctx, family.ID, true)
+	if err := f.q.CreateTOTPFactor(f.ctx, queries.CreateTOTPFactorParams{ID: uuid.New(), UserID: ada, Label: "Phone", SealedSecret: "vault:v1:x", CreatedAt: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	if roles, err := f.s.RolesOf(f.ctx, ada, "grafana"); err != nil || !slices.Equal(roles, []string{"viewer"}) {
+		t.Fatalf("RolesOf = %v, %v", roles, err)
+	}
+}
+
+func TestTheAdminsGroupCannotStopRequiringTwoFactor(t *testing.T) {
+	f := open(t)
+	if err := f.s.SetGroupTwoFactor(f.ctx, f.admins(t).ID, false); err == nil {
+		t.Fatal("the admins Group stopped requiring two-factor")
+	}
+}
+
+func TestMarkingAGroupThatIsGoneIsNotFound(t *testing.T) {
+	f := open(t)
+	if err := f.s.SetGroupTwoFactor(f.ctx, uuid.New(), true); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("err = %v", err)
+	}
+}

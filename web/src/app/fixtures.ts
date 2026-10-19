@@ -52,14 +52,14 @@ export function token(over: Partial<PersonalToken> = {}): PersonalToken {
 export function overview(over: Partial<AccessOverview> = {}): AccessOverview {
   return {
     groups: [
-      { id: ids.admins, name: 'Admins', admins: true, members: [ids.joris] },
-      { id: ids.family, name: 'Family', admins: false, members: [ids.joris, ids.ada] },
-      { id: ids.friends, name: 'Friends', admins: false, members: [] },
+      { id: ids.admins, name: 'Admins', admins: true, requiresTwoFactor: true, members: [ids.joris] },
+      { id: ids.family, name: 'Family', admins: false, requiresTwoFactor: false, members: [ids.joris, ids.ada] },
+      { id: ids.friends, name: 'Friends', admins: false, requiresTwoFactor: false, members: [] },
     ],
     users: [
-      { id: ids.joris, email: 'joris@example.org', name: 'Joris Jonkers' },
-      { id: ids.ada, email: 'ada@example.org', name: 'Ada Lovelace' },
-      { id: ids.noor, email: 'noor@example.org', name: 'Noor Bakker' },
+      { id: ids.joris, email: 'joris@example.org', name: 'Joris Jonkers', twoFactor: true },
+      { id: ids.ada, email: 'ada@example.org', name: 'Ada Lovelace', twoFactor: false },
+      { id: ids.noor, email: 'noor@example.org', name: 'Noor Bakker', twoFactor: false },
     ],
     clients: [
       { id: 'grafana', label: 'Grafana', roles: ['editor', 'viewer'] },

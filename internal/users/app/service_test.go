@@ -559,6 +559,17 @@ func (s *store) TakePasswordReset(_ context.Context, hash []byte) (bool, error) 
 	return false, nil
 }
 
+func (s *store) UsersWithTwoFactor(context.Context) ([]uuid.UUID, error) {
+	var ids []uuid.UUID
+	for _, f := range s.factors {
+		ids = append(ids, f.UserID)
+	}
+	for _, k := range s.passkeys {
+		ids = append(ids, k.UserID)
+	}
+	return ids, s.fail["UsersWithTwoFactor"]
+}
+
 func (s *store) DeleteUser(_ context.Context, userID uuid.UUID) (app.Deleted, error) {
 	if err := s.fail["DeleteUser"]; err != nil {
 		return app.Deleted{}, err

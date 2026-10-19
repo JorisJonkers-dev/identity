@@ -47,6 +47,9 @@ const (
 	RoleRemoved   Action = "role-removed"
 	// ClientSecretRotated is an Admin giving a Client a new secret (identity#32).
 	ClientSecretRotated Action = "client-secret-rotated"
+	// GroupTwoFactorRequired and GroupTwoFactorDropped are an Admin making a Group require two-factor, and stop.
+	GroupTwoFactorRequired Action = "group-two-factor-required"
+	GroupTwoFactorDropped  Action = "group-two-factor-dropped"
 	// StepUpChanged is an Admin setting how fresh a Client wants two-factor (docs/adr/0019).
 	StepUpChanged Action = "step-up-changed"
 
@@ -61,7 +64,7 @@ func (a Action) Kind() Kind {
 		return KindSignIn
 	case UserCreated, UserRenamed, PasswordChanged, EmailChanged, AccountDeleted, PasswordReset, SecondFactorAdded, SecondFactorRemoved, AdminPromoted:
 		return KindPeople
-	case GroupCreated, GroupRenamed, GroupDeleted, MemberAdded, MemberRemoved, RoleAssigned, RoleRemoved, ClientSecretRotated, StepUpChanged:
+	case GroupCreated, GroupRenamed, GroupDeleted, MemberAdded, MemberRemoved, RoleAssigned, RoleRemoved, ClientSecretRotated, StepUpChanged, GroupTwoFactorRequired, GroupTwoFactorDropped:
 		return KindAccess
 	case TokenMinted, TokenRevoked:
 		return KindTokens

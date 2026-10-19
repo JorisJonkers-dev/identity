@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/JorisJonkers-dev/identity/internal/users/app"
 )
 
@@ -239,5 +241,14 @@ func TestStepUpPasskeyOptionsFailWhenTheStoreDoes(t *testing.T) {
 	f.store.fail["StepUpChallenge"] = errBoomSF
 	if _, err := f.StepUpPasskeyOptions(context.Background(), session); !errors.Is(err, errBoomSF) {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestTheUsersWithTwoFactorAreThoseWhoAddedIt(t *testing.T) {
+	f := newFixture()
+	f.signedUp(t, "bob@example.org")
+	id, _, _ := f.enrolled(t, "ada@example.org")
+	if ids, err := f.UsersWithTwoFactor(context.Background()); err != nil || !slices.Equal(ids, []uuid.UUID{id}) {
+		t.Fatalf("UsersWithTwoFactor = %v, %v", ids, err)
 	}
 }

@@ -86,10 +86,11 @@ type GateSession struct {
 }
 
 type Group struct {
-	ID        uuid.UUID
-	Name      string
-	Admins    bool
-	CreatedAt time.Time
+	ID                uuid.UUID
+	Name              string
+	Admins            bool
+	CreatedAt         time.Time
+	RequiresTwoFactor bool
 }
 
 type Membership struct {

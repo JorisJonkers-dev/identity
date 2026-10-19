@@ -226,3 +226,18 @@ func TestSigningAUserOutAsksAsTheAdmin(t *testing.T) {
 		t.Fatalf("signed out by %v", f.people.signedOutBy)
 	}
 }
+
+func TestATwoFactorChangeIsOneEventByTheAdminNamingTheGroup(t *testing.T) {
+	for _, tc := range []struct {
+		required bool
+		want     audit.Action
+	}{{true, audit.GroupTwoFactorRequired}, {false, audit.GroupTwoFactorDropped}} {
+		t.Run(string(tc.want), func(t *testing.T) {
+			f := newFixture()
+			_ = f.svc.SetTwoFactor(context.Background(), asAdmin, family.ID, tc.required)
+			if e := f.only(t); e != (audit.Event{Action: tc.want, Actor: admin, Group: family.ID, GroupName: "Family"}) {
+				t.Fatalf("event = %+v", e)
+			}
+		})
+	}
+}

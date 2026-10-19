@@ -401,6 +401,16 @@ func (UnimplementedHandler) RotateClientSecret(ctx context.Context, params Rotat
 	return r, ht.ErrNotImplemented
 }
 
+// SetGroupTwoFactor implements setGroupTwoFactor operation.
+//
+// While a Group requires two-factor, a member without it holds none of the Group's App Roles; their
+// other roles keep working. The admins Group always requires it. Admins only.
+//
+// PUT /api/v1/access/groups/{groupId}/two-factor
+func (UnimplementedHandler) SetGroupTwoFactor(ctx context.Context, req *TwoFactorRequirement, params SetGroupTwoFactorParams) (r SetGroupTwoFactorRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // SetStepUp implements setStepUp operation.
 //
 // Signing in to the Client then finishes only when the session proved two-factor within the window; 0

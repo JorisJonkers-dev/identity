@@ -377,6 +377,10 @@ func (s AuditAction) Validate() error {
 		return nil
 	case "client-secret-rotated":
 		return nil
+	case "group-two-factor-required":
+		return nil
+	case "group-two-factor-dropped":
+		return nil
 	case "email-changed":
 		return nil
 	case "account-deleted":

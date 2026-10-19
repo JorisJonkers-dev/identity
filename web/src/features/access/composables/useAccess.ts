@@ -10,6 +10,7 @@ import {
   getAccessQueryKey,
   removeMemberMutation,
   renameGroupMutation,
+  setGroupTwoFactorMutation,
   signOutUserMutation,
   unassignRoleMutation,
   unassignUserRoleMutation,
@@ -34,7 +35,8 @@ export function useAccess() {
   const signOut = useAction(signOutUserMutation())
   const give = useAction(assignUserRoleMutation())
   const take = useAction(unassignUserRoleMutation())
-  const actions = [create, rename, remove, join, leave, assign, unassign, signOut, give, take]
+  const twoFactor = useAction(setGroupTwoFactorMutation())
+  const actions = [create, rename, remove, join, leave, assign, unassign, signOut, give, take, twoFactor]
 
   const overview = computed<AccessOverview | undefined>(() => query.data.value)
   return {
@@ -70,6 +72,9 @@ export function useAccess() {
       const path = { groupId, clientId, role }
       if (held) assign.run({ path }, refresh)
       else unassign.run({ path }, refresh)
+    },
+    setTwoFactor: (groupId: string, required: boolean) => {
+      twoFactor.run({ path: { groupId }, body: { required } }, refresh)
     },
     setUserRole: (userId: string, clientId: string, role: string, held: boolean) => {
       const path = { userId, clientId, role }

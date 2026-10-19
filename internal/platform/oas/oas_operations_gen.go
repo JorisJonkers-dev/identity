@@ -46,6 +46,7 @@ const (
 	RevokeMyTokenOperation             OperationName = "RevokeMyToken"
 	RevokeUserTokenOperation           OperationName = "RevokeUserToken"
 	RotateClientSecretOperation        OperationName = "RotateClientSecret"
+	SetGroupTwoFactorOperation         OperationName = "SetGroupTwoFactor"
 	SetStepUpOperation                 OperationName = "SetStepUp"
 	SignInOperation                    OperationName = "SignIn"
 	SignOutOperation                   OperationName = "SignOut"

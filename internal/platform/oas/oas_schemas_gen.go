@@ -193,29 +193,31 @@ func (s *Assignment) SetRole(val AppRole) {
 type AuditAction string
 
 const (
-	AuditActionSignedIn            AuditAction = "signed-in"
-	AuditActionSignInFailed        AuditAction = "sign-in-failed"
-	AuditActionSignedOut           AuditAction = "signed-out"
-	AuditActionUserCreated         AuditAction = "user-created"
-	AuditActionUserRenamed         AuditAction = "user-renamed"
-	AuditActionPasswordChanged     AuditAction = "password-changed"
-	AuditActionSecondFactorAdded   AuditAction = "second-factor-added"
-	AuditActionSecondFactorRemoved AuditAction = "second-factor-removed"
-	AuditActionAdminPromoted       AuditAction = "admin-promoted"
-	AuditActionGroupCreated        AuditAction = "group-created"
-	AuditActionGroupRenamed        AuditAction = "group-renamed"
-	AuditActionGroupDeleted        AuditAction = "group-deleted"
-	AuditActionMemberAdded         AuditAction = "member-added"
-	AuditActionMemberRemoved       AuditAction = "member-removed"
-	AuditActionRoleAssigned        AuditAction = "role-assigned"
-	AuditActionRoleRemoved         AuditAction = "role-removed"
-	AuditActionTokenMinted         AuditAction = "token-minted"
-	AuditActionTokenRevoked        AuditAction = "token-revoked"
-	AuditActionClientSecretRotated AuditAction = "client-secret-rotated"
-	AuditActionEmailChanged        AuditAction = "email-changed"
-	AuditActionAccountDeleted      AuditAction = "account-deleted"
-	AuditActionPasswordReset       AuditAction = "password-reset"
-	AuditActionStepUpChanged       AuditAction = "step-up-changed"
+	AuditActionSignedIn               AuditAction = "signed-in"
+	AuditActionSignInFailed           AuditAction = "sign-in-failed"
+	AuditActionSignedOut              AuditAction = "signed-out"
+	AuditActionUserCreated            AuditAction = "user-created"
+	AuditActionUserRenamed            AuditAction = "user-renamed"
+	AuditActionPasswordChanged        AuditAction = "password-changed"
+	AuditActionSecondFactorAdded      AuditAction = "second-factor-added"
+	AuditActionSecondFactorRemoved    AuditAction = "second-factor-removed"
+	AuditActionAdminPromoted          AuditAction = "admin-promoted"
+	AuditActionGroupCreated           AuditAction = "group-created"
+	AuditActionGroupRenamed           AuditAction = "group-renamed"
+	AuditActionGroupDeleted           AuditAction = "group-deleted"
+	AuditActionMemberAdded            AuditAction = "member-added"
+	AuditActionMemberRemoved          AuditAction = "member-removed"
+	AuditActionRoleAssigned           AuditAction = "role-assigned"
+	AuditActionRoleRemoved            AuditAction = "role-removed"
+	AuditActionTokenMinted            AuditAction = "token-minted"
+	AuditActionTokenRevoked           AuditAction = "token-revoked"
+	AuditActionClientSecretRotated    AuditAction = "client-secret-rotated"
+	AuditActionGroupTwoFactorRequired AuditAction = "group-two-factor-required"
+	AuditActionGroupTwoFactorDropped  AuditAction = "group-two-factor-dropped"
+	AuditActionEmailChanged           AuditAction = "email-changed"
+	AuditActionAccountDeleted         AuditAction = "account-deleted"
+	AuditActionPasswordReset          AuditAction = "password-reset"
+	AuditActionStepUpChanged          AuditAction = "step-up-changed"
 )
 
 // AllValues returns all AuditAction values.
@@ -240,6 +242,8 @@ func (AuditAction) AllValues() []AuditAction {
 		AuditActionTokenMinted,
 		AuditActionTokenRevoked,
 		AuditActionClientSecretRotated,
+		AuditActionGroupTwoFactorRequired,
+		AuditActionGroupTwoFactorDropped,
 		AuditActionEmailChanged,
 		AuditActionAccountDeleted,
 		AuditActionPasswordReset,
@@ -287,6 +291,10 @@ func (s AuditAction) MarshalText() ([]byte, error) {
 	case AuditActionTokenRevoked:
 		return []byte(s), nil
 	case AuditActionClientSecretRotated:
+		return []byte(s), nil
+	case AuditActionGroupTwoFactorRequired:
+		return []byte(s), nil
+	case AuditActionGroupTwoFactorDropped:
 		return []byte(s), nil
 	case AuditActionEmailChanged:
 		return []byte(s), nil
@@ -360,6 +368,12 @@ func (s *AuditAction) UnmarshalText(data []byte) error {
 		return nil
 	case AuditActionClientSecretRotated:
 		*s = AuditActionClientSecretRotated
+		return nil
+	case AuditActionGroupTwoFactorRequired:
+		*s = AuditActionGroupTwoFactorRequired
+		return nil
+	case AuditActionGroupTwoFactorDropped:
+		*s = AuditActionGroupTwoFactorDropped
 		return nil
 	case AuditActionEmailChanged:
 		*s = AuditActionEmailChanged
@@ -1132,6 +1146,9 @@ type Group struct {
 	Name string `json:"name"`
 	// Whether this is the admins Group, whose members are Admins and which holds no App Role.
 	Admins bool `json:"admins"`
+	// Whether a member without two-factor holds none of the Group's App Roles. The admins Group always
+	// does.
+	RequiresTwoFactor bool `json:"requiresTwoFactor"`
 	// The Users in the Group.
 	Members []ID `json:"members"`
 }
@@ -1149,6 +1166,11 @@ func (s *Group) GetName() string {
 // GetAdmins returns the value of Admins.
 func (s *Group) GetAdmins() bool {
 	return s.Admins
+}
+
+// GetRequiresTwoFactor returns the value of RequiresTwoFactor.
+func (s *Group) GetRequiresTwoFactor() bool {
+	return s.RequiresTwoFactor
 }
 
 // GetMembers returns the value of Members.
@@ -1169,6 +1191,11 @@ func (s *Group) SetName(val string) {
 // SetAdmins sets the value of Admins.
 func (s *Group) SetAdmins(val bool) {
 	s.Admins = val
+}
+
+// SetRequiresTwoFactor sets the value of RequiresTwoFactor.
+func (s *Group) SetRequiresTwoFactor(val bool) {
+	s.RequiresTwoFactor = val
 }
 
 // SetMembers sets the value of Members.
@@ -2098,6 +2125,8 @@ type Person struct {
 	Email Email `json:"email"`
 	// What the User is called.
 	Name string `json:"name"`
+	// Whether the User added an authenticator app or a passkey.
+	TwoFactor bool `json:"twoFactor"`
 }
 
 // GetID returns the value of ID.
@@ -2115,6 +2144,11 @@ func (s *Person) GetName() string {
 	return s.Name
 }
 
+// GetTwoFactor returns the value of TwoFactor.
+func (s *Person) GetTwoFactor() bool {
+	return s.TwoFactor
+}
+
 // SetID sets the value of ID.
 func (s *Person) SetID(val ID) {
 	s.ID = val
@@ -2128,6 +2162,11 @@ func (s *Person) SetEmail(val Email) {
 // SetName sets the value of Name.
 func (s *Person) SetName(val string) {
 	s.Name = val
+}
+
+// SetTwoFactor sets the value of TwoFactor.
+func (s *Person) SetTwoFactor(val bool) {
+	s.TwoFactor = val
 }
 
 // A Personal Token, without its secret.
@@ -2400,6 +2439,7 @@ func (*ProblemStatusCode) resetWithPasskeyRes()          {}
 func (*ProblemStatusCode) revokeMyTokenRes()             {}
 func (*ProblemStatusCode) revokeUserTokenRes()           {}
 func (*ProblemStatusCode) rotateClientSecretRes()        {}
+func (*ProblemStatusCode) setGroupTwoFactorRes()         {}
 func (*ProblemStatusCode) setStepUpRes()                 {}
 func (*ProblemStatusCode) signInRes()                    {}
 func (*ProblemStatusCode) signOutDeviceRes()             {}
@@ -2866,6 +2906,11 @@ func (s *Session) SetRoles(val []string) {
 	s.Roles = val
 }
 
+// SetGroupTwoFactorNoContent is response for SetGroupTwoFactor operation.
+type SetGroupTwoFactorNoContent struct{}
+
+func (*SetGroupTwoFactorNoContent) setGroupTwoFactorRes() {}
+
 // SetStepUpNoContent is response for SetStepUp operation.
 type SetStepUpNoContent struct{}
 
@@ -3251,6 +3296,22 @@ func (s *TokenList) SetTokens(val []PersonalToken) {
 }
 
 func (*TokenList) listUserTokensRes() {}
+
+// Whether a Group requires two-factor of its members.
+// Ref: #/components/schemas/TwoFactorRequirement
+type TwoFactorRequirement struct {
+	Required bool `json:"required"`
+}
+
+// GetRequired returns the value of Required.
+func (s *TwoFactorRequirement) GetRequired() bool {
+	return s.Required
+}
+
+// SetRequired sets the value of Required.
+func (s *TwoFactorRequirement) SetRequired(val bool) {
+	s.Required = val
+}
 
 // UnassignRoleNoContent is response for UnassignRole operation.
 type UnassignRoleNoContent struct{}

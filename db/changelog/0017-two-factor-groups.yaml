@@ -1,0 +1,23 @@
+# Two-factor Groups (identity#83): a Group may require two-factor, and then holds back its App
+# Roles from a member without it. The admins Group always requires it.
+databaseChangeLog:
+  - changeSet:
+      id: 0017-groups-requires-two-factor
+      author: identity
+      changes:
+        - addColumn:
+            tableName: groups
+            columns:
+              - column: {name: requires_two_factor, type: boolean, defaultValueBoolean: false, constraints: {nullable: false}}
+
+  - changeSet:
+      id: 0017-admins-require-two-factor
+      author: identity
+      changes:
+        - sql:
+            sql: >-
+              UPDATE groups SET requires_two_factor = true WHERE admins;
+              ALTER TABLE groups ADD CONSTRAINT groups_admins_require_two_factor CHECK (requires_two_factor OR NOT admins)
+      rollback:
+        - sql:
+            sql: ALTER TABLE groups DROP CONSTRAINT groups_admins_require_two_factor

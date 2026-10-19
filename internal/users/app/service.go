@@ -108,6 +108,8 @@ type Store interface {
 	ProvePasswordReset(ctx context.Context, userID uuid.UUID, at time.Time) error
 	// TakePasswordReset removes a reset, and reports whether it was there.
 	TakePasswordReset(ctx context.Context, tokenHash []byte) (bool, error)
+	// UsersWithTwoFactor is every User who added an authenticator app or a passkey.
+	UsersWithTwoFactor(ctx context.Context) ([]uuid.UUID, error)
 	// DeleteUser deletes a User with their sessions and Personal Tokens, returning their ids; it is
 	// ErrLastAdmin for the last Admin, even when two deletions race.
 	DeleteUser(ctx context.Context, userID uuid.UUID) (Deleted, error)

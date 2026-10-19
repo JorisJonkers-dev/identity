@@ -40,6 +40,8 @@ describe('an Audit Event reads as a sentence', () => {
     ['a Group made', { action: 'group-created', actor: joris, groupName: 'Family' }, '**Joris** made the Group Family'],
     ['a Group renamed', { action: 'group-renamed', actor: joris, groupName: 'Kin' }, '**Joris** renamed a Group to Kin'],
     ['a Group deleted', { action: 'group-deleted', actor: joris, groupName: 'Kin' }, '**Joris** deleted the Group Kin'],
+    ['two-factor required', { action: 'group-two-factor-required', actor: joris, groupName: 'Family' }, '**Joris** made Family require two-factor'],
+    ['two-factor no longer required', { action: 'group-two-factor-dropped', actor: joris, groupName: 'Family' }, '**Joris** stopped Family requiring two-factor'],
     ['a member added', { action: 'member-added', actor: joris, user: noor, groupName: 'Family' }, '**Joris** added Noor Bakker to Family'],
     ['a member removed', { action: 'member-removed', actor: joris, user: noor, groupName: 'Family' }, '**Joris** took Noor Bakker out of Family'],
     ['a role given', { action: 'role-assigned', actor: joris, groupName: 'Family', role: 'viewer', client: grafana }, '**Joris** gave Family [viewer] on Grafana'],

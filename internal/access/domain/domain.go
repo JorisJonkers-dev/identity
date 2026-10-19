@@ -37,6 +37,9 @@ type Group struct {
 	ID     uuid.UUID
 	Name   string
 	Admins bool
+	// RequiresTwoFactor holds back the Group's App Roles from a member without two-factor; the
+	// admins Group always does.
+	RequiresTwoFactor bool
 }
 
 // Membership puts one User in one Group.
@@ -74,4 +77,6 @@ type Person struct {
 	ID    uuid.UUID
 	Email string
 	Name  string
+	// TwoFactor is whether they added an authenticator app or a passkey.
+	TwoFactor bool
 }

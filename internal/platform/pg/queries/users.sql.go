@@ -423,6 +423,31 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 	return items, nil
 }
 
+const listUsersWithTwoFactor = `-- name: ListUsersWithTwoFactor :many
+SELECT user_id FROM totp_factors UNION SELECT user_id FROM passkeys
+`
+
+// The Users who added an authenticator app or a passkey.
+func (q *Queries) ListUsersWithTwoFactor(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listUsersWithTwoFactor)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []uuid.UUID{}
+	for rows.Next() {
+		var user_id uuid.UUID
+		if err := rows.Scan(&user_id); err != nil {
+			return nil, err
+		}
+		items = append(items, user_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockAdminsGroup = `-- name: LockAdminsGroup :one
 SELECT id FROM groups WHERE admins FOR UPDATE
 `

@@ -161,6 +161,10 @@ type RotateClientSecretRes interface {
 	rotateClientSecretRes()
 }
 
+type SetGroupTwoFactorRes interface {
+	setGroupTwoFactorRes()
+}
+
 type SetStepUpRes interface {
 	setStepUpRes()
 }
