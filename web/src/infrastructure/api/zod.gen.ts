@@ -444,6 +444,19 @@ export const zAccessOverview = z.object({
 });
 
 /**
+ * How fresh a Client wants two-factor, and how many live Personal Tokens turning step-up on would revoke: none can satisfy it (docs/adr/0019).
+ */
+export const zStepUpState = z.object({
+    minutes: z.union([
+        z.literal(0),
+        z.literal(5),
+        z.literal(15),
+        z.literal(60)
+    ]),
+    tokens: zCount
+});
+
+/**
  * How fresh a Client wants a session's two-factor proof (docs/adr/0019).
  */
 export const zStepUp = z.object({
@@ -1009,7 +1022,7 @@ export const zGetStepUpPath = z.object({
 /**
  * The Client's step-up.
  */
-export const zGetStepUpResponse = zStepUp;
+export const zGetStepUpResponse = zStepUpState;
 
 export const zSetStepUpBody = zStepUp;
 

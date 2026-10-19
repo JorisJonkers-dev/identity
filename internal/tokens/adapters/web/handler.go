@@ -60,6 +60,9 @@ func (h *Tokens) ListMyTokens(ctx context.Context) (oas.ListMyTokensRes, error) 
 // MintToken implements mintToken.
 func (h *Tokens) MintToken(ctx context.Context, req *oas.TokenDraft) (oas.MintTokenRes, error) {
 	m, err := h.uc.Mint(ctx, principal.From(ctx).UserID, req.Name, string(req.ClientId), int(req.Days))
+	if errors.Is(err, app.ErrStepUpClient) {
+		return problem(http.StatusUnprocessableEntity, h.uc.Label(ctx, string(req.ClientId))+" asks for two-factor each time it opens, so a token cannot open it."), nil
+	}
 	if err != nil {
 		return refusal(err)
 	}

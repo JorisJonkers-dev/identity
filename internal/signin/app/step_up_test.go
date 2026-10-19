@@ -107,18 +107,42 @@ func TestASignInFailsWhenTwoFactorCannotBeLookedUp(t *testing.T) {
 	}
 }
 
-// stepUpsFixture is StepUps over in-memory settings, with root an Admin.
+// tokens is a Client's live Personal Tokens, by count; revoking takes them all.
+type tokens struct {
+	live    map[string]int
+	revoked []string
+	by      uuid.UUID
+	err     error
+}
+
+func (t *tokens) LiveForClient(_ context.Context, clientID string) (int, error) {
+	return t.live[clientID], t.err
+}
+
+func (t *tokens) RevokeForClient(_ context.Context, actor uuid.UUID, clientID string) error {
+	if t.err != nil {
+		return t.err
+	}
+	t.revoked, t.by = append(t.revoked, clientID), actor
+	t.live[clientID] = 0
+	return nil
+}
+
+// stepUpsFixture is StepUps over in-memory settings, with root an Admin and two live tokens for
+// Grafana.
 type stepUpsFixture struct {
 	*app.StepUps
 	settings *settings
 	events   *recorded
+	tokens   *tokens
 }
 
 func newStepUps() *stepUpsFixture {
 	s := &settings{minutes: map[string]int{}}
 	events := &recorded{}
+	tk := &tokens{live: map[string]int{"grafana": 2}}
 	cs := clients{"grafana": {ID: "grafana", SignIn: domain.Native}}
-	return &stepUpsFixture{StepUps: app.NewStepUps(s, cs, admins{root: true}, events), settings: s, events: events}
+	return &stepUpsFixture{StepUps: app.NewStepUps(s, cs, admins{root: true}, events, tk), settings: s, events: events, tokens: tk}
 }
 
 var asRoot = app.Actor{ID: root, SecondFactor: true}
@@ -128,7 +152,7 @@ func TestAnAdminSetsAClientsStepUpAndReadsItBack(t *testing.T) {
 	if err := f.Set(context.Background(), asRoot, "grafana", 15); err != nil {
 		t.Fatal(err)
 	}
-	if got, err := f.StepUp(context.Background(), asRoot, "grafana"); got != 15 || err != nil {
+	if got, err := f.StepUp(context.Background(), asRoot, "grafana"); got.Minutes != 15 || err != nil {
 		t.Fatalf("StepUp = %d, %v", got, err)
 	}
 }
@@ -201,5 +225,54 @@ func TestAStepUpTheStoreRefusesIsNotAnAuditEvent(t *testing.T) {
 	}
 	if len(*f.events) != 0 {
 		t.Fatalf("events = %+v", *f.events)
+	}
+}
+
+func TestTheStepUpReadCountsTheTokensTurningItOnWouldRevoke(t *testing.T) {
+	if got, err := newStepUps().StepUp(context.Background(), asRoot, "grafana"); got != (app.StepUpState{Tokens: 2}) || err != nil {
+		t.Fatalf("StepUp = %+v, %v", got, err)
+	}
+}
+
+func TestTurningStepUpOnRevokesTheClientsTokensAsTheAdmin(t *testing.T) {
+	f := newStepUps()
+	_ = f.Set(context.Background(), asRoot, "grafana", 5)
+	if len(f.tokens.revoked) != 1 || f.tokens.revoked[0] != "grafana" || f.tokens.by != root {
+		t.Fatalf("revoked %v by %v", f.tokens.revoked, f.tokens.by)
+	}
+}
+
+func TestTurningStepUpOffRevokesNothing(t *testing.T) {
+	f := newStepUps()
+	_ = f.Set(context.Background(), asRoot, "grafana", 0)
+	if len(f.tokens.revoked) != 0 {
+		t.Fatalf("revoked %v", f.tokens.revoked)
+	}
+}
+
+func TestStepUpIsNotSetWhenItsTokensCannotBeRevoked(t *testing.T) {
+	f := newStepUps()
+	f.tokens.err = errBoom
+	if err := f.Set(context.Background(), asRoot, "grafana", 5); !errors.Is(err, errBoom) {
+		t.Fatalf("err = %v", err)
+	}
+	if f.settings.minutes["grafana"] != 0 || len(*f.events) != 0 {
+		t.Fatalf("set %v, events %v", f.settings.minutes, *f.events)
+	}
+}
+
+func TestTheStepUpReadFailsWhenTheTokensOrTheSettingCannotBeRead(t *testing.T) {
+	for _, name := range []string{"tokens", "setting"} {
+		t.Run(name, func(t *testing.T) {
+			f := newStepUps()
+			if name == "tokens" {
+				f.tokens.err = errBoom
+			} else {
+				f.settings.fail = errBoom
+			}
+			if _, err := f.StepUp(context.Background(), asRoot, "grafana"); !errors.Is(err, errBoom) {
+				t.Fatalf("err = %v", err)
+			}
+		})
 	}
 }

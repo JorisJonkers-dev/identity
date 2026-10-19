@@ -2969,7 +2969,7 @@ func decodeGetStepUpResponse(resp *http.Response) (res GetStepUpRes, _ error) {
 			}
 			d := jx.DecodeBytes(buf)
 
-			var response StepUp
+			var response StepUpState
 			if err := func() error {
 				if err := response.Decode(d); err != nil {
 					return err

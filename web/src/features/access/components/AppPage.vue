@@ -11,6 +11,7 @@ import GlassSelect from '../../../shared/GlassSelect.vue'
 import Icon from '../../../shared/Icon'
 import { useAccess } from '../composables/useAccess'
 import { useStepUp } from '../composables/useStepUp'
+import { counted } from '../../admin/format'
 import { minutesOf, stepUpChoices, stepUpSummary } from '../stepUp'
 import { directHolders, holders } from '../model'
 
@@ -22,7 +23,14 @@ const rotate = useAction(rotateClientSecretMutation())
 const asking = ref(false)
 const stepUp = useStepUp(clientId)
 const stepUpChoice = computed(() => String(stepUp.minutes.value ?? 0))
+// Turning step-up on revokes the app's tokens, so the Admin sees how many first.
+const pendingStepUp = ref<string | null>(null)
 function pickStepUp(choice: string) {
+  if (!stepUp.minutes.value && minutesOf(choice) > 0 && stepUp.tokens.value) pendingStepUp.value = choice
+  else stepUp.set(minutesOf(choice))
+}
+function confirmStepUp(choice: string) {
+  pendingStepUp.value = null
   stepUp.set(minutesOf(choice))
 }
 const addable = (o: AccessOverview, role: string) => {
@@ -82,6 +90,11 @@ function rotateNow() {
           <span class="row-ic"><Icon name="shield" /></span>
           <span class="grow"><b>Ask for two-factor again</b><small>{{ stepUpSummary(stepUp.minutes.value, app.label) }}</small></span>
           <GlassSelect :model-value="stepUpChoice" :options="stepUpChoices" :label="`Ask for two-factor again in ${app.label}`" small @pick="pickStepUp" />
+        </div>
+        <div v-if="pendingStepUp" class="confirm">
+          <div class="ask">Turn on step-up for {{ app.label }}?<small>This revokes {{ counted(Number(stepUp.tokens.value), 'token') }} for {{ app.label }}. Scripts that use them stop working.</small></div>
+          <button class="btn sm" type="button" @click="pendingStepUp = null">Cancel</button>
+          <button class="btn sm danger-solid" type="button" @click="confirmStepUp(pendingStepUp)">Turn on and revoke</button>
         </div>
         <p v-if="stepUp.error.value" role="alert" class="alert"><Icon name="alert" />{{ stepUp.error.value }}</p>
       </section>

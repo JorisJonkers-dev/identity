@@ -219,3 +219,12 @@ func TestAFailureTheContractDoesNotNameIsPassedOn(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestATokenForAStepUpAppSaysWhyItCannotBeMade(t *testing.T) {
+	t.Parallel()
+	res, err := web.New(&useCases{err: app.ErrStepUpClient}).MintToken(as(uuid.New()), &oas.TokenDraft{Name: "cli", ClientId: "grafana", Days: 30})
+	p, ok := res.(*oas.ProblemStatusCode)
+	if err != nil || !ok || p.StatusCode != 422 || p.Response.Detail.Value != "Label of grafana asks for two-factor each time it opens, so a token cannot open it." {
+		t.Fatalf("MintToken = %+v, %v", res, err)
+	}
+}

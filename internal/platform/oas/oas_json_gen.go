@@ -6532,6 +6532,147 @@ func (s *StepUpMinutes) UnmarshalJSON(data []byte) error {
 }
 
 // Encode implements json.Marshaler.
+func (s *StepUpState) Encode(e *jx.Encoder) {
+	e.ObjStart()
+	s.encodeFields(e)
+	e.ObjEnd()
+}
+
+// encodeFields encodes fields.
+func (s *StepUpState) encodeFields(e *jx.Encoder) {
+	{
+		e.FieldStart("minutes")
+		s.Minutes.Encode(e)
+	}
+	{
+		e.FieldStart("tokens")
+		s.Tokens.Encode(e)
+	}
+}
+
+var jsonFieldsNameOfStepUpState = [2]string{
+	0: "minutes",
+	1: "tokens",
+}
+
+// Decode decodes StepUpState from json.
+func (s *StepUpState) Decode(d *jx.Decoder) error {
+	if s == nil {
+		return errors.New("invalid: unable to decode StepUpState to nil")
+	}
+	var requiredBitSet [1]uint8
+
+	if err := d.ObjBytes(func(d *jx.Decoder, k []byte) error {
+		switch string(k) {
+		case "minutes":
+			requiredBitSet[0] |= 1 << 0
+			if err := func() error {
+				if err := s.Minutes.Decode(d); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"minutes\"")
+			}
+		case "tokens":
+			requiredBitSet[0] |= 1 << 1
+			if err := func() error {
+				if err := s.Tokens.Decode(d); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"tokens\"")
+			}
+		default:
+			return errors.Errorf("unexpected field %q", k)
+		}
+		return nil
+	}); err != nil {
+		return errors.Wrap(err, "decode StepUpState")
+	}
+	// Validate required fields.
+	var failures []validate.FieldError
+	for i, mask := range [1]uint8{
+		0b00000011,
+	} {
+		if result := (requiredBitSet[i] & mask) ^ mask; result != 0 {
+			// Mask only required fields and check equality to mask using XOR.
+			//
+			// If XOR result is not zero, result is not equal to expected, so some fields are missed.
+			// Bits of fields which would be set are actually bits of missed fields.
+			missed := bits.OnesCount8(result)
+			for bitN := 0; bitN < missed; bitN++ {
+				bitIdx := bits.TrailingZeros8(result)
+				fieldIdx := i*8 + bitIdx
+				var name string
+				if fieldIdx < len(jsonFieldsNameOfStepUpState) {
+					name = jsonFieldsNameOfStepUpState[fieldIdx]
+				} else {
+					name = strconv.Itoa(fieldIdx)
+				}
+				failures = append(failures, validate.FieldError{
+					Name:  name,
+					Error: validate.ErrFieldRequired,
+				})
+				// Reset bit.
+				result &^= 1 << bitIdx
+			}
+		}
+	}
+	if len(failures) > 0 {
+		return &validate.Error{Fields: failures}
+	}
+
+	return nil
+}
+
+// MarshalJSON implements stdjson.Marshaler.
+func (s *StepUpState) MarshalJSON() ([]byte, error) {
+	e := jx.Encoder{}
+	s.Encode(&e)
+	return e.Bytes(), nil
+}
+
+// UnmarshalJSON implements stdjson.Unmarshaler.
+func (s *StepUpState) UnmarshalJSON(data []byte) error {
+	d := jx.DecodeBytes(data)
+	return s.Decode(d)
+}
+
+// Encode encodes StepUpStateMinutes as json.
+func (s StepUpStateMinutes) Encode(e *jx.Encoder) {
+	e.Int32(int32(s))
+}
+
+// Decode decodes StepUpStateMinutes from json.
+func (s *StepUpStateMinutes) Decode(d *jx.Decoder) error {
+	if s == nil {
+		return errors.New("invalid: unable to decode StepUpStateMinutes to nil")
+	}
+	v, err := d.Int32()
+	if err != nil {
+		return err
+	}
+	*s = StepUpStateMinutes(v)
+
+	return nil
+}
+
+// MarshalJSON implements stdjson.Marshaler.
+func (s StepUpStateMinutes) MarshalJSON() ([]byte, error) {
+	e := jx.Encoder{}
+	s.Encode(&e)
+	return e.Bytes(), nil
+}
+
+// UnmarshalJSON implements stdjson.Unmarshaler.
+func (s *StepUpStateMinutes) UnmarshalJSON(data []byte) error {
+	d := jx.DecodeBytes(data)
+	return s.Decode(d)
+}
+
+// Encode implements json.Marshaler.
 func (s *TOTPConfirmation) Encode(e *jx.Encoder) {
 	e.ObjStart()
 	s.encodeFields(e)

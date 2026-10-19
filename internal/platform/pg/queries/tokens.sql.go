@@ -12,6 +12,22 @@ import (
 	"github.com/google/uuid"
 )
 
+const countLiveClientTokens = `-- name: CountLiveClientTokens :one
+SELECT count(*) FROM personal_tokens WHERE client_id = $1 AND revoked_at IS NULL AND expires_at > $2
+`
+
+type CountLiveClientTokensParams struct {
+	ClientID  string
+	ExpiresAt time.Time
+}
+
+func (q *Queries) CountLiveClientTokens(ctx context.Context, arg CountLiveClientTokensParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countLiveClientTokens, arg.ClientID, arg.ExpiresAt)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countPersonalTokensExpiring = `-- name: CountPersonalTokensExpiring :one
 SELECT count(*) FROM personal_tokens WHERE revoked_at IS NULL AND expires_at > $1 AND expires_at <= $2
 `
@@ -148,6 +164,43 @@ func (q *Queries) PersonalTokenByID(ctx context.Context, id uuid.UUID) (Personal
 		&i.LastUsedAt,
 	)
 	return i, err
+}
+
+const revokeClientTokens = `-- name: RevokeClientTokens :many
+UPDATE personal_tokens SET revoked_at = $2
+WHERE client_id = $1 AND revoked_at IS NULL AND expires_at > $2
+RETURNING id, user_id
+`
+
+type RevokeClientTokensParams struct {
+	ClientID  string
+	RevokedAt *time.Time
+}
+
+type RevokeClientTokensRow struct {
+	ID     uuid.UUID
+	UserID uuid.UUID
+}
+
+// Revokes every live token for a Client at once, as turning step-up on does.
+func (q *Queries) RevokeClientTokens(ctx context.Context, arg RevokeClientTokensParams) ([]RevokeClientTokensRow, error) {
+	rows, err := q.db.Query(ctx, revokeClientTokens, arg.ClientID, arg.RevokedAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []RevokeClientTokensRow{}
+	for rows.Next() {
+		var i RevokeClientTokensRow
+		if err := rows.Scan(&i.ID, &i.UserID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const revokePersonalToken = `-- name: RevokePersonalToken :execrows
