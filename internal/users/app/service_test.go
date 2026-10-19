@@ -28,6 +28,8 @@ type store struct {
 	sessions   map[string]app.Session
 	challenges map[string]*challenge
 	changes    map[uuid.UUID]app.EmailChange
+	// tokens is each User's Personal Tokens, which go with them.
+	tokens     map[uuid.UUID][]uuid.UUID
 	factors    []app.TOTPFactor
 	enrolments map[uuid.UUID]app.TOTPEnrolment
 	passkeys   []app.Passkey
@@ -508,6 +510,22 @@ func (s *store) TouchSession(_ context.Context, hash []byte, lastSeen, expires t
 	sess.LastSeenAt, sess.ExpiresAt = lastSeen, expires
 	s.sessions[string(hash)] = sess
 	return nil
+}
+
+func (s *store) DeleteUser(_ context.Context, userID uuid.UUID) (app.Deleted, error) {
+	if err := s.fail["DeleteUser"]; err != nil {
+		return app.Deleted{}, err
+	}
+	var d app.Deleted
+	for k, sess := range s.sessions {
+		if sess.UserID == userID {
+			d.Sessions = append(d.Sessions, sess.ID)
+			delete(s.sessions, k)
+		}
+	}
+	d.Tokens = s.tokens[userID]
+	delete(s.users, userID)
+	return d, nil
 }
 
 func (s *store) SessionsOf(_ context.Context, userID uuid.UUID, now time.Time) ([]app.Session, error) {

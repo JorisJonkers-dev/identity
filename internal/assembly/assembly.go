@@ -124,9 +124,11 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 	// Audit names Users, so it is made after users, which records through it.
 	var audit *auditapp.Service
 	recorder := recorderFunc(func(ctx context.Context, e auditdomain.Event) { audit.Record(ctx, e) })
+	// Set once the Gate exists: a deleted User's Personal Tokens leave its cache at once.
+	var tokensDeleted func(tokenIDs []uuid.UUID)
 	opts := []app.Option{app.WithAdmins(admins), app.WithAudit(recorder), app.WithSignedOut(func(ctx context.Context, userID uuid.UUID, sessionIDs []uuid.UUID) {
 		signedOut(ctx, userID, sessionIDs)
-	})}
+	}), app.WithTokensDeleted(func(_ context.Context, tokenIDs []uuid.UUID) { tokensDeleted(tokenIDs) })}
 	ceremonies, err := passkeyCeremonies(cfg.PublicURL)
 	if err != nil {
 		return nil, err
@@ -139,7 +141,7 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 		opts = append(opts, app.WithTOTPMatch(cfg.TOTPMatch))
 	}
 	q := cfg.Store.Queries()
-	users := app.New(persistence.New(q), passwords.NewArgon2id(maxConcurrentHashes, hashWait), cfg.Mailer, now, rand.Reader, cfg.PublicURL, opts...)
+	users := app.New(persistence.New(q, cfg.Store), passwords.NewArgon2id(maxConcurrentHashes, hashWait), cfg.Mailer, now, rand.Reader, cfg.PublicURL, opts...)
 	access = accessapp.New(accesspersistence.New(q, cfg.Store), catalog.New(cfg.Index), people.New(users), recorder, rand.Reader)
 	keys := signinapp.NewKeys(signinpersistence.NewKeys(q, cfg.Store, time.Now), cfg.KeySealer, newSigningKey, time.Now, rand.Reader)
 	ring, err := signinoidc.LoadRing(ctx, keys.Load)
@@ -182,6 +184,7 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 	}
 	others := gatecontexts.New(signIn, users)
 	gate := gateapp.New(gatepersistence.New(q), others, others, others, recorder, now, rand.Reader, gateCacheTTL)
+	tokensDeleted = gate.Forget
 	gate.SetTokens(others)
 	tokens.OnRevoked(func(_ context.Context, tokenID uuid.UUID) { gate.Forget([]uuid.UUID{tokenID}) })
 	signedOut = endSessions(gate, signIn, cfg.Logger)

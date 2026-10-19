@@ -44,5 +44,12 @@ function day(at: string): string {
         <Icon name="chevr" class="chevr" />
       </RouterLink>
     </section>
+    <section class="glass group">
+      <RouterLink class="row link-row" to="/security/delete">
+        <span class="row-ic danger-t"><Icon name="trash" /></span>
+        <span class="grow"><b>Delete account</b><small>Ends your access to every app</small></span>
+        <Icon name="chevr" class="chevr" />
+      </RouterLink>
+    </section>
   </AppShell>
 </template>

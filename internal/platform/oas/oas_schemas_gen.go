@@ -208,6 +208,7 @@ const (
 	AuditActionTokenRevoked        AuditAction = "token-revoked"
 	AuditActionClientSecretRotated AuditAction = "client-secret-rotated"
 	AuditActionEmailChanged        AuditAction = "email-changed"
+	AuditActionAccountDeleted      AuditAction = "account-deleted"
 	AuditActionStepUpChanged       AuditAction = "step-up-changed"
 )
 
@@ -234,6 +235,7 @@ func (AuditAction) AllValues() []AuditAction {
 		AuditActionTokenRevoked,
 		AuditActionClientSecretRotated,
 		AuditActionEmailChanged,
+		AuditActionAccountDeleted,
 		AuditActionStepUpChanged,
 	}
 }
@@ -280,6 +282,8 @@ func (s AuditAction) MarshalText() ([]byte, error) {
 	case AuditActionClientSecretRotated:
 		return []byte(s), nil
 	case AuditActionEmailChanged:
+		return []byte(s), nil
+	case AuditActionAccountDeleted:
 		return []byte(s), nil
 	case AuditActionStepUpChanged:
 		return []byte(s), nil
@@ -350,6 +354,9 @@ func (s *AuditAction) UnmarshalText(data []byte) error {
 		return nil
 	case AuditActionEmailChanged:
 		*s = AuditActionEmailChanged
+		return nil
+	case AuditActionAccountDeleted:
+		*s = AuditActionAccountDeleted
 		return nil
 	case AuditActionStepUpChanged:
 		*s = AuditActionStepUpChanged
@@ -962,6 +969,23 @@ func (s *Dashboard) SetGrafanaUrl(val OptURI) {
 }
 
 func (*Dashboard) getDashboardRes() {}
+
+// DeleteAccountNoContent is response for DeleteAccount operation.
+type DeleteAccountNoContent struct {
+	SetCookie string
+}
+
+// GetSetCookie returns the value of SetCookie.
+func (s *DeleteAccountNoContent) GetSetCookie() string {
+	return s.SetCookie
+}
+
+// SetSetCookie sets the value of SetCookie.
+func (s *DeleteAccountNoContent) SetSetCookie(val string) {
+	s.SetCookie = val
+}
+
+func (*DeleteAccountNoContent) deleteAccountRes() {}
 
 // DeleteGroupNoContent is response for DeleteGroup operation.
 type DeleteGroupNoContent struct{}
@@ -2315,6 +2339,7 @@ func (*ProblemStatusCode) confirmEmailRes()              {}
 func (*ProblemStatusCode) confirmPasskeyRes()            {}
 func (*ProblemStatusCode) confirmTOTPRes()               {}
 func (*ProblemStatusCode) createGroupRes()               {}
+func (*ProblemStatusCode) deleteAccountRes()             {}
 func (*ProblemStatusCode) deleteGroupRes()               {}
 func (*ProblemStatusCode) getAccessRes()                 {}
 func (*ProblemStatusCode) getDashboardRes()              {}

@@ -77,6 +77,7 @@ var operationRolesSession = map[string][]string{
 	ConfirmPasskeyOperation:       []string{},
 	ConfirmTOTPOperation:          []string{},
 	CreateGroupOperation:          []string{},
+	DeleteAccountOperation:        []string{},
 	DeleteGroupOperation:          []string{},
 	GetAccessOperation:            []string{},
 	GetDashboardOperation:         []string{},

@@ -283,6 +283,36 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/profile/deletion:
+    post:
+      operationId: deleteAccount
+      summary: Delete the signed-in User's account
+      description: >-
+        Needs the password and, when the User has two-factor, a session that proved it within five
+        minutes. Every session ends with back-channel logout, Personal Tokens stop working, and
+        memberships and direct roles go; the email can sign up again. Audit Events about the User
+        stay, naming no one. The last Admin is refused.
+      tags: [profile]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordCheck"
+      responses:
+        "204":
+          description: The account is deleted.
+          headers:
+            Set-Cookie:
+              description: Clears the session cookie.
+              required: true
+              schema:
+                type: string
+                maxLength: 256
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /api/v1/profile/password:
     post:
       operationId: changePassword
@@ -1120,6 +1150,7 @@ components:
         - token-revoked
         - client-secret-rotated
         - email-changed
+        - account-deleted
         - step-up-changed
     AuditCursor:
       description: Where a page of Audit Events ends; opaque.

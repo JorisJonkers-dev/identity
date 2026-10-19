@@ -355,6 +355,18 @@ describe('proving two-factor again for an app', () => {
     expect(router.currentRoute.value.fullPath).toBe('/signin')
   })
 
+  it('goes back to the page that asked for it', async () => {
+    const { wrapper, router } = await mountAt('/signin/step-up?next=/security/delete', { ...asks(['totp']), 'POST /api/v1/session/step-up/code': noContent(), 'GET /api/v1/profile': ada })
+    await typeCode(wrapper, '492039')
+    expect(router.currentRoute.value.path).toBe('/security/delete')
+  })
+
+  it('ignores a page to go back to that is not one of ours', async () => {
+    const { wrapper, router } = await mountAt('/signin/step-up?next=//evil.test/', { ...asks(['totp']), 'POST /api/v1/session/step-up/code': noContent(), 'GET /api/v1/profile': ada })
+    await typeCode(wrapper, '492039')
+    expect(router.currentRoute.value.path).toBe('/')
+  })
+
   it('goes to the apps when no app asked', async () => {
     const { wrapper, router } = await mountAt('/signin/step-up', { ...asks(['totp']), 'POST /api/v1/session/step-up/code': noContent(), 'GET /api/v1/profile': ada })
     await typeCode(wrapper, '492039')

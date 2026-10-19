@@ -12,7 +12,7 @@ export type AuditKind = 'sign-in' | 'people' | 'access' | 'tokens';
 /**
  * What an Audit Event records.
  */
-export type AuditAction = 'signed-in' | 'sign-in-failed' | 'signed-out' | 'user-created' | 'user-renamed' | 'password-changed' | 'second-factor-added' | 'second-factor-removed' | 'admin-promoted' | 'group-created' | 'group-renamed' | 'group-deleted' | 'member-added' | 'member-removed' | 'role-assigned' | 'role-removed' | 'token-minted' | 'token-revoked' | 'client-secret-rotated' | 'email-changed' | 'step-up-changed';
+export type AuditAction = 'signed-in' | 'sign-in-failed' | 'signed-out' | 'user-created' | 'user-renamed' | 'password-changed' | 'second-factor-added' | 'second-factor-removed' | 'admin-promoted' | 'group-created' | 'group-renamed' | 'group-deleted' | 'member-added' | 'member-removed' | 'role-assigned' | 'role-removed' | 'token-minted' | 'token-revoked' | 'client-secret-rotated' | 'email-changed' | 'account-deleted' | 'step-up-changed';
 
 /**
  * Where a page of Audit Events ends; opaque.
@@ -1006,6 +1006,35 @@ export type AskEmailChangeResponses = {
      */
     202: unknown;
 };
+
+export type DeleteAccountData = {
+    body: PasswordCheck;
+    path?: never;
+    query?: never;
+    url: '/api/v1/profile/deletion';
+};
+
+export type DeleteAccountErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type DeleteAccountError = DeleteAccountErrors[keyof DeleteAccountErrors];
+
+export type DeleteAccountResponses = {
+    /**
+     * The account is deleted.
+     */
+    204: void;
+};
+
+export type DeleteAccountResponse = DeleteAccountResponses[keyof DeleteAccountResponses];
 
 export type ChangePasswordData = {
     body: PasswordChange;

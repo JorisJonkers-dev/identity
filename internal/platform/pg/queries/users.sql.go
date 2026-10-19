@@ -249,6 +249,30 @@ func (q *Queries) DeletePasskeyEnrolment(ctx context.Context, userID uuid.UUID) 
 	return err
 }
 
+const deletePersonalTokensOfUser = `-- name: DeletePersonalTokensOfUser :many
+DELETE FROM personal_tokens WHERE user_id = $1 RETURNING id
+`
+
+func (q *Queries) DeletePersonalTokensOfUser(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, deletePersonalTokensOfUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []uuid.UUID{}
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const deleteSessionOfUser = `-- name: DeleteSessionOfUser :execrows
 DELETE FROM sessions WHERE id = $1 AND user_id = $2
 `
@@ -264,6 +288,30 @@ func (q *Queries) DeleteSessionOfUser(ctx context.Context, arg DeleteSessionOfUs
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const deleteSessionsOfUser = `-- name: DeleteSessionsOfUser :many
+DELETE FROM sessions WHERE user_id = $1 RETURNING id
+`
+
+func (q *Queries) DeleteSessionsOfUser(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, deleteSessionsOfUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []uuid.UUID{}
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const deleteSignup = `-- name: DeleteSignup :exec
@@ -301,6 +349,17 @@ func (q *Queries) DeleteTOTPFactor(ctx context.Context, arg DeleteTOTPFactorPara
 	return result.RowsAffected(), nil
 }
 
+const deleteUser = `-- name: DeleteUser :exec
+DELETE FROM users WHERE id = $1
+`
+
+// Memberships, direct Assignments, factors and pending changes go with the User; Audit Events,
+// which keep only ids, stay.
+func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteUser, id)
+	return err
+}
+
 const emailChangeOfUser = `-- name: EmailChangeOfUser :one
 SELECT user_id, email, token_hash, expires_at FROM email_changes WHERE user_id = $1
 `
@@ -315,6 +374,23 @@ func (q *Queries) EmailChangeOfUser(ctx context.Context, userID uuid.UUID) (Emai
 		&i.ExpiresAt,
 	)
 	return i, err
+}
+
+const isOnlyAdmin = `-- name: IsOnlyAdmin :one
+SELECT (EXISTS (SELECT 1 FROM memberships m WHERE m.group_id = $1::uuid AND m.user_id = $2::uuid)
+  AND (SELECT count(*) FROM memberships c WHERE c.group_id = $1::uuid) = 1)::boolean AS only
+`
+
+type IsOnlyAdminParams struct {
+	Admins uuid.UUID
+	UserID uuid.UUID
+}
+
+func (q *Queries) IsOnlyAdmin(ctx context.Context, arg IsOnlyAdminParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isOnlyAdmin, arg.Admins, arg.UserID)
+	var only bool
+	err := row.Scan(&only)
+	return only, err
 }
 
 const listUsers = `-- name: ListUsers :many
@@ -345,6 +421,19 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockAdminsGroup = `-- name: LockAdminsGroup :one
+SELECT id FROM groups WHERE admins FOR UPDATE
+`
+
+// Held until the transaction ends, as removing an Admin holds it, so two deletions cannot both see
+// the other Admin.
+func (q *Queries) LockAdminsGroup(ctx context.Context) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, lockAdminsGroup)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
 }
 
 const passkeyEnrolment = `-- name: PasskeyEnrolment :one

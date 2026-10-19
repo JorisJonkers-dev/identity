@@ -138,6 +138,45 @@ describe('the Devices page', () => {
   })
 })
 
+describe('deleting the account', () => {
+  const deleting = (answer: () => Response) => ({ ...page(), 'POST /api/v1/profile/deletion': answer })
+  async function confirm(wrapper: VueWrapper, password = 'correct horse battery') {
+    await wrapper.get('#del-pw').setValue(password)
+    await wrapper.get('form').trigger('submit')
+    await settle()
+  }
+
+  it('is a row on the Security page', async () => {
+    const { wrapper } = await mountAt('/security', page())
+    expect(wrapper.get('a[href="/security/delete"] b').text()).toBe('Delete account')
+  })
+
+  it('says what goes with the account', async () => {
+    const { wrapper } = await mountAt('/security/delete', page())
+    expect(wrapper.get('h1').text()).toBe('Delete your account')
+    expect(wrapper.get('.note.warn').text()).toBe('You are signed out everywhere, your tokens stop working and your access to every app ends. This cannot be undone.')
+  })
+
+  it('deletes the account with the password', async () => {
+    const { wrapper, requests } = await mountAt('/security/delete', deleting(() => new Response(null, { status: 204 })))
+    await confirm(wrapper)
+    expect(requests.find((r) => r.key === 'POST /api/v1/profile/deletion')?.body).toEqual({ password: 'correct horse battery' })
+    expect(wrapper.get('h1').text()).toBe('Account deleted')
+  })
+
+  it('says when the password is wrong', async () => {
+    const { wrapper } = await mountAt('/security/delete', deleting(() => problem(422, 'Your password is wrong. Enter it again.')))
+    await confirm(wrapper, 'wrong')
+    expect(wrapper.get('[role="alert"]').text()).toBe('Your password is wrong. Enter it again.')
+  })
+
+  it('sends someone with two-factor to prove it, then back here', async () => {
+    const { wrapper, router } = await mountAt('/security/delete', deleting(() => problem(403, 'Confirm it is you with two-factor first.')))
+    await confirm(wrapper)
+    expect(router.currentRoute.value.fullPath).toBe('/signin/step-up?next=/security/delete')
+  })
+})
+
 describe('the Two-factor page', () => {
   it('lists each way with its name and when it was last used or added', async () => {
     const { wrapper } = await mountAt('/security/two-factor', page([phone, laptop]))

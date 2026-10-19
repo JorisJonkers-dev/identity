@@ -76,7 +76,7 @@ func TestTheGateCheckHoldsItsP99(t *testing.T) {
 
 	index := clients.NewIndex()
 	index.Put(domain.Client{ID: "stats", SignIn: domain.Gated, Host: "stats.jorisjonkers.dev", Label: "Stats", Roles: []string{"user"}})
-	users := usersapp.New(userspersistence.New(q), nil, nil, time.Now, rand.Reader, "")
+	users := usersapp.New(userspersistence.New(q, store), nil, nil, time.Now, rand.Reader, "")
 	access := accessapp.New(accesspersistence.New(q, store), catalog.New(index), people.New(users), discard{}, rand.Reader)
 	signIn := signinapp.New(signinpersistence.New(q), index, accounts.New(users), access, nil, discard{}, time.Now, rand.Reader)
 	others := contexts.New(signIn, users)

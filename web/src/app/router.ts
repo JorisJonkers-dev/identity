@@ -15,6 +15,7 @@ export function createAppRouter(history: RouterHistory = createWebHistory()): Ro
       { path: '/account', name: 'account', component: () => import('../features/account/components/AccountPage.vue') },
       { path: '/security', name: 'security', component: () => import('../features/security/components/SecurityPage.vue') },
       { path: '/security/devices', name: 'devices', component: () => import('../features/security/components/DevicesPage.vue') },
+      { path: '/security/delete', name: 'delete-account', component: () => import('../features/security/components/DeleteAccountPage.vue') },
       { path: '/security/password', name: 'password', component: () => import('../features/security/components/PasswordPage.vue') },
       { path: '/security/two-factor', name: 'two-factor', component: () => import('../features/security/components/TwoFactorPage.vue') },
       { path: '/security/two-factor/setup', name: 'two-factor-setup', component: () => import('../features/security/components/TwoFactorSetupPage.vue') },
