@@ -39,7 +39,6 @@ import (
 	"github.com/JorisJonkers-dev/identity/internal/platform/vault"
 	"github.com/JorisJonkers-dev/identity/internal/server"
 	"github.com/JorisJonkers-dev/identity/internal/signin/adapters/clients"
-	"github.com/JorisJonkers-dev/identity/internal/users/adapters/devcode"
 )
 
 // version is set at build time with -ldflags "-X main.version=…".
@@ -91,7 +90,7 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 	if err != nil {
 		return err
 	}
-	built := assembly.Config{Store: store, PublicURL: cfg.publicURL, Mailer: cfg.mailer, Index: index, Synced: synced, Grafana: cfg.grafana, Logger: logger, Version: version, TOTPMatch: devcode.TOTPMatch()}
+	built := assembly.Config{Store: store, PublicURL: cfg.publicURL, Mailer: cfg.mailer, Index: index, Synced: synced, Grafana: cfg.grafana, Logger: logger, Version: version, TOTPMatch: totpMatch()}
 	v := cfg.vault.vault()
 	transit := v.Transit(cfg.vault.transitMount)
 	built.Sealer, built.KeySealer, built.KV = transit.Key(cfg.vault.totpKey), transit.Key(cfg.vault.signingKey), v.KV()

@@ -58,8 +58,8 @@ tasks:
       - go tool testlint ./...
       - go tool testlint -tags integration ./...
       # The local run's seed and fixed code, which no release build compiles.
-      - golangci-lint run --build-tags dev,integration ./cmd/seed/... ./internal/users/adapters/devcode/... # dev only
-      - go tool testlint -tags dev,integration ./cmd/seed/... ./internal/users/adapters/devcode/... # dev only
+      - golangci-lint run --build-tags dev,integration ./cmd/seed/... ./cmd/identity/... # dev only
+      - go tool testlint -tags dev,integration ./cmd/seed/... ./cmd/identity/... # dev only
       - golangci-lint fmt --diff ./...
 
   lint:spec:
@@ -96,7 +96,7 @@ tasks:
     desc: Go unit tests and their gate (gobco for branches and conditions), then the local run's fixed code
     cmds:
       - sh scripts/coverage.sh unit
-      - go test -count=1 -tags dev ./internal/users/adapters/devcode/ # dev only
+      - go test -count=1 -tags dev -run TestADevBuild ./cmd/identity/ # dev only
 
   test:integration:
     desc: Go unit and integration tests together (Postgres and liquibase-runner in testcontainers); every function reached; then the local run's seed
