@@ -60,10 +60,10 @@ describe('the consent page', () => {
   })
 
   it('shows why an answer was refused', async () => {
-    const { wrapper } = await mountAt(`/connect?authRequestID=${request}`, asking({ 'POST /oidc/consent': () => problem(403, 'This app cannot connect to that service.') }))
+    const { wrapper } = await mountAt(`/connect?authRequestID=${request}`, asking({ 'POST /oidc/consent': () => problem(403, 'This tool cannot connect to that app.') }))
     await button(wrapper, 'Connect').trigger('click')
     await settle()
-    expect(wrapper.get('[role="alert"]').text()).toBe('This app cannot connect to that service.')
+    expect(wrapper.get('[role="alert"]').text()).toBe('This tool cannot connect to that app.')
   })
 
   it('sends someone who is not signed in to sign in first, keeping the request', async () => {
@@ -81,9 +81,9 @@ describe('the consent page', () => {
   })
 
   it('says the app cannot connect when the request is refused', async () => {
-    const { wrapper } = await mountAt(`/connect?authRequestID=${request}`, { 'GET /oidc/consent': () => problem(404, 'This request has expired or was already answered. Start again from the app.') })
-    expect(wrapper.get('h1').text()).toBe('This app cannot connect')
-    expect(wrapper.get('[role="alert"]').text()).toBe('This request has expired or was already answered. Start again from the app.')
+    const { wrapper } = await mountAt(`/connect?authRequestID=${request}`, { 'GET /oidc/consent': () => problem(404, 'This request has expired or was already answered. Start again from the tool.') })
+    expect(wrapper.get('h1').text()).toBe('This tool cannot connect')
+    expect(wrapper.get('[role="alert"]').text()).toBe('This request has expired or was already answered. Start again from the tool.')
   })
 })
 
@@ -106,7 +106,7 @@ describe('the Connected apps page', () => {
 
   it('says when no app acts for the User', async () => {
     const { wrapper } = await mountAt('/security/connected-apps', page([]))
-    expect(wrapper.get('.empty-state').text()).toBe('No app acts for you. An app asks before it connects.')
+    expect(wrapper.get('.empty-state').text()).toBe('No tool acts for you. A tool asks before it connects.')
   })
 
   it('disconnects an app and lists what is left', async () => {

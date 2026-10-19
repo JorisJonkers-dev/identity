@@ -177,7 +177,7 @@ func (l *login) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, app.ErrConsentNeeded):
 		http.Redirect(w, r, consentPath+"?authRequestID="+id.String(), http.StatusSeeOther) //nolint:gosec // a fixed path and a parsed UUID
 	case errors.Is(err, app.ErrNotConnectable):
-		httpx.WriteProblem(w, http.StatusBadRequest, "This app cannot connect to that service.")
+		httpx.WriteProblem(w, http.StatusBadRequest, "This tool cannot connect to that app.")
 	case errors.Is(err, app.ErrNotFound):
 		httpx.WriteProblem(w, http.StatusBadRequest, "This sign-in has expired or was already used. Start again from the app.")
 	default:

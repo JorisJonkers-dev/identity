@@ -98,7 +98,7 @@ func resources(next http.Handler) http.Handler {
 // errInactive is a token introspection answers as inactive, which is no failure to log.
 var errInactive = oidc.ErrInvalidRequest().WithDescription("The token is not active.")
 
-var errNotResource = oidc.ErrInvalidTarget().WithDescription("This app cannot connect to that service.")
+var errNotResource = oidc.ErrInvalidTarget().WithDescription("This tool cannot connect to that app.")
 
 // resourceOf is the Client a registered tool's authorize request names as its resource.
 func (s *storage) resourceOf(ctx context.Context) (string, error) {

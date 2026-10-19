@@ -31,14 +31,14 @@ function reply(allow: boolean) {
       <h1>Connect {{ prompt.app }} to {{ prompt.client }}?</h1>
       <p class="lead">{{ prompt.app }} can then use {{ prompt.client }} as you, with your roles there:</p>
       <div class="flex flex-wrap justify-center gap-1.5"><span v-for="r in prompt.roles" :key="r" class="role">{{ r }}</span></div>
-      <p class="text-center text-sm text-[var(--ink-3)]">The app chose the name {{ prompt.app }} itself. After you connect, it continues at {{ prompt.redirectHost }}. You can disconnect it any time under Security.</p>
+      <p class="text-center text-sm text-[var(--ink-3)]">The tool chose the name {{ prompt.app }} itself. After you connect, it continues at {{ prompt.redirectHost }}. You can disconnect it any time under Security.</p>
       <p v-if="answerError" role="alert" class="alert"><Icon name="alert" />{{ answerError }}</p>
       <button class="btn primary lg wide" type="button" :disabled="answering" @click="reply(true)">Connect</button>
       <button class="btn lg wide" type="button" :disabled="answering" @click="reply(false)">Cancel</button>
     </div>
     <div v-else-if="loadError && loadStatus !== 401" class="auth-box">
       <span class="big-ico warn"><Icon name="alert" /></span>
-      <h1>This app cannot connect</h1>
+      <h1>This tool cannot connect</h1>
       <p role="alert" class="alert"><Icon name="alert" />{{ loadError }}</p>
       <RouterLink class="btn primary lg wide" to="/">Your apps</RouterLink>
     </div>

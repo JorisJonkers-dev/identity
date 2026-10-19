@@ -40,7 +40,7 @@ function day(at: string): string {
       </RouterLink>
       <RouterLink class="row link-row" to="/security/connected-apps">
         <span class="row-ic"><Icon name="bot" /></span>
-        <span class="grow"><b>Connected apps</b><small>Apps that use your other apps as you</small></span>
+        <span class="grow"><b>Connected apps</b><small>Tools that use your apps as you</small></span>
         <Icon name="chevr" class="chevr" />
       </RouterLink>
       <RouterLink class="row link-row" to="/security/password">

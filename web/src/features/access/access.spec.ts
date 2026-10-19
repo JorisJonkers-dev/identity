@@ -595,7 +595,7 @@ describe('an app’s page', () => {
     tokens.connectedApps = 1
     const { wrapper } = await mountAt('/admin/apps/grafana', answers)
     await pick(wrapper, 'Ask for two-factor again in Grafana', '15 minutes')
-    expect(wrapper.get('.confirm .ask').text()).toBe('Turn on step-up for Grafana?This disconnects 1 connected app from Grafana. Apps cannot connect again while step-up is on.')
+    expect(wrapper.get('.confirm .ask').text()).toBe('Turn on step-up for Grafana?This disconnects 1 connected app from Grafana. Tools cannot connect again while step-up is on.')
   })
 
   it('warns about tokens and connected apps together', async () => {
@@ -604,12 +604,12 @@ describe('an app’s page', () => {
     tokens.connectedApps = 3
     const { wrapper } = await mountAt('/admin/apps/grafana', answers)
     await pick(wrapper, 'Ask for two-factor again in Grafana', '15 minutes')
-    expect(wrapper.get('.confirm .ask small').text()).toBe('This revokes 2 tokens and disconnects 3 connected apps for Grafana. Scripts using the tokens stop working, and apps cannot connect again while step-up is on.')
+    expect(wrapper.get('.confirm .ask small').text()).toBe('This revokes 2 tokens and disconnects 3 connected apps for Grafana. Scripts using the tokens stop working, and tools cannot connect again while step-up is on.')
   })
 
   it('says no app connects until an Admin lets them', async () => {
     const { wrapper } = await mountAt('/admin/apps/grafana', server().answers)
-    expect(mcpRow(wrapper).get('small').text()).toBe('Off. No app can use Grafana as someone.')
+    expect(mcpRow(wrapper).get('small').text()).toBe('Off. No tool can use Grafana as someone.')
   })
 
   it('lets apps connect to the app', async () => {
@@ -619,7 +619,7 @@ describe('an app’s page', () => {
     await mcpRow(wrapper).get('input').trigger('click')
     await settle()
     expect(requests.find((r) => r.key === 'PUT /api/v1/apps/grafana/mcp')?.body).toEqual({ on: true })
-    expect(mcpRow(wrapper).get('small').text()).toBe('People can let apps use Grafana as them. 1 app connected.')
+    expect(mcpRow(wrapper).get('small').text()).toBe('People can let tools use Grafana as them. 1 tool connected.')
   })
 
   it('says apps cannot connect while the app asks for two-factor again', async () => {
@@ -627,7 +627,7 @@ describe('an app’s page', () => {
     mcp.on = true
     const { wrapper } = await mountAt('/admin/apps/grafana', answers)
     await pick(wrapper, 'Ask for two-factor again in Grafana', '15 minutes')
-    expect(mcpRow(wrapper).get('small').text()).toBe('On, but apps cannot connect while Grafana asks for two-factor again.')
+    expect(mcpRow(wrapper).get('small').text()).toBe('On, but tools cannot connect while Grafana asks for two-factor again.')
   })
 
   it('shows a refused connected-apps change', async () => {

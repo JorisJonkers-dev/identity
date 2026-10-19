@@ -23,6 +23,6 @@ export function stepUpSummary(minutes: number | undefined, app: string): string 
 export function stepUpLoss(tokens: number, connectedApps: number, app: string): string {
   const apps = counted(connectedApps, 'connected app')
   if (!connectedApps) return `This revokes ${counted(tokens, 'token')} for ${app}. Scripts that use them stop working.`
-  if (!tokens) return `This disconnects ${apps} from ${app}. Apps cannot connect again while step-up is on.`
-  return `This revokes ${counted(tokens, 'token')} and disconnects ${apps} for ${app}. Scripts using the tokens stop working, and apps cannot connect again while step-up is on.`
+  if (!tokens) return `This disconnects ${apps} from ${app}. Tools cannot connect again while step-up is on.`
+  return `This revokes ${counted(tokens, 'token')} and disconnects ${apps} for ${app}. Scripts using the tokens stop working, and tools cannot connect again while step-up is on.`
 }

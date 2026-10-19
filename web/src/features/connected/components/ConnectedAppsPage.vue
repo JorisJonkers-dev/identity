@@ -22,7 +22,7 @@ const now = new Date()
           <button class="btn sm" type="button" @click="disconnect(a.id)">Disconnect</button>
         </div>
       </section>
-      <p v-else class="empty-state">No app acts for you. An app asks before it connects.</p>
+      <p v-else class="empty-state">No tool acts for you. A tool asks before it connects.</p>
     </template>
   </AppShell>
 </template>

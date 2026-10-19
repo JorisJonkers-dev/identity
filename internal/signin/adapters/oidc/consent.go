@@ -127,11 +127,11 @@ func (c *consent) refuse(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, app.ErrNoSession):
 		httpx.WriteProblem(w, http.StatusUnauthorized, "Sign in first.")
 	case errors.Is(err, app.ErrNotFound):
-		httpx.WriteProblem(w, http.StatusNotFound, "This request has expired or was already answered. Start again from the app.")
+		httpx.WriteProblem(w, http.StatusNotFound, "This request has expired or was already answered. Start again from the tool.")
 	case errors.Is(err, app.ErrNoAccess):
-		httpx.WriteProblem(w, http.StatusForbidden, "You have no access to this service.")
+		httpx.WriteProblem(w, http.StatusForbidden, "You have no access to that app.")
 	case errors.Is(err, app.ErrNotConnectable):
-		httpx.WriteProblem(w, http.StatusForbidden, "This app cannot connect to that service.")
+		httpx.WriteProblem(w, http.StatusForbidden, "This tool cannot connect to that app.")
 	default:
 		c.logger.ErrorContext(r.Context(), "consenting to a Connected App", "error", err)
 		httpx.WriteProblem(w, http.StatusInternalServerError, "")
