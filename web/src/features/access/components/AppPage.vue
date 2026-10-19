@@ -37,7 +37,7 @@ function rotateNow() {
           <div class="rb-h"><span class="role big">{{ r }}</span><span class="soft mono">{{ holders(overview, app.id, r).length }} Groups</span></div>
           <div class="rb-line">
             <span class="rb-k"><Icon name="users" />Groups</span>
-            <div class="gchips inline">
+            <div class="gchips gchips-inline">
               <span v-for="g in holders(overview, app.id, r)" :key="g.id" class="gchip">{{ g.name }}<button type="button" :aria-label="`Take ${r} from ${g.name}`" @click="setRole(g.id, app.id, r, false)"><Icon name="x" /></button></span>
               <span v-if="holders(overview, app.id, r).length === 0" class="soft">None</span>
             </div>

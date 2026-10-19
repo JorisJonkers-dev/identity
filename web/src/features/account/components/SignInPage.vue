@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import {
   completeSignInMutation,
@@ -28,6 +28,11 @@ const keyOptions = useAction(passkeyOptionsMutation())
 const keyAnswer = useAction(completeSignInWithPasskeyMutation())
 const browserRefused = ref<string | null>(null)
 const keyError = computed(() => browserRefused.value ?? keyOptions.error.value ?? keyAnswer.error.value)
+// The first field takes the cursor, and so does the code once the password is right.
+const emailField = ref<HTMLInputElement | null>(null)
+const codeBoxes = ref<InstanceType<typeof CodeBoxes> | null>(null)
+onMounted(() => emailField.value?.focus())
+watch(methods, () => void nextTick(() => codeBoxes.value?.focus()))
 const keyBusy = computed(() => keyOptions.isPending.value || keyAnswer.isPending.value)
 
 // Set when an app sent the person here to sign in; once signed in, the Provider finishes for it.
@@ -66,19 +71,19 @@ function submitCode() {
       <span class="from who"><span>{{ email }}</span></span>
       <h1>Enter your code</h1>
       <template v-if="methods.includes('totp')">
-        <CodeBoxes v-model="code" :invalid="!!complete.error.value" />
+        <CodeBoxes ref="codeBoxes" v-model="code" :invalid="!!complete.error.value" />
         <p v-if="complete.error.value" role="alert" class="alert"><Icon name="alert" />{{ complete.error.value }}</p>
-        <button class="btn primary lg block" type="submit" :disabled="complete.isPending.value || code.length < 6">Verify</button>
+        <button class="btn primary lg wide" type="submit" :disabled="complete.isPending.value || code.length < 6">Verify</button>
       </template>
       <template v-if="methods.includes('passkey')">
         <div v-if="methods.includes('totp')" class="or">or</div>
         <p v-if="keyError" role="alert" class="alert"><Icon name="alert" />{{ keyError }}</p>
-        <button class="btn lg block" type="button" :disabled="keyBusy" @click="usePasskey"><Icon name="passkey" />Use your passkey</button>
+        <button class="btn lg wide" type="button" :disabled="keyBusy" @click="usePasskey"><Icon name="passkey" />Use your passkey</button>
       </template>
     </form>
     <form v-else class="auth-box" novalidate @submit.prevent="submit">
       <h1>Sign in</h1>
-      <div class="field"><label class="label" for="si-email">Email</label><input id="si-email" v-model="email" class="input" type="email" autocomplete="username webauthn" required /></div>
+      <div class="field"><label class="label" for="si-email">Email</label><input id="si-email" ref="emailField" v-model="email" class="input" type="email" autocomplete="username webauthn" required /></div>
       <div class="field">
         <div class="label"><label for="si-pw">Password</label></div>
         <div class="pw">
@@ -87,7 +92,7 @@ function submitCode() {
         </div>
       </div>
       <p v-if="signIn.error.value" role="alert" class="alert"><Icon name="alert" />{{ signIn.error.value }}</p>
-      <button class="btn primary lg block" type="submit" :disabled="signIn.isPending.value" :aria-busy="signIn.isPending.value">
+      <button class="btn primary lg wide" type="submit" :disabled="signIn.isPending.value" :aria-busy="signIn.isPending.value">
         <span v-if="signIn.isPending.value" class="spin" aria-hidden="true" />{{ signIn.isPending.value ? 'Signing in' : 'Sign in' }}
       </button>
       <p class="auth-foot">No account? <RouterLink class="link" to="/signup">Sign up</RouterLink></p>

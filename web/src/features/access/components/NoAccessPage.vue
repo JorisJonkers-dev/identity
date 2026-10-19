@@ -9,7 +9,7 @@ import Icon from '../../../shared/Icon'
     <div class="auth-box">
       <span class="big-ico warn"><Icon name="lock" /></span>
       <h1>No access to this app</h1>
-      <RouterLink class="btn primary lg block" to="/">Your apps</RouterLink>
+      <RouterLink class="btn primary lg wide" to="/">Your apps</RouterLink>
       <p class="auth-foot"><a class="link" href="mailto:admin@jorisjonkers.dev">Contact an Admin</a></p>
     </div>
   </AuthShell>

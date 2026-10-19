@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { nextTick, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import AppShell from '../../../shared/AppShell.vue'
 import CodeBoxes from '../../../shared/CodeBoxes.vue'
@@ -21,6 +21,10 @@ const label = ref('Phone')
 const password = ref('')
 const copied = ref(false)
 onMounted(() => start.run())
+const codeBoxes = ref<InstanceType<typeof CodeBoxes> | null>(null)
+watch(step, (s) => {
+  if (s === 'code') void nextTick(() => codeBoxes.value?.focus())
+})
 
 function index(s: Step): number {
   return s === 'done' ? steps.length : steps.findIndex((x) => x.key === s)
@@ -60,7 +64,7 @@ function finish() {
     </div>
     <form v-else-if="step === 'code'" class="glass task-form" novalidate @submit.prevent="step = 'password'">
       <h2>Enter the code your app shows</h2>
-      <CodeBoxes v-model="code" />
+      <CodeBoxes ref="codeBoxes" v-model="code" />
       <div class="field"><label class="label" for="tf-l">Name</label><input id="tf-l" v-model="label" class="input md" required /></div>
       <div class="form-save"><button class="btn ghost" type="button" @click="step = 'scan'">Back</button><button class="btn primary" type="submit" :disabled="code.length < 6">Continue</button></div>
     </form>

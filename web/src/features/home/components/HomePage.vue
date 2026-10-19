@@ -70,8 +70,8 @@ onBeforeUnmount(() => document.removeEventListener('keydown', slash))
       <p v-if="isLoading" class="soft">Loading…</p>
       <p v-else-if="loadError" role="alert" class="alert">{{ loadError }}</p>
       <div v-else class="land-acts">
-        <RouterLink class="btn primary xl block" to="/signin">Sign in</RouterLink>
-        <RouterLink class="btn xl block" to="/signup">Sign up</RouterLink>
+        <RouterLink class="btn primary xl wide" to="/signin">Sign in</RouterLink>
+        <RouterLink class="btn xl wide" to="/signup">Sign up</RouterLink>
       </div>
     </div>
   </AuthShell>

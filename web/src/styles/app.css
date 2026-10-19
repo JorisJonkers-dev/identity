@@ -37,3 +37,9 @@
 .ev code { font: 12.5px var(--mono); padding: 1px 6px; border-radius: 6px; background: var(--fill-2); }
 .ev.fail p, .ev.fail p b { color: var(--ink); }
 .audit-list .day { position: static; }
+/* Tailwind owns .block and .inline as utilities, so the kit's wide buttons and inline chip rows go by other names. */
+.btn.wide { width: 100%; }
+.gchips.gchips-inline { flex: 1; padding: 0; min-width: 0; }
+h1, h2, h3, p { margin: 0; }
+/* A chip with only text, such as the email on the code step, keeps even padding. */
+.from.who:not(:has(> .av, > .i)) { padding: 0 12px; }

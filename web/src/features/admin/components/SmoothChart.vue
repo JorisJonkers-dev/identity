@@ -21,14 +21,14 @@ const marks = computed(() => [0, 6, 12, 18, props.labels.length - 1].map((i) => 
       </linearGradient>
     </defs>
     <g v-for="g in chart.grid" :key="g.label">
-      <line class="gl" x1="0" x2="560" :y1="g.y" :y2="g.y" />
-      <text class="yl" x="560" :y="g.y - 5" text-anchor="end">{{ g.label }}</text>
+      <line class="gl" x1="0" x2="534" :y1="g.y" :y2="g.y" />
+      <text class="yl" x="560" :y="g.y + 4" text-anchor="end">{{ g.label }}</text>
     </g>
-    <line class="base" x1="0" x2="560" y1="176" y2="176" />
+    <line class="base" x1="0" x2="534" y1="176" y2="176" />
     <path class="area" :fill="`url(#${id})`" :d="chart.area" />
     <path class="ln" :d="chart.line" />
     <circle class="peak" :cx="chart.peak.x" :cy="chart.peak.y" r="4.5" />
-    <text v-for="(m, k) in marks" :key="m.i" class="xl" :x="4 + (m.i * 552) / (labels.length - 1)" y="196" :text-anchor="k === 0 ? 'start' : k === marks.length - 1 ? 'end' : 'middle'">{{ m.label }}</text>
+    <text v-for="(m, k) in marks" :key="m.i" class="xl" :x="chart.xs[m.i]" y="196" :text-anchor="k === 0 ? 'start' : k === marks.length - 1 ? 'end' : 'middle'">{{ m.label }}</text>
     <rect v-for="(h, k) in chart.hover" :key="k" class="hov" :x="h.x" y="10" :width="h.width" height="166"><title>{{ h.label }}</title></rect>
   </svg>
 </template>
