@@ -15,7 +15,13 @@ watched without a restart; outside a cluster there are none. Admins put Users in
 Groups App Roles on Clients at `/access`; a User with no App Role on a Client gets no code, and the
 ID token and access token carry that Client's App Roles, and nothing else about access, in a
 `roles` claim. `identity admin promote <email>`, run in the pod, makes the first Admin, and the
-access page lists the Users waiting for a Group. Users add authenticator apps (TOTP, sealed by Vault
+access page lists the Users waiting for a Group. `identity import auth-api`, run once as a Job with
+`LEGACY_DATABASE_URL` set, moves Legacy Auth's people over: confirmed Users with their bcrypt
+hashes (rehashed with argon2id at their next sign-in), finished authenticator apps, each
+`SERVICE_*` grant as a direct `user` role on the Client named like the service (`--client
+MAIL=stalwart` names another), and ADMINs into the admins Group. `--dry-run` prints the same lines
+and changes nothing; a second run skips everyone already imported
+([0006](docs/adr/0006-legacy-auth-is-a-client-during-migration.md)). Users add authenticator apps (TOTP, sealed by Vault
 transit) and passkeys (WebAuthn, on go-webauthn) on the Security page; sign-in then asks for one,
 and Admins manage access only from a session that gave one
 ([0015](docs/adr/0015-a-second-factor-is-proved-not-just-held.md)). The Gate signs Users in for

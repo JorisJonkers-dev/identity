@@ -44,3 +44,12 @@ func TestAHashGivesUpWhenNoSlotFreesInTime(t *testing.T) {
 		t.Fatalf("Verify = %v, want ErrBusy", err)
 	}
 }
+
+func TestABcryptCheckGivesUpWhenNoSlotFreesInTime(t *testing.T) {
+	a := NewArgon2id(1, 20*time.Millisecond)
+	a.slots <- struct{}{}
+	const h = "$2a$04$abcdefghijklmnopqrstuuJp1mFhvM2tVYV3Ut7Yy6V9oKz7wq3bW"
+	if _, err := a.Verify(h, "x"); !errors.Is(err, app.ErrBusy) {
+		t.Fatalf("Verify = %v, want ErrBusy", err)
+	}
+}

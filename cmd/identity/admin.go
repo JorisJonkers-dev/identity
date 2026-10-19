@@ -22,12 +22,16 @@ import (
 	"github.com/JorisJonkers-dev/identity/internal/users/app"
 )
 
-const usage = "usage: identity admin promote <email> [--force]"
+const usage = "usage: identity admin promote <email> [--force]\n       " + importUsage
 
-// command runs one admin command and returns the exit code: 0 done, 1 refused or failed, 2 misused.
+// command runs one admin command, or the import (see importCommand), and returns the exit code: 0
+// done, 1 refused or failed, 2 misused.
 // `identity admin promote <email>` makes the first Admin of a fresh install, and refuses when an
 // Admin exists unless --force is given (docs/adr/0005). It needs only DATABASE_URL.
 func command(ctx context.Context, getenv func(string) string, args []string, stdout, stderr io.Writer) int {
+	if len(args) > 0 && args[0] == "import" {
+		return importCommand(ctx, getenv, args[1:], stdout, stderr)
+	}
 	force := slices.Contains(args, "--force")
 	args = slices.DeleteFunc(slices.Clone(args), func(a string) bool { return a == "--force" })
 	if len(args) != 3 || args[0] != "admin" || args[1] != "promote" {

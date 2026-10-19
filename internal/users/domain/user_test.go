@@ -36,6 +36,12 @@ func TestNewNameTrimsAndBoundsByCharacters(t *testing.T) {
 	}
 }
 
+func TestAProvenPasswordIsKeptWhateverItsLength(t *testing.T) {
+	if got := domain.ProvenPassword("short").String(); got != "short" {
+		t.Fatalf("ProvenPassword = %q", got)
+	}
+}
+
 func TestNewPasswordBoundsByCharacters(t *testing.T) {
 	if _, err := domain.NewPassword(strings.Repeat("é", 12)); err != nil {
 		t.Fatalf("12 characters refused: %v", err)
