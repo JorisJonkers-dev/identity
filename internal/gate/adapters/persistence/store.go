@@ -43,7 +43,7 @@ func (s *Store) SessionByHash(ctx context.Context, hash []byte) (app.Session, er
 	if err != nil {
 		return app.Session{}, notFound(err)
 	}
-	return app.Session{Host: r.Host, SessionID: r.SessionID}, nil
+	return app.Session{Host: r.Host, SessionID: r.SessionID, CreatedAt: r.CreatedAt}, nil
 }
 
 func notFound(err error) error {

@@ -195,6 +195,10 @@ func (h *Handler) start(w http.ResponseWriter, r *http.Request) {
 
 	case errors.Is(err, app.ErrNoSignIn):
 		http.Redirect(w, r, "/signin?"+url.Values{"gate": {r.URL.RequestURI()}}.Encode(), http.StatusSeeOther)
+	case errors.Is(err, app.ErrStepUpNeeded):
+		http.Redirect(w, r, "/signin/step-up?"+url.Values{"next": {r.URL.RequestURI()}}.Encode(), http.StatusSeeOther)
+	case errors.Is(err, app.ErrTwoFactorNeeded):
+		http.Redirect(w, r, "/security/two-factor?for=step-up", http.StatusSeeOther)
 	case errors.Is(err, app.ErrNoAccess):
 		h.noAccess(w, r, host)
 	case errors.Is(err, app.ErrUnknownHost), errors.Is(err, app.ErrInvalidCode):

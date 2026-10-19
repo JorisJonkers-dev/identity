@@ -54,10 +54,11 @@ func (s *store) TakeCode(_ context.Context, hash []byte) (app.Code, error) {
 	return c, nil
 }
 
-func (s *store) CreateSession(_ context.Context, hash []byte, gs app.Session, _ time.Time) error {
+func (s *store) CreateSession(_ context.Context, hash []byte, gs app.Session, at time.Time) error {
 	if err := s.fail["CreateSession"]; err != nil {
 		return err
 	}
+	gs.CreatedAt = at
 	s.sessions[string(hash)] = gs
 	return nil
 }
@@ -110,13 +111,18 @@ func (r *roles) Roles(_ context.Context, _ uuid.UUID, clientID string) ([]string
 type accounts struct {
 	signedOut bool
 	err       error
+	// proof is Ada's session's last two-factor proof and whether she has two-factor at all.
+	proof     time.Time
+	twoFactor bool
 }
 
 func (a *accounts) SignedIn(_ context.Context, token string) (app.Person, error) {
 	if token != "sso" || a.signedOut {
 		return app.Person{}, app.ErrNoSignIn
 	}
-	return ada, a.err
+	p := ada
+	p.TwoFactorAt, p.TwoFactor = a.proof, a.twoFactor
+	return p, a.err
 }
 
 func (a *accounts) Vouch(_ context.Context, id uuid.UUID) (app.Person, error) {

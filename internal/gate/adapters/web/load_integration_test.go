@@ -79,7 +79,7 @@ func TestTheGateCheckHoldsItsP99(t *testing.T) {
 	users := usersapp.New(userspersistence.New(q, store), nil, nil, time.Now, rand.Reader, "")
 	access := accessapp.New(accesspersistence.New(q, store), catalog.New(index), people.New(users), discard{}, rand.Reader)
 	signIn := signinapp.New(signinpersistence.New(q), index, accounts.New(users), access, nil, discard{}, time.Now, rand.Reader)
-	others := contexts.New(signIn, users)
+	others := contexts.New(signIn, users, signinpersistence.NewStepUps(q, time.Now))
 	gate := gateapp.New(gatepersistence.New(q), others, others, others, discard{}, time.Now, rand.Reader, 30*time.Second)
 	h, err := web.New(gate, web.Config{Issuer: "https://auth.test", SessionCookie: "__Host-identity_session"}, slog.New(slog.DiscardHandler))
 	if err != nil {

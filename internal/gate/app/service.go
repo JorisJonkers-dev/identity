@@ -28,6 +28,11 @@ var (
 	ErrNotFound    = errors.New("not found")
 	// ErrBearerNeeded is a request to a token host without a Personal Token: it has no sign-in page.
 	ErrBearerNeeded = errors.New("this host takes only Personal Tokens")
+	// ErrStepUpNeeded is a sign-in to a Step-up Client whose session's two-factor proof is older
+	// than the Client's window (docs/adr/0019).
+	ErrStepUpNeeded = errors.New("the Client wants a fresher two-factor proof")
+	// ErrTwoFactorNeeded is a sign-in to a Step-up Client by a User with no two-factor.
+	ErrTwoFactorNeeded = errors.New("the Client wants two-factor, and the User has none")
 )
 
 const (
@@ -43,6 +48,9 @@ type Client struct {
 	ID    string
 	Label string
 	Host  string
+	// StepUp is how fresh the Client wants two-factor; 0 when it does not. A host sign-in for it
+	// lasts only this long.
+	StepUp time.Duration
 }
 
 // Person is a signed-in User, and what vouches for them: their Single sign-on session, or, for a
@@ -52,6 +60,10 @@ type Person struct {
 	Email     string
 	Name      string
 	SessionID uuid.UUID
+	// TwoFactorAt is when the session last proved two-factor; zero when it never did.
+	TwoFactorAt time.Time
+	// TwoFactor is whether the User added an authenticator app or a passkey.
+	TwoFactor bool
 }
 
 // Verdict is what the Gate tells the app about the User of a request.
@@ -76,6 +88,7 @@ type Code struct {
 type Session struct {
 	Host      string
 	SessionID uuid.UUID
+	CreatedAt time.Time
 }
 
 // Clients finds gated Clients by host: ErrUnknownHost for a host with none, or one not gated.
@@ -155,19 +168,19 @@ func (s *Service) SetTokens(t Tokens) { s.tokens = t }
 // Its answer is cached as a cookie's is, so a revoked token reaches a host within the cache's ttl.
 func (s *Service) CheckBearer(ctx context.Context, host, secret string) (Verdict, error) {
 	key := "bearer\x00" + host + "\x00" + string(hashOf(secret))
-	return s.cached(key, func() (Verdict, uuid.UUID, error) {
+	return s.cached(key, func() (Verdict, uuid.UUID, time.Time, error) {
 		client, err := s.clients.BearerClient(ctx, host)
 		if err != nil {
-			return Verdict{}, uuid.Nil, err
+			return Verdict{}, uuid.Nil, time.Time{}, err
 		}
 		if s.tokens == nil {
-			return Verdict{}, uuid.Nil, ErrNoSignIn
+			return Verdict{}, uuid.Nil, time.Time{}, ErrNoSignIn
 		}
 		p, roles, err := s.tokens.Bearer(ctx, secret, client.ID)
 		if err != nil {
-			return Verdict{}, uuid.Nil, err
+			return Verdict{}, uuid.Nil, time.Time{}, err
 		}
-		return Verdict{UserID: p.UserID, Email: p.Email, Name: p.Name, Roles: roles}, p.SessionID, nil
+		return Verdict{UserID: p.UserID, Email: p.Email, Name: p.Name, Roles: roles}, p.SessionID, time.Time{}, nil
 	})
 }
 
@@ -192,13 +205,14 @@ func (s *Service) Check(ctx context.Context, host, cookie string) (Verdict, erro
 		return Verdict{}, ErrNoSignIn
 	}
 	hash := hashOf(cookie)
-	return s.cached(host+"\x00"+string(hash), func() (Verdict, uuid.UUID, error) { return s.check(ctx, host, hash) })
+	return s.cached(host+"\x00"+string(hash), func() (Verdict, uuid.UUID, time.Time, error) { return s.check(ctx, host, hash) })
 }
 
 // cached answers a check from memory while its answer is fresh, and keeps a fresh answer for ttl,
-// with the Single sign-on session it came from, so Forget can drop it: an allowed User, or a
-// refusal for want of a sign-in or an App Role. Any other failure is asked again next time.
-func (s *Service) cached(key string, check func() (Verdict, uuid.UUID, error)) (Verdict, error) {
+// or until the sign-in it rests on ends if that is sooner, with the Single sign-on session it came
+// from, so Forget can drop it: an allowed User, or a refusal for want of a sign-in or an App Role.
+// Any other failure is asked again next time.
+func (s *Service) cached(key string, check func() (Verdict, uuid.UUID, time.Time, error)) (Verdict, error) {
 	now := s.now()
 	s.mu.RLock()
 	c, ok := s.cache[key]
@@ -206,36 +220,49 @@ func (s *Service) cached(key string, check func() (Verdict, uuid.UUID, error)) (
 	if ok && now.Before(c.until) {
 		return c.verdict, c.err
 	}
-	v, session, err := check()
+	v, session, ends, err := check()
 	if err == nil || errors.Is(err, ErrNoAccess) || errors.Is(err, ErrNoSignIn) {
+		until := now.Add(s.ttl)
+		if !ends.IsZero() && ends.Before(until) {
+			until = ends
+		}
 		s.mu.Lock()
 		if len(s.cache) >= maxCached {
 			s.cache = map[string]cached{}
 		}
-		s.cache[key] = cached{verdict: v, err: err, until: now.Add(s.ttl), session: session}
+		s.cache[key] = cached{verdict: v, err: err, until: until, session: session}
 		s.mu.Unlock()
 	}
 	return v, err
 }
 
-func (s *Service) check(ctx context.Context, host string, hash []byte) (Verdict, uuid.UUID, error) {
+// check is a host cookie's verdict, and when the host sign-in ends: for a Step-up Client, its
+// window after the sign-in; otherwise never (the zero time).
+func (s *Service) check(ctx context.Context, host string, hash []byte) (Verdict, uuid.UUID, time.Time, error) {
 	client, err := s.clients.GatedClient(ctx, host)
 	if err != nil {
-		return Verdict{}, uuid.Nil, err
+		return Verdict{}, uuid.Nil, time.Time{}, err
 	}
 	gs, err := s.store.SessionByHash(ctx, hash)
 	if errors.Is(err, ErrNotFound) || err == nil && gs.Host != host {
-		return Verdict{}, uuid.Nil, ErrNoSignIn
+		return Verdict{}, uuid.Nil, time.Time{}, ErrNoSignIn
 	}
 	if err != nil {
-		return Verdict{}, uuid.Nil, err
+		return Verdict{}, uuid.Nil, time.Time{}, err
+	}
+	var ends time.Time
+	if client.StepUp > 0 {
+		ends = gs.CreatedAt.Add(client.StepUp)
+		if !s.now().Before(ends) {
+			return Verdict{}, gs.SessionID, time.Time{}, ErrNoSignIn
+		}
 	}
 	p, err := s.accounts.Vouch(ctx, gs.SessionID)
 	if err != nil {
-		return Verdict{}, gs.SessionID, err
+		return Verdict{}, gs.SessionID, ends, err
 	}
 	v, err := s.verdict(ctx, client, p)
-	return v, gs.SessionID, err
+	return v, gs.SessionID, ends, err
 }
 
 // Forget drops the cached checks of ended Single sign-on sessions and revoked Personal Tokens, by
@@ -282,6 +309,12 @@ func (s *Service) Start(ctx context.Context, ssoToken, host, state, returnPath s
 			s.audit.Record(ctx, audit.Event{Action: audit.SignInFailed, User: p.UserID, Client: client.ID, Reason: audit.ReasonNoAccess})
 		}
 		return "", err
+	}
+	if client.StepUp > 0 && s.now().Sub(p.TwoFactorAt) > client.StepUp {
+		if !p.TwoFactor {
+			return "", ErrTwoFactorNeeded
+		}
+		return "", ErrStepUpNeeded
 	}
 	code, err := s.token()
 	if err != nil {

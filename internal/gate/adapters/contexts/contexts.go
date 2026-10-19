@@ -5,6 +5,7 @@ package contexts
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -28,16 +29,25 @@ type Users interface {
 	SignedIn(ctx context.Context, token string) (usersdomain.User, usersapp.Session, error)
 	Vouch(ctx context.Context, sessionID uuid.UUID) (usersdomain.User, usersapp.Session, error)
 	User(ctx context.Context, id uuid.UUID) (usersdomain.User, error)
+	HasSecondFactor(ctx context.Context, userID uuid.UUID) (bool, error)
+}
+
+// StepUps is each Client's step-up window in minutes, 0 when it is off.
+type StepUps interface {
+	StepUp(ctx context.Context, clientID string) (int, error)
 }
 
 // Contexts is the app.Clients, app.Roles, app.Accounts and app.Tokens.
 type Contexts struct {
-	signIn SignIn
-	users  Users
+	signIn  SignIn
+	users   Users
+	stepUps StepUps
 }
 
-// New returns Contexts over the two.
-func New(signIn SignIn, users Users) *Contexts { return &Contexts{signIn: signIn, users: users} }
+// New returns Contexts over the three.
+func New(signIn SignIn, users Users, stepUps StepUps) *Contexts {
+	return &Contexts{signIn: signIn, users: users, stepUps: stepUps}
+}
 
 var (
 	_ app.Clients  = (*Contexts)(nil)
@@ -90,15 +100,26 @@ func (c *Contexts) GatedClient(ctx context.Context, host string) (app.Client, er
 	if err != nil {
 		return app.Client{}, err
 	}
-	return app.Client{ID: cl.ID, Label: cl.Label, Host: cl.Host}, nil
+	minutes, err := c.stepUps.StepUp(ctx, cl.ID)
+	if err != nil {
+		return app.Client{}, err
+	}
+	return app.Client{ID: cl.ID, Label: cl.Label, Host: cl.Host, StepUp: time.Duration(minutes) * time.Minute}, nil
 }
 
 func (c *Contexts) Roles(ctx context.Context, userID uuid.UUID, clientID string) ([]string, error) {
 	return c.signIn.Roles(ctx, userID, clientID)
 }
 
+// SignedIn is the User of a Single sign-on session, with when it last proved two-factor and
+// whether they have it, for a Step-up Client.
 func (c *Contexts) SignedIn(ctx context.Context, token string) (app.Person, error) {
-	return person(c.users.SignedIn(ctx, token))
+	p, err := person(c.users.SignedIn(ctx, token))
+	if err != nil {
+		return app.Person{}, err
+	}
+	p.TwoFactor, err = c.users.HasSecondFactor(ctx, p.UserID)
+	return p, err
 }
 
 func (c *Contexts) Vouch(ctx context.Context, sessionID uuid.UUID) (app.Person, error) {
@@ -112,5 +133,9 @@ func person(u usersdomain.User, s usersapp.Session, err error) (app.Person, erro
 	if err != nil {
 		return app.Person{}, err
 	}
-	return app.Person{UserID: u.ID, Email: u.Email.String(), Name: u.Name.String(), SessionID: s.ID}, nil
+	p := app.Person{UserID: u.ID, Email: u.Email.String(), Name: u.Name.String(), SessionID: s.ID}
+	if s.TwoFactorAt != nil {
+		p.TwoFactorAt = *s.TwoFactorAt
+	}
+	return p, nil
 }

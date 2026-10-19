@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -57,9 +58,28 @@ func (signIn) CheckPersonalToken(_ context.Context, tokenID, _ string) (signinap
 }
 
 type users struct {
-	user usersdomain.User
-	sess usersapp.Session
-	err  error
+	user      usersdomain.User
+	sess      usersapp.Session
+	err       error
+	twoFactor bool
+	factorErr error
+}
+
+func (u users) HasSecondFactor(context.Context, uuid.UUID) (bool, error) {
+	return u.twoFactor, u.factorErr
+}
+
+// stepUps has step-up at 15 minutes on Stats only; asking about "broken" fails.
+type stepUps struct{}
+
+func (stepUps) StepUp(_ context.Context, id string) (int, error) {
+	switch id {
+	case "stats":
+		return 15, nil
+	case "broken-step-up":
+		return 0, errBoom
+	}
+	return 0, nil
 }
 
 func (u users) SignedIn(context.Context, string) (usersdomain.User, usersapp.Session, error) {
@@ -76,9 +96,9 @@ func TestOnlyAGatedClientIsTheGates(t *testing.T) {
 	c := contexts.New(signIn{
 		"stats.jorisjonkers.dev":   {ID: "stats", Label: "Stats", Host: "stats.jorisjonkers.dev", SignIn: signindomain.Gated},
 		"grafana.jorisjonkers.dev": {ID: "grafana", Host: "grafana.jorisjonkers.dev", SignIn: signindomain.Native},
-	}, users{})
+	}, users{}, stepUps{})
 	ctx := context.Background()
-	if got, err := c.GatedClient(ctx, "stats.jorisjonkers.dev"); err != nil || got != (app.Client{ID: "stats", Label: "Stats", Host: "stats.jorisjonkers.dev"}) {
+	if got, err := c.GatedClient(ctx, "stats.jorisjonkers.dev"); err != nil || got != (app.Client{ID: "stats", Label: "Stats", Host: "stats.jorisjonkers.dev", StepUp: 15 * time.Minute}) {
 		t.Fatalf("GatedClient = %+v, %v", got, err)
 	}
 	for _, host := range []string{"grafana.jorisjonkers.dev", "nobody.jorisjonkers.dev"} {
@@ -100,7 +120,7 @@ func TestAccountsTranslateTheSession(t *testing.T) {
 	u := usersdomain.User{ID: uuid.New(), Email: e, Name: n}
 	s := usersapp.Session{ID: uuid.New()}
 	ctx := context.Background()
-	c := contexts.New(signIn{}, users{user: u, sess: s})
+	c := contexts.New(signIn{}, users{user: u, sess: s}, stepUps{})
 	want := app.Person{UserID: u.ID, Email: "ada@example.org", Name: "Ada", SessionID: s.ID}
 	if p, err := c.SignedIn(ctx, "sso"); err != nil || p != want {
 		t.Fatalf("SignedIn = %+v, %v", p, err)
@@ -108,10 +128,10 @@ func TestAccountsTranslateTheSession(t *testing.T) {
 	if p, err := c.Vouch(ctx, s.ID); err != nil || p != want {
 		t.Fatalf("Vouch = %+v, %v", p, err)
 	}
-	if _, err := contexts.New(signIn{}, users{err: usersapp.ErrNoSession}).Vouch(ctx, s.ID); !errors.Is(err, app.ErrNoSignIn) {
+	if _, err := contexts.New(signIn{}, users{err: usersapp.ErrNoSession}, stepUps{}).Vouch(ctx, s.ID); !errors.Is(err, app.ErrNoSignIn) {
 		t.Fatalf("no session = %v", err)
 	}
-	if _, err := contexts.New(signIn{}, users{err: errBoom}).SignedIn(ctx, "sso"); !errors.Is(err, errBoom) {
+	if _, err := contexts.New(signIn{}, users{err: errBoom}, stepUps{}).SignedIn(ctx, "sso"); !errors.Is(err, errBoom) {
 		t.Fatalf("a failure = %v", err)
 	}
 }
@@ -121,7 +141,7 @@ func TestAGatedOrTokenClientTakesPersonalTokens(t *testing.T) {
 		"stats.jorisjonkers.dev":   {ID: "stats", Label: "Stats", Host: "stats.jorisjonkers.dev", SignIn: signindomain.Gated},
 		"backup.jorisjonkers.dev":  {ID: "backup", Host: "backup.jorisjonkers.dev", SignIn: signindomain.Token},
 		"grafana.jorisjonkers.dev": {ID: "grafana", Host: "grafana.jorisjonkers.dev", SignIn: signindomain.Native},
-	}, users{})
+	}, users{}, stepUps{})
 	for host, want := range map[string]string{"stats.jorisjonkers.dev": "stats", "backup.jorisjonkers.dev": "backup"} {
 		t.Run(host, func(t *testing.T) {
 			if got, err := c.BearerClient(context.Background(), host); err != nil || got.ID != want {
@@ -141,7 +161,7 @@ func TestAGatedOrTokenClientTakesPersonalTokens(t *testing.T) {
 func TestALivePersonalTokenAnswersItsUserAndRoles(t *testing.T) {
 	email, _ := usersdomain.NewEmail("ada@example.org")
 	name, _ := usersdomain.NewName("Ada")
-	c := contexts.New(signIn{}, users{user: usersdomain.User{ID: adaID, Email: email, Name: name}})
+	c := contexts.New(signIn{}, users{user: usersdomain.User{ID: adaID, Email: email, Name: name}}, stepUps{})
 	p, roles, err := c.Bearer(context.Background(), "idpat_live", "stats")
 	// The token stands where a session would, so revoking it can drop its cached checks.
 	if err != nil || p != (app.Person{UserID: adaID, Email: "ada@example.org", Name: "Ada", SessionID: adaToken}) || len(roles) != 1 || roles[0] != "viewer" {
@@ -152,7 +172,7 @@ func TestALivePersonalTokenAnswersItsUserAndRoles(t *testing.T) {
 func TestAPersonalTokenThatIsNotActiveIsNoSignIn(t *testing.T) {
 	for _, secret := range []string{"idpat_unknown", "idpat_revoked"} {
 		t.Run(secret, func(t *testing.T) {
-			if _, _, err := contexts.New(signIn{}, users{}).Bearer(context.Background(), secret, "stats"); !errors.Is(err, app.ErrNoSignIn) {
+			if _, _, err := contexts.New(signIn{}, users{}, stepUps{}).Bearer(context.Background(), secret, "stats"); !errors.Is(err, app.ErrNoSignIn) {
 				t.Fatalf("err = %v", err)
 			}
 		})
@@ -168,9 +188,31 @@ func TestAPersonalTokenCheckFailsWithWhatItReads(t *testing.T) {
 		"its User":          {secret: "idpat_live", users: users{err: errBoom}},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, _, err := contexts.New(signIn{}, tc.users).Bearer(context.Background(), tc.secret, "stats"); !errors.Is(err, errBoom) {
+			if _, _, err := contexts.New(signIn{}, tc.users, stepUps{}).Bearer(context.Background(), tc.secret, "stats"); !errors.Is(err, errBoom) {
 				t.Fatalf("err = %v", err)
 			}
 		})
+	}
+}
+
+func TestAGatedClientWhoseStepUpCannotBeReadFails(t *testing.T) {
+	c := contexts.New(signIn{"x.jorisjonkers.dev": {ID: "broken-step-up", Host: "x.jorisjonkers.dev", SignIn: signindomain.Gated}}, users{}, stepUps{})
+	if _, err := c.GatedClient(context.Background(), "x.jorisjonkers.dev"); !errors.Is(err, errBoom) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestASignedInPersonCarriesTheirLastProofAndWhetherTheyHaveTwoFactor(t *testing.T) {
+	at := time.Date(2026, 10, 19, 9, 0, 0, 0, time.UTC)
+	c := contexts.New(signIn{}, users{sess: usersapp.Session{TwoFactorAt: &at}, twoFactor: true}, stepUps{})
+	if p, err := c.SignedIn(context.Background(), "sso"); err != nil || !p.TwoFactorAt.Equal(at) || !p.TwoFactor {
+		t.Fatalf("SignedIn = %+v, %v", p, err)
+	}
+}
+
+func TestASignedInPersonFailsWhenTwoFactorCannotBeLookedUp(t *testing.T) {
+	c := contexts.New(signIn{}, users{factorErr: errBoom}, stepUps{})
+	if _, err := c.SignedIn(context.Background(), "sso"); !errors.Is(err, errBoom) {
+		t.Fatalf("err = %v", err)
 	}
 }
