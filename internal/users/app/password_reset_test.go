@@ -333,6 +333,32 @@ func TestAResetFailsWhenTheStoreDoes(t *testing.T) {
 	}
 }
 
+func TestCompletingAProvedResetFails(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		spoil func(*fixture)
+	}{
+		{"when two-factor cannot be read", func(f *fixture) { f.store.fail["TOTPFactors"] = errBoomSF }},
+		{"when the password cannot be hashed", func(f *fixture) { f.hasher.failHash = errBoomSF }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFixture()
+			_, secret, _ := f.enrolled(t, "ada@example.org")
+			f.now = t0.Add(time.Minute)
+			_ = f.AskPasswordReset(context.Background(), "ada@example.org")
+			token := f.resetToken(t)
+			_, _ = f.CheckPasswordReset(context.Background(), token)
+			if err := f.ResetWithCode(context.Background(), token, code(t, secret, f.now)); err != nil {
+				t.Fatal(err)
+			}
+			tc.spoil(f)
+			if err := f.CompletePasswordReset(context.Background(), token, fresh); !errors.Is(err, errBoomSF) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
+
 func TestNoResetIsMadeWithoutRandomness(t *testing.T) {
 	f := newFixture()
 	f.signedUp(t, "ada@example.org")
