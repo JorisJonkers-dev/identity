@@ -35,6 +35,7 @@ type AuditEvent struct {
 	Minutes     pgtype.Int4
 	MachineID   *uuid.UUID
 	MachineName pgtype.Text
+	AppName     pgtype.Text
 }
 
 type AuthRequest struct {
@@ -55,6 +56,7 @@ type AuthRequest struct {
 	AuthTime            *time.Time
 	CodeHash            []byte
 	Methods             []string
+	Resource            pgtype.Text
 }
 
 type ClientSecret struct {
@@ -63,6 +65,25 @@ type ClientSecret struct {
 	PreviousHash []byte
 	CreatedAt    time.Time
 	RotatedAt    *time.Time
+}
+
+type ConnectedApp struct {
+	ID             uuid.UUID
+	RegistrationID string
+	UserID         uuid.UUID
+	ClientID       string
+	CreatedAt      time.Time
+	LastUsedAt     *time.Time
+}
+
+type ConnectedAppToken struct {
+	ID             uuid.UUID
+	ConnectedAppID uuid.UUID
+	Kind           string
+	Hash           []byte
+	CreatedAt      time.Time
+	ExpiresAt      time.Time
+	UsedAt         *time.Time
 }
 
 type EmailChange struct {
@@ -104,9 +125,21 @@ type MachineIdentity struct {
 	CreatedAt      time.Time
 }
 
+type McpResource struct {
+	ClientID  string
+	CreatedAt time.Time
+}
+
 type Membership struct {
 	GroupID uuid.UUID
 	UserID  uuid.UUID
+}
+
+type OauthRegistration struct {
+	ClientID     string
+	Name         string
+	RedirectUris []string
+	CreatedAt    time.Time
 }
 
 type Passkey struct {

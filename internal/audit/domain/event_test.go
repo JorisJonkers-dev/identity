@@ -12,8 +12,8 @@ func TestEachActionBelongsToItsKind(t *testing.T) {
 	for kind, actions := range map[domain.Kind][]domain.Action{
 		domain.KindSignIn: {domain.SignedIn, domain.SignInFailed, domain.SignedOut},
 		domain.KindPeople: {domain.UserCreated, domain.UserRenamed, domain.PasswordChanged, domain.EmailChanged, domain.AccountDeleted, domain.PasswordReset, domain.SecondFactorAdded, domain.SecondFactorRemoved, domain.AdminPromoted},
-		domain.KindAccess: {domain.GroupCreated, domain.GroupRenamed, domain.GroupDeleted, domain.MemberAdded, domain.MemberRemoved, domain.RoleAssigned, domain.RoleRemoved, domain.ClientSecretRotated, domain.StepUpChanged, domain.GroupTwoFactorRequired, domain.GroupTwoFactorDropped, domain.MachineCreated, domain.MachineDeleted, domain.MachineSecretRotated},
-		domain.KindTokens: {domain.TokenMinted, domain.TokenRevoked},
+		domain.KindAccess: {domain.GroupCreated, domain.GroupRenamed, domain.GroupDeleted, domain.MemberAdded, domain.MemberRemoved, domain.RoleAssigned, domain.RoleRemoved, domain.ClientSecretRotated, domain.StepUpChanged, domain.GroupTwoFactorRequired, domain.GroupTwoFactorDropped, domain.MachineCreated, domain.MachineDeleted, domain.MachineSecretRotated, domain.MCPResourceMarked, domain.MCPResourceUnmarked},
+		domain.KindTokens: {domain.TokenMinted, domain.TokenRevoked, domain.ConnectedAppAuthorized, domain.ConnectedAppRevoked},
 	} {
 		for _, a := range actions {
 			t.Run(string(a), func(t *testing.T) {

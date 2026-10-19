@@ -26,7 +26,8 @@ CREATE TABLE public.audit_events (
     reason text,
     minutes integer,
     machine_id uuid,
-    machine_name text
+    machine_name text,
+    app_name text
 );
 
 CREATE TABLE public.auth_requests (
@@ -46,7 +47,8 @@ CREATE TABLE public.auth_requests (
     session_id uuid,
     auth_time timestamp with time zone,
     code_hash bytea,
-    methods text[]
+    methods text[],
+    resource text
 );
 
 CREATE TABLE public.client_secrets (
@@ -55,6 +57,25 @@ CREATE TABLE public.client_secrets (
     previous_hash bytea,
     created_at timestamp with time zone NOT NULL,
     rotated_at timestamp with time zone
+);
+
+CREATE TABLE public.connected_app_tokens (
+    id uuid NOT NULL,
+    connected_app_id uuid NOT NULL,
+    kind text NOT NULL,
+    hash bytea,
+    created_at timestamp with time zone NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    used_at timestamp with time zone
+);
+
+CREATE TABLE public.connected_apps (
+    id uuid NOT NULL,
+    registration_id text NOT NULL,
+    user_id uuid NOT NULL,
+    client_id text NOT NULL,
+    created_at timestamp with time zone NOT NULL,
+    last_used_at timestamp with time zone
 );
 
 CREATE TABLE public.email_changes (
@@ -98,9 +119,21 @@ CREATE TABLE public.machine_identities (
     created_at timestamp with time zone NOT NULL
 );
 
+CREATE TABLE public.mcp_resources (
+    client_id text NOT NULL,
+    created_at timestamp with time zone NOT NULL
+);
+
 CREATE TABLE public.memberships (
     group_id uuid NOT NULL,
     user_id uuid NOT NULL
+);
+
+CREATE TABLE public.oauth_registrations (
+    client_id text NOT NULL,
+    name text NOT NULL,
+    redirect_uris text[] NOT NULL,
+    created_at timestamp with time zone NOT NULL
 );
 
 CREATE TABLE public.passkey_enrolments (
@@ -235,6 +268,18 @@ ALTER TABLE ONLY public.auth_requests
 ALTER TABLE ONLY public.client_secrets
     ADD CONSTRAINT client_secrets_pkey PRIMARY KEY (client_id);
 
+ALTER TABLE ONLY public.connected_app_tokens
+    ADD CONSTRAINT connected_app_tokens_hash_key UNIQUE (hash);
+
+ALTER TABLE ONLY public.connected_app_tokens
+    ADD CONSTRAINT connected_app_tokens_pkey PRIMARY KEY (id);
+
+ALTER TABLE ONLY public.connected_apps
+    ADD CONSTRAINT connected_apps_one_per_consent UNIQUE (registration_id, user_id, client_id);
+
+ALTER TABLE ONLY public.connected_apps
+    ADD CONSTRAINT connected_apps_pkey PRIMARY KEY (id);
+
 ALTER TABLE ONLY public.email_changes
     ADD CONSTRAINT email_changes_pkey PRIMARY KEY (user_id);
 
@@ -256,8 +301,14 @@ ALTER TABLE ONLY public.machine_identities
 ALTER TABLE ONLY public.machine_identities
     ADD CONSTRAINT machine_identities_pkey PRIMARY KEY (id);
 
+ALTER TABLE ONLY public.mcp_resources
+    ADD CONSTRAINT mcp_resources_pkey PRIMARY KEY (client_id);
+
 ALTER TABLE ONLY public.memberships
     ADD CONSTRAINT memberships_pkey PRIMARY KEY (group_id, user_id);
+
+ALTER TABLE ONLY public.oauth_registrations
+    ADD CONSTRAINT oauth_registrations_pkey PRIMARY KEY (client_id);
 
 ALTER TABLE ONLY public.passkey_enrolments
     ADD CONSTRAINT passkey_enrolments_pkey PRIMARY KEY (user_id);
@@ -340,6 +391,10 @@ CREATE INDEX audit_events_user_idx ON public.audit_events USING btree (user_id, 
 
 CREATE INDEX auth_requests_expires_at_idx ON public.auth_requests USING btree (expires_at);
 
+CREATE INDEX connected_app_tokens_app_idx ON public.connected_app_tokens USING btree (connected_app_id);
+
+CREATE INDEX connected_apps_user_idx ON public.connected_apps USING btree (user_id);
+
 CREATE INDEX gate_codes_expires_at_idx ON public.gate_codes USING btree (expires_at);
 
 CREATE INDEX gate_sessions_session_idx ON public.gate_sessions USING btree (session_id);
@@ -382,6 +437,15 @@ ALTER TABLE ONLY public.auth_requests
 
 ALTER TABLE ONLY public.auth_requests
     ADD CONSTRAINT auth_requests_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.connected_app_tokens
+    ADD CONSTRAINT connected_app_tokens_app_fk FOREIGN KEY (connected_app_id) REFERENCES public.connected_apps(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.connected_apps
+    ADD CONSTRAINT connected_apps_registration_fk FOREIGN KEY (registration_id) REFERENCES public.oauth_registrations(client_id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.connected_apps
+    ADD CONSTRAINT connected_apps_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.email_changes
     ADD CONSTRAINT email_changes_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;

@@ -1,0 +1,101 @@
+# Connected Apps (identity#23, docs/adr/0008): a tool that registered itself at runtime through
+# Dynamic Client Registration acts for one consenting User on one Client marked as an MCP
+# resource, with opaque access tokens and rotating refresh tokens kept only as hashes.
+databaseChangeLog:
+  - changeSet:
+      id: 0019-oauth-registrations
+      author: identity
+      changes:
+        - createTable:
+            tableName: oauth_registrations
+            columns:
+              - column: {name: client_id, type: text, constraints: {primaryKey: true, nullable: false}}
+              - column: {name: name, type: text, constraints: {nullable: false}}
+              - column: {name: redirect_uris, type: "text[]", constraints: {nullable: false}}
+              - column: {name: created_at, type: timestamptz, constraints: {nullable: false}}
+
+  - changeSet:
+      id: 0019-mcp-resources
+      author: identity
+      changes:
+        - createTable:
+            tableName: mcp_resources
+            columns:
+              # Keyed by Client id alone, so a Removed Client comes back still marked.
+              - column: {name: client_id, type: text, constraints: {primaryKey: true, nullable: false}}
+              - column: {name: created_at, type: timestamptz, constraints: {nullable: false}}
+
+  - changeSet:
+      id: 0019-connected-apps
+      author: identity
+      changes:
+        - createTable:
+            tableName: connected_apps
+            columns:
+              - column: {name: id, type: uuid, constraints: {primaryKey: true, nullable: false}}
+              - column:
+                  name: registration_id
+                  type: text
+                  constraints: {nullable: false, foreignKeyName: connected_apps_registration_fk, references: oauth_registrations(client_id), deleteCascade: true}
+              - column:
+                  name: user_id
+                  type: uuid
+                  constraints: {nullable: false, foreignKeyName: connected_apps_user_fk, references: users(id), deleteCascade: true}
+              - column: {name: client_id, type: text, constraints: {nullable: false}}
+              - column: {name: created_at, type: timestamptz, constraints: {nullable: false}}
+              - column: {name: last_used_at, type: timestamptz}
+        - addUniqueConstraint:
+            tableName: connected_apps
+            columnNames: registration_id, user_id, client_id
+            constraintName: connected_apps_one_per_consent
+        - createIndex:
+            tableName: connected_apps
+            indexName: connected_apps_user_idx
+            columns:
+              - column: {name: user_id}
+
+  - changeSet:
+      id: 0019-connected-app-tokens
+      author: identity
+      changes:
+        - createTable:
+            tableName: connected_app_tokens
+            columns:
+              - column: {name: id, type: uuid, constraints: {primaryKey: true, nullable: false}}
+              - column:
+                  name: connected_app_id
+                  type: uuid
+                  constraints: {nullable: false, foreignKeyName: connected_app_tokens_app_fk, references: connected_apps(id), deleteCascade: true}
+              # access or refresh. An access token is found by its id, which the sealed token
+              # carries; a refresh token by the hash of its secret.
+              - column: {name: kind, type: text, constraints: {nullable: false}}
+              - column: {name: hash, type: bytea, constraints: {unique: true, uniqueConstraintName: connected_app_tokens_hash_key}}
+              - column: {name: created_at, type: timestamptz, constraints: {nullable: false}}
+              - column: {name: expires_at, type: timestamptz, constraints: {nullable: false}}
+              # A refresh token is spent once; presenting it again revokes the Connected App.
+              - column: {name: used_at, type: timestamptz}
+        - createIndex:
+            tableName: connected_app_tokens
+            indexName: connected_app_tokens_app_idx
+            columns:
+              - column: {name: connected_app_id}
+
+  - changeSet:
+      id: 0019-auth-requests-resource
+      author: identity
+      changes:
+        - addColumn:
+            tableName: auth_requests
+            columns:
+              # The MCP resource (RFC 8707) a Connected App's authorize request names.
+              - column: {name: resource, type: text}
+
+  - changeSet:
+      id: 0019-audit-events-app
+      author: identity
+      changes:
+        - addColumn:
+            tableName: audit_events
+            columns:
+              # The Connected App an event is about, as it named itself.
+              - column: {name: app_name, type: text}

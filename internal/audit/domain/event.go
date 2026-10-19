@@ -60,6 +60,14 @@ const (
 
 	TokenMinted  Action = "token-minted"
 	TokenRevoked Action = "token-revoked"
+	// ConnectedAppAuthorized and ConnectedAppRevoked are a User consenting to a Connected App, and
+	// it ending: revoked by them, or by an Admin turning step-up on (identity#23).
+	ConnectedAppAuthorized Action = "connected-app-authorized"
+	ConnectedAppRevoked    Action = "connected-app-revoked"
+	// MCPResourceMarked and MCPResourceUnmarked are an Admin letting a Client take Connected Apps,
+	// and stopping.
+	MCPResourceMarked   Action = "mcp-resource-marked"
+	MCPResourceUnmarked Action = "mcp-resource-unmarked"
 )
 
 // Kind is the family the action belongs to; an unknown action has none.
@@ -70,9 +78,9 @@ func (a Action) Kind() Kind {
 	case UserCreated, UserRenamed, PasswordChanged, EmailChanged, AccountDeleted, PasswordReset, SecondFactorAdded, SecondFactorRemoved, AdminPromoted:
 		return KindPeople
 	case GroupCreated, GroupRenamed, GroupDeleted, MemberAdded, MemberRemoved, RoleAssigned, RoleRemoved, ClientSecretRotated, StepUpChanged, GroupTwoFactorRequired, GroupTwoFactorDropped,
-		MachineCreated, MachineDeleted, MachineSecretRotated:
+		MachineCreated, MachineDeleted, MachineSecretRotated, MCPResourceMarked, MCPResourceUnmarked:
 		return KindAccess
-	case TokenMinted, TokenRevoked:
+	case TokenMinted, TokenRevoked, ConnectedAppAuthorized, ConnectedAppRevoked:
 		return KindTokens
 	}
 	return ""
@@ -105,6 +113,8 @@ type Event struct {
 	// Machine is the Machine Identity the event is about, and MachineName what it was called then.
 	Machine     uuid.UUID
 	MachineName string
+	// AppName is the Connected App the event is about, as it named itself.
+	AppName string
 }
 
 // Filter narrows a listing; a zero field does not filter.

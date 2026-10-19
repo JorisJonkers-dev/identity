@@ -27,7 +27,7 @@ func (q *Queries) AddSessionClient(ctx context.Context, arg AddSessionClientPara
 }
 
 const authRequestByID = `-- name: AuthRequestByID :one
-SELECT id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode, code_challenge, code_challenge_method, created_at, expires_at, user_id, session_id, auth_time, code_hash, methods FROM auth_requests WHERE id = $1
+SELECT id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode, code_challenge, code_challenge_method, created_at, expires_at, user_id, session_id, auth_time, code_hash, methods, resource FROM auth_requests WHERE id = $1
 `
 
 func (q *Queries) AuthRequestByID(ctx context.Context, id uuid.UUID) (AuthRequest, error) {
@@ -51,6 +51,7 @@ func (q *Queries) AuthRequestByID(ctx context.Context, id uuid.UUID) (AuthReques
 		&i.AuthTime,
 		&i.CodeHash,
 		&i.Methods,
+		&i.Resource,
 	)
 	return i, err
 }
@@ -185,7 +186,7 @@ func (q *Queries) StepUpMinutes(ctx context.Context, clientID string) (int32, er
 }
 
 const takeAuthRequestByCodeHash = `-- name: TakeAuthRequestByCodeHash :one
-DELETE FROM auth_requests WHERE code_hash = $1 RETURNING id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode, code_challenge, code_challenge_method, created_at, expires_at, user_id, session_id, auth_time, code_hash, methods
+DELETE FROM auth_requests WHERE code_hash = $1 RETURNING id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode, code_challenge, code_challenge_method, created_at, expires_at, user_id, session_id, auth_time, code_hash, methods, resource
 `
 
 // Redeeming a code removes its request in the same statement, so two exchanges racing with one
@@ -211,6 +212,7 @@ func (q *Queries) TakeAuthRequestByCodeHash(ctx context.Context, codeHash []byte
 		&i.AuthTime,
 		&i.CodeHash,
 		&i.Methods,
+		&i.Resource,
 	)
 	return i, err
 }
