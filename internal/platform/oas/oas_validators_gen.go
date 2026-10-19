@@ -395,6 +395,14 @@ func (s AuditAction) Validate() error {
 		return nil
 	case "machine-secret-rotated":
 		return nil
+	case "connected-app-authorized":
+		return nil
+	case "connected-app-revoked":
+		return nil
+	case "mcp-resource-marked":
+		return nil
+	case "mcp-resource-unmarked":
+		return nil
 	default:
 		return errors.Errorf("invalid value: %v", s)
 	}
@@ -689,6 +697,36 @@ func (s *AuditEvent) Validate() error {
 	}(); err != nil {
 		failures = append(failures, validate.FieldError{
 			Name:  "machineName",
+			Error: err,
+		})
+	}
+	if err := func() error {
+		if value, ok := s.AppName.Get(); ok {
+			if err := func() error {
+				if err := (validate.String{
+					MinLength:     0,
+					MinLengthSet:  false,
+					MaxLength:     100,
+					MaxLengthSet:  true,
+					Email:         false,
+					Hostname:      false,
+					Regex:         nil,
+					MinNumeric:    0,
+					MinNumericSet: false,
+					MaxNumeric:    0,
+					MaxNumericSet: false,
+				}).Validate(string(value)); err != nil {
+					return errors.Wrap(err, "string")
+				}
+				return nil
+			}(); err != nil {
+				return err
+			}
+		}
+		return nil
+	}(); err != nil {
+		failures = append(failures, validate.FieldError{
+			Name:  "appName",
 			Error: err,
 		})
 	}

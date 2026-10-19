@@ -151,7 +151,7 @@ func TestARecordedEventIsLoggedAsJSONWithOnlyWhatItNames(t *testing.T) {
 	f := newFixture(counting())
 	f.Record(context.Background(), domain.Event{
 		Action: domain.RoleAssigned, Actor: admin, User: ada, Group: gone, Client: "grafana",
-		GroupName: "Family", Role: "viewer", Email: "ada@example.org", Reason: domain.ReasonNoAccess,
+		GroupName: "Family", Role: "viewer", Email: "ada@example.org", Reason: domain.ReasonNoAccess, AppName: "Claude Code",
 	})
 	f.Record(context.Background(), domain.Event{Action: domain.SignedOut})
 	lines := f.lines(t)
@@ -159,7 +159,7 @@ func TestARecordedEventIsLoggedAsJSONWithOnlyWhatItNames(t *testing.T) {
 	want := map[string]any{
 		"id": f.store.events[0].ID.String(), "at": "2026-10-16T12:00:00Z", "kind": "access", "action": "role-assigned",
 		"actor_id": admin.String(), "user_id": ada.String(), "group_id": gone.String(), "client_id": "grafana",
-		"group_name": "Family", "role": "viewer", "email": "ada@example.org", "reason": "no-access",
+		"group_name": "Family", "role": "viewer", "email": "ada@example.org", "reason": "no-access", "app_name": "Claude Code",
 	}
 	if lines[0]["msg"] != "audit event" || len(full) != len(want) || len(bare) != 4 {
 		t.Fatalf("logged %v and %v", full, bare)

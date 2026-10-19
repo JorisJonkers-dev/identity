@@ -138,6 +138,7 @@ func attrs(e domain.Event) []slog.Attr {
 	}
 	for _, f := range []struct{ key, value string }{
 		{"client_id", e.Client}, {"group_name", e.GroupName}, {"role", e.Role}, {"email", e.Email}, {"reason", e.Reason},
+		{"app_name", e.AppName},
 	} {
 		if f.value != "" {
 			a = append(a, slog.String(f.key, f.value))

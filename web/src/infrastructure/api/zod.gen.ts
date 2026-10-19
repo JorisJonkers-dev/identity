@@ -43,7 +43,11 @@ export const zAuditAction = z.enum([
     'step-up-changed',
     'machine-created',
     'machine-deleted',
-    'machine-secret-rotated'
+    'machine-secret-rotated',
+    'connected-app-authorized',
+    'connected-app-revoked',
+    'mcp-resource-marked',
+    'mcp-resource-unmarked'
 ]);
 
 /**
@@ -335,7 +339,8 @@ export const zAuditEvent = z.object({
         z.literal(15),
         z.literal(60)
     ]).optional(),
-    machineName: z.string().max(256).optional()
+    machineName: z.string().max(256).optional(),
+    appName: z.string().max(100).optional()
 });
 
 /**

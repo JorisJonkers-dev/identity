@@ -231,6 +231,10 @@ const (
 	AuditActionMachineCreated         AuditAction = "machine-created"
 	AuditActionMachineDeleted         AuditAction = "machine-deleted"
 	AuditActionMachineSecretRotated   AuditAction = "machine-secret-rotated"
+	AuditActionConnectedAppAuthorized AuditAction = "connected-app-authorized"
+	AuditActionConnectedAppRevoked    AuditAction = "connected-app-revoked"
+	AuditActionMcpResourceMarked      AuditAction = "mcp-resource-marked"
+	AuditActionMcpResourceUnmarked    AuditAction = "mcp-resource-unmarked"
 )
 
 // AllValues returns all AuditAction values.
@@ -264,6 +268,10 @@ func (AuditAction) AllValues() []AuditAction {
 		AuditActionMachineCreated,
 		AuditActionMachineDeleted,
 		AuditActionMachineSecretRotated,
+		AuditActionConnectedAppAuthorized,
+		AuditActionConnectedAppRevoked,
+		AuditActionMcpResourceMarked,
+		AuditActionMcpResourceUnmarked,
 	}
 }
 
@@ -325,6 +333,14 @@ func (s AuditAction) MarshalText() ([]byte, error) {
 	case AuditActionMachineDeleted:
 		return []byte(s), nil
 	case AuditActionMachineSecretRotated:
+		return []byte(s), nil
+	case AuditActionConnectedAppAuthorized:
+		return []byte(s), nil
+	case AuditActionConnectedAppRevoked:
+		return []byte(s), nil
+	case AuditActionMcpResourceMarked:
+		return []byte(s), nil
+	case AuditActionMcpResourceUnmarked:
 		return []byte(s), nil
 	default:
 		return nil, errors.Errorf("invalid value: %q", s)
@@ -418,6 +434,18 @@ func (s *AuditAction) UnmarshalText(data []byte) error {
 	case AuditActionMachineSecretRotated:
 		*s = AuditActionMachineSecretRotated
 		return nil
+	case AuditActionConnectedAppAuthorized:
+		*s = AuditActionConnectedAppAuthorized
+		return nil
+	case AuditActionConnectedAppRevoked:
+		*s = AuditActionConnectedAppRevoked
+		return nil
+	case AuditActionMcpResourceMarked:
+		*s = AuditActionMcpResourceMarked
+		return nil
+	case AuditActionMcpResourceUnmarked:
+		*s = AuditActionMcpResourceUnmarked
+		return nil
 	default:
 		return errors.Errorf("invalid value: %q", data)
 	}
@@ -472,6 +500,8 @@ type AuditEvent struct {
 	Minutes OptAuditEventMinutes `json:"minutes"`
 	// The Machine Identity the event is about, as it was called then.
 	MachineName OptString `json:"machineName"`
+	// The Connected App the event is about, as it called itself.
+	AppName OptString `json:"appName"`
 }
 
 // GetID returns the value of ID.
@@ -539,6 +569,11 @@ func (s *AuditEvent) GetMachineName() OptString {
 	return s.MachineName
 }
 
+// GetAppName returns the value of AppName.
+func (s *AuditEvent) GetAppName() OptString {
+	return s.AppName
+}
+
 // SetID sets the value of ID.
 func (s *AuditEvent) SetID(val ID) {
 	s.ID = val
@@ -602,6 +637,11 @@ func (s *AuditEvent) SetMinutes(val OptAuditEventMinutes) {
 // SetMachineName sets the value of MachineName.
 func (s *AuditEvent) SetMachineName(val OptString) {
 	s.MachineName = val
+}
+
+// SetAppName sets the value of AppName.
+func (s *AuditEvent) SetAppName(val OptString) {
+	s.AppName = val
 }
 
 // The step-up window an Admin set, 0 for off.

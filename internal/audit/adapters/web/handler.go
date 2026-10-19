@@ -135,6 +135,9 @@ func event(e app.Entry) oas.AuditEvent {
 	if e.MachineName != "" {
 		out.MachineName = oas.NewOptString(e.MachineName)
 	}
+	if e.AppName != "" {
+		out.AppName = oas.NewOptString(e.AppName)
+	}
 	if e.Action == domain.StepUpChanged {
 		out.Minutes = oas.NewOptAuditEventMinutes(oas.AuditEventMinutes(e.Minutes)) //nolint:gosec // 0 to 60
 	}

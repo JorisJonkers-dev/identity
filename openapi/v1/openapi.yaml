@@ -1578,6 +1578,10 @@ components:
         - machine-created
         - machine-deleted
         - machine-secret-rotated
+        - connected-app-authorized
+        - connected-app-revoked
+        - mcp-resource-marked
+        - mcp-resource-unmarked
     AuditCursor:
       description: Where a page of Audit Events ends; opaque.
       type: string
@@ -1653,6 +1657,10 @@ components:
           type: string
           maxLength: 256
           description: The Machine Identity the event is about, as it was called then.
+        appName:
+          type: string
+          maxLength: 100
+          description: The Connected App the event is about, as it called itself.
     TokenClient:
       description: A Client a token is for.
       type: object

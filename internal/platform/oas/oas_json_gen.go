@@ -602,6 +602,14 @@ func (s *AuditAction) Decode(d *jx.Decoder) error {
 		*s = AuditActionMachineDeleted
 	case AuditActionMachineSecretRotated:
 		*s = AuditActionMachineSecretRotated
+	case AuditActionConnectedAppAuthorized:
+		*s = AuditActionConnectedAppAuthorized
+	case AuditActionConnectedAppRevoked:
+		*s = AuditActionConnectedAppRevoked
+	case AuditActionMcpResourceMarked:
+		*s = AuditActionMcpResourceMarked
+	case AuditActionMcpResourceUnmarked:
+		*s = AuditActionMcpResourceUnmarked
 	default:
 		*s = AuditAction(v)
 	}
@@ -852,9 +860,15 @@ func (s *AuditEvent) encodeFields(e *jx.Encoder) {
 			s.MachineName.Encode(e)
 		}
 	}
+	{
+		if s.AppName.Set {
+			e.FieldStart("appName")
+			s.AppName.Encode(e)
+		}
+	}
 }
 
-var jsonFieldsNameOfAuditEvent = [13]string{
+var jsonFieldsNameOfAuditEvent = [14]string{
 	0:  "id",
 	1:  "at",
 	2:  "kind",
@@ -868,6 +882,7 @@ var jsonFieldsNameOfAuditEvent = [13]string{
 	10: "reason",
 	11: "minutes",
 	12: "machineName",
+	13: "appName",
 }
 
 // Decode decodes AuditEvent from json.
@@ -1010,6 +1025,16 @@ func (s *AuditEvent) Decode(d *jx.Decoder) error {
 				return nil
 			}(); err != nil {
 				return errors.Wrap(err, "decode field \"machineName\"")
+			}
+		case "appName":
+			if err := func() error {
+				s.AppName.Reset()
+				if err := s.AppName.Decode(d); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"appName\"")
 			}
 		default:
 			return errors.Errorf("unexpected field %q", k)

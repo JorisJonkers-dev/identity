@@ -12,7 +12,7 @@ export type AuditKind = 'sign-in' | 'people' | 'access' | 'tokens';
 /**
  * What an Audit Event records.
  */
-export type AuditAction = 'signed-in' | 'sign-in-failed' | 'signed-out' | 'user-created' | 'user-renamed' | 'password-changed' | 'second-factor-added' | 'second-factor-removed' | 'admin-promoted' | 'group-created' | 'group-renamed' | 'group-deleted' | 'member-added' | 'member-removed' | 'role-assigned' | 'role-removed' | 'token-minted' | 'token-revoked' | 'client-secret-rotated' | 'group-two-factor-required' | 'group-two-factor-dropped' | 'email-changed' | 'account-deleted' | 'password-reset' | 'step-up-changed' | 'machine-created' | 'machine-deleted' | 'machine-secret-rotated';
+export type AuditAction = 'signed-in' | 'sign-in-failed' | 'signed-out' | 'user-created' | 'user-renamed' | 'password-changed' | 'second-factor-added' | 'second-factor-removed' | 'admin-promoted' | 'group-created' | 'group-renamed' | 'group-deleted' | 'member-added' | 'member-removed' | 'role-assigned' | 'role-removed' | 'token-minted' | 'token-revoked' | 'client-secret-rotated' | 'group-two-factor-required' | 'group-two-factor-dropped' | 'email-changed' | 'account-deleted' | 'password-reset' | 'step-up-changed' | 'machine-created' | 'machine-deleted' | 'machine-secret-rotated' | 'connected-app-authorized' | 'connected-app-revoked' | 'mcp-resource-marked' | 'mcp-resource-unmarked';
 
 /**
  * Where a page of Audit Events ends; opaque.
@@ -65,6 +65,10 @@ export type AuditEvent = {
      * The Machine Identity the event is about, as it was called then.
      */
     machineName?: string;
+    /**
+     * The Connected App the event is about, as it called itself.
+     */
+    appName?: string;
 };
 
 /**
