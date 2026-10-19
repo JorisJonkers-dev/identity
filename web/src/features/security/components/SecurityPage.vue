@@ -22,7 +22,7 @@ function day(at: string): string {
     <header class="head"><h1>Security</h1></header>
     <p v-if="loadError" role="alert" class="alert"><Icon name="alert" />{{ loadError }}</p>
     <div class="glass facts3">
-      <div><span>Two-factor</span><b :class="factors.length ? 'okc' : 'offc'">{{ factors.length ? 'On' : 'Off' }}</b><small>{{ factors.length }} {{ factors.length === 1 ? 'way' : 'ways' }}</small></div>
+      <div><span>Two-factor</span><b :class="factors.length ? 'okc' : 'offc'">{{ factors.length ? 'On' : 'Off' }}</b><small>{{ factors.length }} {{ factors.length === 1 ? 'method' : 'methods' }}</small></div>
       <div><span>Last added</span><b>{{ latest?.label ?? 'Nothing yet' }}</b><small v-if="latest">{{ day(latest.createdAt) }}</small></div>
       <div><span>Password</span><b>Set</b><small>Change any time</small></div>
     </div>

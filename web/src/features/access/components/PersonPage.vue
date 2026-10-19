@@ -76,11 +76,11 @@ function via(roles: Map<string, string[]>): string {
           <div class="row">
             <span class="row-ic"><Icon name="logout" /></span>
             <span class="grow"><b>Sign out everywhere</b><small>{{ signedOut ? 'Signed out on every device' : 'Ends every session' }}</small></span>
-            <button class="btn sm" type="button" :disabled="signedOut" @click="signOutUser(person.id, () => (signedOut = true))">Sign out</button>
+            <button class="btn sm" type="button" :disabled="signedOut" @click="signOutUser(person.id, () => (signedOut = true))">Sign out everywhere</button>
           </div>
         </section>
         <section class="glass group">
-          <div class="group-h"><h2>Personal Tokens</h2></div>
+          <div class="group-h"><h2>Tokens</h2></div>
           <div class="row"><UserTokens :user-id="person.id" :name="person.name" /></div>
         </section>
       </div>

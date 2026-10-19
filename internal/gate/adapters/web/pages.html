@@ -30,7 +30,7 @@
 
 {{define "signin"}}{{template "top" (printf "Sign in to %s" .App)}}
 <h1>Sign in to {{.App}}</h1>
-<p>Sign in once on jorisjonkers.dev, then come back here.</p>
+<p>Sign in on jorisjonkers.dev, then come back here.</p>
 <a class="button" href="{{.Start}}">Sign in with jorisjonkers.dev</a>
 {{template "bottom"}}{{end}}
 
@@ -46,7 +46,7 @@
 
 {{define "broken"}}{{template "top" "Sign-in link no longer works"}}
 <h1>This sign-in link no longer works</h1>
-<p>Sign-in links expire after 2 minutes. This one expired, was already used, or was opened in another browser. Go back to the app and sign in again.</p>
+<p>Sign-in links expire after 2 minutes. It expired, was already used, or was opened in another browser. Go back to the app and sign in again.</p>
 {{template "bottom"}}{{end}}
 
 {{define "failed"}}{{template "top" "Something went wrong"}}

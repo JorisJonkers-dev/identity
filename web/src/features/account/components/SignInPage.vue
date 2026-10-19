@@ -58,7 +58,7 @@ function usePasskey() {
   keyOptions.run({}, (o) => {
     passkeys.get(o.options).then(
       (response) => { keyAnswer.run({ body: { response } }, signedIn); },
-      () => (browserRefused.value = 'Passkey sign-in did not finish.'),
+      () => (browserRefused.value = 'Passkey sign-in did not finish. Try again.'),
     )
   })
 }

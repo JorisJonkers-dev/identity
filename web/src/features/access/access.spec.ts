@@ -84,7 +84,7 @@ describe('the Groups page', () => {
 
   it('counts each Group’s people and apps', async () => {
     const { wrapper } = await mountAt('/admin/groups', server().answers)
-    expect(wrapper.findAll('.g-item small').map((s) => s.text())).toEqual(['1 people · admin console', '2 people · 2 apps', '0 people · 0 apps'])
+    expect(wrapper.findAll('.g-item small').map((s) => s.text())).toEqual(['1 people · Admin console', '2 people · 2 apps', '0 people · 0 apps'])
   })
 
   it('opens the Group the address names', async () => {
@@ -262,7 +262,7 @@ describe('the Groups page', () => {
     }
     const { wrapper, router, requests } = await mountAt(`/admin/groups/${ids.family}`, { ...answers, [`DELETE /api/v1/access/groups/${ids.family}`]: gone })
     await button(wrapper, 'Delete').trigger('click')
-    expect(wrapper.get('[role="dialog"] p').text()).toBe('2 people lose what it gives them.')
+    expect(wrapper.get('[role="dialog"] p').text()).toBe('2 people lose the access it gives them.')
     await wrapper.get('form[role="dialog"]').trigger('submit')
     await settle()
     expect(requests.some((r) => r.key === `DELETE /api/v1/access/groups/${ids.family}`)).toBe(true)
@@ -464,17 +464,17 @@ describe('an app’s page', () => {
 
   it('writes a new secret once asked twice', async () => {
     const { wrapper, requests } = await mountAt('/admin/apps/grafana', { ...server().answers, 'POST /api/v1/apps/grafana/secret': ok })
-    await button(wrapper, 'New secret').trigger('click')
-    expect(wrapper.get('.confirm .ask').text()).toBe('Write a new secret for Grafana?The old one works until Grafana uses the new one.')
-    await button(wrapper, 'Write secret').trigger('click')
+    await button(wrapper, 'Replace secret').trigger('click')
+    expect(wrapper.get('.confirm .ask').text()).toBe('Replace the secret for Grafana?The old one works until Grafana uses the new one.')
+    await button(wrapper.get('.confirm'), 'Replace secret').trigger('click')
     await settle()
     expect(requests.some((r) => r.key === 'POST /api/v1/apps/grafana/secret')).toBe(true)
-    expect(wrapper.get('.row small').text()).toBe('New secret written')
+    expect(wrapper.get('.row small').text()).toBe('Secret replaced')
   })
 
   it('keeps the secret when asked to', async () => {
     const { wrapper, requests } = await mountAt('/admin/apps/grafana', server().answers)
-    await button(wrapper, 'New secret').trigger('click')
+    await button(wrapper, 'Replace secret').trigger('click')
     await button(wrapper, 'Cancel').trigger('click')
     expect(wrapper.find('.confirm').exists()).toBe(false)
     expect(requests.some((r) => r.key.endsWith('/secret'))).toBe(false)
@@ -482,8 +482,8 @@ describe('an app’s page', () => {
 
   it('shows a refused secret', async () => {
     const { wrapper } = await mountAt('/admin/apps/grafana', { ...server().answers, 'POST /api/v1/apps/grafana/secret': () => problem(409, 'Grafana signs in without a secret.') })
-    await button(wrapper, 'New secret').trigger('click')
-    await button(wrapper, 'Write secret').trigger('click')
+    await button(wrapper, 'Replace secret').trigger('click')
+    await button(wrapper.get('.confirm'), 'Replace secret').trigger('click')
     await settle()
     expect(wrapper.get('[role="alert"]').text()).toBe('Grafana signs in without a secret.')
   })
@@ -629,11 +629,11 @@ describe('a person’s page', () => {
       [`GET /api/v1/access/users/${ids.ada}/tokens`]: () => Response.json({ tokens: [] }),
     })
     const sessions = () => wrapper.get('main .cols-2 .group')
-    await button(sessions(), 'Sign out').trigger('click')
+    await button(sessions(), 'Sign out everywhere').trigger('click')
     await settle()
     expect(requests.some((r) => r.key === `POST /api/v1/access/users/${ids.ada}/sign-out`)).toBe(true)
     expect(sessions().get('.row small').text()).toBe('Signed out on every device')
-    expect(button(sessions(), 'Sign out').attributes('disabled')).toBeDefined()
+    expect(button(sessions(), 'Sign out everywhere').attributes('disabled')).toBeDefined()
   })
 
   it('shows the problem when the person cannot load', async () => {

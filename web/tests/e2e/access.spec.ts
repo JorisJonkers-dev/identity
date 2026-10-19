@@ -54,7 +54,7 @@ test('an Admin signs a User out on every device', async ({ page, browser }, info
     await page.getByLabel('Find a person').fill(email)
     await page.locator('a.who').filter({ hasText: email }).click()
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Grace Hopper')
-    await page.locator('main').getByRole('button', { name: 'Sign out' }).click()
+    await page.locator('main').getByRole('button', { name: 'Sign out everywhere' }).click()
     await expect(page.getByText('Signed out on every device')).toBeVisible()
     await expectAccessible(page)
   })

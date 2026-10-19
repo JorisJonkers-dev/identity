@@ -40,7 +40,7 @@ describe('the Security page', () => {
   it('names the ways the User gives two-factor, and the last one added', async () => {
     const { wrapper } = await mountAt('/security', page([phone, laptop]))
     expect(wrapper.get('.facts3 b').text()).toBe('On')
-    expect(wrapper.get('.facts3 small').text()).toBe('2 ways')
+    expect(wrapper.get('.facts3 small').text()).toBe('2 methods')
     expect(wrapper.get('a[href="/security/two-factor"] small').text()).toBe('Passkey and authenticator app')
     expect(wrapper.findAll('.facts3 b')[1]?.text()).toBe('MacBook Pro')
     expect(wrapper.findAll('.facts3 small')[1]?.text()).toBe('17 Oct')
@@ -48,7 +48,7 @@ describe('the Security page', () => {
 
   it('says one way for one', async () => {
     const { wrapper } = await mountAt('/security', page([phone]))
-    expect(wrapper.get('.facts3 small').text()).toBe('1 way')
+    expect(wrapper.get('.facts3 small').text()).toBe('1 method')
     expect(wrapper.get('a[href="/security/two-factor"] small').text()).toBe('Authenticator app')
   })
 

@@ -51,13 +51,13 @@ function rotateNow() {
         <div class="group-h"><h2>Sign-in</h2></div>
         <div class="row">
           <span class="row-ic"><Icon name="key" /></span>
-          <span class="grow"><b>Client secret</b><small>{{ rotate.isDone.value ? 'New secret written' : 'Kept in Vault' }}</small></span>
-          <button v-if="!asking" class="btn sm" type="button" :disabled="rotate.isPending.value" @click="asking = true">New secret</button>
+          <span class="grow"><b>App secret</b><small>{{ rotate.isDone.value ? 'Secret replaced' : 'Kept in Vault' }}</small></span>
+          <button v-if="!asking" class="btn sm" type="button" :disabled="rotate.isPending.value" @click="asking = true">Replace secret</button>
         </div>
         <div v-if="asking" class="confirm">
-          <div class="ask">Write a new secret for {{ app.label }}?<small>The old one works until {{ app.label }} uses the new one.</small></div>
+          <div class="ask">Replace the secret for {{ app.label }}?<small>The old one works until {{ app.label }} uses the new one.</small></div>
           <button class="btn sm" type="button" @click="asking = false">Cancel</button>
-          <button class="btn sm primary" type="button" @click="rotateNow">Write secret</button>
+          <button class="btn sm primary" type="button" @click="rotateNow">Replace secret</button>
         </div>
         <p v-if="rotate.error.value" role="alert" class="alert"><Icon name="alert" />{{ rotate.error.value }}</p>
       </section>

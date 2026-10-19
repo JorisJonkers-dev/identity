@@ -214,7 +214,7 @@ describe('signing in', () => {
     await signIn(wrapper)
     await button(wrapper, 'Use your passkey').trigger('click')
     await settle()
-    expect(wrapper.get('[role="alert"]').text()).toBe('Passkey sign-in did not finish.')
+    expect(wrapper.get('[role="alert"]').text()).toBe('Passkey sign-in did not finish. Try again.')
     get.mockRestore()
   })
 

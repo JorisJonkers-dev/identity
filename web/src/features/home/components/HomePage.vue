@@ -46,7 +46,7 @@ onBeforeUnmount(() => { document.removeEventListener('keydown', slash); })
         <Icon name="clock" />
         <span v-if="ending.length === 1"><b>{{ ending[0].name }}</b> {{ expiry(ending[0], now) }}.</span>
         <span v-else>{{ ending.length }} tokens expire within 7 days.</span>
-        <RouterLink class="btn sm" to="/tokens">Renew</RouterLink>
+        <RouterLink class="btn sm" to="/tokens">View tokens</RouterLink>
       </div>
       <div v-if="apps.length === 0" class="glass apps-empty"><p>No apps yet. An Admin adds you to a Group.</p><a class="link" :href="adminMail">Contact an Admin</a></div>
       <p v-else-if="!apps.some(matches)" class="soft">No app matches “{{ find }}”.</p>

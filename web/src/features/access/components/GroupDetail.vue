@@ -106,7 +106,7 @@ function remove() {
     </div>
     <p v-if="actionError" role="alert" class="alert"><Icon name="alert" />{{ actionError }}</p>
     <nav class="g-tabs" :aria-label="group.name">
-      <button type="button" class="g-tab" :aria-current="tab === 'access' ? 'page' : undefined" @click="go(false)">Access <span class="n">{{ group.admins ? 'admin' : heldApps.length }}</span></button>
+      <button type="button" class="g-tab" :aria-current="tab === 'access' ? 'page' : undefined" @click="go(false)">Access <span class="n">{{ group.admins ? 'Admin' : heldApps.length }}</span></button>
       <button type="button" class="g-tab" :aria-current="tab === 'members' ? 'page' : undefined" @click="go(true)">Members <span class="n">{{ members.length }}</span></button>
     </nav>
 
@@ -170,7 +170,7 @@ function remove() {
     <DialogScrim v-if="dialog === 'delete'" @close="dialog = null">
       <form class="dialog glass strong" role="dialog" aria-modal="true" aria-labelledby="g-dlg" @submit.prevent="remove">
         <h2 id="g-dlg">Delete {{ group.name }}?</h2>
-        <p>{{ members.length }} people lose what it gives them.</p>
+        <p>{{ members.length }} people lose the access it gives them.</p>
         <div class="btn-row end"><button class="btn" type="button" @click="dialog = null">Cancel</button><button class="btn danger-solid" type="submit">Delete Group</button></div>
       </form>
     </DialogScrim>
