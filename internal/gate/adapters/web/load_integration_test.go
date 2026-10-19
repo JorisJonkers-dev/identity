@@ -45,6 +45,10 @@ const (
 	requests  = 5000
 )
 
+// slowdown scales the target: 1 without the race detector, which race_integration_test.go raises.
+// One variable rather than a constant per build, because gobco reads every file whatever its tags.
+var slowdown time.Duration = 1 //nolint:gochecknoglobals // set once, by the race build's init.
+
 func sum(s string) []byte {
 	h := sha256.Sum256([]byte(s))
 	return h[:]
