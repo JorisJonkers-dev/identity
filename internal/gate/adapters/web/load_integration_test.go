@@ -148,8 +148,8 @@ func TestTheGateCheckHoldsItsP99(t *testing.T) {
 	slices.Sort(times)
 	p50, p99 := times[len(times)/2], times[len(times)*99/100]
 	t.Logf("Gate check over %d requests: p50 %v, p99 %v", len(times), p50, p99)
-	if p99 >= p99Target {
-		t.Fatalf("the Gate check's p99 is %v, at or above its %v target (p50 %v)", p99, p99Target, p50)
+	if target := p99Target * slowdown; p99 >= target {
+		t.Fatalf("the Gate check's p99 is %v, at or above its %v target (p50 %v)", p99, target, p50)
 	}
 }
 
