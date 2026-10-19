@@ -419,7 +419,7 @@ describe('resetting a forgotten password', () => {
     await settle()
     expect(requests.find((r) => r.key === 'POST /api/v1/password-resets')?.body).toEqual({ email: 'ada@example.org' })
     expect(wrapper.get('h1').text()).toBe('Check your email')
-    expect(wrapper.get('.lead').text()).toBe('If ada@example.org has an account, a link to reset its password is on its way. It works for 30 minutes.')
+    expect(wrapper.get('.lead').text()).toBe('If ada@example.org has an account, we sent a link to reset its password. It works once, for 30 minutes.')
   })
 
   it('shows a refused request', async () => {

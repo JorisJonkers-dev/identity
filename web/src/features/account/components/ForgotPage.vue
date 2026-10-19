@@ -18,7 +18,7 @@ onMounted(() => emailField.value?.focus())
     <div v-if="ask.isDone.value" class="auth-box">
       <span class="big-ico"><Icon name="mail" /></span>
       <h1>Check your email</h1>
-      <p class="lead">If {{ email }} has an account, a link to reset its password is on its way. It works for 30 minutes.</p>
+      <p class="lead">If {{ email }} has an account, we sent a link to reset its password. It works once, for 30 minutes.</p>
       <RouterLink class="btn lg wide" to="/signin">Back to sign in</RouterLink>
     </div>
     <form v-else class="auth-box" novalidate @submit.prevent="ask.run({ body: { email } })">
