@@ -5,10 +5,14 @@ package access_test
 import (
 	"net/http"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/JorisJonkers-dev/identity/internal/platform/itest"
+	signindomain "github.com/JorisJonkers-dev/identity/internal/signin/domain"
 )
+
+var wiki = signindomain.Client{ID: "wiki", SignIn: signindomain.Native, Host: "wiki.test", Label: "Wiki", Roles: []string{"user"}}
 
 type launcher struct {
 	Apps []struct {
@@ -34,7 +38,7 @@ func grafanaRoles(t *testing.T, ada *itest.Browser) []string {
 // in Friends, which gives Grafana user; Ada has no two-factor.
 func heldBack(t *testing.T) (admin, ada *itest.Browser, family string) {
 	t.Helper()
-	env := itest.Start(t, grafana)
+	env := itest.Start(t, grafana, wiki)
 	admin = env.Admin(t, "root@example.org")
 	ada = env.SignedUp(t, "ada@example.org")
 	adaID := admin.UserID(t, ada.Email)
@@ -148,5 +152,44 @@ func TestMarkingAGroupIsAnAuditEvent(t *testing.T) {
 	e := page.Events[0]
 	if e.Action != "group-two-factor-required" || e.GroupName != "Family" || e.Actor == nil || e.Actor.Email != admin.Email {
 		t.Fatalf("event = %+v", e)
+	}
+}
+
+func TestMarkingAGroupMailsEachMemberItHoldsBackOnce(t *testing.T) {
+	t.Parallel()
+	admin, ada, family := heldBack(t)
+	admin.Call(t, http.MethodPut, "/api/v1/access/groups/"+family+"/two-factor", map[string]bool{"required": true}, http.StatusNoContent, nil)
+	text := itest.Mailed(t, ada.Email, "Family now requires two-factor")
+	if !strings.Contains(text, "/security/two-factor") {
+		t.Fatalf("mail = %q", text)
+	}
+	if n := itest.MailCount(t, ada.Email, "Family now requires two-factor"); n != 1 {
+		t.Fatalf("%d mails, want 1", n)
+	}
+	if n := itest.MailCount(t, admin.Email, "Family now requires two-factor"); n != 0 {
+		t.Fatalf("the Admin, who has two-factor, got %d mails", n)
+	}
+}
+
+func TestTheLauncherSaysHowManyAppsTwoFactorWouldGiveBack(t *testing.T) {
+	t.Parallel()
+	admin, ada, family := heldBack(t)
+	admin.Call(t, http.MethodPut, "/api/v1/access/groups/"+family+"/roles/wiki/user", nil, http.StatusNoContent, nil)
+	var l struct{ HeldBack int }
+	ada.Call(t, http.MethodGet, "/api/v1/launcher", nil, http.StatusOK, &l)
+	if l.HeldBack != 1 {
+		t.Fatalf("held back = %d", l.HeldBack)
+	}
+}
+
+func TestTheLaunchersNoticeGoesOnceTwoFactorIsSetUp(t *testing.T) {
+	t.Parallel()
+	admin, ada, family := heldBack(t)
+	admin.Call(t, http.MethodPut, "/api/v1/access/groups/"+family+"/roles/wiki/user", nil, http.StatusNoContent, nil)
+	ada.AddAuthenticator(t)
+	var l struct{ HeldBack int }
+	ada.Call(t, http.MethodGet, "/api/v1/launcher", nil, http.StatusOK, &l)
+	if l.HeldBack != 0 {
+		t.Fatalf("held back = %d", l.HeldBack)
 	}
 }

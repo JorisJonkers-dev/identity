@@ -408,6 +408,7 @@ export type Group = {
  * The apps a User can open.
  */
 export type Launcher = {
+    heldBack: Count;
     apps: Array<LauncherApp>;
 };
 

@@ -171,6 +171,37 @@ func (q *Queries) GroupByID(ctx context.Context, id uuid.UUID) (GroupByIDRow, er
 	return i, err
 }
 
+const heldBackClients = `-- name: HeldBackClients :many
+SELECT DISTINCT a.client_id FROM assignments a
+JOIN memberships m ON m.group_id = a.group_id
+JOIN groups g ON g.id = a.group_id
+WHERE m.user_id = $1 AND g.requires_two_factor
+  AND NOT EXISTS (SELECT 1 FROM totp_factors f WHERE f.user_id = $1)
+  AND NOT EXISTS (SELECT 1 FROM passkeys p WHERE p.user_id = $1)
+ORDER BY a.client_id
+`
+
+// The Clients a User's Two-factor Groups give roles on, while the User has no two-factor.
+func (q *Queries) HeldBackClients(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, heldBackClients, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var client_id string
+		if err := rows.Scan(&client_id); err != nil {
+			return nil, err
+		}
+		items = append(items, client_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const isAdmin = `-- name: IsAdmin :one
 SELECT EXISTS (
   SELECT 1 FROM memberships m JOIN groups g ON g.id = m.group_id WHERE g.admins AND m.user_id = $1

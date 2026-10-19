@@ -1888,8 +1888,10 @@ components:
       description: The apps a User can open.
       type: object
       additionalProperties: false
-      required: [apps]
+      required: [apps, heldBack]
       properties:
+        heldBack:
+          $ref: "#/components/schemas/Count"
         apps:
           type: array
           maxItems: 500

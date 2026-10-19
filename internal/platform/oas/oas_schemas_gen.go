@@ -1237,12 +1237,23 @@ type ID uuid.UUID
 // The apps a User can open.
 // Ref: #/components/schemas/Launcher
 type Launcher struct {
-	Apps []LauncherApp `json:"apps"`
+	HeldBack Count         `json:"heldBack"`
+	Apps     []LauncherApp `json:"apps"`
+}
+
+// GetHeldBack returns the value of HeldBack.
+func (s *Launcher) GetHeldBack() Count {
+	return s.HeldBack
 }
 
 // GetApps returns the value of Apps.
 func (s *Launcher) GetApps() []LauncherApp {
 	return s.Apps
+}
+
+// SetHeldBack sets the value of HeldBack.
+func (s *Launcher) SetHeldBack(val Count) {
+	s.HeldBack = val
 }
 
 // SetApps sets the value of Apps.

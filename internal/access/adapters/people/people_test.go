@@ -22,6 +22,11 @@ type users struct {
 
 func (u users) Users(context.Context) ([]usersdomain.User, error) { return u.list, u.err }
 
+func (u users) NotifyTwoFactorRequired(_ context.Context, id uuid.UUID, _ string) error {
+	*u.signedOut = [2]uuid.UUID{id}
+	return u.err
+}
+
 func (u users) UsersWithTwoFactor(context.Context) ([]uuid.UUID, error) {
 	return u.twoFactor, u.factorErr
 }
@@ -67,5 +72,13 @@ func TestSigningOutAPersonSignsTheUserOutEverywhereAtTheActorsAsking(t *testing.
 	actor, id := uuid.New(), uuid.New()
 	if err := people.New(users{signedOut: &got}).SignOut(context.Background(), actor, id); err != nil || got != [2]uuid.UUID{actor, id} {
 		t.Fatalf("SignOut = %v, signed out %v", err, got)
+	}
+}
+
+func TestTellingAPersonTheirGroupRequiresTwoFactorAsksTheUsersContext(t *testing.T) {
+	var got [2]uuid.UUID
+	id := uuid.New()
+	if err := people.New(users{signedOut: &got}).TwoFactorRequired(context.Background(), id, "Family"); err != nil || got[0] != id {
+		t.Fatalf("TwoFactorRequired = %v, told %v", err, got)
 	}
 }

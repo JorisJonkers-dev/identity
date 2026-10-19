@@ -16,6 +16,7 @@ import (
 type Users interface {
 	Users(ctx context.Context) ([]usersdomain.User, error)
 	UsersWithTwoFactor(ctx context.Context) ([]uuid.UUID, error)
+	NotifyTwoFactorRequired(ctx context.Context, userID uuid.UUID, group string) error
 	SignOutEverywhere(ctx context.Context, actor, userID uuid.UUID) error
 }
 
@@ -45,6 +46,11 @@ func (p *People) People(ctx context.Context) ([]domain.Person, error) {
 		out = append(out, domain.Person{ID: u.ID, Email: u.Email.String(), Name: u.Name.String(), TwoFactor: twoFactor[u.ID]})
 	}
 	return out, nil
+}
+
+// TwoFactorRequired mails the User that a Group of theirs now requires two-factor.
+func (p *People) TwoFactorRequired(ctx context.Context, userID uuid.UUID, group string) error {
+	return p.users.NotifyTwoFactorRequired(ctx, userID, group)
 }
 
 // SignOut signs the User out everywhere, at the actor's asking.

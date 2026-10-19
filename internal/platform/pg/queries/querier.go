@@ -74,6 +74,8 @@ type Querier interface {
 	EndPreviousClientSecret(ctx context.Context, arg EndPreviousClientSecretParams) error
 	GateSessionByHash(ctx context.Context, tokenHash []byte) (GateSessionByHashRow, error)
 	GroupByID(ctx context.Context, id uuid.UUID) (GroupByIDRow, error)
+	// The Clients a User's Two-factor Groups give roles on, while the User has no two-factor.
+	HeldBackClients(ctx context.Context, userID uuid.UUID) ([]string, error)
 	IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error)
 	IsOnlyAdmin(ctx context.Context, arg IsOnlyAdminParams) (bool, error)
 	ListAssignments(ctx context.Context) ([]ListAssignmentsRow, error)

@@ -193,6 +193,13 @@ func (s *store) UnassignUser(_ context.Context, a domain.UserAssignment) (bool, 
 	return len(s.direct) < n, nil
 }
 
+func (s *store) HeldBackClients(_ context.Context, userID uuid.UUID) ([]string, error) {
+	if userID != ada {
+		return nil, s.err("HeldBackClients")
+	}
+	return []string{"grafana"}, s.err("HeldBackClients")
+}
+
 func (s *store) RolesOf(_ context.Context, userID uuid.UUID, clientID string) ([]string, error) {
 	var roles []string
 	for _, a := range s.direct {
@@ -238,6 +245,13 @@ type people struct {
 	err         error
 	signedOut   []uuid.UUID
 	signedOutBy []uuid.UUID
+	told        []uuid.UUID
+	tellErr     error
+}
+
+func (p *people) TwoFactorRequired(_ context.Context, userID uuid.UUID, _ string) error {
+	p.told = append(p.told, userID)
+	return p.tellErr
 }
 
 func (p *people) People(context.Context) ([]domain.Person, error) { return p.list, p.err }
@@ -732,5 +746,43 @@ func TestATwoFactorChangeFailsWhenTheStoreDoes(t *testing.T) {
 				t.Fatalf("err = %v", err)
 			}
 		})
+	}
+}
+
+func TestMarkingAGroupTellsEachMemberWithoutTwoFactorOnce(t *testing.T) {
+	f := newFixture()
+	f.store.members = append(f.store.members, domain.Membership{GroupID: family.ID, UserID: ada}, domain.Membership{GroupID: family.ID, UserID: admin})
+	f.people.list = []domain.Person{{ID: ada}, {ID: admin, TwoFactor: true}}
+	_ = f.svc.SetTwoFactor(ctx, asAdmin, family.ID, true)
+	_ = f.svc.SetTwoFactor(ctx, asAdmin, family.ID, true)
+	if !slices.Equal(f.people.told, []uuid.UUID{ada}) {
+		t.Fatalf("told %v", f.people.told)
+	}
+}
+
+func TestMarkingAGroupFailsWhenItsMembersCannotBeTold(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		setUp func(f *fixture)
+	}{
+		{"the memberships cannot be read", func(f *fixture) { f.store.fail["Memberships"] = errBoom }},
+		{"the people cannot be read", func(f *fixture) { f.people.err = errBoom }},
+		{"the mail cannot be sent", func(f *fixture) { f.people.tellErr = errBoom }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFixture()
+			f.store.members = append(f.store.members, domain.Membership{GroupID: family.ID, UserID: ada})
+			f.people.list = []domain.Person{{ID: ada}}
+			tc.setUp(f)
+			if err := f.svc.SetTwoFactor(ctx, asAdmin, family.ID, true); !errors.Is(err, errBoom) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
+
+func TestTheClientsHeldBackComeFromTheStore(t *testing.T) {
+	if got, err := newFixture().svc.HeldBackClients(ctx, ada); err != nil || !slices.Equal(got, []string{"grafana"}) {
+		t.Fatalf("HeldBackClients = %v, %v", got, err)
 	}
 }

@@ -514,7 +514,7 @@ describe('the Account page', () => {
   const answers = (over: Record<string, unknown> = {}) => ({
     'GET /api/v1/profile': () => Response.json(profile(over)),
     'GET /api/v1/profile/second-factors': () => Response.json({ factors: [] }),
-    'GET /api/v1/launcher': () => Response.json({ apps: [] }),
+    'GET /api/v1/launcher': () => Response.json({ apps: [], heldBack: 0 }),
   })
 
   it('shows who is signed in', async () => {
@@ -647,7 +647,7 @@ describe('the Account page', () => {
   it('counts the apps the User can open', async () => {
     const { wrapper } = await mountAt('/account', {
       ...answers(),
-      'GET /api/v1/launcher': () => Response.json({ apps: [{ id: 'grafana', label: 'Grafana', launchUrl: 'https://grafana.test/', roles: ['viewer'] }] }),
+      'GET /api/v1/launcher': () => Response.json({ apps: [{ id: 'grafana', label: 'Grafana', launchUrl: 'https://grafana.test/', roles: ['viewer'] }], heldBack: 0 }),
     })
     expect(wrapper.get('.pills').text()).toContain('1 apps')
   })

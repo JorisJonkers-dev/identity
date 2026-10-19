@@ -122,6 +122,8 @@ func (launcher) Apps(context.Context, uuid.UUID) ([]launcherdomain.App, error) {
 	return []launcherdomain.App{{Client: launcherdomain.Client{ID: "grafana", Label: "Grafana", Host: "grafana.test"}, Roles: []string{"user"}}}, nil
 }
 
+func (launcher) HeldBack(context.Context, uuid.UUID) (int, error) { return 0, nil }
+
 func (launcher) Icon(context.Context, string) (launcherdomain.Icon, error) {
 	return launcherdomain.Icon{}, nil
 }

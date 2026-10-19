@@ -26,9 +26,13 @@ var (
 
 // roles gives Ada the listed App Roles per Client.
 type roles struct {
-	held map[string][]string
-	err  error
+	held     map[string][]string
+	err      error
+	heldBack []string
+	backErr  error
 }
+
+func (r roles) HeldBack(context.Context, uuid.UUID) ([]string, error) { return r.heldBack, r.backErr }
 
 func (r roles) RolesByClient(_ context.Context, userID uuid.UUID) (map[string][]string, error) {
 	if userID != ada {
@@ -194,5 +198,37 @@ func TestAnIconWhoseURLChangedIsFetchedFromTheNewURL(t *testing.T) {
 	_, _ = f.Icon(context.Background(), "grafana")
 	if !slices.Equal(f.fetcher.fetched, []string{grafana.IconURL, moved.IconURL}) {
 		t.Fatalf("fetched %v", f.fetcher.fetched)
+	}
+}
+
+func TestHeldBackCountsTheAppsTwoFactorWouldOpenThatAreNotOpenAlready(t *testing.T) {
+	f := newFixture(map[string][]string{"grafana": {"viewer"}})
+	f.Service = app.New(roles{held: map[string][]string{"grafana": {"viewer"}}, heldBack: []string{"grafana", "vault", "gone"}}, f.clients, f.fetcher, func() time.Time { return f.now })
+	if n, err := f.HeldBack(context.Background(), ada); n != 1 || err != nil {
+		t.Fatalf("HeldBack = %d, %v", n, err)
+	}
+}
+
+func TestNothingIsHeldBackWithoutATwoFactorGroup(t *testing.T) {
+	if n, err := newFixture(nil).HeldBack(context.Background(), ada); n != 0 || err != nil {
+		t.Fatalf("HeldBack = %d, %v", n, err)
+	}
+}
+
+func TestHeldBackFailsWhenTheRolesCannotBeRead(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		r    roles
+	}{
+		{"what is held back", roles{backErr: errBoom}},
+		{"what is held", roles{heldBack: []string{"vault"}, err: errBoom}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFixture(nil)
+			f.Service = app.New(tc.r, f.clients, f.fetcher, func() time.Time { return f.now })
+			if _, err := f.HeldBack(context.Background(), ada); !errors.Is(err, errBoom) {
+				t.Fatalf("err = %v", err)
+			}
+		})
 	}
 }

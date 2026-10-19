@@ -30,11 +30,15 @@ var (
 )
 
 type useCases struct {
-	apps  []domain.App
-	icon  domain.Icon
-	err   error
-	asked []string
+	apps     []domain.App
+	icon     domain.Icon
+	err      error
+	asked    []string
+	heldBack int
+	backErr  error
 }
+
+func (u *useCases) HeldBack(context.Context, uuid.UUID) (int, error) { return u.heldBack, u.backErr }
 
 func (u *useCases) Apps(_ context.Context, userID uuid.UUID) ([]domain.App, error) {
 	u.asked = append(u.asked, userID.String())
@@ -175,5 +179,17 @@ func TestOnlyGETServesAnIcon(t *testing.T) {
 	h.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/icons/grafana", nil))
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("POST = %d", rec.Code)
+	}
+}
+
+func TestTheLauncherSaysHowManyAppsTwoFactorWouldGiveBack(t *testing.T) {
+	if l := launcher(t, &useCases{heldBack: 2}); l.HeldBack != 2 {
+		t.Fatalf("held back = %d", l.HeldBack)
+	}
+}
+
+func TestTheLauncherFailsWhenWhatIsHeldBackCannotBeRead(t *testing.T) {
+	if _, err := web.NewLauncher(&useCases{backErr: errBoom}).GetLauncher(signedIn()); !errors.Is(err, errBoom) {
+		t.Fatalf("err = %v", err)
 	}
 }

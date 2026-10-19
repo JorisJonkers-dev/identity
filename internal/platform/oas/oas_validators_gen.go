@@ -1437,6 +1437,17 @@ func (s *Launcher) Validate() error {
 
 	var failures []validate.FieldError
 	if err := func() error {
+		if err := s.HeldBack.Validate(); err != nil {
+			return err
+		}
+		return nil
+	}(); err != nil {
+		failures = append(failures, validate.FieldError{
+			Name:  "heldBack",
+			Error: err,
+		})
+	}
+	if err := func() error {
 		if s.Apps == nil {
 			return errors.New("nil is invalid value")
 		}

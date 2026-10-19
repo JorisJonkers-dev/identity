@@ -385,6 +385,7 @@ export const zLauncherApp = z.object({
  * The apps a User can open.
  */
 export const zLauncher = z.object({
+    heldBack: zCount,
     apps: z.array(zLauncherApp).max(500)
 });
 

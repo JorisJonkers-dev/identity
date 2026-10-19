@@ -12,7 +12,7 @@ import { expiry } from '../../tokens/expiry'
 import { useLauncher } from '../composables/useLauncher'
 import VersionLine from './VersionLine.vue'
 
-const { apps, isLoading, loadError } = useLauncher()
+const { apps, heldBack, isLoading, loadError } = useLauncher()
 const ending = useExpiringTokens(computed(() => apps.value !== undefined))
 const now = new Date()
 const find = ref('')
@@ -48,6 +48,10 @@ onBeforeUnmount(() => { document.removeEventListener('keydown', slash); })
         <span v-else>{{ ending.length }} tokens expire within 7 days.</span>
         <RouterLink class="btn sm" to="/tokens">View tokens</RouterLink>
       </div>
+      <p v-if="heldBack" class="note warn" role="status">
+        <Icon name="shield" /><span>Add two-factor to open {{ heldBack }} more {{ heldBack === 1 ? 'app' : 'apps' }}.</span>
+        <RouterLink class="link" to="/security/two-factor">Set up two-factor</RouterLink>
+      </p>
       <div v-if="apps.length === 0" class="glass apps-empty"><p>No apps yet. An Admin adds you to a Group.</p><a class="link" :href="adminMail">Contact an Admin</a></div>
       <p v-else-if="!apps.some(matches)" class="soft">No app matches “{{ find }}”.</p>
       <div v-else class="apps">

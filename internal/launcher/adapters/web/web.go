@@ -24,6 +24,7 @@ const iconPolicy = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
 // UseCases is what the adapter needs from the Launcher.
 type UseCases interface {
 	Apps(ctx context.Context, userID uuid.UUID) ([]domain.App, error)
+	HeldBack(ctx context.Context, userID uuid.UUID) (int, error)
 	Icon(ctx context.Context, clientID string) (domain.Icon, error)
 }
 
@@ -35,11 +36,16 @@ func NewLauncher(uc UseCases) *Launcher { return &Launcher{uc: uc} }
 
 // GetLauncher implements getLauncher. An app whose launch URL cannot be read is left out.
 func (h *Launcher) GetLauncher(ctx context.Context) (oas.GetLauncherRes, error) {
-	apps, err := h.uc.Apps(ctx, principal.From(ctx).UserID)
+	userID := principal.From(ctx).UserID
+	apps, err := h.uc.Apps(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	res := &oas.Launcher{Apps: make([]oas.LauncherApp, 0, len(apps))}
+	heldBack, err := h.uc.HeldBack(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	res := &oas.Launcher{Apps: make([]oas.LauncherApp, 0, len(apps)), HeldBack: oas.Count(heldBack)} //nolint:gosec // a count of apps
 	for _, a := range apps {
 		launch, err := url.Parse(a.Launch())
 		if err != nil {

@@ -206,6 +206,10 @@ func (s *Store) UnassignUser(ctx context.Context, a domain.UserAssignment) (bool
 	return n > 0, err
 }
 
+func (s *Store) HeldBackClients(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	return s.q.HeldBackClients(ctx, userID)
+}
+
 func (s *Store) RolesOf(ctx context.Context, userID uuid.UUID, clientID string) ([]string, error) {
 	return s.q.RolesOf(ctx, queries.RolesOfParams{UserID: userID, ClientID: clientID})
 }

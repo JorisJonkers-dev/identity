@@ -98,3 +98,13 @@ SELECT u.id FROM users u WHERE NOT EXISTS (
 -- name: SetGroupTwoFactor :execrows
 -- The admins Group always requires two-factor; the table refuses otherwise.
 UPDATE groups SET requires_two_factor = $2 WHERE id = $1;
+
+-- name: HeldBackClients :many
+-- The Clients a User's Two-factor Groups give roles on, while the User has no two-factor.
+SELECT DISTINCT a.client_id FROM assignments a
+JOIN memberships m ON m.group_id = a.group_id
+JOIN groups g ON g.id = a.group_id
+WHERE m.user_id = $1 AND g.requires_two_factor
+  AND NOT EXISTS (SELECT 1 FROM totp_factors f WHERE f.user_id = $1)
+  AND NOT EXISTS (SELECT 1 FROM passkeys p WHERE p.user_id = $1)
+ORDER BY a.client_id;
