@@ -88,7 +88,9 @@ func (f *fakeApps) Resource(_ context.Context, resource string) (connectedapp.Cl
 	return connectedapp.Client{}, connectedapp.ErrNotMCPResource
 }
 
-func consentKey(user uuid.UUID, reg, client string) string { return user.String() + " " + reg + " " + client }
+func consentKey(user uuid.UUID, reg, client string) string {
+	return user.String() + " " + reg + " " + client
+}
 
 func (f *fakeApps) Consented(_ context.Context, user uuid.UUID, reg, client string) (uuid.UUID, error) {
 	f.mu.Lock()

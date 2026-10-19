@@ -624,8 +624,12 @@ func TestACheckFails(t *testing.T) {
 // failingClients answers its one failure for every lookup.
 type failingClients struct{}
 
-func (failingClients) Client(context.Context, string) (app.Client, error)        { return app.Client{}, errBoom }
-func (failingClients) ClientForHost(context.Context, string) (app.Client, error) { return app.Client{}, errBoom }
+func (failingClients) Client(context.Context, string) (app.Client, error) {
+	return app.Client{}, errBoom
+}
+func (failingClients) ClientForHost(context.Context, string) (app.Client, error) {
+	return app.Client{}, errBoom
+}
 
 func TestACheckFailsWhenTheClientCannotBeRead(t *testing.T) {
 	f := newFixture()
