@@ -15,7 +15,7 @@ import (
 
 var errBoom = errors.New("boom")
 
-// apps answers every call with err, and Claude Code for the registration mcp-1.
+// apps answers every call with err, and Claude Code for the registration mcp_1.
 type apps struct{ err error }
 
 func (a apps) Consented(context.Context, uuid.UUID, string, string) (uuid.UUID, error) {
@@ -31,7 +31,7 @@ func (a apps) Registration(context.Context, string) (connecteddomain.Registratio
 }
 
 func TestAConsentGivenBeforeLetsTheRequestThrough(t *testing.T) {
-	if err := connected.New(apps{}).Consented(context.Background(), uuid.New(), "mcp-1", "kb"); err != nil {
+	if err := connected.New(apps{}).Consented(context.Background(), uuid.New(), "mcp_1", "kb"); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -51,10 +51,10 @@ func TestTheConnectedContextsRefusalsReachSignInByItsNames(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			consents := connected.New(apps{err: c.from})
-			if err := consents.Consented(context.Background(), uuid.New(), "mcp-1", "kb"); !errors.Is(err, c.consented) {
+			if err := consents.Consented(context.Background(), uuid.New(), "mcp_1", "kb"); !errors.Is(err, c.consented) {
 				t.Fatalf("Consented = %v", err)
 			}
-			if err := consents.Consent(context.Background(), uuid.New(), "mcp-1", "kb"); !errors.Is(err, c.consent) {
+			if err := consents.Consent(context.Background(), uuid.New(), "mcp_1", "kb"); !errors.Is(err, c.consent) {
 				t.Fatalf("Consent = %v", err)
 			}
 		})
@@ -62,13 +62,13 @@ func TestTheConnectedContextsRefusalsReachSignInByItsNames(t *testing.T) {
 }
 
 func TestARegistrationIsNamedAsItNamedItself(t *testing.T) {
-	if name, err := connected.New(apps{}).Name(context.Background(), "mcp-1"); err != nil || name != "Claude Code" {
+	if name, err := connected.New(apps{}).Name(context.Background(), "mcp_1"); err != nil || name != "Claude Code" {
 		t.Fatalf("Name = %q, %v", name, err)
 	}
 }
 
 func TestAMissingRegistrationIsNotFound(t *testing.T) {
-	if _, err := connected.New(apps{err: connectedapp.ErrNotFound}).Name(context.Background(), "mcp-1"); !errors.Is(err, app.ErrNotFound) {
+	if _, err := connected.New(apps{err: connectedapp.ErrNotFound}).Name(context.Background(), "mcp_1"); !errors.Is(err, app.ErrNotFound) {
 		t.Fatalf("err = %v", err)
 	}
 }

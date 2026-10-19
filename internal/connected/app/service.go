@@ -47,8 +47,8 @@ const (
 	// token's secret.
 	registrationIDBytes = 16
 	refreshBytes        = 32
-	// RegistrationPrefix starts every registered client's id, so it is never a Client's.
-	RegistrationPrefix = "mcp-"
+	// RegistrationPrefix starts every registered client's id; a Client's id, a Kubernetes name, never holds "_".
+	RegistrationPrefix = "mcp_"
 )
 
 // AccessToken is a live access token: the Connected App it is for, and its User and Client.

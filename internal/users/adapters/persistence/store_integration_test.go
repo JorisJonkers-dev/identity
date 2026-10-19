@@ -728,8 +728,8 @@ func TestDeletingAUserSaysWhichConnectedAppTokensWentWithThem(t *testing.T) {
 	ctx := context.Background()
 	s, pool, u := stored(t)
 	q := queries.New(pool)
-	_ = q.CreateRegistration(ctx, queries.CreateRegistrationParams{ClientID: "mcp-" + u.ID.String(), Name: "Claude Code", RedirectUris: []string{"http://localhost/cb"}, CreatedAt: time.Now()})
-	appID, err := q.ConsentToConnectedApp(ctx, queries.ConsentToConnectedAppParams{ID: uuid.New(), RegistrationID: "mcp-" + u.ID.String(), UserID: u.ID, ClientID: "kb", CreatedAt: time.Now()})
+	_ = q.CreateRegistration(ctx, queries.CreateRegistrationParams{ClientID: "mcp_" + u.ID.String(), Name: "Claude Code", RedirectUris: []string{"http://localhost/cb"}, CreatedAt: time.Now()})
+	appID, err := q.ConsentToConnectedApp(ctx, queries.ConsentToConnectedAppParams{ID: uuid.New(), RegistrationID: "mcp_" + u.ID.String(), UserID: u.ID, ClientID: "kb", CreatedAt: time.Now()})
 	if err != nil {
 		t.Fatal(err)
 	}

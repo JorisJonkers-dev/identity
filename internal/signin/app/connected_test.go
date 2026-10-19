@@ -13,7 +13,7 @@ import (
 	"github.com/JorisJonkers-dev/identity/internal/signin/domain"
 )
 
-// consents is the connected context: Claude Code is registered as mcp-1; refuse is what every
+// consents is the connected context: Claude Code is registered as mcp_1; refuse is what every
 // consent fails with when set, and fail what one method fails with.
 type consents struct {
 	given  map[string]bool
@@ -50,7 +50,7 @@ func (c *consents) Name(_ context.Context, reg string) (string, error) {
 	if err := c.fail["Name"]; err != nil {
 		return "", err
 	}
-	if reg != "mcp-1" {
+	if reg != "mcp_1" {
 		return "", app.ErrNotFound
 	}
 	return "Claude Code", nil
@@ -62,7 +62,7 @@ func connectedFixture(t *testing.T) (*fixture, *consents, domain.AuthRequest) {
 	f := newFixture()
 	c := newConsents()
 	f.SetConsents(c)
-	r, err := f.Start(context.Background(), domain.AuthRequest{ClientID: "mcp-1", Resource: "spa", RedirectURI: "http://localhost:1/cb", State: "st"})
+	r, err := f.Start(context.Background(), domain.AuthRequest{ClientID: "mcp_1", Resource: "spa", RedirectURI: "http://localhost:1/cb", State: "st"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +94,7 @@ func TestApprovingCompletesTheRequestAndAnotherRequestNeedsNoConsentAgain(t *tes
 	if got, _ := f.Request(ctx, r.ID); got.SignIn == nil || got.SignIn.UserID != f.accounts.ada {
 		t.Fatalf("request = %+v", got)
 	}
-	again, _ := f.Start(ctx, domain.AuthRequest{ClientID: "mcp-1", Resource: "spa"})
+	again, _ := f.Start(ctx, domain.AuthRequest{ClientID: "mcp_1", Resource: "spa"})
 	if err := f.Complete(ctx, again.ID, "tok"); err != nil {
 		t.Fatalf("Complete = %v", err)
 	}
@@ -102,7 +102,7 @@ func TestApprovingCompletesTheRequestAndAnotherRequestNeedsNoConsentAgain(t *tes
 
 func TestAConnectedAppsSignInIsNoSignInToTheClient(t *testing.T) {
 	f, c, r := connectedFixture(t)
-	c.given[key(f.accounts.ada, "mcp-1", "spa")] = true
+	c.given[key(f.accounts.ada, "mcp_1", "spa")] = true
 	if err := f.Complete(ctx, r.ID, "tok"); err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +171,7 @@ func TestOnlyASignedInUserIsAskedAbout(t *testing.T) {
 
 func TestWithoutConsentsNoConnectedAppsRequestIsAnswered(t *testing.T) {
 	f := newFixture()
-	r, _ := f.Start(ctx, domain.AuthRequest{ClientID: "mcp-1", Resource: "spa"})
+	r, _ := f.Start(ctx, domain.AuthRequest{ClientID: "mcp_1", Resource: "spa"})
 	if err := f.Complete(ctx, r.ID, "tok"); !errors.Is(err, app.ErrNotConnectable) {
 		t.Fatalf("Complete = %v", err)
 	}
@@ -219,7 +219,7 @@ func complete(f *fixture, id uuid.UUID) error { return f.Complete(ctx, id, "tok"
 
 func TestAConsentPromptFailsForAClientThatLeft(t *testing.T) {
 	f, _, _ := connectedFixture(t)
-	r, _ := f.Start(ctx, domain.AuthRequest{ClientID: "mcp-1", Resource: "broken"})
+	r, _ := f.Start(ctx, domain.AuthRequest{ClientID: "mcp_1", Resource: "broken"})
 	if _, err := f.Prompt(ctx, r.ID, "tok"); !errors.Is(err, errBoom) {
 		t.Fatalf("err = %v", err)
 	}
@@ -247,7 +247,7 @@ func TestASignInThatIsNoConnectedAppsCannotBeDenied(t *testing.T) {
 func TestAConnectedAppsRequestAsksNoFreshTwoFactor(t *testing.T) {
 	f, c, r := connectedFixture(t)
 	f.SetStepUps(&settings{minutes: map[string]int{"spa": 15}})
-	c.given[key(f.accounts.ada, "mcp-1", "spa")] = true
+	c.given[key(f.accounts.ada, "mcp_1", "spa")] = true
 	if err := f.Complete(ctx, r.ID, "tok"); err != nil {
 		t.Fatalf("err = %v", err)
 	}

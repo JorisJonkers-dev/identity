@@ -49,7 +49,7 @@ func (f fixture) user(t *testing.T) uuid.UUID {
 
 func (f fixture) registration(t *testing.T, name string, at time.Time) string {
 	t.Helper()
-	id := "mcp-" + uuid.NewString()
+	id := "mcp_" + uuid.NewString()
 	if err := f.s.CreateRegistration(f.ctx, domain.Registration{ClientID: id, Name: name, RedirectURIs: []string{"http://localhost:1/cb"}, CreatedAt: at}); err != nil {
 		t.Fatal(err)
 	}
@@ -89,13 +89,13 @@ func TestARegistrationIsKeptAndReadBack(t *testing.T) {
 func TestAMissingRegistrationConnectedAppOrTokenIsNotFound(t *testing.T) {
 	t.Parallel()
 	f := open(t)
-	if _, err := f.s.Registration(f.ctx, "mcp-none"); !errors.Is(err, app.ErrNotFound) {
+	if _, err := f.s.Registration(f.ctx, "mcp_none"); !errors.Is(err, app.ErrNotFound) {
 		t.Fatalf("Registration = %v", err)
 	}
 	if _, err := f.s.ConnectedApp(f.ctx, uuid.New()); !errors.Is(err, app.ErrNotFound) {
 		t.Fatalf("ConnectedApp = %v", err)
 	}
-	if _, err := f.s.Consented(f.ctx, "mcp-none", uuid.New(), "kb"); !errors.Is(err, app.ErrNotFound) {
+	if _, err := f.s.Consented(f.ctx, "mcp_none", uuid.New(), "kb"); !errors.Is(err, app.ErrNotFound) {
 		t.Fatalf("Consented = %v", err)
 	}
 	if _, err := f.s.Access(f.ctx, uuid.New()); !errors.Is(err, app.ErrNotFound) {
@@ -199,7 +199,7 @@ func TestARefreshTokenIsFoundByItsHashAndSpentOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	r, err := f.s.Refresh(f.ctx, hash)
-	if err != nil || r.AppID != a.ID || r.UserID != a.UserID || r.ClientID != "kb" || !strings.HasPrefix(r.RegistrationID, "mcp-") {
+	if err != nil || r.AppID != a.ID || r.UserID != a.UserID || r.ClientID != "kb" || !strings.HasPrefix(r.RegistrationID, "mcp_") {
 		t.Fatalf("Refresh = %+v, %v", r, err)
 	}
 	first, _ := f.s.Spend(f.ctx, r.ID, t0)

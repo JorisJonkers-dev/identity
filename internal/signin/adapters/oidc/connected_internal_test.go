@@ -58,7 +58,7 @@ func (f *fakeApps) Register(_ context.Context, name string, uris []string) (conn
 		return connecteddomain.Registration{}, err
 	}
 	f.n++
-	r, err := connecteddomain.NewRegistration(fmt.Sprintf("mcp-%d", f.n), name, uris, tokenIssued)
+	r, err := connecteddomain.NewRegistration(fmt.Sprintf("mcp_%d", f.n), name, uris, tokenIssued)
 	if err == nil {
 		f.regs[r.ClientID] = r
 	}
@@ -280,7 +280,7 @@ func (e *env) registration(t *testing.T, body string) (int, map[string]any) {
 func TestAToolRegistersItselfAsAPublicCodeFlowClient(t *testing.T) {
 	e := newEnv(t)
 	status, got := e.registration(t, `{"client_name":"Claude Code","redirect_uris":["http://localhost:33418/callback"],"grant_types":["authorization_code","refresh_token"],"response_types":["code"],"token_endpoint_auth_method":"none"}`)
-	if status != http.StatusCreated || !strings.HasPrefix(fmt.Sprint(got["client_id"]), "mcp-") || got["client_name"] != "Claude Code" ||
+	if status != http.StatusCreated || !strings.HasPrefix(fmt.Sprint(got["client_id"]), "mcp_") || got["client_name"] != "Claude Code" ||
 		got["token_endpoint_auth_method"] != "none" || fmt.Sprint(got["grant_types"]) != "[authorization_code refresh_token]" {
 		t.Fatalf("register = %d %v", status, got)
 	}
@@ -369,7 +369,7 @@ func TestAToolAskingForAServiceTakingNoConnectedAppsIsTurnedBack(t *testing.T) {
 
 func TestAnUnknownToolCannotStartASignIn(t *testing.T) {
 	e := newEnv(t)
-	if p := e.get(t, "/oidc/authorize?"+toolQuery("mcp-unknown", "https://web.test/").Encode(), false); p.status == http.StatusFound {
+	if p := e.get(t, "/oidc/authorize?"+toolQuery("mcp_unknown", "https://web.test/").Encode(), false); p.status == http.StatusFound {
 		t.Fatalf("an unknown tool was sent to sign in: %s", p.header.Get("Location"))
 	}
 }
@@ -507,7 +507,7 @@ func TestACodeOutlivingItsConsentGivesNoTokens(t *testing.T) {
 func TestAConnectedAppsRefreshNeedsNoNewAccessTokenOnly(t *testing.T) {
 	s, _, _ := newStorage()
 	apps := s.apps.(*fakeApps)
-	appID, _ := apps.Consent(t.Context(), uuid.New(), "mcp-1", "web")
+	appID, _ := apps.Consent(t.Context(), uuid.New(), "mcp_1", "web")
 	id, expires, err := s.CreateAccessToken(t.Context(), newRefreshRequest(connectedapp.RefreshToken{AppID: appID}))
 	if err != nil || !strings.HasPrefix(id, appTokenIDPrefix) || expires.IsZero() || len(apps.refresh) != 0 {
 		t.Fatalf("CreateAccessToken = %q, %v, %v", id, expires, err)
@@ -516,8 +516,8 @@ func TestAConnectedAppsRefreshNeedsNoNewAccessTokenOnly(t *testing.T) {
 
 func TestAConnectedAppsRefreshRequestNamesItsToolAndUser(t *testing.T) {
 	user := uuid.New()
-	r := newRefreshRequest(connectedapp.RefreshToken{UserID: user, RegistrationID: "mcp-1"})
-	if r.GetClientID() != "mcp-1" || r.GetSubject() != user.String() || r.GetAudience()[0] != "mcp-1" || r.GetAMR() != nil || !r.GetAuthTime().IsZero() || r.GetScopes()[0] != oidc.ScopeOfflineAccess {
+	r := newRefreshRequest(connectedapp.RefreshToken{UserID: user, RegistrationID: "mcp_1"})
+	if r.GetClientID() != "mcp_1" || r.GetSubject() != user.String() || r.GetAudience()[0] != "mcp_1" || r.GetAMR() != nil || !r.GetAuthTime().IsZero() || r.GetScopes()[0] != oidc.ScopeOfflineAccess {
 		t.Fatalf("refresh request = %+v", r)
 	}
 }
@@ -531,7 +531,7 @@ func TestARefreshKeepsTheScopesTheToolNarrowedItTo(t *testing.T) {
 }
 
 func TestARegisteredClientRunsWithThePublicDefaults(t *testing.T) {
-	c := registeredClient{connecteddomain.Registration{ClientID: "mcp-1"}}
+	c := registeredClient{connecteddomain.Registration{ClientID: "mcp_1"}}
 	if c.PostLogoutRedirectURIs() != nil || c.DevMode() || c.IsScopeAllowed("openid") || c.ClockSkew() != 0 || c.IDTokenUserinfoClaimsAssertion() ||
 		c.IDTokenLifetime() != idTokenLifetime || c.RestrictAdditionalAccessTokenScopes()([]string{"x"}) != nil {
 		t.Fatalf("client = %+v", c)
@@ -595,7 +595,13 @@ func TestATokenThatCannotBeSealedIsNotIssued(t *testing.T) {
 
 func TestAnAuthorizeRequestThatCannotBeReadIsLeftToTheProvider(t *testing.T) {
 	e := newEnv(t)
-	if p := e.get(t, "/oidc/authorize?client_id=mcp-1&%zz", false); p.status == http.StatusFound {
+	if p := e.get(t, "/oidc/authorize?client_id=mcp_1&%zz", false); p.status == http.StatusFound {
 		t.Fatalf("a broken request was sent on: %s", p.header.Get("Location"))
+	}
+}
+
+func TestAClientWhoseNameStartsLikeAToolIsStillAClient(t *testing.T) {
+	if isRegistration("mcp-search") || !isRegistration(connectedapp.RegistrationPrefix+"abc") {
+		t.Fatal("a Client's name was taken for a tool's")
 	}
 }
