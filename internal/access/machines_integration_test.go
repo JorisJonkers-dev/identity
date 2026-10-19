@@ -165,6 +165,19 @@ func TestAMachineIdentityGetsNoTokenForAClientItHoldsNoRoleOn(t *testing.T) {
 	}
 }
 
+func TestAMachineIdentityGetsNoTokenOnceItsRoleIsTakenAway(t *testing.T) {
+	env := itest.Start(t, grafana)
+	admin := env.Admin(t, "admin@example.org")
+	m := addMachine(t, admin, "Backup", "backup")
+
+	admin.Call(t, http.MethodDelete, "/api/v1/access/machines/"+m.ID+"/roles/grafana/viewer", nil, http.StatusNoContent, nil)
+
+	status, body := exchange(t, env, m.ID, itest.ServiceAccountToken(t, "media", "backup", "https://"+itest.Host), "grafana")
+	if status == http.StatusOK || body["error"] != "access_denied" {
+		t.Fatalf("exchange = %d %v", status, body)
+	}
+}
+
 func TestADeletedMachineIdentityCanNoLongerExchangeItsToken(t *testing.T) {
 	env := itest.Start(t, grafana)
 	admin := env.Admin(t, "admin@example.org")
