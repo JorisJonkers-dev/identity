@@ -1,4 +1,4 @@
-import type { AuditEvent, AuditPerson, SignInHour } from '../../infrastructure/api/types.gen'
+import type { AuditEvent, AuditPerson } from '../../infrastructure/api/types.gen'
 
 /** One piece of an Audit Event's sentence, and how it is set: a name, a role pill, or plain. */
 export interface Part {
@@ -70,13 +70,6 @@ export function describeEvent(e: AuditEvent): Part[] {
   }
 }
 
-/** The colour of an event's dot: a sign-in, a failed one, a change to access, or anything else. */
-export function tone(e: AuditEvent): 'ok' | 'bad' | 'a' | '' {
-  if (e.action === 'signed-in') return 'ok'
-  if (e.action === 'sign-in-failed') return 'bad'
-  return e.kind === 'access' ? 'a' : ''
-}
-
 /** The time of day an event happened, as 21:14:02. */
 export function clock(at: string): string {
   return new Date(at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
@@ -102,69 +95,7 @@ export function ago(at: string, now: Date): string {
   return `${String(Math.floor(hours / 24))} days ago`
 }
 
-
-// The chart's frame, the same as the design's: x from 30 to 470, y from 110 (none) to 20 (most).
-const x0 = 30
-const x1 = 470
-const yTop = 20
-const yZero = 110
-
-/** The sign-ins chart drawn: the line, the shaded area under it, the failed line, and the scale. */
-export interface Chart {
-  line: string
-  area: string
-  failed: string
-  end: { x: number; y: number }
-  max: number
-  first: string
-  middle: string
-  middleX: number
-  last: string
-  summary: string
-}
-
-function hourOf(h: SignInHour): string {
-  return new Date(h.at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })
-}
-
-/** The top of the scale: the most sign-ins in an hour, rounded up to 5, 10, 20, 50, 100, 200 and so on. */
-export function scaleFor(most: number): number {
-  for (let step = 5; ; step *= 10) {
-    for (const top of [step, step * 2, step * 4]) {
-      if (most <= top) return top
-    }
-  }
-}
-
 /** A count and its noun, as 1 sign-in or 2 sign-ins. */
-export function counted(n: number, noun: string): string {
-  return `${String(n)} ${noun}${n === 1 ? '' : 's'}`
-}
-
-/** Draws 24 hours of sign-ins into the chart's frame. */
-export function drawChart(hours: SignInHour[]): Chart {
-  const most = Math.max(0, ...hours.map((h) => h.signIns))
-  const max = scaleFor(most)
-  const x = (i: number) => (x0 + ((x1 - x0) * i) / (hours.length - 1)).toFixed(1)
-  const y = (v: number) => (yZero - ((yZero - yTop) * v) / max).toFixed(1)
-  const points = hours.map((h, i) => `${x(i)},${y(h.signIns)}`)
-  const last = hours[hours.length - 1] as SignInHour
-  const peak = hours.reduce((a, b) => (b.signIns > a.signIns ? b : a), last)
-  const total = hours.reduce((n, h) => n + h.signIns, 0)
-  const failed = hours.reduce((n, h) => n + h.failed, 0)
-  return {
-    line: points.join(' '),
-    area: `M${String(x0)},${String(yZero)} L${points.join(' L')} L${String(x1)},${String(yZero)} Z`,
-    failed: hours.map((h, i) => `${x(i)},${y(h.failed)}`).join(' '),
-    end: { x: Number(x(hours.length - 1)), y: Number(y(last.signIns)) },
-    max,
-    first: hourOf(hours[0] as SignInHour),
-    middle: hourOf(hours[Math.floor(hours.length / 2)] as SignInHour),
-    middleX: Number(x(Math.floor(hours.length / 2))),
-    last: hourOf(last),
-    summary:
-      total === 0
-        ? `No sign-ins in the last 24 hours. ${counted(failed, 'failed sign-in')}.`
-        : `${counted(total, 'sign-in')} in the last 24 hours. ${counted(failed, 'failed sign-in')}. The busiest hour had ${counted(peak.signIns, 'sign-in')}, around ${hourOf(peak)}.`,
-  }
+export function counted(n: number, noun: string, plural = `${noun}s`): string {
+  return `${String(n)} ${n === 1 ? noun : plural}`
 }

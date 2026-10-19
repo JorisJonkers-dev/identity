@@ -1,72 +1,27 @@
 /*
- * Tailwind's theme and utilities, without Preflight: the pages not yet on Tailwind keep the
- * browser's own styles. The colours and type are the design canvas's (C1 Dashboard, C4 Audit).
+ * Tailwind's theme and utilities, without Preflight, on top of the design system in styles/kit.css,
+ * which carries its own base. The colours Tailwind knows are the kit's tokens, so a utility such as
+ * text-ink-3 follows the theme the kit sets.
  */
+@import '@fontsource-variable/bricolage-grotesque/opsz.css';
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
 @layer theme, base, components, utilities;
 @import 'tailwindcss/theme.css' layer(theme);
+@import './styles/kit.css' layer(components);
+@import './styles/app.css' layer(components);
 @import 'tailwindcss/utilities.css' layer(utilities);
 
-@theme {
-  --color-surface: #ffffff;
-  --color-surface-2: #f4f6fa;
-  --color-line: #dde3ec;
-  --color-ink: #0d1626;
-  --color-ink-2: #485468;
-  /* Darker than the canvas's #7a879b, which falls short of WCAG AA for small text. */
-  --color-ink-3: #5f6b80;
-  --color-accent: #2545f0;
-  --color-accent-ink: #ffffff;
-  --color-accent-soft: #e5e9ff;
-  /* Darker than the canvas's #10805a, which on its own soft green falls short of WCAG AA. */
-  --color-ok: #0d7350;
-  --color-ok-soft: #e1f3ea;
-  --color-warn: #9a5a00;
-  --color-warn-soft: #fbefd8;
-  --color-bad: #bf2630;
-  --color-bad-soft: #fbe4e5;
-
-  --font-display: 'Bricolage Grotesque Variable', 'Avenir Next', 'Segoe UI', system-ui, sans-serif;
-  --font-body: 'Geist Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  --font-mono: 'Geist Mono Variable', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-}
-
-/* The utilities read the colours as variables, so the dark palette is the same names set again. */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-surface: #111823;
-    --color-surface-2: #172030;
-    --color-line: #253043;
-    --color-ink: #e7ecf4;
-    --color-ink-2: #a8b3c4;
-    --color-ink-3: #8a97ad;
-    --color-accent: #7f95ff;
-    --color-accent-ink: #0a0e15;
-    --color-accent-soft: #1b244c;
-    --color-ok: #4ccb9a;
-    --color-ok-soft: #102c20;
-    --color-warn: #e8a94b;
-    --color-warn-soft: #33250e;
-    --color-bad: #ff7d84;
-    --color-bad-soft: #3a1519;
-  }
-}
-
-/* A label pill, as the canvas draws state, kinds and roles. */
-@utility pill {
-  @apply inline-flex items-center gap-[5px] rounded-full border border-line bg-surface-2 px-2 py-0.5 font-mono text-[11.5px] font-medium whitespace-nowrap text-ink-2;
-}
-
-/* A plain button or link that looks like one. */
-@utility btn {
-  @apply cursor-pointer rounded-[9px] border border-line bg-surface px-3.5 py-2 font-body text-[13px] font-semibold whitespace-nowrap text-ink no-underline;
-}
-
-/* A white card on the page. */
-@utility panel {
-  @apply min-w-0 rounded-xl border border-line bg-surface p-4;
-}
-
-/* The small uppercase label above a group of links or a day of events. */
-@utility eyebrow {
-  @apply font-mono text-[10.5px] font-medium tracking-[0.08em] text-ink-3 uppercase;
+@theme inline {
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-accent: var(--accent);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --color-line: var(--line);
+  --font-display: var(--display);
+  --font-body: var(--sans);
+  --font-mono: var(--mono);
 }

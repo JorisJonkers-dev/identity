@@ -1,123 +1,90 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
-import type { TokenDraft } from '../../../infrastructure/api/types.gen'
-import YourLayout from '../../../shared/YourLayout.vue'
+import { computed, ref } from 'vue'
+import type { PersonalToken, TokenClient, TokenDraft } from '../../../infrastructure/api/types.gen'
+import AppIcon from '../../../shared/AppIcon.vue'
+import AppShell from '../../../shared/AppShell.vue'
+import GlassSelect from '../../../shared/GlassSelect.vue'
+import Icon from '../../../shared/Icon'
+import DialogScrim from '../../../shared/DialogScrim.vue'
+import { useCopy } from '../../../shared/useCopy'
 import { useTokens } from '../composables/useTokens'
 import { expiry } from '../expiry'
 
-const { tokens, clients, isLoading, loadError, actionError, secret, mint, forgetSecret, revoke } = useTokens()
+const { tokens, clients, loadError, actionError, secret, mint, forgetSecret, revoke } = useTokens()
 const now = new Date()
 const making = ref(false)
-const draft = reactive<TokenDraft>({ name: '', clientId: '', days: 90 })
-const asking = ref<string | null>(null)
-const copied = ref(false)
+const name = ref('')
+const client = ref('')
+const days = ref<TokenDraft['days']>(90)
+const revoking = ref<string | null>(null)
+const { copied, copy } = useCopy()
+const clientOptions = computed(() => clients.value.map((c) => ({ value: c.id, label: c.label })))
+const live = (t: PersonalToken) => t.state === 'active' || t.state === 'expiring'
+const word: Record<PersonalToken['state'], string> = { active: 'Active', expiring: 'Expiring', expired: 'Expired', revoked: 'Revoked' }
+const tone: Record<PersonalToken['state'], string> = { active: 'ok', expiring: 'warn', expired: 'off', revoked: 'off' }
 
+function open() {
+  name.value = ''
+  // The button waits for an app, so there is a first one.
+  client.value = (clients.value[0] as TokenClient).id
+  days.value = 90
+  making.value = true
+}
 function create() {
-  mint({ ...draft })
-}
-
-function done() {
-  forgetSecret()
+  mint({ name: name.value, clientId: client.value, days: days.value })
   making.value = false
-  copied.value = false
-  draft.name = ''
 }
-
-async function copy(text: string) {
-  try {
-    await navigator.clipboard.writeText(text)
-    copied.value = true
-  } catch {
-    copied.value = false
-  }
-}
-
-function confirmRevoke(id: string) {
-  asking.value = null
-  revoke(id)
-}
-
-const pill = 'pill gap-[5px]'
-const tone = { active: 'border-transparent bg-ok-soft text-ok', expiring: 'border-transparent bg-warn-soft text-warn', expired: '', revoked: '' }
-const field = 'w-full rounded-[9px] border border-line bg-surface px-3 py-2.5 font-body text-sm text-ink'
-const label = 'grid gap-1.5 text-[12.5px] font-medium text-ink-2'
-const primary = 'btn border-accent bg-accent text-accent-ink'
 </script>
 
 <template>
-  <YourLayout>
-    <div class="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h1 class="m-0 font-display text-[22px]/[1.15] font-bold tracking-[-0.02em] text-balance">Tokens</h1>
-        <p class="mt-0.5 mb-0 text-[13px] text-ink-3">For scripts and tools. A token never has more access than you do.</p>
+  <AppShell>
+    <header class="head">
+      <h1>Tokens</h1>
+      <div class="end"><button class="btn primary" type="button" :disabled="clients.length === 0" @click="open"><Icon name="plus" />New token</button></div>
+    </header>
+    <p v-if="loadError || actionError" role="alert" class="alert"><Icon name="alert" />{{ loadError ?? actionError }}</p>
+    <div v-if="tokens && tokens.length" class="glass lt">
+      <div class="lt-h cols-tokens"><span>Name</span><span>App</span><span>Roles</span><span>Expires</span><span>State</span><span /></div>
+      <div v-for="t in tokens" :key="t.id" :class="['lt-r cols-tokens', { off: !live(t) }]">
+        <span class="name">{{ t.name }}</span>
+        <span class="app-c"><AppIcon :label="t.client.label" size="xs" />{{ t.client.label }}</span>
+        <span class="roles"><span v-for="r in t.roles" :key="r" class="role">{{ r }}</span><span v-if="t.roles.length === 0" class="muted">No role</span></span>
+        <span class="muted">{{ expiry(t, now) }}</span>
+        <span :class="['state', tone[t.state]]">{{ word[t.state] }}</span>
+        <span class="act"><button v-if="live(t) && revoking !== t.id" class="btn ghost sm" type="button" :aria-label="`Revoke ${t.name}`" @click="revoking = t.id">Revoke</button></span>
+        <div v-if="revoking === t.id" class="lt-confirm">
+          <span>Revoke {{ t.name }}? Scripts using it stop working.</span>
+          <button class="btn sm" type="button" @click="revoking = null">Cancel</button>
+          <button class="btn sm danger-solid" type="button" @click="revoke(t.id); revoking = null">Revoke</button>
+        </div>
       </div>
-      <button v-if="!making && clients.length > 0" type="button" :class="primary" @click="making = true">New token</button>
     </div>
-    <p v-if="actionError" role="alert" class="m-0 text-bad">{{ actionError }}</p>
+    <div v-else-if="tokens" class="glass empty">
+      <p>No tokens yet.</p>
+      <p v-if="clients.length === 0" class="soft">A token opens one app you have a role in. You have none yet.</p>
+    </div>
 
-    <section v-if="secret" class="panel grid gap-3" aria-labelledby="secret-title" role="status">
-      <h2 id="secret-title" class="m-0 text-[13px] font-semibold">Copy your token now. You won't see it again.</h2>
-      <code class="block overflow-x-auto rounded-[9px] border border-line bg-surface-2 px-3 py-2.5 font-mono text-xs break-all" data-secret>{{ secret }}</code>
-      <div class="flex flex-wrap gap-2">
-        <button type="button" class="btn" @click="copy(secret)">{{ copied ? 'Copied' : 'Copy' }}</button>
-        <button type="button" :class="primary" @click="done">Done</button>
-      </div>
-    </section>
-
-    <form v-else-if="making" class="panel grid gap-3.5" aria-label="New token" @submit.prevent="create">
-      <label :class="label">Name<input v-model="draft.name" :class="field" required maxlength="64" placeholder="backup-script" /></label>
-      <label :class="label">
-        App
-        <select v-model="draft.clientId" :class="field" required>
-          <option value="" disabled>Choose an app</option>
-          <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.label }}</option>
-        </select>
-      </label>
-      <label :class="label">
-        Lasts
-        <select v-model.number="draft.days" :class="field">
-          <option :value="30">30 days</option>
-          <option :value="90">90 days</option>
-          <option :value="365">365 days</option>
-        </select>
-      </label>
-      <div class="flex flex-wrap gap-2">
-        <button type="submit" :class="primary">Create token</button>
-        <button type="button" class="btn" @click="making = false">Cancel</button>
-      </div>
-    </form>
-
-    <section class="panel" aria-labelledby="tokens-title">
-      <h2 id="tokens-title" class="mt-0 mb-2.5 text-[13px] font-semibold">Personal Tokens</h2>
-      <p v-if="isLoading" class="m-0 text-ink-3">Loading…</p>
-      <p v-else-if="loadError" role="alert" class="m-0 text-bad">{{ loadError }}</p>
-      <p v-else-if="tokens?.length === 0" class="m-0 text-ink-3">
-        You have no tokens.<template v-if="clients.length === 0"> A token is for an app you have a role in, and you have none yet.</template>
-      </p>
-      <ul v-else class="m-0 grid list-none p-0" aria-labelledby="tokens-title">
-        <li
-          v-for="t in tokens"
-          :key="t.id"
-          class="flex min-w-0 flex-wrap items-center gap-3 border-t border-line py-2.5 first:border-t-0 first:pt-0"
-          :aria-label="t.name"
-        >
-          <div class="min-w-0 flex-1">
-            <b>{{ t.name }}</b>
-            <small class="block truncate text-xs text-ink-3">
-              {{ t.client.label }} · <span class="font-mono">{{ t.roles.join(', ') || 'no role' }}</span> · {{ expiry(t, now) }}
-            </small>
+    <DialogScrim v-if="making" @close="making = false">
+      <form class="dialog glass strong" role="dialog" aria-modal="true" aria-labelledby="nt-h" @submit.prevent="create">
+        <h2 id="nt-h">New token</h2>
+        <div class="field"><label class="label" for="nt-name">Name</label><input id="nt-name" v-model="name" class="input md mono" required maxlength="64" /></div>
+        <div class="field"><span class="label">App</span><GlassSelect v-model="client" :options="clientOptions" label="App" /></div>
+        <div class="field">
+          <span class="label">Expires after</span>
+          <div class="seg fill" role="group" aria-label="Expires after">
+            <button v-for="d in [30, 90, 365] as const" :key="d" type="button" :aria-pressed="days === d" @click="days = d">{{ d }} days</button>
           </div>
-          <span :class="[pill, tone[t.state]]"><i class="size-1.5 rounded-full bg-current"></i>{{ t.state }}</span>
-          <template v-if="t.state === 'active' || t.state === 'expiring'">
-            <template v-if="asking === t.id">
-              <span class="text-[13px] font-medium">Revoke {{ t.name }}? Scripts using it stop working.</span>
-              <button type="button" class="btn text-bad" @click="confirmRevoke(t.id)">Yes, revoke</button>
-              <button type="button" class="btn" @click="asking = null">Cancel</button>
-            </template>
-            <button v-else type="button" class="btn text-bad" :aria-label="`Revoke ${t.name}`" @click="asking = t.id">Revoke</button>
-          </template>
-        </li>
-      </ul>
-    </section>
-  </YourLayout>
+        </div>
+        <div class="btn-row end"><button class="btn" type="button" @click="making = false">Cancel</button><button class="btn primary" type="submit" :disabled="!name || !client">Create token</button></div>
+      </form>
+    </DialogScrim>
+    <DialogScrim v-if="secret" @close="forgetSecret">
+      <div class="dialog glass strong" role="dialog" aria-modal="true" aria-labelledby="sc-h">
+        <h2 id="sc-h">Your new token</h2>
+        <p class="warn-line"><Icon name="alert" />Shown once.</p>
+        <div class="secret"><code>{{ secret }}</code><button class="btn sm primary" type="button" @click="copy(secret)"><Icon name="copy" />{{ copied ? 'Copied' : 'Copy' }}</button></div>
+        <div class="btn-row end"><button class="btn" type="button" @click="forgetSecret">Done</button></div>
+      </div>
+    </DialogScrim>
+  </AppShell>
 </template>

@@ -29,7 +29,6 @@ export function useSecurity() {
 
   return {
     factors: computed<SecondFactor[]>(() => query.data.value?.factors ?? []),
-    isLoading: query.isPending,
     loadError: computed(() => (query.error.value ? describeError(query.error.value) : null)),
     setup,
     start: {

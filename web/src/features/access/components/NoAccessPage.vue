@@ -1,11 +1,17 @@
 <script setup lang="ts">
+import { adminMail } from '../../../shared/contact'
 import { RouterLink } from 'vue-router'
+import AuthShell from '../../../shared/AuthShell.vue'
+import Icon from '../../../shared/Icon'
 </script>
 
 <template>
-  <section aria-labelledby="no-access-title">
-    <h1 id="no-access-title">You don't have access to this app</h1>
-    <p>You are signed in, but none of your Groups has a role in the app you came from. Ask an Admin to add you to a Group that does.</p>
-    <p><RouterLink to="/profile">Go to your profile</RouterLink></p>
-  </section>
+  <AuthShell>
+    <div class="auth-box">
+      <span class="big-ico warn"><Icon name="lock" /></span>
+      <h1>No access to this app</h1>
+      <RouterLink class="btn primary lg wide" to="/">Your apps</RouterLink>
+      <p class="auth-foot"><a class="link" :href="adminMail">Contact an Admin</a></p>
+    </div>
+  </AuthShell>
 </template>

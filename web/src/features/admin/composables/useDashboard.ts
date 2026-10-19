@@ -8,7 +8,6 @@ export function useDashboard() {
   const query = useQuery({ ...getDashboardOptions(), retry: false })
   return {
     dashboard: computed(() => query.data.value),
-    isLoading: query.isPending,
     loadError: computed(() => (query.error.value ? describeError(query.error.value) : null)),
   }
 }

@@ -31,7 +31,6 @@ export function useAudit(filter: Ref<AuditFilter>) {
   const access = useQuery({ ...getAccessOptions(), retry: false })
   return {
     events: computed(() => events.data.value?.pages.flatMap((p) => p.events)),
-    isLoading: events.isPending,
     loadError: computed(() => (events.error.value ? describeError(events.error.value) : null)),
     hasOlder: events.hasNextPage,
     loadingOlder: events.isFetchingNextPage,

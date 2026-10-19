@@ -1,0 +1,47 @@
+/* What the Vue pages add to the kit. */
+.appicon-img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+.orbit .node svg .i { width: 24px; height: 24px; color: var(--ink-3); }
+.orbit > svg .i { width: 40px; height: 40px; }
+.brand.hidden { visibility: hidden; }
+.sheet button.row:disabled { opacity: 0.6; }
+.empty-state { padding: 32px 20px; text-align: center; color: var(--ink-2); }
+.err-line { color: var(--bad); font-size: 13.5px; margin: 0; }
+.qr .qr { width: 100%; height: 100%; padding: 0; box-shadow: none; border-radius: 0; }
+.note.warn { background: var(--warn-soft); }
+.note.warn .i { color: var(--warn); }
+.alert .i, .note .i { flex: none; }
+.g-tab { border: 0; background: transparent; cursor: pointer; font: 500 14px var(--sans); }
+.g-tab[aria-current="page"] { color: var(--ink); }
+.g-tab[aria-current="page"]::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; border-radius: 2px 2px 0 0; background: var(--accent); }
+.toast { display: flex; }
+.cols-apps2 { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.3fr) 100px 16px; }
+.row-btn { width: 100%; border-left: 0; border-right: 0; border-bottom: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.row-btn:hover { background: var(--fill); }
+@media (max-width: 720px) {
+  .cols-apps2 { grid-template-columns: minmax(0, 1fr) auto; }
+  .cols-apps2 > :nth-child(2) { display: none; }
+}
+.cols-people2 { grid-template-columns: 28px minmax(0, 1.4fr) minmax(0, 2fr) 20px; }
+.bulk.shown { visibility: visible; opacity: 1; transform: translate(-50%, 0); }
+@media (max-width: 720px) {
+  .cols-people2 { grid-template-columns: 28px minmax(0, 1fr) auto; }
+  .cols-people2 > .tags { grid-column: 2 / -1; }
+  .bulk.shown { transform: none; }
+}
+.user-tokens { width: 100%; display: grid; gap: 4px; }
+.ut-row { display: flex; align-items: center; gap: 12px; padding: 6px 0; }
+.ut-row .grow { flex: 1; min-width: 0; }
+.ut-row b { display: block; font-size: 14px; }
+.ut-row small { display: block; font: 12.5px var(--mono); color: var(--ink-3); }
+.audit-list { overflow: hidden; }
+.ev code { font: 12.5px var(--mono); padding: 1px 6px; border-radius: 6px; background: var(--fill-2); }
+.ev.fail p, .ev.fail p b { color: var(--ink); }
+.audit-list .day { position: static; }
+/* Tailwind owns .block and .inline as utilities, so the kit's wide buttons and inline chip rows go by other names. */
+.btn.wide { width: 100%; }
+.gchips.gchips-inline { flex: 1; padding: 0; min-width: 0; }
+h1, h2, h3, p { margin: 0; }
+/* A chip with only text, such as the email on the code step, keeps even padding. */
+.from.who:not(:has(> .av, > .i)) { padding: 0 12px; }
+.g-item[aria-current="page"] small { color: var(--ink-2); }
+.apps-empty { display: grid; gap: 8px; justify-items: center; }

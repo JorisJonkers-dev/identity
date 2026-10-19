@@ -8,6 +8,7 @@ import {
 } from '../../../infrastructure/api/@tanstack/vue-query.gen'
 import { describeError } from '../../../infrastructure/problem'
 import { useAction } from '../../../infrastructure/useAction'
+import AppIcon from '../../../shared/AppIcon.vue'
 import { expiry } from '../expiry'
 
 // A User's Personal Tokens, for an Admin, who can revoke any live one.
@@ -29,21 +30,19 @@ function confirm(patId: string) {
 </script>
 
 <template>
-  <div class="mt-2 grid gap-1.5" :aria-label="`${name}'s tokens`" role="group">
-    <p v-if="error" role="alert" class="m-0 text-bad">{{ error }}</p>
-    <p v-else-if="query.data.value?.tokens.length === 0" class="m-0 text-ink-3">{{ name }} has no tokens.</p>
-    <ul v-else-if="query.data.value" class="m-0 grid list-none gap-1.5 p-0">
-      <li v-for="t in query.data.value.tokens" :key="t.id" class="flex flex-wrap items-center gap-2" :aria-label="t.name">
-        <span><b>{{ t.name }}</b> · {{ t.client.label }} · {{ expiry(t, now) }}</span>
-        <template v-if="t.state === 'active' || t.state === 'expiring'">
-          <template v-if="asking === t.id">
-            <span>Revoke {{ t.name }}?</span>
-            <button type="button" @click="confirm(t.id)">Yes, revoke</button>
-            <button type="button" @click="asking = null">Cancel</button>
-          </template>
-          <button v-else type="button" :aria-label="`Revoke ${t.name}`" @click="asking = t.id">Revoke</button>
+  <div class="user-tokens" :aria-label="`${name}'s tokens`" role="group">
+    <p v-if="error" role="alert" class="err-line">{{ error }}</p>
+    <p v-else-if="query.data.value?.tokens.length === 0" class="soft">No tokens</p>
+    <div v-for="t in query.data.value?.tokens ?? []" :key="t.id" class="ut-row" :aria-label="t.name">
+      <AppIcon :label="t.client.label" size="sm" />
+      <span class="grow"><b class="mono">{{ t.name }}</b><small>{{ t.client.label }} · {{ expiry(t, now) }}</small></span>
+      <template v-if="t.state === 'active' || t.state === 'expiring'">
+        <template v-if="asking === t.id">
+          <button class="btn sm" type="button" @click="asking = null">Cancel</button>
+          <button class="btn sm danger-solid" type="button" @click="confirm(t.id)">Revoke</button>
         </template>
-      </li>
-    </ul>
+        <button v-else class="btn ghost sm" type="button" :aria-label="`Revoke ${t.name}`" @click="asking = t.id">Revoke</button>
+      </template>
+    </div>
   </div>
 </template>

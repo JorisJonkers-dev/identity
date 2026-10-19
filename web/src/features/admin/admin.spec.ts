@@ -1,58 +1,22 @@
-import { afterEach, describe, expect, it } from 'vitest'
 import type { VueWrapper } from '@vue/test-utils'
+import { afterEach, describe, expect, it } from 'vitest'
+import { admin, dashboard, ids, overview } from '../../app/fixtures'
 import { mountAt, problem, settle } from '../../app/testing'
-
-const root = '00000000-0000-4000-8000-0000000000a1'
-const noor = '00000000-0000-4000-8000-0000000000a2'
-const hourStart = Date.UTC(2026, 9, 15, 22)
-
-const me = (secondFactor = true) =>
-  Response.json({ email: 'joris@example.org', name: 'Joris Jonkers', createdAt: '2026-10-01T09:00:00Z', admin: true, secondFactor })
-
-function dashboard(over: Record<string, unknown> = {}) {
-  return Response.json({
-    users: 14,
-    usersThisWeek: 1,
-    unassigned: [{ id: noor, name: 'Noor Bakker', email: 'noor@example.org', confirmedAt: new Date(Date.now() - 2.5 * 3600000).toISOString() }],
-    signIns: 186,
-    failedSignIns: 4,
-    hours: Array.from({ length: 24 }, (_, i) => ({ at: new Date(hourStart + i * 3600000).toISOString(), signIns: i, failed: 0 })),
-    activeSessions: 23,
-    sessionUsers: 12,
-    tokensExpiring: 3,
-    ...over,
-  })
-}
-
-const access = () =>
-  Response.json({
-    groups: [],
-    users: [
-      { id: root, email: 'joris@example.org', name: 'Joris' },
-      { id: noor, email: 'noor@example.org', name: 'Noor Bakker' },
-    ],
-    clients: [{ id: 'grafana', label: 'Grafana', roles: ['user', 'viewer'] }],
-    assignments: [],
-  })
+import type { AuditEvent, Dashboard } from '../../infrastructure/api/types.gen'
 
 const page = (events: unknown[], next?: string) => Response.json(next ? { events, next } : { events })
 
-const gave = {
+const gave: AuditEvent = {
   id: '00000000-0000-4000-8000-0000000000e1',
   at: '2026-10-16T21:14:02Z',
   kind: 'access',
   action: 'role-assigned',
-  actor: { id: root, name: 'Joris', email: 'joris@example.org' },
+  actor: { id: ids.joris, name: 'Joris', email: 'joris@example.org' },
   client: { id: 'grafana', label: 'Grafana' },
   groupName: 'Family',
   role: 'viewer',
 }
-
-function link(wrapper: VueWrapper, text: string) {
-  const found = wrapper.findAll('a').find((a) => a.text() === text)
-  if (!found) throw new Error(`no link ${text}`)
-  return found
-}
+const failed: AuditEvent = { id: '00000000-0000-4000-8000-0000000000e4', at: '2026-10-16T21:10:00Z', kind: 'sign-in', action: 'sign-in-failed', email: 'eve@example.org', reason: 'password' }
 
 function button(wrapper: VueWrapper, text: string) {
   const found = wrapper.findAll('button').find((b) => b.text() === text)
@@ -65,184 +29,165 @@ afterEach(() => {
 })
 
 describe('the dashboard', () => {
-  const answers = (over: Record<string, unknown> = {}) => ({
-    'GET /api/v1/profile': me(),
-    'GET /api/v1/dashboard': () => dashboard(over),
+  const answers = (over: Partial<Dashboard> = {}) => ({
+    'GET /api/v1/profile': () => Response.json(admin()),
+    'GET /api/v1/dashboard': () => Response.json(dashboard(over)),
+  })
+  const stat = (wrapper: VueWrapper, label: string) => {
+    const found = wrapper.findAll('.stat').find((s) => s.get('.lbl').text() === label)
+    if (!found) throw new Error(`no stat ${label}`)
+    return found
+  }
+
+  it('shows the counts of the last day, each linking to where it comes from', async () => {
+    const { wrapper } = await mountAt('/admin', answers())
+    expect(wrapper.findAll('.stat').map((s) => [s.get('.lbl').text(), s.get('.num').text(), s.attributes('href')])).toEqual([
+      ['People', '14', '/admin/people'],
+      ['Unassigned', '1', '/admin/unassigned'],
+      ['Sign-ins', '186', '/admin/audit'],
+      ['Active sessions', '23', '/admin/people'],
+      ['Tokens expiring', '3', '/admin/people'],
+    ])
+    expect(stat(wrapper, 'People').get('.meta').text()).toBe('+1 this week')
+    expect(stat(wrapper, 'Sign-ins').get('.meta').text()).toBe('4 failed')
+    expect(stat(wrapper, 'Active sessions').get('.meta').text()).toBe('12 people')
   })
 
-  it('shows the counts of the last day', async () => {
+  it('says how long the newest has waited for a Group', async () => {
     const { wrapper } = await mountAt('/admin', answers())
-    const stats = wrapper.findAll('[aria-label="Counts"] li').map((s) => s.text())
-    expect(stats).toEqual([
-      'Users14+1 this week',
-      'Unassigned1waiting for a Group',
-      'Sign-ins1864 failed',
-      'Active sessions23across 12 Users',
-      'Tokens expiring3within 7 days',
-    ])
-    expect(wrapper.get('[data-attention]').text()).toContain('Unassigned')
+    expect(stat(wrapper, 'Unassigned').get('.meta').text()).toBe('newest 2h ago')
+    expect(stat(wrapper, 'Unassigned').find('.dot').exists()).toBe(true)
   })
 
   it('does not warn when nobody is waiting', async () => {
-    const { wrapper } = await mountAt('/admin', answers({ unassigned: [] }))
-    expect(wrapper.find('[data-attention]').exists()).toBe(false)
-    expect(wrapper.text()).toContain('No Users are waiting for a Group.')
+    const { wrapper } = await mountAt('/admin', answers({ unassigned: [], tokensExpiring: 0 }))
+    expect(stat(wrapper, 'Unassigned').get('.meta').text()).toBe('none waiting')
+    expect(wrapper.findAll('.stat .dot')).toHaveLength(0)
+    expect(wrapper.get('.quiet-line').text()).toBe('No one waiting.')
   })
 
-  it('says one User, not one Users', async () => {
-    const { wrapper } = await mountAt('/admin', answers({ activeSessions: 1, sessionUsers: 1 }))
-    expect(wrapper.text()).toContain('across 1 User')
-    expect(wrapper.text()).not.toContain('across 1 Users')
+  it('says one person, not one people', async () => {
+    const { wrapper } = await mountAt('/admin', answers({ sessionUsers: 1 }))
+    expect(stat(wrapper, 'Active sessions').get('.meta').text()).toBe('1 person')
   })
 
-  it('draws the sign-ins per hour, described for a screen reader', async () => {
+  it('draws the successful and the failed sign-ins apart, each with its peak', async () => {
     const { wrapper } = await mountAt('/admin', answers())
-    const chart = wrapper.get('svg[role="img"]')
-    expect(chart.attributes('aria-label')).toBe(`276 sign-ins in the last 24 hours. 0 failed sign-ins. The busiest hour had 23 sign-ins, around ${chartHour(23)}.`)
-    expect(chart.get('[data-test="sign-ins"]').attributes('points')?.split(' ')).toHaveLength(24)
-    expect(chart.findAll('text').map((t) => t.text()).slice(0, 3)).toEqual(['50', '25', '0'])
+    const [ok, bad] = wrapper.findAll('.chart-card')
+    expect(ok?.get('.chart-h b').text()).toBe('182')
+    expect(ok?.get('.chart-h small').text()).toMatch(/^peak 23 at \d\d:00$/)
+    expect(bad?.get('.chart-h b').text()).toBe('4')
+    expect(bad?.get('.chart-h small').text()).toMatch(/^peak 3 at \d\d:00$/)
+    expect(bad?.get('svg').attributes('aria-label')).toMatch(/^Failed sign-ins per hour over the last 24 hours, peak 3 at \d\d:00\.$/)
   })
 
-  it('lists who waits for a Group, with a way to add them', async () => {
+  it('says none for a chart with nothing in it', async () => {
+    const { wrapper } = await mountAt('/admin', answers({ failedSignIns: 0, hours: dashboard().hours.map((h) => ({ ...h, failed: 0 })) as Dashboard['hours'] }))
+    expect(wrapper.findAll('.chart-card')[1]?.get('.chart-h small').text()).toBe('none')
+  })
+
+  it('lists who waits for a Group, each linking to their page', async () => {
     const { wrapper } = await mountAt('/admin', answers())
-    const row = wrapper.get('[aria-labelledby="queue-title"] li')
-    expect(row.text()).toContain('Noor Bakker')
-    expect(row.text()).toContain('noor@example.org · confirmed 2h ago')
-    expect(row.get('a').attributes('href')).toBe('/access#waiting-title')
-    expect(row.get('a').attributes('aria-label')).toBe('Add Noor Bakker to a Group')
+    const q = wrapper.get('.queue .q')
+    expect(q.attributes('href')).toBe(`/admin/people/${ids.noor}`)
+    expect(q.get('b').text()).toBe('Noor Bakker')
+    expect(q.get('small').text()).toBe('noor@example.org · 2h ago')
+    expect(wrapper.get('.un-panel a.btn').attributes('href')).toBe('/admin/unassigned')
   })
 
-  it('shows the newest five in the queue and links to the rest', async () => {
-    const waiting = Array.from({ length: 7 }, (_, i) => ({
-      id: `00000000-0000-4000-8000-00000000010${String(i)}`,
-      name: `Person ${String(i)}`,
-      email: `p${String(i)}@example.org`,
-      confirmedAt: '2026-10-16T09:00:00Z',
-    }))
+  it('shows six of a longer queue', async () => {
+    const waiting = Array.from({ length: 8 }, (_, i) => ({ id: `00000000-0000-4000-8000-00000000010${String(i)}`, name: `Person ${String(i)}`, email: `p${String(i)}@example.org`, confirmedAt: '2026-10-16T09:00:00Z' }))
     const { wrapper } = await mountAt('/admin', answers({ unassigned: waiting }))
-    expect(wrapper.findAll('[aria-labelledby="queue-title"] li')).toHaveLength(5)
-    expect(link(wrapper, 'See all 7 on the access page').attributes('href')).toBe('/access#waiting-title')
-  })
-
-  it('needs no link to the rest when the whole queue shows', async () => {
-    const { wrapper } = await mountAt('/admin', answers())
-    expect(wrapper.text()).not.toContain('See all')
+    expect(wrapper.findAll('.queue .q')).toHaveLength(6)
+    expect(wrapper.get('.un-panel .count').text()).toBe('8')
   })
 
   it('links to Grafana only when it is configured', async () => {
     const without = await mountAt('/admin', answers())
-    expect(without.wrapper.text()).not.toContain('Open in Grafana')
-    expect(without.wrapper.get('[data-test="subtitle"]').text()).toBe('Last 24 hours.')
-    document.body.innerHTML = ''
-    const { wrapper } = await mountAt('/admin', answers({ grafanaUrl: 'https://grafana.example.org/d/identity' }))
-    expect(link(wrapper, 'Open in Grafana ↗').attributes('href')).toBe('https://grafana.example.org/d/identity')
-    expect(wrapper.get('[data-test="subtitle"]').text()).toBe('Last 24 hours. Charts over time are in Grafana.')
+    expect(without.wrapper.findAll('a').some((a) => a.text() === 'Grafana')).toBe(false)
+    const withIt = await mountAt('/admin', answers({ grafanaUrl: 'https://grafana.test/d/identity' }))
+    expect(withIt.wrapper.findAll('a').find((a) => a.text() === 'Grafana')?.attributes('href')).toBe('https://grafana.test/d/identity')
   })
 
-  it('says loading before the counts arrive', async () => {
-    const { wrapper } = await mountAt('/admin', {
-      'GET /api/v1/profile': me(),
-      'GET /api/v1/dashboard': () => new Promise<Response>(() => undefined),
-    })
-    expect(wrapper.text()).toContain('Loading…')
-  })
-
-  it('tells a non-Admin it is not theirs', async () => {
-    const { wrapper } = await mountAt('/admin', {
-      'GET /api/v1/profile': me(),
-      'GET /api/v1/dashboard': problem(403, 'Only Admins can see this page.'),
-    })
-    expect(wrapper.get('[role="alert"]').text()).toBe('Only Admins can see this page.')
-  })
-
-  it('sends an Admin with no Second Factor to add one', async () => {
-    const { router } = await mountAt('/admin', { 'GET /api/v1/profile': me(false), 'GET /api/v1/dashboard': () => dashboard() })
-    expect(router.currentRoute.value.fullPath).toBe('/security?for=admin')
-  })
-
-  it('names the Admin and counts the queue in the sidebar', async () => {
-    const { wrapper } = await mountAt('/admin', answers())
-    const side = wrapper.get('nav[aria-label="Admin"]')
-    expect(side.get('[data-who]').text()).toBe('JJJoris JonkersAdmin · 12h session')
-    expect(side.get('[aria-current="page"]').text()).toBe('Dashboard')
-    expect(side.get('[data-count]').text()).toBe('1')
-  })
-
-  it('leaves the count out of the sidebar when nobody waits', async () => {
-    const { wrapper } = await mountAt('/admin', answers({ unassigned: [] }))
-    expect(wrapper.find('nav [data-count]').exists()).toBe(false)
-  })
-
-  it('fills the window instead of the narrow column the other pages use', async () => {
-    const { wrapper } = await mountAt('/admin', answers())
-    expect(wrapper.get('main').classes()).toEqual(['wide'])
+  it('shows the problem when the counts cannot load', async () => {
+    const { wrapper } = await mountAt('/admin', { ...answers(), 'GET /api/v1/dashboard': problem(500, 'Something went wrong. Try again.') })
+    expect(wrapper.get('[role="alert"]').text()).toBe('Something went wrong. Try again.')
   })
 })
 
-function chartHour(i: number): string {
-  return new Date(hourStart + i * 3600000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })
-}
-
-describe('the audit page', () => {
+describe('the Audit page', () => {
   const answers = (events: () => Response) => ({
-    'GET /api/v1/profile': me(),
-    'GET /api/v1/dashboard': () => dashboard(),
-    'GET /api/v1/access': access,
+    'GET /api/v1/profile': () => Response.json(admin()),
+    'GET /api/v1/dashboard': () => Response.json(dashboard()),
+    'GET /api/v1/access': () => Response.json(overview()),
     'GET /api/v1/audit': events,
   })
+  const pick = async (wrapper: VueWrapper, label: string, option: string) => {
+    await wrapper.get(`.dd-btn[aria-label="${label}"]`).trigger('click')
+    await wrapper
+      .get(`.dd-menu[aria-label="${label}"]`)
+      .findAll('[role="option"]')
+      .find((o) => o.text() === option)
+      ?.trigger('click')
+    await settle()
+  }
 
   it('reads each event as a sentence, with its time and kind', async () => {
     const { wrapper } = await mountAt('/admin/audit', answers(() => page([gave])))
-    const row = wrapper.get('[data-event]')
+    const row = wrapper.get('.ev')
     expect(row.get('time').attributes('datetime')).toBe('2026-10-16T21:14:02Z')
     expect(row.get('p').text()).toBe('Joris gave Family viewer on Grafana')
     expect(row.get('p b').text()).toBe('Joris')
-    expect(row.get('[data-role]').text()).toBe('viewer')
-    expect(row.get('[data-tone]').attributes('data-tone')).toBe('a')
-    expect(row.get('[data-kind]').text()).toBe('access')
+    expect(row.get('p code').text()).toBe('viewer')
+    expect(row.get('.tag').text()).toBe('Access')
+  })
+
+  it('marks a failed sign-in', async () => {
+    const { wrapper } = await mountAt('/admin/audit', answers(() => page([failed])))
+    expect(wrapper.get('.ev').classes()).toContain('fail')
+    expect(wrapper.get('.ev .tag').classes()).toContain('bad')
   })
 
   it('heads each day of events once', async () => {
     const earlier = { ...gave, id: '00000000-0000-4000-8000-0000000000e2', at: '2026-10-16T20:00:00Z' }
     const older = { ...gave, id: '00000000-0000-4000-8000-0000000000e3', at: '2026-10-01T20:00:00Z' }
     const { wrapper } = await mountAt('/admin/audit', answers(() => page([gave, earlier, older])))
-    expect(wrapper.findAll('[data-day]').map((d) => d.text())).toEqual([expect.any(String), '1 Oct'])
+    expect(wrapper.findAll('.day h2').map((d) => d.text())).toEqual([expect.any(String), '1 Oct'])
   })
 
-  it('says when no event matches', async () => {
-    const { wrapper } = await mountAt('/admin/audit', answers(() => page([])))
-    expect(wrapper.text()).toContain('No Audit Events match.')
-  })
-
-  it('narrows to a kind, and back, through the address', async () => {
-    const { wrapper, router, requests } = await mountAt('/admin/audit', answers(() => page([gave])))
-    const access = () => wrapper.get('button[aria-pressed]:nth-of-type(3)')
-    expect(access().text()).toBe('access')
-    await access().trigger('click')
-    await settle()
-    expect(router.currentRoute.value.fullPath).toBe('/admin/audit?kind=access')
-    expect(access().attributes('aria-pressed')).toBe('true')
-    expect(requests.filter((r) => r.key === 'GET /api/v1/audit')).toHaveLength(2)
-    await access().trigger('click')
+  it('says when no event matches, and clears the filters', async () => {
+    const { wrapper, router } = await mountAt('/admin/audit?kind=tokens', answers(() => page([])))
+    expect(wrapper.get('.empty p').text()).toBe('No events match.')
+    await button(wrapper, 'Clear filters').trigger('click')
     await settle()
     expect(router.currentRoute.value.fullPath).toBe('/admin/audit')
   })
 
-  it('narrows to a User and to an app', async () => {
+  it('narrows to a kind, and back, through the address', async () => {
+    const { wrapper, router, requests } = await mountAt('/admin/audit', answers(() => page([gave])))
+    await button(wrapper, 'Access').trigger('click')
+    await settle()
+    expect(router.currentRoute.value.fullPath).toBe('/admin/audit?kind=access')
+    expect(button(wrapper, 'Access').attributes('aria-pressed')).toBe('true')
+    expect(requests.filter((r) => r.key === 'GET /api/v1/audit')).toHaveLength(2)
+    await button(wrapper, 'All').trigger('click')
+    await settle()
+    expect(router.currentRoute.value.fullPath).toBe('/admin/audit')
+  })
+
+  it('narrows to a person and to an app', async () => {
     const { wrapper, router } = await mountAt('/admin/audit', answers(() => page([gave])))
-    const [users, clients] = wrapper.findAll('select')
-    expect(users?.findAll('option').map((o) => o.text())).toEqual(['All Users', 'Joris', 'Noor Bakker'])
-    await users?.setValue(noor)
-    await settle()
-    await clients?.setValue('grafana')
-    await settle()
-    expect(router.currentRoute.value.query).toEqual({ user: noor, client: 'grafana' })
+    expect(wrapper.get('.dd-menu[aria-label="Person"]').findAll('[role="option"]').map((o) => o.text())).toEqual(['Everyone', 'Joris Jonkers', 'Ada Lovelace', 'Noor Bakker'])
+    await pick(wrapper, 'Person', 'Noor Bakker')
+    await pick(wrapper, 'App', 'Grafana')
+    expect(router.currentRoute.value.query).toEqual({ user: ids.noor, client: 'grafana' })
+    expect(wrapper.get('.dd-btn[aria-label="Person"]').text()).toBe('Noor Bakker')
   })
 
   it('takes a filter from the address and ignores a kind there is not', async () => {
-    const { wrapper } = await mountAt('/admin/audit?kind=teleports&user=' + noor, answers(() => page([gave])))
-    expect(wrapper.find('button[aria-pressed="true"]').exists()).toBe(false)
-    expect(wrapper.get<HTMLSelectElement>('select').element.value).toBe(noor)
+    const { wrapper } = await mountAt(`/admin/audit?kind=teleports&user=${ids.noor}`, answers(() => page([gave])))
+    expect(button(wrapper, 'All').attributes('aria-pressed')).toBe('true')
+    expect(wrapper.get('.dd-btn[aria-label="Person"]').text()).toBe('Noor Bakker')
   })
 
   it('reads older events a page at a time', async () => {
@@ -254,24 +199,19 @@ describe('the audit page', () => {
         return pages === 1 ? page([gave], 'cursor-1') : page([{ ...gave, id: '00000000-0000-4000-8000-0000000000e9' }])
       }),
     )
-    await button(wrapper, 'Show older Audit Events').trigger('click')
+    await button(wrapper, 'Load more').trigger('click')
     await settle()
-    expect(wrapper.findAll('[data-event]')).toHaveLength(2)
-    expect(wrapper.text()).not.toContain('Show older Audit Events')
+    expect(wrapper.findAll('.ev')).toHaveLength(2)
+    expect(wrapper.findAll('button').some((b) => b.text() === 'Load more')).toBe(false)
   })
 
-  it('says loading before the events arrive', async () => {
-    const { wrapper } = await mountAt('/admin/audit', answers(() => new Promise<Response>(() => undefined) as unknown as Response))
-    expect(wrapper.text()).toContain('Loading…')
+  it('shows the problem when the events cannot load', async () => {
+    const { wrapper } = await mountAt('/admin/audit', answers(() => problem(500, 'Something went wrong. Try again.')))
+    expect(wrapper.get('[role="alert"]').text()).toBe('Something went wrong. Try again.')
   })
 
-  it('tells a non-Admin it is not theirs', async () => {
-    const { wrapper } = await mountAt('/admin/audit', answers(() => problem(403, 'Only Admins can see this page.')))
-    expect(wrapper.get('[role="alert"]').text()).toBe('Only Admins can see this page.')
-  })
-
-  it('marks the Audit link as the page open', async () => {
-    const { wrapper } = await mountAt('/admin/audit', answers(() => page([])))
-    expect(wrapper.get('nav [aria-current="page"]').text()).toBe('Audit')
+  it('leaves the person blank when the address names someone it does not know', async () => {
+    const { wrapper } = await mountAt('/admin/audit?user=00000000-0000-4000-8000-0000000000ff', answers(() => page([])))
+    expect(wrapper.get('.dd-btn[aria-label="Person"] .dd-l').text()).toBe('')
   })
 })

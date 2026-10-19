@@ -1,11 +1,5 @@
-import AxeBuilder from '@axe-core/playwright'
-import { expect, type Page, test } from '@playwright/test'
-
-/** Fails on any WCAG 2.1 A or AA violation axe finds on the page as it is now. */
-async function expectAccessible(page: Page) {
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
-  expect(violations.map((v) => `${v.id}: ${v.help}`)).toEqual([])
-}
+import { expect, test } from '@playwright/test'
+import { expectAccessible } from './helpers'
 
 test('the home page names the service and shows the running version', async ({ page }) => {
   // A Content-Security-Policy violation surfaces only as a console error. The signed-out
@@ -16,6 +10,8 @@ test('the home page names the service and shows the running version', async ({ p
   })
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'jorisjonkers.dev' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/signin')
+  await expect(page.getByRole('link', { name: 'Sign up' })).toHaveAttribute('href', '/signup')
   await expect(page.getByText(/^Version /)).toBeVisible()
   await expectAccessible(page)
   expect(errors).toEqual([])
