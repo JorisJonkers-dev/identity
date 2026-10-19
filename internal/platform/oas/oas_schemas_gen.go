@@ -3093,8 +3093,6 @@ func (s *StepUp) SetMinutes(val StepUpMinutes) {
 	s.Minutes = val
 }
 
-func (*StepUp) getStepUpRes() {}
-
 // The window in minutes; 0 is off.
 type StepUpMinutes int32
 
@@ -3112,6 +3110,57 @@ func (StepUpMinutes) AllValues() []StepUpMinutes {
 		StepUpMinutes5,
 		StepUpMinutes15,
 		StepUpMinutes60,
+	}
+}
+
+// How fresh a Client wants two-factor, and how many live Personal Tokens turning step-up on would
+// revoke: none can satisfy it (docs/adr/0019).
+// Ref: #/components/schemas/StepUpState
+type StepUpState struct {
+	// The window in minutes; 0 is off.
+	Minutes StepUpStateMinutes `json:"minutes"`
+	Tokens  Count              `json:"tokens"`
+}
+
+// GetMinutes returns the value of Minutes.
+func (s *StepUpState) GetMinutes() StepUpStateMinutes {
+	return s.Minutes
+}
+
+// GetTokens returns the value of Tokens.
+func (s *StepUpState) GetTokens() Count {
+	return s.Tokens
+}
+
+// SetMinutes sets the value of Minutes.
+func (s *StepUpState) SetMinutes(val StepUpStateMinutes) {
+	s.Minutes = val
+}
+
+// SetTokens sets the value of Tokens.
+func (s *StepUpState) SetTokens(val Count) {
+	s.Tokens = val
+}
+
+func (*StepUpState) getStepUpRes() {}
+
+// The window in minutes; 0 is off.
+type StepUpStateMinutes int32
+
+const (
+	StepUpStateMinutes0  StepUpStateMinutes = 0
+	StepUpStateMinutes5  StepUpStateMinutes = 5
+	StepUpStateMinutes15 StepUpStateMinutes = 15
+	StepUpStateMinutes60 StepUpStateMinutes = 60
+)
+
+// AllValues returns all StepUpStateMinutes values.
+func (StepUpStateMinutes) AllValues() []StepUpStateMinutes {
+	return []StepUpStateMinutes{
+		StepUpStateMinutes0,
+		StepUpStateMinutes5,
+		StepUpStateMinutes15,
+		StepUpStateMinutes60,
 	}
 }
 

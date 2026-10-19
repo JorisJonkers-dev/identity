@@ -3075,6 +3075,55 @@ func (s StepUpMinutes) Validate() error {
 	}
 }
 
+func (s *StepUpState) Validate() error {
+	if s == nil {
+		return validate.ErrNilPointer
+	}
+
+	var failures []validate.FieldError
+	if err := func() error {
+		if err := s.Minutes.Validate(); err != nil {
+			return err
+		}
+		return nil
+	}(); err != nil {
+		failures = append(failures, validate.FieldError{
+			Name:  "minutes",
+			Error: err,
+		})
+	}
+	if err := func() error {
+		if err := s.Tokens.Validate(); err != nil {
+			return err
+		}
+		return nil
+	}(); err != nil {
+		failures = append(failures, validate.FieldError{
+			Name:  "tokens",
+			Error: err,
+		})
+	}
+	if len(failures) > 0 {
+		return &validate.Error{Fields: failures}
+	}
+	return nil
+}
+
+func (s StepUpStateMinutes) Validate() error {
+	switch s {
+	case 0:
+		return nil
+	case 5:
+		return nil
+	case 15:
+		return nil
+	case 60:
+		return nil
+	default:
+		return errors.Errorf("invalid value: %v", s)
+	}
+}
+
 func (s *TOTPConfirmation) Validate() error {
 	if s == nil {
 		return validate.ErrNilPointer

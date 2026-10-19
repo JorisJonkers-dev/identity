@@ -1190,7 +1190,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/StepUp"
+                $ref: "#/components/schemas/StepUpState"
         "4XX":
           $ref: "#/components/responses/Problem"
         default:
@@ -1981,6 +1981,23 @@ components:
           description: Every Assignment held by a User directly.
           items:
             $ref: "#/components/schemas/UserAssignment"
+    StepUpState:
+      description: >-
+        How fresh a Client wants two-factor, and how many live Personal Tokens turning step-up on
+        would revoke: none can satisfy it (docs/adr/0019).
+      type: object
+      additionalProperties: false
+      required: [minutes, tokens]
+      properties:
+        minutes:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 60
+          enum: [0, 5, 15, 60]
+          description: The window in minutes; 0 is off.
+        tokens:
+          $ref: "#/components/schemas/Count"
     StepUp:
       description: How fresh a Client wants a session's two-factor proof (docs/adr/0019).
       type: object

@@ -521,6 +521,17 @@ export type AccessOverview = {
 };
 
 /**
+ * How fresh a Client wants two-factor, and how many live Personal Tokens turning step-up on would revoke: none can satisfy it (docs/adr/0019).
+ */
+export type StepUpState = {
+    /**
+     * The window in minutes; 0 is off.
+     */
+    minutes: 0 | 5 | 15 | 60;
+    tokens: Count;
+};
+
+/**
  * How fresh a Client wants a session's two-factor proof (docs/adr/0019).
  */
 export type StepUp = {
@@ -2507,7 +2518,7 @@ export type GetStepUpResponses = {
     /**
      * The Client's step-up.
      */
-    200: StepUp;
+    200: StepUpState;
 };
 
 export type GetStepUpResponse = GetStepUpResponses[keyof GetStepUpResponses];

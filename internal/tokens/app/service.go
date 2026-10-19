@@ -26,6 +26,9 @@ var (
 	ErrUnknownClient = errors.New("no such Client")
 	// ErrNoAccess is a token for a Client the User holds no App Role on: it could open nothing.
 	ErrNoAccess = errors.New("the User holds no App Role on the Client")
+	// ErrStepUpClient is a token for a Client with step-up on: a bearer token proves nothing fresh
+	// (docs/adr/0019).
+	ErrStepUpClient = errors.New("the Client wants a fresh two-factor proof")
 	// ErrInactive is a token a Client's check refuses: revoked, expired, another Client's, or one
 	// whose User holds no App Role on the Client now.
 	ErrInactive           = errors.New("the token is not active")
@@ -46,6 +49,10 @@ type Store interface {
 	OfUser(ctx context.Context, userID uuid.UUID) ([]domain.Token, error)
 	// Revoke reports whether the User's live token was revoked now.
 	Revoke(ctx context.Context, id, userID uuid.UUID, at time.Time) (bool, error)
+	// RevokeForClient revokes every live token for a Client and returns them.
+	RevokeForClient(ctx context.Context, clientID string, at time.Time) ([]domain.Token, error)
+	// LiveForClient is how many tokens for a Client are live at now.
+	LiveForClient(ctx context.Context, clientID string, now time.Time) (int, error)
 	// Touch records a use, at most once a minute.
 	Touch(ctx context.Context, id uuid.UUID, at time.Time) error
 	// CountExpiring is the live tokens that expire after now and by before.
@@ -62,6 +69,8 @@ type Roles interface {
 // Clients tells whether a Client is in the cluster, and what it is called.
 type Clients interface {
 	Exists(ctx context.Context, clientID string) bool
+	// StepUp reports whether the Client wants a fresh two-factor proof, which no token gives.
+	StepUp(ctx context.Context, clientID string) (bool, error)
 	// Label is what a Client is called, or its id when it has no label or is gone.
 	Label(ctx context.Context, clientID string) string
 }
@@ -133,6 +142,13 @@ func (s *Service) Mint(ctx context.Context, userID uuid.UUID, rawName, clientID 
 	if !s.clients.Exists(ctx, clientID) {
 		return Minted{}, ErrUnknownClient
 	}
+	stepUp, err := s.clients.StepUp(ctx, clientID)
+	if err != nil {
+		return Minted{}, err
+	}
+	if stepUp {
+		return Minted{}, ErrStepUpClient
+	}
 	roles, err := s.roles.Roles(ctx, userID, clientID)
 	if err != nil {
 		return Minted{}, err
@@ -172,7 +188,14 @@ func (s *Service) Mintable(ctx context.Context, userID uuid.UUID) ([]Client, err
 	}
 	clients := make([]Client, 0, len(held))
 	for id, roles := range held {
-		if len(roles) > 0 && s.clients.Exists(ctx, id) {
+		if len(roles) == 0 || !s.clients.Exists(ctx, id) {
+			continue
+		}
+		stepUp, err := s.clients.StepUp(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if !stepUp {
 			clients = append(clients, Client{ID: id, Label: s.clients.Label(ctx, id)})
 		}
 	}
@@ -237,6 +260,27 @@ func (s *Service) revoke(ctx context.Context, actor, userID, tokenID uuid.UUID) 
 	return nil
 }
 
+// LiveForClient is how many live tokens a Client has, for the Admin about to turn step-up on.
+func (s *Service) LiveForClient(ctx context.Context, clientID string) (int, error) {
+	return s.store.LiveForClient(ctx, clientID, s.now())
+}
+
+// RevokeForClient revokes every live token for a Client, as turning step-up on does; each is an
+// Audit Event by actor, and stops at once wherever its checks are cached.
+func (s *Service) RevokeForClient(ctx context.Context, actor uuid.UUID, clientID string) error {
+	revoked, err := s.store.RevokeForClient(ctx, clientID, s.now())
+	if err != nil {
+		return err
+	}
+	for _, t := range revoked {
+		s.audit.Record(ctx, audit.Event{Action: audit.TokenRevoked, Actor: actor, User: t.UserID, Client: clientID})
+		if s.revoked != nil {
+			s.revoked(ctx, t.ID)
+		}
+	}
+	return nil
+}
+
 func (s *Service) admin(ctx context.Context, actor Actor) error {
 	yes, err := s.admins.IsAdmin(ctx, actor.ID)
 	if err != nil {
@@ -271,6 +315,13 @@ func (s *Service) Check(ctx context.Context, tokenID uuid.UUID, clientID string)
 	}
 	now := s.now()
 	if t.ClientID != clientID || !t.Live(now) {
+		return Active{}, ErrInactive
+	}
+	stepUp, err := s.clients.StepUp(ctx, clientID)
+	if err != nil {
+		return Active{}, err
+	}
+	if stepUp {
 		return Active{}, ErrInactive
 	}
 	roles, err := s.roles.Roles(ctx, t.UserID, clientID)

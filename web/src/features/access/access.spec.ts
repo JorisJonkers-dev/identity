@@ -19,10 +19,12 @@ function server(start: AccessOverview = overview()) {
     'GET /api/v1/access': () => Response.json(o),
   }
   let stepUp = 0
+  const tokens = { live: 0 }
   for (const c of o.clients) {
-    answers[`GET /api/v1/apps/${c.id}/step-up`] = () => Response.json({ minutes: stepUp })
+    answers[`GET /api/v1/apps/${c.id}/step-up`] = () => Response.json({ minutes: stepUp, tokens: tokens.live })
     answers[`PUT /api/v1/apps/${c.id}/step-up`] = () => {
       stepUp = 15
+      tokens.live = 0
       return ok()
     }
   }
@@ -70,7 +72,7 @@ function server(start: AccessOverview = overview()) {
       }
     }
   }
-  return { o, answers }
+  return { o, answers, tokens }
 }
 
 function button(wrapper: { findAll: (selector: string) => DOMWrapper<Element>[] }, text: string) {
@@ -555,6 +557,29 @@ describe('an app’s page', () => {
     await pick(wrapper, 'Ask for two-factor again in Grafana', '15 minutes')
     expect(requests.find((r) => r.key === 'PUT /api/v1/apps/grafana/step-up')?.body).toEqual({ minutes: 15 })
     expect(stepUpRow(wrapper).get('small').text()).toBe('Asks for two-factor again after 15 minutes.')
+  })
+
+  it('warns how many tokens turning step-up on revokes, then turns it on', async () => {
+    const { answers, tokens } = server()
+    tokens.live = 2
+    const { wrapper, requests } = await mountAt('/admin/apps/grafana', answers)
+    await pick(wrapper, 'Ask for two-factor again in Grafana', '15 minutes')
+    expect(wrapper.get('.confirm .ask').text()).toBe('Turn on step-up for Grafana?This revokes 2 tokens for Grafana. Scripts that use them stop working.')
+    expect(requests.some((r) => r.key === 'PUT /api/v1/apps/grafana/step-up')).toBe(false)
+    await button(wrapper.get('.confirm'), 'Turn on and revoke').trigger('click')
+    await settle()
+    expect(requests.find((r) => r.key === 'PUT /api/v1/apps/grafana/step-up')?.body).toEqual({ minutes: 15 })
+  })
+
+  it('keeps step-up off when the warning is cancelled', async () => {
+    const { answers, tokens } = server()
+    tokens.live = 1
+    const { wrapper, requests } = await mountAt('/admin/apps/grafana', answers)
+    await pick(wrapper, 'Ask for two-factor again in Grafana', '5 minutes')
+    expect(wrapper.get('.confirm .ask').text()).toBe('Turn on step-up for Grafana?This revokes 1 token for Grafana. Scripts that use them stop working.')
+    await button(wrapper.get('.confirm'), 'Cancel').trigger('click')
+    expect(wrapper.find('.confirm').exists()).toBe(false)
+    expect(requests.some((r) => r.key === 'PUT /api/v1/apps/grafana/step-up')).toBe(false)
   })
 
   it('shows a refused step-up', async () => {

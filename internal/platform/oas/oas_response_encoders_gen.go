@@ -879,7 +879,7 @@ func encodeGetProfileResponse(response GetProfileRes, w http.ResponseWriter, spa
 
 func encodeGetStepUpResponse(response GetStepUpRes, w http.ResponseWriter, span trace.Span) error {
 	switch response := response.(type) {
-	case *StepUp:
+	case *StepUpState:
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.WriteHeader(200)
 

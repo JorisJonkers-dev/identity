@@ -26,6 +26,7 @@ type Querier interface {
 	CompleteAuthRequest(ctx context.Context, arg CompleteAuthRequestParams) (int64, error)
 	CountActiveSessions(ctx context.Context, expiresAt time.Time) (CountActiveSessionsRow, error)
 	CountAdmins(ctx context.Context) (int64, error)
+	CountLiveClientTokens(ctx context.Context, arg CountLiveClientTokensParams) (int64, error)
 	CountMembers(ctx context.Context, groupID uuid.UUID) (int64, error)
 	// Live tokens that expire after now and before a time.
 	CountPersonalTokensExpiring(ctx context.Context, arg CountPersonalTokensExpiringParams) (int64, error)
@@ -109,6 +110,8 @@ type Querier interface {
 	ProvePasswordReset(ctx context.Context, arg ProvePasswordResetParams) error
 	RemoveMember(ctx context.Context, arg RemoveMemberParams) (int64, error)
 	RenameGroup(ctx context.Context, arg RenameGroupParams) (int64, error)
+	// Revokes every live token for a Client at once, as turning step-up on does.
+	RevokeClientTokens(ctx context.Context, arg RevokeClientTokensParams) ([]RevokeClientTokensRow, error)
 	// Revokes a User's token once; a second revocation, or another User's token, changes nothing.
 	RevokePersonalToken(ctx context.Context, arg RevokePersonalTokenParams) (int64, error)
 	// Every App Role a User holds, per Client, as RolesOf counts them.

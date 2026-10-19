@@ -39,9 +39,9 @@ type stepUps struct {
 	set     int
 }
 
-func (s *stepUps) StepUp(_ context.Context, actor app.Actor, clientID string) (int, error) {
+func (s *stepUps) StepUp(_ context.Context, actor app.Actor, clientID string) (app.StepUpState, error) {
 	s.actor, s.client = actor, clientID
-	return s.minutes, s.err
+	return app.StepUpState{Minutes: s.minutes, Tokens: 3}, s.err
 }
 
 func (s *stepUps) Set(_ context.Context, actor app.Actor, clientID string, minutes int) error {
@@ -111,7 +111,7 @@ func TestAnAdminReadsAClientsStepUp(t *testing.T) {
 	t.Parallel()
 	s := &stepUps{minutes: 15}
 	res, err := web.New(nil, s).GetStepUp(asRoot(), oas.GetStepUpParams{ClientId: "grafana"})
-	if got, ok := res.(*oas.StepUp); err != nil || !ok || got.Minutes != 15 || s.client != "grafana" || s.actor != (app.Actor{ID: root, SecondFactor: true}) {
+	if got, ok := res.(*oas.StepUpState); err != nil || !ok || got.Minutes != 15 || got.Tokens != 3 || s.client != "grafana" || s.actor != (app.Actor{ID: root, SecondFactor: true}) {
 		t.Fatalf("GetStepUp = %+v, %v", res, err)
 	}
 }
