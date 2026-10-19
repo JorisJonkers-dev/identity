@@ -56,3 +56,16 @@ func TestAStepUpHostSignInEndsAtTheWindowEvenInsideASingleSignOnSession(t *testi
 		t.Fatalf("at the window = %v", err)
 	}
 }
+
+func TestAStepUpHostsAnswerIsKeptOnlyForTheCachesTTLWhenItsWindowEndsLater(t *testing.T) {
+	f := steppingUp(0, true)
+	cookie := f.signedIn(t)
+	if _, err := f.Check(context.Background(), stats.Host, cookie); err != nil {
+		t.Fatal(err)
+	}
+	f.roles.held[stats.ID] = nil
+	f.now = t0.Add(31 * time.Second)
+	if _, err := f.Check(context.Background(), stats.Host, cookie); !errors.Is(err, app.ErrNoAccess) {
+		t.Fatalf("after the TTL, inside the window = %v", err)
+	}
+}
