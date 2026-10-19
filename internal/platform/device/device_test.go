@@ -40,7 +40,7 @@ func TestADeviceIsNamedByItsBrowserAndOS(t *testing.T) {
 func TestTheMiddlewareNamesTheRequestsDevice(t *testing.T) {
 	var got string
 	h := device.Middleware(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) { got = device.From(r.Context()) }))
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0")
 	h.ServeHTTP(httptest.NewRecorder(), req)
 	if got != "Firefox on Linux" {

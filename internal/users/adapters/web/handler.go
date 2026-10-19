@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JorisJonkers-dev/identity/internal/platform/device"
 	"github.com/JorisJonkers-dev/identity/internal/platform/httpx"
 	"github.com/JorisJonkers-dev/identity/internal/platform/oas"
 	"github.com/JorisJonkers-dev/identity/internal/platform/principal"
@@ -130,6 +131,7 @@ func (h *Handler) ConfirmEmail(ctx context.Context, req *oas.Confirmation) (oas.
 
 // SignIn implements signIn.
 func (h *Handler) SignIn(ctx context.Context, req *oas.SignIn) (oas.SignInRes, error) {
+	ctx = app.WithDevice(ctx, device.From(ctx))
 	token, err := h.uc.SignIn(ctx, req.Email, string(req.Password))
 	if errors.Is(err, app.ErrSecondFactorNeeded) {
 		kinds, err := h.uc.ChallengeKinds(ctx, token)
@@ -149,6 +151,7 @@ func (h *Handler) SignIn(ctx context.Context, req *oas.SignIn) (oas.SignInRes, e
 
 // CompleteSignIn implements completeSignIn.
 func (h *Handler) CompleteSignIn(ctx context.Context, req *oas.SecondFactorCode) (oas.CompleteSignInRes, error) {
+	ctx = app.WithDevice(ctx, device.From(ctx))
 	challenge, _ := ctx.Value(challengeKey{}).(string)
 	token, err := h.uc.CompleteSignIn(ctx, challenge, req.Code)
 	if errors.Is(err, app.ErrInvalidToken) {
@@ -179,6 +182,7 @@ func (h *Handler) PasskeyOptions(ctx context.Context) (oas.PasskeyOptionsRes, er
 
 // CompleteSignInWithPasskey implements completeSignInWithPasskey.
 func (h *Handler) CompleteSignInWithPasskey(ctx context.Context, req *oas.PasskeyAssertion) (oas.CompleteSignInWithPasskeyRes, error) {
+	ctx = app.WithDevice(ctx, device.From(ctx))
 	challenge, _ := ctx.Value(challengeKey{}).(string)
 	token, err := h.uc.CompleteSignInWithPasskey(ctx, challenge, []byte(req.Response))
 	switch {

@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 
 	audit "github.com/JorisJonkers-dev/identity/internal/audit/domain"
-	"github.com/JorisJonkers-dev/identity/internal/platform/device"
 	"github.com/JorisJonkers-dev/identity/internal/users/domain"
 )
 
@@ -386,7 +385,7 @@ func (s *Service) startSession(ctx context.Context, userID uuid.UUID, methods []
 	}
 	sess := Session{
 		TokenHash: hash, ID: id, UserID: userID, CreatedAt: now, LastSeenAt: now,
-		ExpiresAt: earliest(now.Add(sessionLifetime), end), Methods: methods, Device: device.From(ctx),
+		ExpiresAt: earliest(now.Add(sessionLifetime), end), Methods: methods, Device: deviceOf(ctx),
 	}
 	if ProvedSecondFactor(methods) {
 		sess.TwoFactorAt = &now

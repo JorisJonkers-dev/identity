@@ -10,6 +10,22 @@ import (
 	audit "github.com/JorisJonkers-dev/identity/internal/audit/domain"
 )
 
+type deviceKey struct{}
+
+// WithDevice names the browser and operating system a request came from, for the session it
+// starts to show on the Devices list.
+func WithDevice(ctx context.Context, label string) context.Context {
+	return context.WithValue(ctx, deviceKey{}, label)
+}
+
+// deviceOf is the device ctx names; "Unknown device" when it names none.
+func deviceOf(ctx context.Context) string {
+	if label, ok := ctx.Value(deviceKey{}).(string); ok {
+		return label
+	}
+	return "Unknown device"
+}
+
 // Device is one of a User's Single sign-on sessions, as the Devices list shows it (identity#78).
 type Device struct {
 	ID         uuid.UUID

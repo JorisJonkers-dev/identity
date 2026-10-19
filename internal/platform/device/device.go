@@ -11,34 +11,40 @@ import (
 
 const unknown = "Unknown device"
 
-// Browsers are matched in order: Edge, Opera and Samsung Internet also say Chrome, and Chrome
+type known = []struct{ token, name string }
+
+// browsers are matched in order: Edge, Opera and Samsung Internet also say Chrome, and Chrome
 // says Safari.
-var browsers = []struct{ token, name string }{
-	{"Edg/", "Edge"},
-	{"OPR/", "Opera"},
-	{"SamsungBrowser/", "Samsung Internet"},
-	{"CriOS/", "Chrome"},
-	{"FxiOS/", "Firefox"},
-	{"Firefox/", "Firefox"},
-	{"Chrome/", "Chrome"},
-	{"Safari/", "Safari"},
+func browsers() known {
+	return known{
+		{"Edg/", "Edge"},
+		{"OPR/", "Opera"},
+		{"SamsungBrowser/", "Samsung Internet"},
+		{"CriOS/", "Chrome"},
+		{"FxiOS/", "Firefox"},
+		{"Firefox/", "Firefox"},
+		{"Chrome/", "Chrome"},
+		{"Safari/", "Safari"},
+	}
 }
 
-// Systems are matched in order: an iPhone also says "like Mac OS X", and Android also says Linux.
-var systems = []struct{ token, name string }{
-	{"iPhone", "iOS"},
-	{"iPad", "iPadOS"},
-	{"Android", "Android"},
-	{"CrOS", "ChromeOS"},
-	{"Windows", "Windows"},
-	{"Mac OS X", "macOS"},
-	{"Linux", "Linux"},
+// systems are matched in order: an iPhone also says "like Mac OS X", and Android also says Linux.
+func systems() known {
+	return known{
+		{"iPhone", "iOS"},
+		{"iPad", "iPadOS"},
+		{"Android", "Android"},
+		{"CrOS", "ChromeOS"},
+		{"Windows", "Windows"},
+		{"Mac OS X", "macOS"},
+		{"Linux", "Linux"},
+	}
 }
 
 // Label names a user agent's browser and operating system, as "Firefox on macOS".
 func Label(userAgent string) string {
-	browser := first(userAgent, browsers)
-	system := first(userAgent, systems)
+	browser := first(userAgent, browsers())
+	system := first(userAgent, systems())
 	switch {
 	case browser != "" && system != "":
 		return browser + " on " + system
@@ -51,8 +57,8 @@ func Label(userAgent string) string {
 	}
 }
 
-func first(userAgent string, known []struct{ token, name string }) string {
-	for _, k := range known {
+func first(userAgent string, names known) string {
+	for _, k := range names {
 		if strings.Contains(userAgent, k.token) {
 			return k.name
 		}

@@ -3,15 +3,12 @@ package app_test
 import (
 	"context"
 	"errors"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
 	audit "github.com/JorisJonkers-dev/identity/internal/audit/domain"
-	"github.com/JorisJonkers-dev/identity/internal/platform/device"
 	"github.com/JorisJonkers-dev/identity/internal/users/app"
 )
 
@@ -20,17 +17,15 @@ func onDevices(t *testing.T, opts ...app.Option) (f *fixture, id uuid.UUID, mac,
 	t.Helper()
 	f = newFixture(opts...)
 	id = f.signedUp(t, "ada@example.org")
-	mac, _ = f.SignIn(withAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 14.6; rv:131.0) Gecko/20100101 Firefox/131.0"), "ada@example.org", pw)
+	mac, _ = f.SignIn(withAgent("Firefox on macOS"), "ada@example.org", pw)
 	f.now = t0.Add(time.Minute)
-	phone, _ = f.SignIn(withAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"), "ada@example.org", pw)
+	phone, _ = f.SignIn(withAgent("Safari on iOS"), "ada@example.org", pw)
 	return f, id, mac, phone
 }
 
-// withAgent is a context as the device middleware leaves it for a request from userAgent.
-func withAgent(userAgent string) context.Context {
-	var ctx context.Context
-	device.Middleware(handlerFunc(func(c context.Context) { ctx = c })).ServeHTTP(nil, request(userAgent))
-	return ctx
+// withAgent is a context naming the device the user agent describes, as the web adapter names it.
+func withAgent(label string) context.Context {
+	return app.WithDevice(context.Background(), label)
 }
 
 func TestDevicesAreListedByBrowserAndOSTheMostRecentFirst(t *testing.T) {
@@ -129,14 +124,4 @@ func TestDevicesFailWhenTheStoreDoes(t *testing.T) {
 			}
 		})
 	}
-}
-
-type handlerFunc func(context.Context)
-
-func (h handlerFunc) ServeHTTP(_ http.ResponseWriter, r *http.Request) { h(r.Context()) }
-
-func request(userAgent string) *http.Request {
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
-	r.Header.Set("User-Agent", userAgent)
-	return r
 }
