@@ -19,5 +19,13 @@ overrides:
   # The link mailed to a new address is followed in whatever browser opens the mail, signed in or
   # not; the link's token is the proof.
       - "v1/openapi.yaml#/paths/~1api~1v1~1email-changes~1confirmation/post"
+  # A password reset is for someone who cannot sign in; the mailed link's token is the proof, and
+  # asking answers the same for any email.
+      - "v1/openapi.yaml#/paths/~1api~1v1~1password-resets/post"
+      - "v1/openapi.yaml#/paths/~1api~1v1~1password-resets~1check/post"
+      - "v1/openapi.yaml#/paths/~1api~1v1~1password-resets~1code/post"
+      - "v1/openapi.yaml#/paths/~1api~1v1~1password-resets~1passkey/post"
+      - "v1/openapi.yaml#/paths/~1api~1v1~1password-resets~1passkey~1assertion/post"
+      - "v1/openapi.yaml#/paths/~1api~1v1~1password-resets~1completion/post"
     rules:
       owasp:api2:2023-write-restricted: off
