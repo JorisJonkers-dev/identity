@@ -54,6 +54,12 @@ func (s *Service) DeleteAccount(ctx context.Context, userID uuid.UUID, sessionTo
 			return ErrFreshTwoFactorNeeded
 		}
 	}
+	return s.deleteUser(ctx, uuid.Nil, userID)
+}
+
+// deleteUser deletes a User, ends what went with them, and records it as done by actor (none
+// when the User did it).
+func (s *Service) deleteUser(ctx context.Context, actor, userID uuid.UUID) error {
 	d, err := s.store.DeleteUser(ctx, userID)
 	if err != nil {
 		return err
@@ -64,6 +70,6 @@ func (s *Service) DeleteAccount(ctx context.Context, userID uuid.UUID, sessionTo
 	if len(d.Tokens) > 0 && s.tokensDeleted != nil {
 		s.tokensDeleted(ctx, d.Tokens)
 	}
-	s.record(ctx, audit.Event{Action: audit.AccountDeleted, User: userID})
+	s.record(ctx, audit.Event{Action: audit.AccountDeleted, Actor: actor, User: userID})
 	return nil
 }

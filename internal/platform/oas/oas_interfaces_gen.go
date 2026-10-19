@@ -13,6 +13,10 @@ type AskPasswordResetRes interface {
 	askPasswordResetRes()
 }
 
+type AskUserEmailChangeRes interface {
+	askUserEmailChangeRes()
+}
+
 type AssignRoleRes interface {
 	assignRoleRes()
 }
@@ -71,6 +75,10 @@ type DeleteAccountRes interface {
 
 type DeleteGroupRes interface {
 	deleteGroupRes()
+}
+
+type DeleteUserRes interface {
+	deleteUserRes()
 }
 
 type GetAccessRes interface {
@@ -135,6 +143,10 @@ type RemoveSecondFactorRes interface {
 
 type RenameGroupRes interface {
 	renameGroupRes()
+}
+
+type RenameUserRes interface {
+	renameUserRes()
 }
 
 type ResetPasskeyOptionsRes interface {

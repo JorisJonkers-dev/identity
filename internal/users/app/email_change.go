@@ -33,6 +33,11 @@ func (s *Service) AskEmailChange(ctx context.Context, userID uuid.UUID, rawEmail
 	if err := s.checkPassword(ctx, userID, password); err != nil {
 		return err
 	}
+	return s.startEmailChange(ctx, userID, email)
+}
+
+// startEmailChange keeps a pending change to email and mails the address its link.
+func (s *Service) startEmailChange(ctx context.Context, userID uuid.UUID, email domain.Email) error {
 	token, hash, err := s.token()
 	if err != nil {
 		return err

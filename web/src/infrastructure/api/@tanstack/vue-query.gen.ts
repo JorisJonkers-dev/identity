@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/vue-query';
 
 import { client } from '../client.gen';
-import { addMember, askEmailChange, askPasswordReset, assignRole, assignUserRole, cancelEmailChange, changePassword, checkPasswordReset, completePasswordReset, completeSignIn, completeSignInWithPasskey, confirmEmail, confirmEmailChange, confirmPasskey, confirmTotp, createGroup, deleteAccount, deleteGroup, getAccess, getDashboard, getLauncher, getProfile, getStepUp, getVersion, listAuditEvents, listDevices, listMyTokens, listSecondFactors, listUserTokens, mintToken, type Options, passkeyOptions, removeMember, removeSecondFactor, renameGroup, resetPasskeyOptions, resetWithCode, resetWithPasskey, revokeMyToken, revokeUserToken, rotateClientSecret, setGroupTwoFactor, setStepUp, signIn, signOut, signOutDevice, signOutOtherDevices, signOutUser, signUp, startPasskey, startStepUp, startTotp, stepUpPasskeyOptions, stepUpWithCode, stepUpWithPasskey, unassignRole, unassignUserRole, updateProfile } from '../sdk.gen';
-import type { AddMemberData, AddMemberError, AddMemberResponse, AskEmailChangeData, AskEmailChangeError, AskPasswordResetData, AskPasswordResetError, AssignRoleData, AssignRoleError, AssignRoleResponse, AssignUserRoleData, AssignUserRoleError, AssignUserRoleResponse, AuditCursor, CancelEmailChangeData, CancelEmailChangeError, CancelEmailChangeResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CheckPasswordResetData, CheckPasswordResetError, CheckPasswordResetResponse, CompletePasswordResetData, CompletePasswordResetError, CompletePasswordResetResponse, CompleteSignInData, CompleteSignInError, CompleteSignInResponse, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyError, CompleteSignInWithPasskeyResponse, ConfirmEmailChangeData, ConfirmEmailChangeError, ConfirmEmailChangeResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, ConfirmPasskeyData, ConfirmPasskeyError, ConfirmPasskeyResponse, ConfirmTotpData, ConfirmTotpError, ConfirmTotpResponse, CreateGroupData, CreateGroupError, CreateGroupResponse, DeleteAccountData, DeleteAccountError, DeleteAccountResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, GetAccessData, GetAccessError, GetAccessResponse, GetDashboardData, GetDashboardError, GetDashboardResponse, GetLauncherData, GetLauncherError, GetLauncherResponse, GetProfileData, GetProfileError, GetProfileResponse, GetStepUpData, GetStepUpError, GetStepUpResponse, GetVersionData, GetVersionError, GetVersionResponse, ListAuditEventsData, ListAuditEventsError, ListAuditEventsResponse, ListDevicesData, ListDevicesError, ListDevicesResponse, ListMyTokensData, ListMyTokensError, ListMyTokensResponse, ListSecondFactorsData, ListSecondFactorsError, ListSecondFactorsResponse, ListUserTokensData, ListUserTokensError, ListUserTokensResponse, MintTokenData, MintTokenError, MintTokenResponse, PasskeyOptionsData, PasskeyOptionsError, PasskeyOptionsResponse, RemoveMemberData, RemoveMemberError, RemoveMemberResponse, RemoveSecondFactorData, RemoveSecondFactorError, RemoveSecondFactorResponse, RenameGroupData, RenameGroupError, RenameGroupResponse, ResetPasskeyOptionsData, ResetPasskeyOptionsError, ResetPasskeyOptionsResponse, ResetWithCodeData, ResetWithCodeError, ResetWithCodeResponse, ResetWithPasskeyData, ResetWithPasskeyError, ResetWithPasskeyResponse, RevokeMyTokenData, RevokeMyTokenError, RevokeMyTokenResponse, RevokeUserTokenData, RevokeUserTokenError, RevokeUserTokenResponse, RotateClientSecretData, RotateClientSecretError, RotateClientSecretResponse, SetGroupTwoFactorData, SetGroupTwoFactorError, SetGroupTwoFactorResponse, SetStepUpData, SetStepUpError, SetStepUpResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutDeviceData, SignOutDeviceError, SignOutDeviceResponse, SignOutError, SignOutOtherDevicesData, SignOutOtherDevicesError, SignOutOtherDevicesResponse, SignOutResponse, SignOutUserData, SignOutUserError, SignOutUserResponse, SignUpData, SignUpError, StartPasskeyData, StartPasskeyError, StartPasskeyResponse, StartStepUpData, StartStepUpError, StartStepUpResponse, StartTotpData, StartTotpError, StartTotpResponse, StepUpPasskeyOptionsData, StepUpPasskeyOptionsError, StepUpPasskeyOptionsResponse, StepUpWithCodeData, StepUpWithCodeError, StepUpWithCodeResponse, StepUpWithPasskeyData, StepUpWithPasskeyError, StepUpWithPasskeyResponse, UnassignRoleData, UnassignRoleError, UnassignRoleResponse, UnassignUserRoleData, UnassignUserRoleError, UnassignUserRoleResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
+import { addMember, askEmailChange, askPasswordReset, askUserEmailChange, assignRole, assignUserRole, cancelEmailChange, changePassword, checkPasswordReset, completePasswordReset, completeSignIn, completeSignInWithPasskey, confirmEmail, confirmEmailChange, confirmPasskey, confirmTotp, createGroup, deleteAccount, deleteGroup, deleteUser, getAccess, getDashboard, getLauncher, getProfile, getStepUp, getVersion, listAuditEvents, listDevices, listMyTokens, listSecondFactors, listUserTokens, mintToken, type Options, passkeyOptions, removeMember, removeSecondFactor, renameGroup, renameUser, resetPasskeyOptions, resetWithCode, resetWithPasskey, revokeMyToken, revokeUserToken, rotateClientSecret, setGroupTwoFactor, setStepUp, signIn, signOut, signOutDevice, signOutOtherDevices, signOutUser, signUp, startPasskey, startStepUp, startTotp, stepUpPasskeyOptions, stepUpWithCode, stepUpWithPasskey, unassignRole, unassignUserRole, updateProfile } from '../sdk.gen';
+import type { AddMemberData, AddMemberError, AddMemberResponse, AskEmailChangeData, AskEmailChangeError, AskPasswordResetData, AskPasswordResetError, AskUserEmailChangeData, AskUserEmailChangeError, AssignRoleData, AssignRoleError, AssignRoleResponse, AssignUserRoleData, AssignUserRoleError, AssignUserRoleResponse, AuditCursor, CancelEmailChangeData, CancelEmailChangeError, CancelEmailChangeResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CheckPasswordResetData, CheckPasswordResetError, CheckPasswordResetResponse, CompletePasswordResetData, CompletePasswordResetError, CompletePasswordResetResponse, CompleteSignInData, CompleteSignInError, CompleteSignInResponse, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyError, CompleteSignInWithPasskeyResponse, ConfirmEmailChangeData, ConfirmEmailChangeError, ConfirmEmailChangeResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, ConfirmPasskeyData, ConfirmPasskeyError, ConfirmPasskeyResponse, ConfirmTotpData, ConfirmTotpError, ConfirmTotpResponse, CreateGroupData, CreateGroupError, CreateGroupResponse, DeleteAccountData, DeleteAccountError, DeleteAccountResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, GetAccessData, GetAccessError, GetAccessResponse, GetDashboardData, GetDashboardError, GetDashboardResponse, GetLauncherData, GetLauncherError, GetLauncherResponse, GetProfileData, GetProfileError, GetProfileResponse, GetStepUpData, GetStepUpError, GetStepUpResponse, GetVersionData, GetVersionError, GetVersionResponse, ListAuditEventsData, ListAuditEventsError, ListAuditEventsResponse, ListDevicesData, ListDevicesError, ListDevicesResponse, ListMyTokensData, ListMyTokensError, ListMyTokensResponse, ListSecondFactorsData, ListSecondFactorsError, ListSecondFactorsResponse, ListUserTokensData, ListUserTokensError, ListUserTokensResponse, MintTokenData, MintTokenError, MintTokenResponse, PasskeyOptionsData, PasskeyOptionsError, PasskeyOptionsResponse, RemoveMemberData, RemoveMemberError, RemoveMemberResponse, RemoveSecondFactorData, RemoveSecondFactorError, RemoveSecondFactorResponse, RenameGroupData, RenameGroupError, RenameGroupResponse, RenameUserData, RenameUserError, RenameUserResponse, ResetPasskeyOptionsData, ResetPasskeyOptionsError, ResetPasskeyOptionsResponse, ResetWithCodeData, ResetWithCodeError, ResetWithCodeResponse, ResetWithPasskeyData, ResetWithPasskeyError, ResetWithPasskeyResponse, RevokeMyTokenData, RevokeMyTokenError, RevokeMyTokenResponse, RevokeUserTokenData, RevokeUserTokenError, RevokeUserTokenResponse, RotateClientSecretData, RotateClientSecretError, RotateClientSecretResponse, SetGroupTwoFactorData, SetGroupTwoFactorError, SetGroupTwoFactorResponse, SetStepUpData, SetStepUpError, SetStepUpResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutDeviceData, SignOutDeviceError, SignOutDeviceResponse, SignOutError, SignOutOtherDevicesData, SignOutOtherDevicesError, SignOutOtherDevicesResponse, SignOutResponse, SignOutUserData, SignOutUserError, SignOutUserResponse, SignUpData, SignUpError, StartPasskeyData, StartPasskeyError, StartPasskeyResponse, StartStepUpData, StartStepUpError, StartStepUpResponse, StartTotpData, StartTotpError, StartTotpResponse, StepUpPasskeyOptionsData, StepUpPasskeyOptionsError, StepUpPasskeyOptionsResponse, StepUpWithCodeData, StepUpWithCodeError, StepUpWithCodeResponse, StepUpWithPasskeyData, StepUpWithPasskeyError, StepUpWithPasskeyResponse, UnassignRoleData, UnassignRoleError, UnassignRoleResponse, UnassignUserRoleData, UnassignUserRoleError, UnassignUserRoleResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -833,6 +833,63 @@ export const setGroupTwoFactorMutation = (options?: Partial<Options<SetGroupTwoF
     const mutationOptions: UseMutationOptions<SetGroupTwoFactorResponse, SetGroupTwoFactorError, Options<SetGroupTwoFactorData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await setGroupTwoFactor({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete a person
+ *
+ * Deletes the person as their own deletion does: every session ends with back-channel logout, their tokens stop working, and their memberships and direct roles go. Audit Events about them stay, naming no one. The last Admin is refused. Admins only.
+ */
+export const deleteUserMutation = (options?: Partial<Options<DeleteUserData>>): UseMutationOptions<DeleteUserResponse, DeleteUserError, Options<DeleteUserData>> => {
+    const mutationOptions: UseMutationOptions<DeleteUserResponse, DeleteUserError, Options<DeleteUserData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteUser({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Rename a person
+ *
+ * Changes what a person is called, as an Admin. Admins only.
+ */
+export const renameUserMutation = (options?: Partial<Options<RenameUserData>>): UseMutationOptions<RenameUserResponse, RenameUserError, Options<RenameUserData>> => {
+    const mutationOptions: UseMutationOptions<RenameUserResponse, RenameUserError, Options<RenameUserData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await renameUser({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Start a person's email change
+ *
+ * Mails the new address a link that makes it the person's sign-in email once followed, as their own change does. Admins only.
+ */
+export const askUserEmailChangeMutation = (options?: Partial<Options<AskUserEmailChangeData>>): UseMutationOptions<unknown, AskUserEmailChangeError, Options<AskUserEmailChangeData>> => {
+    const mutationOptions: UseMutationOptions<unknown, AskUserEmailChangeError, Options<AskUserEmailChangeData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await askUserEmailChange({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

@@ -28,6 +28,13 @@ type Handler interface {
 	//
 	// POST /api/v1/password-resets
 	AskPasswordReset(ctx context.Context, req *EmailAddress) (AskPasswordResetRes, error)
+	// AskUserEmailChange implements askUserEmailChange operation.
+	//
+	// Mails the new address a link that makes it the person's sign-in email once followed, as their own
+	// change does. Admins only.
+	//
+	// POST /api/v1/access/users/{userId}/email-change
+	AskUserEmailChange(ctx context.Context, req *EmailAddress, params AskUserEmailChangeParams) (AskUserEmailChangeRes, error)
 	// AssignRole implements assignRole operation.
 	//
 	// Makes an Assignment. The Client must be in the cluster and declare the App Role, and the admins
@@ -134,6 +141,14 @@ type Handler interface {
 	//
 	// DELETE /api/v1/access/groups/{groupId}
 	DeleteGroup(ctx context.Context, params DeleteGroupParams) (DeleteGroupRes, error)
+	// DeleteUser implements deleteUser operation.
+	//
+	// Deletes the person as their own deletion does: every session ends with back-channel logout, their
+	// tokens stop working, and their memberships and direct roles go. Audit Events about them stay, naming
+	// no one. The last Admin is refused. Admins only.
+	//
+	// DELETE /api/v1/access/users/{userId}
+	DeleteUser(ctx context.Context, params DeleteUserParams) (DeleteUserRes, error)
 	// GetAccess implements getAccess operation.
 	//
 	// Everything the access page shows, in one read. Admins only.
@@ -238,6 +253,12 @@ type Handler interface {
 	//
 	// PATCH /api/v1/access/groups/{groupId}
 	RenameGroup(ctx context.Context, req *GroupDraft, params RenameGroupParams) (RenameGroupRes, error)
+	// RenameUser implements renameUser operation.
+	//
+	// Changes what a person is called, as an Admin. Admins only.
+	//
+	// PATCH /api/v1/access/users/{userId}
+	RenameUser(ctx context.Context, req *ProfileUpdate, params RenameUserParams) (RenameUserRes, error)
 	// ResetPasskeyOptions implements resetPasskeyOptions operation.
 	//
 	// Returns the WebAuthn options for the reset; checkPasswordReset must have run first.

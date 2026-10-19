@@ -68,7 +68,7 @@ type Querier interface {
 	DeleteTOTPFactor(ctx context.Context, arg DeleteTOTPFactorParams) (int64, error)
 	// Memberships, direct Assignments, factors and pending changes go with the User; Audit Events,
 	// which keep only ids, stay.
-	DeleteUser(ctx context.Context, id uuid.UUID) error
+	DeleteUser(ctx context.Context, id uuid.UUID) (int64, error)
 	EmailChangeOfUser(ctx context.Context, userID uuid.UUID) (EmailChange, error)
 	// Only while hash is still the current secret, so a rotation in between keeps its own previous.
 	EndPreviousClientSecret(ctx context.Context, arg EndPreviousClientSecretParams) error

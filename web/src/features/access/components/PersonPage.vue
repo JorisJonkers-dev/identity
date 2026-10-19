@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import DialogScrim from '../../../shared/DialogScrim.vue'
 import AppIcon from '../../../shared/AppIcon.vue'
 import AppShell from '../../../shared/AppShell.vue'
 import PersonAvatar from '../../../shared/PersonAvatar.vue'
@@ -14,7 +15,30 @@ import { useAccess } from '../composables/useAccess'
 import { accessOf, groupsOf, holdsDirect } from '../model'
 
 const route = useRoute()
-const { overview, loadError, actionError, addMember, removeMember, signOutUser, setUserRole } = useAccess()
+const { overview, loadError, actionError, addMember, removeMember, signOutUser, setUserRole, renameUser, askUserEmail, deleteUser } = useAccess()
+const router = useRouter()
+// Editing who they are: a new name at once, a new email once its link is opened.
+const editing = ref<'name' | 'email' | null>(null)
+const draft = ref('')
+const sentTo = ref('')
+const deleting = ref(false)
+function edit(what: 'name' | 'email', current: string) {
+  draft.value = current
+  editing.value = what
+}
+function saveName(id: string) {
+  renameUser(id, draft.value)
+  editing.value = null
+}
+function sendEmail(id: string) {
+  const email = draft.value
+  askUserEmail(id, email, () => (sentTo.value = email))
+  editing.value = null
+}
+function remove(id: string) {
+  deleting.value = false
+  deleteUser(id, () => void router.replace('/admin/people'))
+}
 const userId = computed(() => String(route.params.userId))
 const person = computed(() => overview.value?.users.find((u) => u.id === userId.value))
 const groupsFor = (o: AccessOverview) => groupsOf(o, userId.value)
@@ -52,6 +76,19 @@ function chipTitle(groups: string[] | undefined, direct: boolean): string | unde
         <div class="hero-t">
           <h1>{{ person.name }}</h1>
           <p>{{ person.email }}</p>
+          <form v-if="editing === 'name'" class="pp-rename inline-form" @submit.prevent="saveName(person.id)">
+            <label class="label" for="pp-name">Name</label><input id="pp-name" v-model="draft" class="input md" required maxlength="100" />
+            <button class="btn sm ghost" type="button" @click="editing = null">Cancel</button><button class="btn sm primary" type="submit">Save</button>
+          </form>
+          <form v-else-if="editing === 'email'" class="pp-email inline-form" @submit.prevent="sendEmail(person.id)">
+            <label class="label" for="pp-email">New email</label><input id="pp-email" v-model="draft" class="input md" type="email" required />
+            <button class="btn sm ghost" type="button" @click="editing = null">Cancel</button><button class="btn sm primary" type="submit">Send link</button>
+          </form>
+          <div v-else class="btn-row">
+            <button class="btn sm" type="button" @click="edit('name', person.name)"><Icon name="pencil" />Rename</button>
+            <button class="btn sm" type="button" @click="edit('email', '')"><Icon name="mail" />Change email</button>
+          </div>
+          <p v-if="sentTo" class="pp-note soft">Link sent to {{ sentTo }}. The email changes once it is opened.</p>
           <div class="pills">
             <span v-if="groupsFor(overview).some((g) => g.admins)" class="pill accent"><Icon name="shield" />Admin</span>
             <span class="pill"><Icon name="users" />{{ groupsFor(overview).length }} Groups</span>
@@ -101,6 +138,20 @@ function chipTitle(groups: string[] | undefined, direct: boolean): string | unde
           <div class="row"><UserTokens :user-id="person.id" :name="person.name" /></div>
         </section>
       </div>
+      <section class="glass group" style="margin-top: 16px">
+        <div class="row">
+          <span class="row-ic danger-t"><Icon name="trash" /></span>
+          <span class="grow"><b>Delete person</b><small>Ends their sessions, tokens and access. Audit Events stay.</small></span>
+          <button class="btn sm danger-t" type="button" @click="deleting = true">Delete person</button>
+        </div>
+      </section>
+      <DialogScrim v-if="deleting" @close="deleting = false">
+        <form class="dialog glass strong" role="dialog" aria-modal="true" aria-labelledby="pp-dlg" @submit.prevent="remove(person.id)">
+          <h2 id="pp-dlg">Delete {{ person.name }}?</h2>
+          <p>They are signed out everywhere, their tokens stop working and they lose access to every app. This cannot be undone.</p>
+          <div class="btn-row end"><button class="btn" type="button" @click="deleting = false">Cancel</button><button class="btn danger-solid" type="submit">Delete {{ person.name }}</button></div>
+        </form>
+      </DialogScrim>
     </template>
   </AppShell>
 </template>
