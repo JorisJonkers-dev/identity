@@ -400,7 +400,7 @@ export const zStepUp = z.object({
 export const zDevice = z.object({
     id: zId,
     label: z.string().max(64),
-    lastSeenAt: z.iso.datetime({ offset: true }),
+    lastSeenAt: z.iso.datetime({ offset: true }).max(64),
     current: z.boolean()
 });
 
