@@ -357,8 +357,8 @@ func (s *Service) Refresh(ctx context.Context, secret string) (RefreshToken, err
 	return t, nil
 }
 
-// Check is a resource server's check of an access token: live, for this Client, with the App
-// Roles its User holds there now.
+// Check is a resource server's check of an access token: live, for this Client, while its User
+// holds an App Role there, with the App Roles they hold now.
 func (s *Service) Check(ctx context.Context, tokenID uuid.UUID, clientID string) (AccessToken, []string, error) {
 	t, err := s.store.Access(ctx, tokenID)
 	if errors.Is(err, ErrNotFound) {
@@ -380,6 +380,9 @@ func (s *Service) Check(ctx context.Context, tokenID uuid.UUID, clientID string)
 	roles, err := s.rolesOn(ctx, t.UserID, c)
 	if err != nil {
 		return AccessToken{}, nil, err
+	}
+	if len(roles) == 0 {
+		return AccessToken{}, nil, ErrInvalidToken
 	}
 	if err := s.store.Touch(ctx, t.AppID, s.now()); err != nil {
 		return AccessToken{}, nil, err

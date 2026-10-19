@@ -72,3 +72,39 @@ func TestATokenHostWithoutAPersonalTokenAsksForOne(t *testing.T) {
 		t.Fatalf("check = %d %v", rec.Code, rec.Header())
 	}
 }
+
+const resourceMetadata = `resource_metadata="https://auth.test/.well-known/oauth-protected-resource/tribelt.jorisjonkers.dev"`
+
+func TestAConnectedAppsTokenIsCheckedAsABearerToken(t *testing.T) {
+	uc := &useCases{}
+	if rec := get(t, serve(t, uc), "http://identity:8080/gate/check", bearer("Bearer idapp_sealed")); rec.Code != http.StatusOK || uc.asked[1] != "idapp_sealed" {
+		t.Fatalf("check = %d, asked %v", rec.Code, uc.asked)
+	}
+}
+
+func TestAnMCPResourcesHostPointsAToolWithoutATokenToItsMetadata(t *testing.T) {
+	rec := get(t, serve(t, &useCases{checkErr: app.ErrBearerNeeded, mcp: true}), "http://identity:8080/gate/check", forwarded("/mcp"))
+	if rec.Code != http.StatusUnauthorized || rec.Header().Get("WWW-Authenticate") != `Bearer realm="tribelt.jorisjonkers.dev", `+resourceMetadata {
+		t.Fatalf("check = %d %v", rec.Code, rec.Header())
+	}
+}
+
+func TestAnMCPResourcesHostPointsAToolWithABadTokenToItsMetadata(t *testing.T) {
+	rec := get(t, serve(t, &useCases{bearerErr: app.ErrNoSignIn, mcp: true}), "http://identity:8080/gate/check", bearer("Bearer idapp_expired"))
+	if rec.Code != http.StatusUnauthorized || rec.Header().Get("WWW-Authenticate") != `Bearer realm="tribelt.jorisjonkers.dev", error="invalid_token", `+resourceMetadata {
+		t.Fatalf("check = %d %v", rec.Code, rec.Header())
+	}
+}
+
+func TestAGatedMCPResourcesSignInPageAlsoPointsAToolToItsMetadata(t *testing.T) {
+	rec := get(t, serve(t, &useCases{checkErr: app.ErrNoSignIn, mcp: true}), "http://identity:8080/gate/check", forwarded("/mcp"))
+	if rec.Code != http.StatusUnauthorized || rec.Header().Get("WWW-Authenticate") != `Bearer realm="tribelt.jorisjonkers.dev", `+resourceMetadata {
+		t.Fatalf("check = %d %v", rec.Code, rec.Header())
+	}
+}
+
+func TestAGatedHostTakingNoConnectedAppsSendsNoChallengeWithItsSignInPage(t *testing.T) {
+	if rec := get(t, serve(t, &useCases{checkErr: app.ErrNoSignIn}), "http://identity:8080/gate/check", forwarded("/")); rec.Header().Get("WWW-Authenticate") != "" {
+		t.Fatalf("challenge %q", rec.Header().Get("WWW-Authenticate"))
+	}
+}

@@ -372,3 +372,30 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
 }
+
+// AppTokens opens a Connected App's access token for the Gate, which takes it as a bearer token
+// on its MCP resource's host.
+type AppTokens struct {
+	sealer appSealer
+	apps   ConnectedApps
+}
+
+// NewAppTokens returns AppTokens opening what the Provider sealed with key.
+func NewAppTokens(key [32]byte, apps ConnectedApps) *AppTokens {
+	return &AppTokens{sealer: appSealer{sealed: op.NewAES256GCMCrypto(key, "")}, apps: apps}
+}
+
+// Check is the connected context's check of the token for a Client; ErrInvalidToken for a token
+// that does not open as a Connected App's.
+func (a *AppTokens) Check(ctx context.Context, token, clientID string) (connectedapp.AccessToken, []string, error) {
+	plain, err := a.sealer.Decrypt(token)
+	if err != nil {
+		return connectedapp.AccessToken{}, nil, connectedapp.ErrInvalidToken
+	}
+	tokenID, _, _ := strings.Cut(plain, ":")
+	id, ok := appTokenID(tokenID)
+	if !ok {
+		return connectedapp.AccessToken{}, nil, connectedapp.ErrInvalidToken
+	}
+	return a.apps.Check(ctx, id, clientID)
+}

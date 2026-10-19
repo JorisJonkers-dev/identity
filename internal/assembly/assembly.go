@@ -205,6 +205,7 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 		return nil, err
 	}
 	others := gatecontexts.New(signIn, users, stepUpSettings)
+	others.SetConnectedApps(apps, signinoidc.NewAppTokens(cryptoKey, apps))
 	gate := gateapp.New(gatepersistence.New(q), others, others, others, recorder, now, rand.Reader, gateCacheTTL)
 	tokensDeleted = gate.Forget
 	gate.SetTokens(others)

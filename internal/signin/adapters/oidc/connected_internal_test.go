@@ -3,6 +3,7 @@ package oidc
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -553,4 +554,24 @@ func TestOnlyAConnectedAppsSealedTokenOpensAsOne(t *testing.T) {
 func op256(t *testing.T) op.Crypto {
 	t.Helper()
 	return op.NewAES256GCMCrypto([32]byte{1}, "")
+}
+
+func TestTheGateOpensAConnectedAppsTokenTheProviderIssued(t *testing.T) {
+	e := newEnv(t)
+	_, tok := e.connectedTokens(t)
+	got, roles, err := NewAppTokens([32]byte{}, e.apps).Check(t.Context(), tok.AccessToken, "web")
+	if err != nil || got.UserID != e.accounts.ada || fmt.Sprint(roles) != "[user]" {
+		t.Fatalf("Check = %+v, %v, %v", got, roles, err)
+	}
+}
+
+func TestTheGateRefusesATokenThatIsNoConnectedAppsToken(t *testing.T) {
+	sealed, _ := appSealer{sealed: op256(t)}.Encrypt("app-not-a-uuid:ada")
+	for _, token := range []string{"idapp_garbage", "idpat_x", sealed} {
+		t.Run(token, func(t *testing.T) {
+			if _, _, err := NewAppTokens([32]byte{1}, newApps()).Check(t.Context(), token, "web"); !errors.Is(err, connectedapp.ErrInvalidToken) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
 }

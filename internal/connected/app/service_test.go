@@ -578,6 +578,16 @@ func TestAnAccessTokenIsRefused(t *testing.T) {
 	}
 }
 
+func TestAnAccessTokenStopsWorkingOnceItsUserHoldsNoAppRoleThere(t *testing.T) {
+	f := newFixture()
+	_, appID := f.connected(t)
+	id, _, _ := f.IssueAccess(ctx, appID)
+	f.Service = app.New(f.store, clients{"kb": {ID: "kb", Roles: []string{"admin"}}}, roles{}, admins{}, f.events, func() time.Time { return t0 }, &counter{})
+	if _, _, err := f.Check(ctx, id, "kb"); !errors.Is(err, app.ErrInvalidToken) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
 func TestAnAccessTokenForAClientThatLeftTheClusterIsRefused(t *testing.T) {
 	f := newFixture()
 	_, appID := f.connected(t)

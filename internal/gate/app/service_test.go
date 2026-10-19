@@ -82,7 +82,7 @@ const backupHost = "backup.jorisjonkers.dev"
 
 func (c clients) BearerClient(ctx context.Context, host string) (app.Client, error) {
 	if host == backupHost {
-		return app.Client{ID: "backup", Host: backupHost}, nil
+		return app.Client{ID: "backup", Host: backupHost, MCP: true}, nil
 	}
 	return c.GatedClient(ctx, host)
 }
