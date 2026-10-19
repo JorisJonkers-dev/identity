@@ -208,14 +208,14 @@ func (s *Service) Resource(ctx context.Context, resource string) (Client, error)
 	return c, nil
 }
 
+// hostOf is an https resource URL's host as the Clients declare it: without the default port.
 func hostOf(resource string) string {
 	rest, ok := strings.CutPrefix(resource, "https://")
 	if !ok {
 		return ""
 	}
 	host, _, _ := strings.Cut(rest, "/")
-	host, _, _ = strings.Cut(host, ":")
-	return strings.ToLower(host)
+	return strings.ToLower(strings.TrimSuffix(host, ":443"))
 }
 
 // Consent is the Connected App a User's consent makes: for a Client marked as an MCP resource,

@@ -398,6 +398,14 @@ func TestAResourceURLNamesTheMCPClientItsHostServes(t *testing.T) {
 	}
 }
 
+func TestAResourceOnAnotherPortNamesTheHostWithThatPort(t *testing.T) {
+	f := newFixture()
+	f.Service = app.New(f.store, clients{"kb.example.org:8443": {ID: "kb"}}, roles{}, admins{}, f.events, time.Now, &counter{})
+	if c, err := f.Resource(ctx, "https://kb.example.org:8443/mcp"); err != nil || c.ID != "kb" {
+		t.Fatalf("Resource = %+v, %v", c, err)
+	}
+}
+
 func TestAResourceIsRefused(t *testing.T) {
 	for _, c := range []struct{ name, resource string }{
 		{"over plain http", "http://kb.example.org/mcp"},
