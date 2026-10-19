@@ -182,9 +182,18 @@ func TestStepUpFailsWhenTheStoreDoes(t *testing.T) {
 		method string
 		call   func(f *fixture, session, code string) error
 	}{
-		{"SessionByHash", func(f *fixture, session, _ string) error { _, err := f.StartStepUp(context.Background(), session); return err }},
-		{"TOTPFactors", func(f *fixture, session, _ string) error { _, err := f.StartStepUp(context.Background(), session); return err }},
-		{"SaveChallenge", func(f *fixture, session, _ string) error { _, err := f.StartStepUp(context.Background(), session); return err }},
+		{"SessionByHash", func(f *fixture, session, _ string) error {
+			_, err := f.StartStepUp(context.Background(), session)
+			return err
+		}},
+		{"TOTPFactors", func(f *fixture, session, _ string) error {
+			_, err := f.StartStepUp(context.Background(), session)
+			return err
+		}},
+		{"SaveChallenge", func(f *fixture, session, _ string) error {
+			_, err := f.StartStepUp(context.Background(), session)
+			return err
+		}},
 		{"StepUpChallenge", func(f *fixture, session, c string) error {
 			return f.StepUpWithCode(context.Background(), session, c)
 		}},
