@@ -197,10 +197,10 @@ func TestDeletingAMachineIdentityDeletesItsSecret(t *testing.T) {
 	}
 }
 
-// credentials is an out-of-cluster sign-in with the client credentials grant.
-func credentials(t *testing.T, env *itest.Env, clientID, secret, audience string) (int, map[string]any) {
+// credentials is an out-of-cluster sign-in with the client credentials grant, for a token to Grafana.
+func credentials(t *testing.T, env *itest.Env, clientID, secret string) (int, map[string]any) {
 	t.Helper()
-	return env.Token(t, url.Values{"grant_type": {"client_credentials"}, "audience": {audience}}, clientID, secret)
+	return env.Token(t, url.Values{"grant_type": {"client_credentials"}, "audience": {"grafana"}}, clientID, secret)
 }
 
 func rotate(t *testing.T, admin *itest.Browser, id string) string {
@@ -216,7 +216,7 @@ func TestAMachineIdentityOutsideTheClusterSignsInWithTheSecretAnAdminGaveIt(t *t
 	m := addMachine(t, admin, "Backup", "backup")
 	secret := rotate(t, admin, m.ID)
 
-	status, body := credentials(t, env, m.ID, secret, "grafana")
+	status, body := credentials(t, env, m.ID, secret)
 
 	if status != http.StatusOK {
 		t.Fatalf("client credentials = %d %v", status, body)
@@ -235,10 +235,10 @@ func TestARotatedMachineSecretStopsOnceTheNewOneIsUsed(t *testing.T) {
 	old := rotate(t, admin, m.ID)
 	current := rotate(t, admin, m.ID)
 
-	if status, _ := credentials(t, env, m.ID, current, "grafana"); status != http.StatusOK {
+	if status, _ := credentials(t, env, m.ID, current); status != http.StatusOK {
 		t.Fatalf("the new secret = %d", status)
 	}
-	if status, _ := credentials(t, env, m.ID, old, "grafana"); status != http.StatusUnauthorized {
+	if status, _ := credentials(t, env, m.ID, old); status != http.StatusUnauthorized {
 		t.Fatalf("the replaced secret = %d", status)
 	}
 }
@@ -249,7 +249,7 @@ func TestAWrongMachineSecretIsRefused(t *testing.T) {
 	m := addMachine(t, admin, "Backup", "backup")
 	rotate(t, admin, m.ID)
 
-	if status, _ := credentials(t, env, m.ID, "not-the-secret", "grafana"); status != http.StatusUnauthorized {
+	if status, _ := credentials(t, env, m.ID, "not-the-secret"); status != http.StatusUnauthorized {
 		t.Fatalf("a wrong secret = %d", status)
 	}
 }
@@ -259,7 +259,7 @@ func TestAMachineSecretIsNeverLoggedNorInAnAuditEvent(t *testing.T) {
 	admin := env.Admin(t, "admin@example.org")
 	m := addMachine(t, admin, "Backup", "backup")
 	secret := rotate(t, admin, m.ID)
-	credentials(t, env, m.ID, secret, "grafana")
+	credentials(t, env, m.ID, secret)
 
 	var events struct{ Events []map[string]any }
 	admin.Call(t, http.MethodGet, "/api/v1/audit", nil, http.StatusOK, &events)
