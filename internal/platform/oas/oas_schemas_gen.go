@@ -140,6 +140,11 @@ type AskPasswordResetAccepted struct{}
 
 func (*AskPasswordResetAccepted) askPasswordResetRes() {}
 
+// AskUserEmailChangeAccepted is response for AskUserEmailChange operation.
+type AskUserEmailChangeAccepted struct{}
+
+func (*AskUserEmailChangeAccepted) askUserEmailChangeRes() {}
+
 // AssignRoleNoContent is response for AssignRole operation.
 type AssignRoleNoContent struct{}
 
@@ -1022,6 +1027,11 @@ func (*DeleteAccountNoContent) deleteAccountRes() {}
 type DeleteGroupNoContent struct{}
 
 func (*DeleteGroupNoContent) deleteGroupRes() {}
+
+// DeleteUserNoContent is response for DeleteUser operation.
+type DeleteUserNoContent struct{}
+
+func (*DeleteUserNoContent) deleteUserRes() {}
 
 // One of the User's Single sign-on sessions.
 // Ref: #/components/schemas/Device
@@ -2402,6 +2412,7 @@ func (s *ProblemStatusCode) SetResponse(val Problem) {
 func (*ProblemStatusCode) addMemberRes()                 {}
 func (*ProblemStatusCode) askEmailChangeRes()            {}
 func (*ProblemStatusCode) askPasswordResetRes()          {}
+func (*ProblemStatusCode) askUserEmailChangeRes()        {}
 func (*ProblemStatusCode) assignRoleRes()                {}
 func (*ProblemStatusCode) assignUserRoleRes()            {}
 func (*ProblemStatusCode) cancelEmailChangeRes()         {}
@@ -2417,6 +2428,7 @@ func (*ProblemStatusCode) confirmTOTPRes()               {}
 func (*ProblemStatusCode) createGroupRes()               {}
 func (*ProblemStatusCode) deleteAccountRes()             {}
 func (*ProblemStatusCode) deleteGroupRes()               {}
+func (*ProblemStatusCode) deleteUserRes()                {}
 func (*ProblemStatusCode) getAccessRes()                 {}
 func (*ProblemStatusCode) getDashboardRes()              {}
 func (*ProblemStatusCode) getLauncherRes()               {}
@@ -2433,6 +2445,7 @@ func (*ProblemStatusCode) passkeyOptionsRes()            {}
 func (*ProblemStatusCode) removeMemberRes()              {}
 func (*ProblemStatusCode) removeSecondFactorRes()        {}
 func (*ProblemStatusCode) renameGroupRes()               {}
+func (*ProblemStatusCode) renameUserRes()                {}
 func (*ProblemStatusCode) resetPasskeyOptionsRes()       {}
 func (*ProblemStatusCode) resetWithCodeRes()             {}
 func (*ProblemStatusCode) resetWithPasskeyRes()          {}
@@ -2566,6 +2579,11 @@ func (*RemoveSecondFactorNoContent) removeSecondFactorRes() {}
 type RenameGroupNoContent struct{}
 
 func (*RenameGroupNoContent) renameGroupRes() {}
+
+// RenameUserNoContent is response for RenameUser operation.
+type RenameUserNoContent struct{}
+
+func (*RenameUserNoContent) renameUserRes() {}
 
 // What a password reset must be proved with first.
 // Ref: #/components/schemas/ResetCheck

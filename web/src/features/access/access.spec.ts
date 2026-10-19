@@ -894,6 +894,84 @@ describe('a person’s page', () => {
   })
 })
 
+describe('managing a person', () => {
+  const at = `/admin/people/${ids.ada}`
+  const tokens = { [`GET /api/v1/access/users/${ids.ada}/tokens`]: () => Response.json({ tokens: [] }) }
+
+  it('renames them', async () => {
+    const { o, answers } = server()
+    const { wrapper, requests } = await mountAt(at, {
+      ...answers,
+      ...tokens,
+      [`PATCH /api/v1/access/users/${ids.ada}`]: () => {
+        o.users = o.users.map((u) => (u.id === ids.ada ? { ...u, name: 'Ada King' } : u))
+        return ok()
+      },
+    })
+    await button(wrapper, 'Rename').trigger('click')
+    await wrapper.get('#pp-name').setValue('Ada King')
+    await wrapper.get('form.pp-rename').trigger('submit')
+    await settle()
+    expect(requests.find((r) => r.key === `PATCH /api/v1/access/users/${ids.ada}`)?.body).toEqual({ name: 'Ada King' })
+    expect(wrapper.get('h1').text()).toBe('Ada King')
+  })
+
+  it('starts an email change that waits on the link', async () => {
+    const { wrapper, requests } = await mountAt(at, { ...server().answers, ...tokens, [`POST /api/v1/access/users/${ids.ada}/email-change`]: () => new Response(null, { status: 202 }) })
+    await button(wrapper, 'Change email').trigger('click')
+    await wrapper.get('#pp-email').setValue('lovelace@example.org')
+    await wrapper.get('form.pp-email').trigger('submit')
+    await settle()
+    expect(requests.find((r) => r.key === `POST /api/v1/access/users/${ids.ada}/email-change`)?.body).toEqual({ email: 'lovelace@example.org' })
+    expect(wrapper.get('.pp-note').text()).toBe('Link sent to lovelace@example.org. The email changes once it is opened.')
+  })
+
+  it('deletes them after a confirmation that names them', async () => {
+    const { wrapper, router, requests } = await mountAt(at, { ...server().answers, ...tokens, [`DELETE /api/v1/access/users/${ids.ada}`]: ok })
+    await button(wrapper, 'Delete person').trigger('click')
+    expect(wrapper.get('[role="dialog"] h2').text()).toBe('Delete Ada Lovelace?')
+    await wrapper.get('[role="dialog"]').trigger('submit')
+    await settle()
+    expect(requests.some((r) => r.key === `DELETE /api/v1/access/users/${ids.ada}`)).toBe(true)
+    expect(router.currentRoute.value.path).toBe('/admin/people')
+  })
+
+  it('changes nothing when an edit is cancelled', async () => {
+    const { wrapper, requests } = await mountAt(at, { ...server().answers, ...tokens })
+    await button(wrapper, 'Rename').trigger('click')
+    await button(wrapper.get('form.pp-rename'), 'Cancel').trigger('click')
+    await button(wrapper, 'Change email').trigger('click')
+    await button(wrapper.get('form.pp-email'), 'Cancel').trigger('click')
+    expect(wrapper.find('form.pp-rename').exists() || wrapper.find('form.pp-email').exists()).toBe(false)
+    expect(requests.some((r) => r.key.includes(`/users/${ids.ada}`) && !r.key.startsWith('GET'))).toBe(false)
+  })
+
+  it('closes the deletion on Escape', async () => {
+    const { wrapper } = await mountAt(at, { ...server().answers, ...tokens }, { attach: true })
+    await button(wrapper, 'Delete person').trigger('click')
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await settle()
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+  })
+
+  it('keeps them when the deletion is cancelled', async () => {
+    const { wrapper, requests } = await mountAt(at, { ...server().answers, ...tokens })
+    await button(wrapper, 'Delete person').trigger('click')
+    await button(wrapper.get('[role="dialog"]'), 'Cancel').trigger('click')
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    expect(requests.some((r) => r.key.startsWith('DELETE'))).toBe(false)
+  })
+
+  it('shows a refused deletion and stays', async () => {
+    const { wrapper, router } = await mountAt(at, { ...server().answers, ...tokens, [`DELETE /api/v1/access/users/${ids.ada}`]: () => problem(422, 'That is the last Admin. Make someone else an Admin first.') })
+    await button(wrapper, 'Delete person').trigger('click')
+    await wrapper.get('[role="dialog"]').trigger('submit')
+    await settle()
+    expect(wrapper.get('[role="alert"]').text()).toBe('That is the last Admin. Make someone else an Admin first.')
+    expect(router.currentRoute.value.path).toBe(at)
+  })
+})
+
 describe('the Unassigned page', () => {
   const answers = () => server().answers
 

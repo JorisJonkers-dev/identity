@@ -58,6 +58,9 @@ type UseCases interface {
 	CancelEmailChange(ctx context.Context, userID uuid.UUID) error
 	ConfirmEmailChange(ctx context.Context, token string) error
 	DeleteAccount(ctx context.Context, userID uuid.UUID, sessionToken, password string) error
+	RenameAs(ctx context.Context, actor app.Actor, userID uuid.UUID, name string) error
+	AskEmailChangeAs(ctx context.Context, actor app.Actor, userID uuid.UUID, email string) error
+	DeleteAs(ctx context.Context, actor app.Actor, userID uuid.UUID) error
 	AskPasswordReset(ctx context.Context, email string) error
 	CheckPasswordReset(ctx context.Context, token string) ([]string, error)
 	ResetWithCode(ctx context.Context, token, code string) error
@@ -497,6 +500,51 @@ func resetRefusal(err error) (*oas.ProblemStatusCode, error) {
 		return problem(http.StatusUnprocessableEntity, "This link has expired or was already used. Ask for a new one."), nil
 	case errors.Is(err, app.ErrFreshTwoFactorNeeded):
 		return problem(http.StatusForbidden, "Confirm it is you with two-factor first."), nil
+	default:
+		return refusal(err)
+	}
+}
+
+func actor(ctx context.Context) app.Actor {
+	p := principal.From(ctx)
+	return app.Actor{ID: p.UserID, SecondFactor: p.SecondFactor}
+}
+
+// RenameUser implements renameUser.
+func (h *Handler) RenameUser(ctx context.Context, req *oas.ProfileUpdate, p oas.RenameUserParams) (oas.RenameUserRes, error) {
+	if err := h.uc.RenameAs(ctx, actor(ctx), uuid.UUID(p.UserId), req.Name); err != nil {
+		return adminRefusal(err)
+	}
+	return &oas.RenameUserNoContent{}, nil
+}
+
+// AskUserEmailChange implements askUserEmailChange.
+func (h *Handler) AskUserEmailChange(ctx context.Context, req *oas.EmailAddress, p oas.AskUserEmailChangeParams) (oas.AskUserEmailChangeRes, error) {
+	if err := h.uc.AskEmailChangeAs(ctx, actor(ctx), uuid.UUID(p.UserId), string(req.Email)); err != nil {
+		return adminRefusal(err)
+	}
+	return &oas.AskUserEmailChangeAccepted{}, nil
+}
+
+// DeleteUser implements deleteUser.
+func (h *Handler) DeleteUser(ctx context.Context, p oas.DeleteUserParams) (oas.DeleteUserRes, error) {
+	if err := h.uc.DeleteAs(ctx, actor(ctx), uuid.UUID(p.UserId)); err != nil {
+		return adminRefusal(err)
+	}
+	return &oas.DeleteUserNoContent{}, nil
+}
+
+// adminRefusal is refusal, with what managing another person adds.
+func adminRefusal(err error) (*oas.ProblemStatusCode, error) {
+	switch {
+	case errors.Is(err, app.ErrNotAdmin):
+		return problem(http.StatusForbidden, "Only Admins manage people."), nil
+	case errors.Is(err, app.ErrAdminSecondFactorNeeded):
+		return problem(http.StatusForbidden, "Sign out, then sign in again with a passkey or authenticator app to manage people."), nil
+	case errors.Is(err, app.ErrNotFound):
+		return problem(http.StatusNotFound, "That person no longer exists. Reload the page."), nil
+	case errors.Is(err, app.ErrLastAdmin):
+		return problem(http.StatusUnprocessableEntity, "That is the last Admin. Make someone else an Admin first."), nil
 	default:
 		return refusal(err)
 	}

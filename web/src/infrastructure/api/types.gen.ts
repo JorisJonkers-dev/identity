@@ -2014,6 +2014,106 @@ export type SetGroupTwoFactorResponses = {
 
 export type SetGroupTwoFactorResponse = SetGroupTwoFactorResponses[keyof SetGroupTwoFactorResponses];
 
+export type DeleteUserData = {
+    body?: never;
+    path: {
+        /**
+         * The User.
+         */
+        userId: Id;
+    };
+    query?: never;
+    url: '/api/v1/access/users/{userId}';
+};
+
+export type DeleteUserErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type DeleteUserError = DeleteUserErrors[keyof DeleteUserErrors];
+
+export type DeleteUserResponses = {
+    /**
+     * The person is deleted.
+     */
+    204: void;
+};
+
+export type DeleteUserResponse = DeleteUserResponses[keyof DeleteUserResponses];
+
+export type RenameUserData = {
+    body: ProfileUpdate;
+    path: {
+        /**
+         * The User.
+         */
+        userId: Id;
+    };
+    query?: never;
+    url: '/api/v1/access/users/{userId}';
+};
+
+export type RenameUserErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type RenameUserError = RenameUserErrors[keyof RenameUserErrors];
+
+export type RenameUserResponses = {
+    /**
+     * The person has the new name.
+     */
+    204: void;
+};
+
+export type RenameUserResponse = RenameUserResponses[keyof RenameUserResponses];
+
+export type AskUserEmailChangeData = {
+    body: EmailAddress;
+    path: {
+        /**
+         * The User.
+         */
+        userId: Id;
+    };
+    query?: never;
+    url: '/api/v1/access/users/{userId}/email-change';
+};
+
+export type AskUserEmailChangeErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type AskUserEmailChangeError = AskUserEmailChangeErrors[keyof AskUserEmailChangeErrors];
+
+export type AskUserEmailChangeResponses = {
+    /**
+     * The link is on its way.
+     */
+    202: unknown;
+};
+
 export type SignOutUserData = {
     body?: never;
     path: {

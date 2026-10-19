@@ -924,6 +924,65 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/access/users/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    patch:
+      operationId: renameUser
+      summary: Rename a person
+      description: Changes what a person is called, as an Admin. Admins only.
+      tags: [access]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+      responses:
+        "204":
+          description: The person has the new name.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: deleteUser
+      summary: Delete a person
+      description: >-
+        Deletes the person as their own deletion does: every session ends with back-channel
+        logout, their tokens stop working, and their memberships and direct roles go. Audit Events
+        about them stay, naming no one. The last Admin is refused. Admins only.
+      tags: [access]
+      responses:
+        "204":
+          description: The person is deleted.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/access/users/{userId}/email-change:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    post:
+      operationId: askUserEmailChange
+      summary: Start a person's email change
+      description: >-
+        Mails the new address a link that makes it the person's sign-in email once followed, as
+        their own change does. Admins only.
+      tags: [access]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailAddress"
+      responses:
+        "202":
+          description: The link is on its way.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /api/v1/access/users/{userId}/sign-out:
     parameters:
       - $ref: "#/components/parameters/UserId"

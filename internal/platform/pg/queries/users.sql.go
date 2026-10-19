@@ -349,15 +349,18 @@ func (q *Queries) DeleteTOTPFactor(ctx context.Context, arg DeleteTOTPFactorPara
 	return result.RowsAffected(), nil
 }
 
-const deleteUser = `-- name: DeleteUser :exec
+const deleteUser = `-- name: DeleteUser :execrows
 DELETE FROM users WHERE id = $1
 `
 
 // Memberships, direct Assignments, factors and pending changes go with the User; Audit Events,
 // which keep only ids, stay.
-func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, deleteUser, id)
-	return err
+func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteUser, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const emailChangeOfUser = `-- name: EmailChangeOfUser :one

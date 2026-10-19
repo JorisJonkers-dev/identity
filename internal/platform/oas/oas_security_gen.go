@@ -70,6 +70,7 @@ func GetRolesForChallenge(operation string) []string {
 var operationRolesSession = map[string][]string{
 	AddMemberOperation:            []string{},
 	AskEmailChangeOperation:       []string{},
+	AskUserEmailChangeOperation:   []string{},
 	AssignRoleOperation:           []string{},
 	AssignUserRoleOperation:       []string{},
 	CancelEmailChangeOperation:    []string{},
@@ -79,6 +80,7 @@ var operationRolesSession = map[string][]string{
 	CreateGroupOperation:          []string{},
 	DeleteAccountOperation:        []string{},
 	DeleteGroupOperation:          []string{},
+	DeleteUserOperation:           []string{},
 	GetAccessOperation:            []string{},
 	GetDashboardOperation:         []string{},
 	GetLauncherOperation:          []string{},
@@ -93,6 +95,7 @@ var operationRolesSession = map[string][]string{
 	RemoveMemberOperation:         []string{},
 	RemoveSecondFactorOperation:   []string{},
 	RenameGroupOperation:          []string{},
+	RenameUserOperation:           []string{},
 	RevokeMyTokenOperation:        []string{},
 	RevokeUserTokenOperation:      []string{},
 	RotateClientSecretOperation:   []string{},

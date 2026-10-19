@@ -896,6 +896,32 @@ export const zSetGroupTwoFactorPath = z.object({
  */
 export const zSetGroupTwoFactorResponse = z.void();
 
+export const zDeleteUserPath = z.object({
+    userId: zId
+});
+
+/**
+ * The person is deleted.
+ */
+export const zDeleteUserResponse = z.void();
+
+export const zRenameUserBody = zProfileUpdate;
+
+export const zRenameUserPath = z.object({
+    userId: zId
+});
+
+/**
+ * The person has the new name.
+ */
+export const zRenameUserResponse = z.void();
+
+export const zAskUserEmailChangeBody = zEmailAddress;
+
+export const zAskUserEmailChangePath = z.object({
+    userId: zId
+});
+
 export const zSignOutUserPath = z.object({
     userId: zId
 });

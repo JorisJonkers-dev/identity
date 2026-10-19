@@ -53,7 +53,11 @@ func (s *Store) DeleteUser(ctx context.Context, userID uuid.UUID) (app.Deleted, 
 		if d.Tokens, err = q.DeletePersonalTokensOfUser(ctx, userID); err != nil {
 			return err
 		}
-		return q.DeleteUser(ctx, userID)
+		n, err := q.DeleteUser(ctx, userID)
+		if err == nil && n == 0 {
+			return app.ErrNotFound
+		}
+		return err
 	})
 	return d, err
 }
