@@ -12,7 +12,7 @@ export type AuditKind = 'sign-in' | 'people' | 'access' | 'tokens';
 /**
  * What an Audit Event records.
  */
-export type AuditAction = 'signed-in' | 'sign-in-failed' | 'signed-out' | 'user-created' | 'user-renamed' | 'password-changed' | 'second-factor-added' | 'second-factor-removed' | 'admin-promoted' | 'group-created' | 'group-renamed' | 'group-deleted' | 'member-added' | 'member-removed' | 'role-assigned' | 'role-removed' | 'token-minted' | 'token-revoked' | 'client-secret-rotated' | 'step-up-changed';
+export type AuditAction = 'signed-in' | 'sign-in-failed' | 'signed-out' | 'user-created' | 'user-renamed' | 'password-changed' | 'second-factor-added' | 'second-factor-removed' | 'admin-promoted' | 'group-created' | 'group-renamed' | 'group-deleted' | 'member-added' | 'member-removed' | 'role-assigned' | 'role-removed' | 'token-minted' | 'token-revoked' | 'client-secret-rotated' | 'email-changed' | 'step-up-changed';
 
 /**
  * Where a page of Audit Events ends; opaque.
@@ -234,6 +234,24 @@ export type SignUp = {
 };
 
 /**
+ * The token a mailed link carried.
+ */
+export type LinkToken = {
+    /**
+     * The token the link carried.
+     */
+    token: string;
+};
+
+/**
+ * A new sign-in email, with the User's password.
+ */
+export type EmailChange = {
+    email: Email;
+    password: Password;
+};
+
+/**
  * A confirmation token from a mailed link, with the password chosen at sign-up, so a link sent to someone else's address confirms nothing for whoever signed up with it.
  */
 export type Confirmation = {
@@ -268,6 +286,7 @@ export type Profile = {
      */
     admin: boolean;
     email: Email;
+    pendingEmail?: Email;
     /**
      * What the User is called.
      */
@@ -754,6 +773,35 @@ export type ConfirmEmailResponses = {
 
 export type ConfirmEmailResponse = ConfirmEmailResponses[keyof ConfirmEmailResponses];
 
+export type ConfirmEmailChangeData = {
+    body: LinkToken;
+    path?: never;
+    query?: never;
+    url: '/api/v1/email-changes/confirmation';
+};
+
+export type ConfirmEmailChangeErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type ConfirmEmailChangeError = ConfirmEmailChangeErrors[keyof ConfirmEmailChangeErrors];
+
+export type ConfirmEmailChangeResponses = {
+    /**
+     * The User signs in with the new email.
+     */
+    204: void;
+};
+
+export type ConfirmEmailChangeResponse = ConfirmEmailChangeResponses[keyof ConfirmEmailChangeResponses];
+
 export type SignOutData = {
     body?: never;
     path?: never;
@@ -902,6 +950,62 @@ export type UpdateProfileResponses = {
 };
 
 export type UpdateProfileResponse = UpdateProfileResponses[keyof UpdateProfileResponses];
+
+export type CancelEmailChangeData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/profile/email-change';
+};
+
+export type CancelEmailChangeErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type CancelEmailChangeError = CancelEmailChangeErrors[keyof CancelEmailChangeErrors];
+
+export type CancelEmailChangeResponses = {
+    /**
+     * No change is pending.
+     */
+    204: void;
+};
+
+export type CancelEmailChangeResponse = CancelEmailChangeResponses[keyof CancelEmailChangeResponses];
+
+export type AskEmailChangeData = {
+    body: EmailChange;
+    path?: never;
+    query?: never;
+    url: '/api/v1/profile/email-change';
+};
+
+export type AskEmailChangeErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type AskEmailChangeError = AskEmailChangeErrors[keyof AskEmailChangeErrors];
+
+export type AskEmailChangeResponses = {
+    /**
+     * The link is on its way.
+     */
+    202: unknown;
+};
 
 export type ChangePasswordData = {
     body: PasswordChange;

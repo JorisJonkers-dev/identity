@@ -69,8 +69,10 @@ func GetRolesForChallenge(operation string) []string {
 // operationRolesSession is a private map storing roles per operation.
 var operationRolesSession = map[string][]string{
 	AddMemberOperation:            []string{},
+	AskEmailChangeOperation:       []string{},
 	AssignRoleOperation:           []string{},
 	AssignUserRoleOperation:       []string{},
+	CancelEmailChangeOperation:    []string{},
 	ChangePasswordOperation:       []string{},
 	ConfirmPasskeyOperation:       []string{},
 	ConfirmTOTPOperation:          []string{},

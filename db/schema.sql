@@ -54,6 +54,13 @@ CREATE TABLE public.client_secrets (
     rotated_at timestamp with time zone
 );
 
+CREATE TABLE public.email_changes (
+    user_id uuid NOT NULL,
+    email text NOT NULL,
+    token_hash bytea NOT NULL,
+    expires_at timestamp with time zone NOT NULL
+);
+
 CREATE TABLE public.gate_codes (
     code_hash bytea NOT NULL,
     host text NOT NULL,
@@ -208,6 +215,12 @@ ALTER TABLE ONLY public.auth_requests
 ALTER TABLE ONLY public.client_secrets
     ADD CONSTRAINT client_secrets_pkey PRIMARY KEY (client_id);
 
+ALTER TABLE ONLY public.email_changes
+    ADD CONSTRAINT email_changes_pkey PRIMARY KEY (user_id);
+
+ALTER TABLE ONLY public.email_changes
+    ADD CONSTRAINT email_changes_token_key UNIQUE (token_hash);
+
 ALTER TABLE ONLY public.gate_codes
     ADD CONSTRAINT gate_codes_pkey PRIMARY KEY (code_hash);
 
@@ -330,6 +343,9 @@ ALTER TABLE ONLY public.auth_requests
 
 ALTER TABLE ONLY public.auth_requests
     ADD CONSTRAINT auth_requests_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.email_changes
+    ADD CONSTRAINT email_changes_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.gate_codes
     ADD CONSTRAINT gate_codes_session_fk FOREIGN KEY (session_id) REFERENCES public.sessions(id) ON DELETE CASCADE;

@@ -62,6 +62,13 @@ type ClientSecret struct {
 	RotatedAt    *time.Time
 }
 
+type EmailChange struct {
+	UserID    uuid.UUID
+	Email     string
+	TokenHash []byte
+	ExpiresAt time.Time
+}
+
 type GateCode struct {
 	CodeHash   []byte
 	Host       string

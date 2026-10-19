@@ -52,6 +52,10 @@ type UseCases interface {
 	Devices(ctx context.Context, userID uuid.UUID, sessionToken string) ([]app.Device, error)
 	SignOutDevice(ctx context.Context, userID, deviceID uuid.UUID) error
 	SignOutOtherDevices(ctx context.Context, userID uuid.UUID, sessionToken string) error
+	AskEmailChange(ctx context.Context, userID uuid.UUID, email, password string) error
+	PendingEmail(ctx context.Context, userID uuid.UUID) (string, error)
+	CancelEmailChange(ctx context.Context, userID uuid.UUID) error
+	ConfirmEmailChange(ctx context.Context, token string) error
 	SecondFactors(ctx context.Context, userID uuid.UUID) ([]app.Factor, error)
 	StartTOTP(ctx context.Context, userID uuid.UUID) (app.TOTPSetup, error)
 	ConfirmTOTP(ctx context.Context, userID uuid.UUID, sessionToken, label, code, password string) error
@@ -284,6 +288,38 @@ func (h *Handler) SignOutOtherDevices(ctx context.Context) (oas.SignOutOtherDevi
 	return &oas.SignOutOtherDevicesNoContent{}, nil
 }
 
+// AskEmailChange implements askEmailChange.
+func (h *Handler) AskEmailChange(ctx context.Context, req *oas.EmailChange) (oas.AskEmailChangeRes, error) {
+	err := h.uc.AskEmailChange(ctx, current(ctx).user.ID, string(req.Email), string(req.Password))
+	if errors.Is(err, app.ErrInvalidCredentials) {
+		return problem(http.StatusUnprocessableEntity, "Your password is wrong. Enter it again."), nil
+	}
+	if err != nil {
+		return refusal(err)
+	}
+	return &oas.AskEmailChangeAccepted{}, nil
+}
+
+// CancelEmailChange implements cancelEmailChange.
+func (h *Handler) CancelEmailChange(ctx context.Context) (oas.CancelEmailChangeRes, error) {
+	if err := h.uc.CancelEmailChange(ctx, current(ctx).user.ID); err != nil {
+		return nil, err
+	}
+	return &oas.CancelEmailChangeNoContent{}, nil
+}
+
+// ConfirmEmailChange implements confirmEmailChange.
+func (h *Handler) ConfirmEmailChange(ctx context.Context, req *oas.LinkToken) (oas.ConfirmEmailChangeRes, error) {
+	err := h.uc.ConfirmEmailChange(ctx, req.Token)
+	if errors.Is(err, app.ErrInvalidToken) {
+		return problem(http.StatusUnprocessableEntity, "This link has expired or was already used. Ask for a new one on the Account page."), nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &oas.ConfirmEmailChangeNoContent{}, nil
+}
+
 // StartPasskey implements startPasskey.
 func (h *Handler) StartPasskey(ctx context.Context) (oas.StartPasskeyRes, error) {
 	options, err := h.uc.StartPasskey(ctx, current(ctx).user.ID)
@@ -414,10 +450,18 @@ func (h *Handler) profile(ctx context.Context, u domain.User) (*oas.Profile, err
 	if err != nil {
 		return nil, err
 	}
-	return &oas.Profile{
+	pending, err := h.uc.PendingEmail(ctx, u.ID)
+	if err != nil {
+		return nil, err
+	}
+	p := &oas.Profile{
 		Email: oas.Email(u.Email.String()), Name: u.Name.String(), CreatedAt: u.CreatedAt, Admin: admin,
 		SecondFactor: current(ctx).secondFactor,
-	}, nil
+	}
+	if pending != "" {
+		p.PendingEmail = oas.NewOptEmail(oas.Email(pending))
+	}
+	return p, nil
 }
 
 // refusal answers a rule the caller broke with a problem saying which, and passes anything else on

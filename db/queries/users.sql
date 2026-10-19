@@ -150,3 +150,21 @@ SELECT token_hash, id, user_id, created_at, last_seen_at, expires_at, methods, t
 
 -- name: CountActiveSessions :one
 SELECT count(*) AS sessions, count(DISTINCT user_id) AS users FROM sessions WHERE expires_at > $1;
+
+-- name: SaveEmailChange :exec
+-- A User has one pending email change; asking again replaces it.
+INSERT INTO email_changes (user_id, email, token_hash, expires_at) VALUES ($1, $2, $3, $4)
+ON CONFLICT (user_id) DO UPDATE SET email = EXCLUDED.email, token_hash = EXCLUDED.token_hash, expires_at = EXCLUDED.expires_at;
+
+-- name: EmailChangeOfUser :one
+SELECT user_id, email, token_hash, expires_at FROM email_changes WHERE user_id = $1;
+
+-- name: TakeEmailChange :one
+-- Following the link spends it, whatever happens next.
+DELETE FROM email_changes WHERE token_hash = $1 RETURNING user_id, email, token_hash, expires_at;
+
+-- name: DeleteEmailChange :exec
+DELETE FROM email_changes WHERE user_id = $1;
+
+-- name: UpdateEmail :exec
+UPDATE users SET email = $2 WHERE id = $1;

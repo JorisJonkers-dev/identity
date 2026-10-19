@@ -35,6 +35,7 @@ export const zAuditAction = z.enum([
     'token-minted',
     'token-revoked',
     'client-secret-rotated',
+    'email-changed',
     'step-up-changed'
 ]);
 
@@ -77,6 +78,21 @@ export const zSignUp = z.object({
 });
 
 /**
+ * The token a mailed link carried.
+ */
+export const zLinkToken = z.object({
+    token: z.string().min(1).max(128)
+});
+
+/**
+ * A new sign-in email, with the User's password.
+ */
+export const zEmailChange = z.object({
+    email: zEmail,
+    password: zPassword
+});
+
+/**
  * A confirmation token from a mailed link, with the password chosen at sign-up, so a link sent to someone else's address confirms nothing for whoever signed up with it.
  */
 export const zConfirmation = z.object({
@@ -99,6 +115,7 @@ export const zProfile = z.object({
     secondFactor: z.boolean(),
     admin: z.boolean(),
     email: zEmail,
+    pendingEmail: zEmail.optional(),
     name: z.string().max(400),
     createdAt: z.iso.datetime({ offset: true }).max(64)
 });
@@ -556,6 +573,13 @@ export const zConfirmEmailBody = zConfirmation;
  */
 export const zConfirmEmailResponse = z.void();
 
+export const zConfirmEmailChangeBody = zLinkToken;
+
+/**
+ * The User signs in with the new email.
+ */
+export const zConfirmEmailChangeResponse = z.void();
+
 /**
  * Signed out.
  */
@@ -584,6 +608,13 @@ export const zUpdateProfileBody = zProfileUpdate;
  * The changed Profile.
  */
 export const zUpdateProfileResponse = zProfile;
+
+/**
+ * No change is pending.
+ */
+export const zCancelEmailChangeResponse = z.void();
+
+export const zAskEmailChangeBody = zEmailChange;
 
 export const zChangePasswordBody = zPasswordChange;
 

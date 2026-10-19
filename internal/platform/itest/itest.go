@@ -482,6 +482,35 @@ func confirmationToken(t *testing.T, email string) string {
 	return ""
 }
 
+// Mailed is the text of the newest mail to email with subject, waiting for it to arrive.
+func Mailed(t *testing.T, email, subject string) string {
+	t.Helper()
+	deadline := time.Now().Add(mailWait)
+	query := url.QueryEscape(fmt.Sprintf("to:%q subject:%q", email, subject))
+	for time.Now().Before(deadline) {
+		var found struct{ Messages []struct{ ID string } }
+		get(t, shared.mailAPI+"/api/v1/search?query="+query, &found)
+		if len(found.Messages) > 0 {
+			var message struct{ Text string }
+			get(t, shared.mailAPI+"/api/v1/message/"+found.Messages[0].ID, &message)
+			return message.Text
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Fatalf("no mail %q reached %s within %s", subject, email, mailWait)
+	return ""
+}
+
+// TokenIn is the token of the link to path, as "/account/email", in a mail's text.
+func TokenIn(t *testing.T, text, path string) string {
+	t.Helper()
+	m := regexp.MustCompile(regexp.QuoteMeta(path) + `\?token=([^\s"<>]+)`).FindStringSubmatch(text)
+	if m == nil {
+		t.Fatalf("no link to %s in %q", path, text)
+	}
+	return m[1]
+}
+
 func get(t *testing.T, target string, out any) {
 	t.Helper()
 	req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, target, nil)

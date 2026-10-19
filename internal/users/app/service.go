@@ -93,6 +93,15 @@ type Store interface {
 	TouchSession(ctx context.Context, tokenHash []byte, lastSeen, expires time.Time) error
 	// SessionsOf is a User's sessions live at now, the most recently seen first.
 	SessionsOf(ctx context.Context, userID uuid.UUID, now time.Time) ([]Session, error)
+	// SaveEmailChange keeps a User's one pending email change, replacing any before it.
+	SaveEmailChange(ctx context.Context, c EmailChange) error
+	// EmailChangeOf is ErrNotFound when the User has none pending.
+	EmailChangeOf(ctx context.Context, userID uuid.UUID) (EmailChange, error)
+	// TakeEmailChange removes and returns the change a token hash names; ErrNotFound when none.
+	TakeEmailChange(ctx context.Context, tokenHash []byte) (EmailChange, error)
+	DeleteEmailChange(ctx context.Context, userID uuid.UUID) error
+	// UpdateEmail is ErrEmailTaken when another User has the address.
+	UpdateEmail(ctx context.Context, userID uuid.UUID, email domain.Email) error
 	// DeleteSession ends one of a User's sessions, and reports whether it was theirs.
 	DeleteSession(ctx context.Context, userID, id uuid.UUID) (bool, error)
 	// DeleteOtherSessions ends every session of a User but the one keepTokenHash names, or every

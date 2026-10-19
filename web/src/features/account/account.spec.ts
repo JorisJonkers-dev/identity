@@ -362,6 +362,31 @@ describe('proving two-factor again for an app', () => {
   })
 })
 
+describe('confirming a new email', () => {
+  it('changes the sign-in email once asked', async () => {
+    const { wrapper, requests } = await mountAt('/account/email?token=t0k', { 'POST /api/v1/email-changes/confirmation': noContent() })
+    expect(wrapper.get('h1').text()).toBe('Use this email to sign in?')
+    await button(wrapper, 'Change my sign-in email').trigger('click')
+    await settle()
+    expect(requests.find((r) => r.key === 'POST /api/v1/email-changes/confirmation')?.body).toEqual({ token: 't0k' })
+    expect(wrapper.get('h1').text()).toBe('Email changed')
+    expect(wrapper.get('a.btn').attributes('href')).toBe('/account')
+  })
+
+  it('says when the link is spent', async () => {
+    const { wrapper } = await mountAt('/account/email?token=t0k', { 'POST /api/v1/email-changes/confirmation': problem(422, 'This link has expired or was already used. Ask for a new one on the Account page.') })
+    await button(wrapper, 'Change my sign-in email').trigger('click')
+    await settle()
+    expect(wrapper.get('[role="alert"]').text()).toBe('This link has expired or was already used. Ask for a new one on the Account page.')
+  })
+
+  it('says when the link has no token, without asking the server', async () => {
+    const { wrapper, requests } = await mountAt('/account/email', {})
+    expect(wrapper.get('h1').text()).toBe('This link is incomplete')
+    expect(requests).toHaveLength(0)
+  })
+})
+
 describe('the Account page', () => {
   const answers = (over: Record<string, unknown> = {}) => ({
     'GET /api/v1/profile': () => Response.json(profile(over)),
@@ -407,6 +432,70 @@ describe('the Account page', () => {
     await button(wrapper, 'Cancel').trigger('click')
     expect(requests.some((r) => r.key === 'PATCH /api/v1/profile')).toBe(false)
     expect(wrapper.get('.set-v b').text()).toBe('Ada Lovelace')
+  })
+
+  it('asks for a new email with the password, then says where the link went', async () => {
+    let pendingEmail: string | undefined
+    const { wrapper, requests } = await mountAt('/account', {
+      ...answers(),
+      'GET /api/v1/profile': () => Response.json(profile(pendingEmail ? { pendingEmail } : {})),
+      'POST /api/v1/profile/email-change': () => {
+        pendingEmail = 'lovelace@example.org'
+        return new Response(null, { status: 202 })
+      },
+    })
+    await button(wrapper, 'Change').trigger('click')
+    await wrapper.get('#ac-email').setValue('lovelace@example.org')
+    await wrapper.get('#ac-email-pw').setValue('correct horse battery')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(requests.find((r) => r.key === 'POST /api/v1/profile/email-change')?.body).toEqual({ email: 'lovelace@example.org', password: 'correct horse battery' })
+    expect(wrapper.get('.set-row.pending small').text()).toBe('Waiting for you to open the link sent to lovelace@example.org')
+  })
+
+  it('shows a refused email change', async () => {
+    const { wrapper } = await mountAt('/account', { ...answers(), 'POST /api/v1/profile/email-change': problem(422, 'Your password is wrong. Enter it again.') })
+    await button(wrapper, 'Change').trigger('click')
+    await wrapper.get('#ac-email').setValue('lovelace@example.org')
+    await wrapper.get('#ac-email-pw').setValue('wrong')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+    expect(wrapper.get('[role="alert"]').text()).toBe('Your password is wrong. Enter it again.')
+    expect(wrapper.find('#ac-email').exists()).toBe(true)
+  })
+
+  it('keeps the email when the change is not asked for', async () => {
+    const { wrapper, requests } = await mountAt('/account', answers())
+    await button(wrapper, 'Change').trigger('click')
+    await button(wrapper, 'Cancel').trigger('click')
+    expect(wrapper.find('#ac-email').exists()).toBe(false)
+    expect(requests.some((r) => r.key.includes('email-change'))).toBe(false)
+  })
+
+  it('shows a refused cancel', async () => {
+    const { wrapper } = await mountAt('/account', {
+      ...answers({ pendingEmail: 'lovelace@example.org' }),
+      'DELETE /api/v1/profile/email-change': problem(500, 'Something went wrong. Try again.'),
+    })
+    await button(wrapper, 'Cancel change').trigger('click')
+    await settle()
+    expect(wrapper.get('[role="alert"]').text()).toBe('Something went wrong. Try again.')
+  })
+
+  it('cancels a pending email change', async () => {
+    let pendingEmail: string | undefined = 'lovelace@example.org'
+    const { wrapper, requests } = await mountAt('/account', {
+      ...answers(),
+      'GET /api/v1/profile': () => Response.json(profile(pendingEmail ? { pendingEmail } : {})),
+      'DELETE /api/v1/profile/email-change': () => {
+        pendingEmail = undefined
+        return noContent()
+      },
+    })
+    await button(wrapper, 'Cancel change').trigger('click')
+    await settle()
+    expect(requests.some((r) => r.key === 'DELETE /api/v1/profile/email-change')).toBe(true)
+    expect(wrapper.find('.set-row.pending').exists()).toBe(false)
   })
 
   it('shows a refused rename', async () => {

@@ -8,7 +8,7 @@ import { useLauncher } from '../../home/composables/useLauncher'
 import { useSecurity } from '../../security/composables/useSecurity'
 import { useProfile } from '../composables/useProfile'
 
-const { profile, loadError, rename } = useProfile()
+const { profile, loadError, rename, askEmail, cancelEmail } = useProfile()
 const { factors } = useSecurity()
 const { apps } = useLauncher()
 const editing = ref(false)
@@ -21,6 +21,16 @@ function edit(current: string) {
 function save() {
   rename.run(name.value)
   editing.value = false
+}
+// A new email: asked with the password, and the sign-in email changes once its link is followed.
+const changing = ref(false)
+const email = ref('')
+const password = ref('')
+function askForEmail() {
+  askEmail.run(email.value, password.value, () => {
+    changing.value = false
+    password.value = ''
+  })
 }
 </script>
 
@@ -55,10 +65,25 @@ function save() {
             <button class="btn sm" type="button" @click="edit(profile.name)"><Icon name="pencil" />Edit</button>
           </div>
           <p v-if="rename.error.value" role="alert" class="alert"><Icon name="alert" />{{ rename.error.value }}</p>
-          <div class="set-row">
+          <form v-if="changing" class="set-row editing" @submit.prevent="askForEmail">
+            <span class="set-ic"><Icon name="mail" /></span>
+            <div class="set-v">
+              <label class="label" for="ac-email">New email</label><input id="ac-email" v-model="email" class="input md" type="email" autocomplete="email" required />
+              <label class="label" for="ac-email-pw">Password</label><input id="ac-email-pw" v-model="password" class="input md" type="password" autocomplete="current-password" required />
+            </div>
+            <div class="btn-row"><button class="btn sm ghost" type="button" @click="changing = false">Cancel</button><button class="btn sm primary" type="submit" :disabled="askEmail.isPending.value">Send link</button></div>
+          </form>
+          <div v-else class="set-row">
             <span class="set-ic"><Icon name="mail" /></span>
             <span class="set-v"><small>Email</small><b>{{ profile.email }}</b></span>
+            <button class="btn sm" type="button" @click="changing = true"><Icon name="pencil" />Change</button>
           </div>
+          <div v-if="profile.pendingEmail" class="set-row pending">
+            <span class="set-ic"><Icon name="clock" /></span>
+            <span class="set-v"><b>New email</b><small>Waiting for you to open the link sent to {{ profile.pendingEmail }}</small></span>
+            <button class="btn sm ghost" type="button" :disabled="cancelEmail.isPending.value" @click="cancelEmail.run()">Cancel change</button>
+          </div>
+          <p v-if="askEmail.error.value || cancelEmail.error.value" role="alert" class="alert"><Icon name="alert" />{{ askEmail.error.value ?? cancelEmail.error.value }}</p>
         </section>
         <section class="glass card">
           <h2 class="card-t">Signing in<RouterLink class="card-link" to="/security">Security<Icon name="chevr" /></RouterLink></h2>

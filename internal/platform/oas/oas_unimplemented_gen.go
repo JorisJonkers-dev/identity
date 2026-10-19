@@ -22,6 +22,16 @@ func (UnimplementedHandler) AddMember(ctx context.Context, params AddMemberParam
 	return r, ht.ErrNotImplemented
 }
 
+// AskEmailChange implements askEmailChange operation.
+//
+// Mails the new address a link that makes it the sign-in email once followed; until then the current
+// one stays. Needs the User's password. An address in use gets the same answer.
+//
+// POST /api/v1/profile/email-change
+func (UnimplementedHandler) AskEmailChange(ctx context.Context, req *EmailChange) (r AskEmailChangeRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // AssignRole implements assignRole operation.
 //
 // Makes an Assignment. The Client must be in the cluster and declare the App Role, and the admins
@@ -39,6 +49,15 @@ func (UnimplementedHandler) AssignRole(ctx context.Context, params AssignRolePar
 //
 // PUT /api/v1/access/users/{userId}/roles/{clientId}/{role}
 func (UnimplementedHandler) AssignUserRole(ctx context.Context, params AssignUserRoleParams) (r AssignUserRoleRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// CancelEmailChange implements cancelEmailChange operation.
+//
+// The link stops working; the sign-in email stays as it is.
+//
+// DELETE /api/v1/profile/email-change
+func (UnimplementedHandler) CancelEmailChange(ctx context.Context) (r CancelEmailChangeRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -78,6 +97,17 @@ func (UnimplementedHandler) CompleteSignInWithPasskey(ctx context.Context, req *
 //
 // POST /api/v1/confirmations
 func (UnimplementedHandler) ConfirmEmail(ctx context.Context, req *Confirmation) (r ConfirmEmailRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// ConfirmEmailChange implements confirmEmailChange operation.
+//
+// Makes the address a change link was mailed to the User's sign-in email, and tells the old address.
+// The link works once, for 24 hours; a link for an address taken since fails the same way as a spent
+// one.
+//
+// POST /api/v1/email-changes/confirmation
+func (UnimplementedHandler) ConfirmEmailChange(ctx context.Context, req *LinkToken) (r ConfirmEmailChangeRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 

@@ -1,0 +1,17 @@
+# Email change (identity#79): a User's new address waits here until the link mailed to it is
+# followed. A User has at most one pending change; asking again replaces it.
+databaseChangeLog:
+  - changeSet:
+      id: 0015-create-email-changes
+      author: identity
+      changes:
+        - createTable:
+            tableName: email_changes
+            columns:
+              - column:
+                  name: user_id
+                  type: uuid
+                  constraints: {primaryKey: true, nullable: false, foreignKeyName: email_changes_user_fk, references: users(id), deleteCascade: true}
+              - column: {name: email, type: text, constraints: {nullable: false}}
+              - column: {name: token_hash, type: bytea, constraints: {nullable: false, unique: true, uniqueConstraintName: email_changes_token_key}}
+              - column: {name: expires_at, type: timestamptz, constraints: {nullable: false}}

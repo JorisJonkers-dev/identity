@@ -36,6 +36,13 @@ type Invoker interface {
 	//
 	// PUT /api/v1/access/groups/{groupId}/members/{userId}
 	AddMember(ctx context.Context, params AddMemberParams) (AddMemberRes, error)
+	// AskEmailChange invokes askEmailChange operation.
+	//
+	// Mails the new address a link that makes it the sign-in email once followed; until then the current
+	// one stays. Needs the User's password. An address in use gets the same answer.
+	//
+	// POST /api/v1/profile/email-change
+	AskEmailChange(ctx context.Context, request *EmailChange) (AskEmailChangeRes, error)
 	// AssignRole invokes assignRole operation.
 	//
 	// Makes an Assignment. The Client must be in the cluster and declare the App Role, and the admins
@@ -50,6 +57,12 @@ type Invoker interface {
 	//
 	// PUT /api/v1/access/users/{userId}/roles/{clientId}/{role}
 	AssignUserRole(ctx context.Context, params AssignUserRoleParams) (AssignUserRoleRes, error)
+	// CancelEmailChange invokes cancelEmailChange operation.
+	//
+	// The link stops working; the sign-in email stays as it is.
+	//
+	// DELETE /api/v1/profile/email-change
+	CancelEmailChange(ctx context.Context) (CancelEmailChangeRes, error)
 	// ChangePassword invokes changePassword operation.
 	//
 	// Replaces the password after checking the current one.
@@ -77,6 +90,14 @@ type Invoker interface {
 	//
 	// POST /api/v1/confirmations
 	ConfirmEmail(ctx context.Context, request *Confirmation) (ConfirmEmailRes, error)
+	// ConfirmEmailChange invokes confirmEmailChange operation.
+	//
+	// Makes the address a change link was mailed to the User's sign-in email, and tells the old address.
+	// The link works once, for 24 hours; a link for an address taken since fails the same way as a spent
+	// one.
+	//
+	// POST /api/v1/email-changes/confirmation
+	ConfirmEmailChange(ctx context.Context, request *LinkToken) (ConfirmEmailChangeRes, error)
 	// ConfirmPasskey invokes confirmPasskey operation.
 	//
 	// Keeps the passkey the browser made, given the User's password. A User who already has a Second
@@ -534,6 +555,123 @@ func (c *Client) sendAddMember(ctx context.Context, params AddMemberParams) (res
 	return result, nil
 }
 
+// AskEmailChange invokes askEmailChange operation.
+//
+// Mails the new address a link that makes it the sign-in email once followed; until then the current
+// one stays. Needs the User's password. An address in use gets the same answer.
+//
+// POST /api/v1/profile/email-change
+func (c *Client) AskEmailChange(ctx context.Context, request *EmailChange) (AskEmailChangeRes, error) {
+	res, err := c.sendAskEmailChange(ctx, request)
+	return res, err
+}
+
+func (c *Client) sendAskEmailChange(ctx context.Context, request *EmailChange) (res AskEmailChangeRes, err error) {
+	otelAttrs := []attribute.KeyValue{
+		otelogen.OperationID("askEmailChange"),
+		semconv.HTTPRequestMethodKey.String("POST"),
+		semconv.URLTemplateKey.String("/api/v1/profile/email-change"),
+	}
+	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
+
+	// Run stopwatch.
+	startTime := time.Now()
+	defer func() {
+		// Use floating point division here for higher precision (instead of Millisecond method).
+		elapsedDuration := time.Since(startTime)
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
+	}()
+
+	// Increment request counter.
+	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+
+	// Start a span for this request.
+	ctx, span := c.cfg.Tracer.Start(ctx, AskEmailChangeOperation,
+		trace.WithAttributes(otelAttrs...),
+		clientSpanKind,
+	)
+	// Track stage for error reporting.
+	var stage string
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, stage)
+			c.errors.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+		}
+		span.End()
+	}()
+
+	stage = "BuildURL"
+	u := uri.Clone(c.requestURL(ctx))
+	var pathParts [1]string
+	pathParts[0] = "/api/v1/profile/email-change"
+	uri.AddPathParts(u, pathParts[:]...)
+
+	stage = "EncodeRequest"
+	r, err := ht.NewRequest(ctx, "POST", u)
+	if err != nil {
+		return res, errors.Wrap(err, "create request")
+	}
+	if err := encodeAskEmailChangeRequest(request, r); err != nil {
+		return res, errors.Wrap(err, "encode request")
+	}
+
+	{
+		type bitset = [1]uint8
+		var satisfied bitset
+		{
+			stage = "Security:Session"
+			switch err := c.securitySession(ctx, AskEmailChangeOperation, r); {
+			case err == nil: // if NO error
+				satisfied[0] |= 1 << 0
+			case errors.Is(err, ogenerrors.ErrSkipClientSecurity):
+				// Skip this security.
+			default:
+				return res, errors.Wrap(err, "security \"Session\"")
+			}
+		}
+
+		if ok := func() bool {
+		nextRequirement:
+			for _, requirement := range []bitset{
+				{0b00000001},
+			} {
+				for i, mask := range requirement {
+					if satisfied[i]&mask != mask {
+						continue nextRequirement
+					}
+				}
+				return true
+			}
+			return false
+		}(); !ok {
+			return res, ogenerrors.ErrSecurityRequirementIsNotSatisfied
+		}
+	}
+
+	stage = "SendRequest"
+	resp, err := c.cfg.Client.Do(r)
+	if err != nil {
+		return res, errors.Wrap(err, "do request")
+	}
+	body := resp.Body
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
+
+	stage = "DecodeResponse"
+	result, err := decodeAskEmailChangeResponse(resp)
+	if err != nil {
+		return res, errors.Wrap(err, "decode response")
+	}
+
+	return result, nil
+}
+
 // AssignRole invokes assignRole operation.
 //
 // Makes an Assignment. The Client must be in the cluster and declare the App Role, and the admins
@@ -885,6 +1023,119 @@ func (c *Client) sendAssignUserRole(ctx context.Context, params AssignUserRolePa
 
 	stage = "DecodeResponse"
 	result, err := decodeAssignUserRoleResponse(resp)
+	if err != nil {
+		return res, errors.Wrap(err, "decode response")
+	}
+
+	return result, nil
+}
+
+// CancelEmailChange invokes cancelEmailChange operation.
+//
+// The link stops working; the sign-in email stays as it is.
+//
+// DELETE /api/v1/profile/email-change
+func (c *Client) CancelEmailChange(ctx context.Context) (CancelEmailChangeRes, error) {
+	res, err := c.sendCancelEmailChange(ctx)
+	return res, err
+}
+
+func (c *Client) sendCancelEmailChange(ctx context.Context) (res CancelEmailChangeRes, err error) {
+	otelAttrs := []attribute.KeyValue{
+		otelogen.OperationID("cancelEmailChange"),
+		semconv.HTTPRequestMethodKey.String("DELETE"),
+		semconv.URLTemplateKey.String("/api/v1/profile/email-change"),
+	}
+	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
+
+	// Run stopwatch.
+	startTime := time.Now()
+	defer func() {
+		// Use floating point division here for higher precision (instead of Millisecond method).
+		elapsedDuration := time.Since(startTime)
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
+	}()
+
+	// Increment request counter.
+	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+
+	// Start a span for this request.
+	ctx, span := c.cfg.Tracer.Start(ctx, CancelEmailChangeOperation,
+		trace.WithAttributes(otelAttrs...),
+		clientSpanKind,
+	)
+	// Track stage for error reporting.
+	var stage string
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, stage)
+			c.errors.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+		}
+		span.End()
+	}()
+
+	stage = "BuildURL"
+	u := uri.Clone(c.requestURL(ctx))
+	var pathParts [1]string
+	pathParts[0] = "/api/v1/profile/email-change"
+	uri.AddPathParts(u, pathParts[:]...)
+
+	stage = "EncodeRequest"
+	r, err := ht.NewRequest(ctx, "DELETE", u)
+	if err != nil {
+		return res, errors.Wrap(err, "create request")
+	}
+
+	{
+		type bitset = [1]uint8
+		var satisfied bitset
+		{
+			stage = "Security:Session"
+			switch err := c.securitySession(ctx, CancelEmailChangeOperation, r); {
+			case err == nil: // if NO error
+				satisfied[0] |= 1 << 0
+			case errors.Is(err, ogenerrors.ErrSkipClientSecurity):
+				// Skip this security.
+			default:
+				return res, errors.Wrap(err, "security \"Session\"")
+			}
+		}
+
+		if ok := func() bool {
+		nextRequirement:
+			for _, requirement := range []bitset{
+				{0b00000001},
+			} {
+				for i, mask := range requirement {
+					if satisfied[i]&mask != mask {
+						continue nextRequirement
+					}
+				}
+				return true
+			}
+			return false
+		}(); !ok {
+			return res, ogenerrors.ErrSecurityRequirementIsNotSatisfied
+		}
+	}
+
+	stage = "SendRequest"
+	resp, err := c.cfg.Client.Do(r)
+	if err != nil {
+		return res, errors.Wrap(err, "do request")
+	}
+	body := resp.Body
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
+
+	stage = "DecodeResponse"
+	result, err := decodeCancelEmailChangeResponse(resp)
 	if err != nil {
 		return res, errors.Wrap(err, "decode response")
 	}
@@ -1319,6 +1570,91 @@ func (c *Client) sendConfirmEmail(ctx context.Context, request *Confirmation) (r
 
 	stage = "DecodeResponse"
 	result, err := decodeConfirmEmailResponse(resp)
+	if err != nil {
+		return res, errors.Wrap(err, "decode response")
+	}
+
+	return result, nil
+}
+
+// ConfirmEmailChange invokes confirmEmailChange operation.
+//
+// Makes the address a change link was mailed to the User's sign-in email, and tells the old address.
+// The link works once, for 24 hours; a link for an address taken since fails the same way as a spent
+// one.
+//
+// POST /api/v1/email-changes/confirmation
+func (c *Client) ConfirmEmailChange(ctx context.Context, request *LinkToken) (ConfirmEmailChangeRes, error) {
+	res, err := c.sendConfirmEmailChange(ctx, request)
+	return res, err
+}
+
+func (c *Client) sendConfirmEmailChange(ctx context.Context, request *LinkToken) (res ConfirmEmailChangeRes, err error) {
+	otelAttrs := []attribute.KeyValue{
+		otelogen.OperationID("confirmEmailChange"),
+		semconv.HTTPRequestMethodKey.String("POST"),
+		semconv.URLTemplateKey.String("/api/v1/email-changes/confirmation"),
+	}
+	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
+
+	// Run stopwatch.
+	startTime := time.Now()
+	defer func() {
+		// Use floating point division here for higher precision (instead of Millisecond method).
+		elapsedDuration := time.Since(startTime)
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
+	}()
+
+	// Increment request counter.
+	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+
+	// Start a span for this request.
+	ctx, span := c.cfg.Tracer.Start(ctx, ConfirmEmailChangeOperation,
+		trace.WithAttributes(otelAttrs...),
+		clientSpanKind,
+	)
+	// Track stage for error reporting.
+	var stage string
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, stage)
+			c.errors.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+		}
+		span.End()
+	}()
+
+	stage = "BuildURL"
+	u := uri.Clone(c.requestURL(ctx))
+	var pathParts [1]string
+	pathParts[0] = "/api/v1/email-changes/confirmation"
+	uri.AddPathParts(u, pathParts[:]...)
+
+	stage = "EncodeRequest"
+	r, err := ht.NewRequest(ctx, "POST", u)
+	if err != nil {
+		return res, errors.Wrap(err, "create request")
+	}
+	if err := encodeConfirmEmailChangeRequest(request, r); err != nil {
+		return res, errors.Wrap(err, "encode request")
+	}
+
+	stage = "SendRequest"
+	resp, err := c.cfg.Client.Do(r)
+	if err != nil {
+		return res, errors.Wrap(err, "do request")
+	}
+	body := resp.Body
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
+
+	stage = "DecodeResponse"
+	result, err := decodeConfirmEmailChangeResponse(resp)
 	if err != nil {
 		return res, errors.Wrap(err, "decode response")
 	}

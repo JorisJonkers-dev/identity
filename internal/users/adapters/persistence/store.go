@@ -155,6 +155,44 @@ func (s *Store) DeleteSession(ctx context.Context, userID, id uuid.UUID) (bool, 
 	return n > 0, err
 }
 
+func (s *Store) SaveEmailChange(ctx context.Context, c app.EmailChange) error {
+	return s.q.SaveEmailChange(ctx, queries.SaveEmailChangeParams{UserID: c.UserID, Email: c.Email.String(), TokenHash: c.TokenHash, ExpiresAt: c.ExpiresAt})
+}
+
+func (s *Store) EmailChangeOf(ctx context.Context, userID uuid.UUID) (app.EmailChange, error) {
+	r, err := s.q.EmailChangeOfUser(ctx, userID)
+	if err != nil {
+		return app.EmailChange{}, notFound(err)
+	}
+	return emailChange(r.UserID, r.Email, r.TokenHash, r.ExpiresAt)
+}
+
+func (s *Store) TakeEmailChange(ctx context.Context, hash []byte) (app.EmailChange, error) {
+	r, err := s.q.TakeEmailChange(ctx, hash)
+	if err != nil {
+		return app.EmailChange{}, notFound(err)
+	}
+	return emailChange(r.UserID, r.Email, r.TokenHash, r.ExpiresAt)
+}
+
+func emailChange(userID uuid.UUID, rawEmail string, hash []byte, expires time.Time) (app.EmailChange, error) {
+	email, err := domain.NewEmail(rawEmail)
+	return app.EmailChange{UserID: userID, Email: email, TokenHash: hash, ExpiresAt: expires}, err
+}
+
+func (s *Store) DeleteEmailChange(ctx context.Context, userID uuid.UUID) error {
+	return s.q.DeleteEmailChange(ctx, userID)
+}
+
+func (s *Store) UpdateEmail(ctx context.Context, userID uuid.UUID, email domain.Email) error {
+	err := s.q.UpdateEmail(ctx, queries.UpdateEmailParams{ID: userID, Email: email.String()})
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {
+		return app.ErrEmailTaken
+	}
+	return err
+}
+
 func (s *Store) TouchSession(ctx context.Context, hash []byte, lastSeen, expires time.Time) error {
 	return s.q.TouchSession(ctx, queries.TouchSessionParams{TokenHash: hash, LastSeenAt: lastSeen, ExpiresAt: expires})
 }

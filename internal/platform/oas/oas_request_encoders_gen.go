@@ -10,6 +10,20 @@ import (
 	ht "github.com/ogen-go/ogen/http"
 )
 
+func encodeAskEmailChangeRequest(
+	req *EmailChange,
+	r *http.Request,
+) error {
+	const contentType = "application/json"
+	e := new(jx.Encoder)
+	{
+		req.Encode(e)
+	}
+	encoded := e.Bytes()
+	ht.SetBody(r, bytes.NewReader(encoded), contentType)
+	return nil
+}
+
 func encodeChangePasswordRequest(
 	req *PasswordChange,
 	r *http.Request,
@@ -54,6 +68,20 @@ func encodeCompleteSignInWithPasskeyRequest(
 
 func encodeConfirmEmailRequest(
 	req *Confirmation,
+	r *http.Request,
+) error {
+	const contentType = "application/json"
+	e := new(jx.Encoder)
+	{
+		req.Encode(e)
+	}
+	encoded := e.Bytes()
+	ht.SetBody(r, bytes.NewReader(encoded), contentType)
+	return nil
+}
+
+func encodeConfirmEmailChangeRequest(
+	req *LinkToken,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"

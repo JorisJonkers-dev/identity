@@ -7,12 +7,15 @@ type OperationName = string
 
 const (
 	AddMemberOperation                 OperationName = "AddMember"
+	AskEmailChangeOperation            OperationName = "AskEmailChange"
 	AssignRoleOperation                OperationName = "AssignRole"
 	AssignUserRoleOperation            OperationName = "AssignUserRole"
+	CancelEmailChangeOperation         OperationName = "CancelEmailChange"
 	ChangePasswordOperation            OperationName = "ChangePassword"
 	CompleteSignInOperation            OperationName = "CompleteSignIn"
 	CompleteSignInWithPasskeyOperation OperationName = "CompleteSignInWithPasskey"
 	ConfirmEmailOperation              OperationName = "ConfirmEmail"
+	ConfirmEmailChangeOperation        OperationName = "ConfirmEmailChange"
 	ConfirmPasskeyOperation            OperationName = "ConfirmPasskey"
 	ConfirmTOTPOperation               OperationName = "ConfirmTOTP"
 	CreateGroupOperation               OperationName = "CreateGroup"

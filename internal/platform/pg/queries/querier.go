@@ -49,6 +49,7 @@ type Querier interface {
 	DeleteAuditEventsBefore(ctx context.Context, at time.Time) (int64, error)
 	DeleteAuthRequest(ctx context.Context, id uuid.UUID) error
 	DeleteChallenge(ctx context.Context, tokenHash []byte) error
+	DeleteEmailChange(ctx context.Context, userID uuid.UUID) error
 	// The admins Group stays, whatever the caller checked.
 	DeleteGroup(ctx context.Context, id uuid.UUID) error
 	// Ends every session of a User but the one keep names (or every one, when keep is null), and says
@@ -62,6 +63,7 @@ type Querier interface {
 	DeleteSignup(ctx context.Context, tokenHash []byte) error
 	DeleteTOTPEnrolment(ctx context.Context, userID uuid.UUID) error
 	DeleteTOTPFactor(ctx context.Context, arg DeleteTOTPFactorParams) (int64, error)
+	EmailChangeOfUser(ctx context.Context, userID uuid.UUID) (EmailChange, error)
 	// Only while hash is still the current secret, so a rotation in between keeps its own previous.
 	EndPreviousClientSecret(ctx context.Context, arg EndPreviousClientSecretParams) error
 	GateSessionByHash(ctx context.Context, tokenHash []byte) (GateSessionByHashRow, error)
@@ -105,6 +107,8 @@ type Querier interface {
 	RotateClientSecret(ctx context.Context, arg RotateClientSecretParams) error
 	// A request gets one code; a second is refused.
 	SaveAuthCode(ctx context.Context, arg SaveAuthCodeParams) (int64, error)
+	// A User has one pending email change; asking again replaces it.
+	SaveEmailChange(ctx context.Context, arg SaveEmailChangeParams) error
 	SealedSecret(ctx context.Context, name string) (string, error)
 	SessionByHash(ctx context.Context, tokenHash []byte) (SessionByHashRow, error)
 	SessionByID(ctx context.Context, id uuid.UUID) (SessionByIDRow, error)
@@ -129,6 +133,8 @@ type Querier interface {
 	// Takes the ceremony a sign-in started in one statement: a second request waits on the row lock,
 	// then finds the ceremony gone, so only one request can use it.
 	TakeChallengeCeremony(ctx context.Context, arg TakeChallengeCeremonyParams) (TakeChallengeCeremonyRow, error)
+	// Following the link spends it, whatever happens next.
+	TakeEmailChange(ctx context.Context, tokenHash []byte) (EmailChange, error)
 	// Redeeming a code removes it in the same statement, so a code works once.
 	TakeGateCode(ctx context.Context, codeHash []byte) (TakeGateCodeRow, error)
 	// The Clients the ended sessions signed into, removed as they are read.
@@ -138,6 +144,7 @@ type Querier interface {
 	TouchSession(ctx context.Context, arg TouchSessionParams) error
 	Unassign(ctx context.Context, arg UnassignParams) (int64, error)
 	UnassignUser(ctx context.Context, arg UnassignUserParams) (int64, error)
+	UpdateEmail(ctx context.Context, arg UpdateEmailParams) error
 	UpdateUserName(ctx context.Context, arg UpdateUserNameParams) error
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
 	// A User has one challenge. A new sign-in replaces its token and expiry; its wrong codes still

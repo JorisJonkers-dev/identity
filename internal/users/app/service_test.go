@@ -27,6 +27,7 @@ type store struct {
 	signups    map[string]app.Signup
 	sessions   map[string]app.Session
 	challenges map[string]*challenge
+	changes    map[uuid.UUID]app.EmailChange
 	factors    []app.TOTPFactor
 	enrolments map[uuid.UUID]app.TOTPEnrolment
 	passkeys   []app.Passkey
@@ -166,6 +167,7 @@ func newStore() *store {
 		signups:    map[string]app.Signup{},
 		sessions:   map[string]app.Session{},
 		challenges: map[string]*challenge{},
+		changes:    map[uuid.UUID]app.EmailChange{},
 		enrolments: map[uuid.UUID]app.TOTPEnrolment{},
 		pending:    map[uuid.UUID]app.PasskeyEnrolment{},
 		fail:       map[string]error{},
@@ -361,6 +363,58 @@ func (s *store) UpdateName(_ context.Context, id uuid.UUID, n domain.Name) error
 	}
 	u := s.users[id]
 	u.Name = n
+	s.users[id] = u
+	return nil
+}
+
+func (s *store) SaveEmailChange(_ context.Context, c app.EmailChange) error {
+	if err := s.fail["SaveEmailChange"]; err != nil {
+		return err
+	}
+	s.changes[c.UserID] = c
+	return nil
+}
+
+func (s *store) EmailChangeOf(_ context.Context, userID uuid.UUID) (app.EmailChange, error) {
+	if err := s.fail["EmailChangeOf"]; err != nil {
+		return app.EmailChange{}, err
+	}
+	c, ok := s.changes[userID]
+	if !ok {
+		return app.EmailChange{}, app.ErrNotFound
+	}
+	return c, nil
+}
+
+func (s *store) TakeEmailChange(_ context.Context, hash []byte) (app.EmailChange, error) {
+	if err := s.fail["TakeEmailChange"]; err != nil {
+		return app.EmailChange{}, err
+	}
+	for id, c := range s.changes {
+		if string(c.TokenHash) == string(hash) {
+			delete(s.changes, id)
+			return c, nil
+		}
+	}
+	return app.EmailChange{}, app.ErrNotFound
+}
+
+func (s *store) DeleteEmailChange(_ context.Context, userID uuid.UUID) error {
+	delete(s.changes, userID)
+	return s.fail["DeleteEmailChange"]
+}
+
+func (s *store) UpdateEmail(_ context.Context, id uuid.UUID, e domain.Email) error {
+	if err := s.fail["UpdateEmail"]; err != nil {
+		return err
+	}
+	for other, u := range s.users {
+		if other != id && u.Email == e {
+			return app.ErrEmailTaken
+		}
+	}
+	u := s.users[id]
+	u.Email = e
 	s.users[id] = u
 	return nil
 }
