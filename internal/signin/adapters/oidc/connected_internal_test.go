@@ -108,6 +108,9 @@ func (f *fakeApps) Consented(_ context.Context, user uuid.UUID, reg, client stri
 func (f *fakeApps) Consent(_ context.Context, user uuid.UUID, reg, client string) (uuid.UUID, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.refuse != nil {
+		return uuid.Nil, f.refuse
+	}
 	id := uuid.New()
 	f.consents[consentKey(user, reg, client)] = id
 	f.apps[id] = consented{user: user, reg: reg, client: client}

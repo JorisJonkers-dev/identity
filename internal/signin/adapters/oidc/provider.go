@@ -24,6 +24,8 @@ const (
 	twoFactorSetupPath = "/security/two-factor?for=step-up"
 	// consentPath is the web app's page where a User consents to a Connected App (identity#23).
 	consentPath = "/connect"
+	// consentAPIPath is where that page reads the request and answers it.
+	consentAPIPath = "/oidc/consent"
 	// bindingCookie ties an authorization request to the browser that started it.
 	bindingCookie = "__Host-identity_authorize"
 )
@@ -65,6 +67,7 @@ func New(cfg Config, svc *app.Service, machines *app.MachineSignIn, apps Connect
 		return nil, err
 	}
 	l := &login{svc: svc, cookie: cfg.SessionCookie, callback: op.AuthCallbackURL(provider), logger: logger}
+	c := &consent{svc: svc, cookie: cfg.SessionCookie, issuer: op.IssuerFromContext, callback: op.AuthCallbackURL(provider), logger: logger}
 	mux := http.NewServeMux()
 	issued := op.NewIssuerInterceptor(provider.IssuerFromRequest)
 	mux.Handle("/oidc/authorize", resources(bind(provider)))
@@ -73,6 +76,8 @@ func New(cfg Config, svc *app.Service, machines *app.MachineSignIn, apps Connect
 	mux.Handle("GET /.well-known/oauth-protected-resource/{host}", issued.HandlerFunc(resourceMetadata(apps, store)))
 	mux.Handle("/oidc/authorize/callback", bound(provider)) // every method: bound refuses all but GET
 	mux.Handle("GET "+loginPath, issued.Handler(l))
+	mux.Handle("GET "+consentAPIPath, issued.HandlerFunc(c.prompt))
+	mux.Handle("POST "+consentAPIPath, issued.HandlerFunc(c.answer))
 	mux.Handle("/oidc/token", grants(provider))
 	mux.Handle("/", provider)
 	return mux, nil

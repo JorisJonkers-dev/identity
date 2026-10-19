@@ -145,15 +145,6 @@ func TestAConsentForAClientThatTakesNoConnectedAppsIsRefused(t *testing.T) {
 	}
 }
 
-func TestAConnectedAppsRequestWantsAsFreshASessionAsItsClient(t *testing.T) {
-	f, c, r := connectedFixture(t)
-	f.SetStepUps(&settings{minutes: map[string]int{"spa": 15}})
-	f.accounts.twoFactor = true
-	if err := f.Approve(ctx, r.ID, "tok"); !errors.Is(err, app.ErrStepUpNeeded) || len(c.given) != 0 {
-		t.Fatalf("err = %v", err)
-	}
-}
-
 func TestOnlyAConnectedAppsLiveRequestIsAskedAbout(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -250,5 +241,14 @@ func TestASignInThatIsNoConnectedAppsCannotBeDenied(t *testing.T) {
 	}
 	if _, err := f.Request(ctx, r.ID); err != nil {
 		t.Fatalf("the sign-in is gone: %v", err)
+	}
+}
+
+func TestAConnectedAppsRequestAsksNoFreshTwoFactor(t *testing.T) {
+	f, c, r := connectedFixture(t)
+	f.SetStepUps(&settings{minutes: map[string]int{"spa": 15}})
+	c.given[key(f.accounts.ada, "mcp-1", "spa")] = true
+	if err := f.Complete(ctx, r.ID, "tok"); err != nil {
+		t.Fatalf("err = %v", err)
 	}
 }

@@ -162,7 +162,7 @@ func (s *Service) Complete(ctx context.Context, id uuid.UUID, sessionToken strin
 	if r.Resource != "" {
 		return s.completeConnected(ctx, r, signIn)
 	}
-	if _, err := s.admit(ctx, signIn, r.ClientID); err != nil {
+	if err := s.admit(ctx, signIn, r.ClientID); err != nil {
 		return err
 	}
 	if err := s.complete(ctx, r, signIn); err != nil {
@@ -176,12 +176,13 @@ func (s *Service) Complete(ctx context.Context, id uuid.UUID, sessionToken strin
 }
 
 // completeConnected completes a Connected App's request the User consented to before. Its
-// sign-in is not one to the Client, so no back-channel logout or Audit Event follows it.
+// sign-in is not one to the Client, so no back-channel logout or Audit Event follows it. A Client
+// asking for step-up takes no Connected Apps, so no session freshness is asked.
 func (s *Service) completeConnected(ctx context.Context, r domain.AuthRequest, signIn domain.SignIn) error {
 	if s.consents == nil {
 		return ErrNotConnectable
 	}
-	if _, err := s.admit(ctx, signIn, r.Resource); err != nil {
+	if _, err := s.held(ctx, signIn, r.Resource); err != nil {
 		return err
 	}
 	if err := s.consents.Consented(ctx, signIn.UserID, r.ClientID, r.Resource); err != nil {
@@ -190,9 +191,17 @@ func (s *Service) completeConnected(ctx context.Context, r domain.AuthRequest, s
 	return s.complete(ctx, r, signIn)
 }
 
-// admit is the User's App Roles on a Client, while they hold one and their session is as fresh
-// as the Client wants.
-func (s *Service) admit(ctx context.Context, signIn domain.SignIn, clientID string) ([]string, error) {
+// admit lets a User sign in to a Client while they hold an App Role there and their session is as
+// fresh as the Client wants.
+func (s *Service) admit(ctx context.Context, signIn domain.SignIn, clientID string) error {
+	if _, err := s.held(ctx, signIn, clientID); err != nil {
+		return err
+	}
+	return s.fresh(ctx, signIn, clientID)
+}
+
+// held is the User's App Roles on a Client; ErrNoAccess, as an Audit Event, when they hold none.
+func (s *Service) held(ctx context.Context, signIn domain.SignIn, clientID string) ([]string, error) {
 	roles, err := s.Roles(ctx, signIn.UserID, clientID)
 	if err != nil {
 		return nil, err
@@ -201,7 +210,7 @@ func (s *Service) admit(ctx context.Context, signIn domain.SignIn, clientID stri
 		s.audit.Record(ctx, audit.Event{Action: audit.SignInFailed, User: signIn.UserID, Client: clientID, Reason: audit.ReasonNoAccess})
 		return nil, ErrNoAccess
 	}
-	return roles, s.fresh(ctx, signIn, clientID)
+	return roles, nil
 }
 
 func (s *Service) complete(ctx context.Context, r domain.AuthRequest, signIn domain.SignIn) error {

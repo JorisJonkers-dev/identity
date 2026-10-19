@@ -51,7 +51,7 @@ func (s *Service) Prompt(ctx context.Context, id uuid.UUID, sessionToken string)
 	if err != nil {
 		return Prompt{}, err
 	}
-	roles, err := s.admit(ctx, signIn, r.Resource)
+	roles, err := s.held(ctx, signIn, r.Resource)
 	if err != nil {
 		return Prompt{}, err
 	}
@@ -68,7 +68,7 @@ func (s *Service) Approve(ctx context.Context, id uuid.UUID, sessionToken string
 	if err != nil {
 		return err
 	}
-	if _, err := s.admit(ctx, signIn, r.Resource); err != nil {
+	if _, err := s.held(ctx, signIn, r.Resource); err != nil {
 		return err
 	}
 	if err := s.consents.Consent(ctx, signIn.UserID, r.ClientID, r.Resource); err != nil {
