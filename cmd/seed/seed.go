@@ -61,7 +61,7 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer, logg
 	built, err := assembly.New(ctx, assembly.Config{
 		Store: store, PublicURL: "http://localhost:5173", Mailer: mail,
 		Sealer: transit.Key("identity-totp"), KeySealer: transit.Key("identity-signing"), KV: v.KV(),
-		TOTPMatch: devcode.TOTPMatch(), Index: index, Synced: func() bool { return true },
+		TOTPMatch: devcode.Match, Index: index, Synced: func() bool { return true },
 		Logger: logger, Version: "seed", Now: c.now,
 	})
 	if err != nil {
