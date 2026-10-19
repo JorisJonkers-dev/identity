@@ -32,9 +32,9 @@ func grafanaRoles(t *testing.T, ada *itest.Browser) []string {
 
 // heldBack is identity with Ada in Family, which requires two-factor and gives Grafana viewer, and
 // in Friends, which gives Grafana user; Ada has no two-factor.
-func heldBack(t *testing.T) (env *itest.Env, admin, ada *itest.Browser, family string) {
+func heldBack(t *testing.T) (admin, ada *itest.Browser, family string) {
 	t.Helper()
-	env = itest.Start(t, grafana)
+	env := itest.Start(t, grafana)
 	admin = env.Admin(t, "root@example.org")
 	ada = env.SignedUp(t, "ada@example.org")
 	adaID := admin.UserID(t, ada.Email)
@@ -46,12 +46,12 @@ func heldBack(t *testing.T) (env *itest.Env, admin, ada *itest.Browser, family s
 		admin.Call(t, http.MethodPut, "/api/v1/access/groups/"+g+"/roles/grafana/"+role, nil, http.StatusNoContent, nil)
 	}
 	admin.Call(t, http.MethodPut, "/api/v1/access/groups/"+family+"/two-factor", map[string]bool{"required": true}, http.StatusNoContent, nil)
-	return env, admin, ada, family
+	return admin, ada, family
 }
 
 func TestAnAdminMakesAGroupRequireTwoFactor(t *testing.T) {
 	t.Parallel()
-	_, admin, _, family := heldBack(t)
+	admin, _, family := heldBack(t)
 	if g, _ := find(read(t, admin), family); !g.RequiresTwoFactor {
 		t.Fatalf("Family = %+v", g)
 	}
@@ -59,7 +59,7 @@ func TestAnAdminMakesAGroupRequireTwoFactor(t *testing.T) {
 
 func TestAnAdminStopsAGroupRequiringTwoFactor(t *testing.T) {
 	t.Parallel()
-	_, admin, ada, family := heldBack(t)
+	admin, ada, family := heldBack(t)
 	admin.Call(t, http.MethodPut, "/api/v1/access/groups/"+family+"/two-factor", map[string]bool{"required": false}, http.StatusNoContent, nil)
 	if got := grafanaRoles(t, ada); !slices.Equal(got, []string{"user", "viewer"}) {
 		t.Fatalf("roles = %v", got)
@@ -80,7 +80,7 @@ func TestTheAdminsGroupAlwaysRequiresTwoFactor(t *testing.T) {
 
 func TestAMemberWithoutTwoFactorHoldsNoneOfATwoFactorGroupsRolesButKeepsTheOthers(t *testing.T) {
 	t.Parallel()
-	_, _, ada, _ := heldBack(t)
+	_, ada, _ := heldBack(t)
 	if got := grafanaRoles(t, ada); !slices.Equal(got, []string{"user"}) {
 		t.Fatalf("roles = %v", got)
 	}
@@ -88,7 +88,7 @@ func TestAMemberWithoutTwoFactorHoldsNoneOfATwoFactorGroupsRolesButKeepsTheOther
 
 func TestSettingUpTwoFactorGivesTheRolesBackAtOnce(t *testing.T) {
 	t.Parallel()
-	_, _, ada, _ := heldBack(t)
+	_, ada, _ := heldBack(t)
 	ada.AddAuthenticator(t)
 	if got := grafanaRoles(t, ada); !slices.Equal(got, []string{"user", "viewer"}) {
 		t.Fatalf("roles = %v", got)
@@ -97,7 +97,7 @@ func TestSettingUpTwoFactorGivesTheRolesBackAtOnce(t *testing.T) {
 
 func TestRemovingTheLastTwoFactorMethodHoldsTheRolesBackAgain(t *testing.T) {
 	t.Parallel()
-	_, _, ada, _ := heldBack(t)
+	_, ada, _ := heldBack(t)
 	ada.AddAuthenticator(t)
 	var f struct{ Factors []struct{ ID string } }
 	ada.Call(t, http.MethodGet, "/api/v1/profile/second-factors", nil, http.StatusOK, &f)
@@ -109,7 +109,7 @@ func TestRemovingTheLastTwoFactorMethodHoldsTheRolesBackAgain(t *testing.T) {
 
 func TestADirectRoleIsNeverHeldBack(t *testing.T) {
 	t.Parallel()
-	_, admin, ada, _ := heldBack(t)
+	admin, ada, _ := heldBack(t)
 	admin.Call(t, http.MethodPut, "/api/v1/access/users/"+admin.UserID(t, ada.Email)+"/roles/grafana/editor", nil, http.StatusNoContent, nil)
 	if got := grafanaRoles(t, ada); !slices.Equal(got, []string{"editor", "user"}) {
 		t.Fatalf("roles = %v", got)
@@ -137,7 +137,7 @@ func TestTheAccessPageSaysWhoHasTwoFactor(t *testing.T) {
 
 func TestMarkingAGroupIsAnAuditEvent(t *testing.T) {
 	t.Parallel()
-	_, admin, _, _ := heldBack(t)
+	admin, _, _ := heldBack(t)
 	var page struct {
 		Events []struct {
 			Action, GroupName string
