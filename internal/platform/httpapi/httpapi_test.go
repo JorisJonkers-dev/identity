@@ -61,8 +61,12 @@ func (users) StepUpWithPasskey(context.Context, string, []byte) error { return n
 func (users) Devices(context.Context, uuid.UUID, string) ([]app.Device, error) {
 	return nil, nil
 }
-func (users) SignOutDevice(context.Context, uuid.UUID, uuid.UUID) error    { return nil }
-func (users) SignOutOtherDevices(context.Context, uuid.UUID, string) error { return nil }
+func (users) AskEmailChange(context.Context, uuid.UUID, string, string) error { return nil }
+func (users) PendingEmail(context.Context, uuid.UUID) (string, error)         { return "", nil }
+func (users) CancelEmailChange(context.Context, uuid.UUID) error              { return nil }
+func (users) ConfirmEmailChange(context.Context, string) error                { return nil }
+func (users) SignOutDevice(context.Context, uuid.UUID, uuid.UUID) error       { return nil }
+func (users) SignOutOtherDevices(context.Context, uuid.UUID, string) error    { return nil }
 func (users) ConfirmPasskey(context.Context, uuid.UUID, string, string, []byte, string) error {
 	return nil
 }

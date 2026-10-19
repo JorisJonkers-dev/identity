@@ -130,6 +130,11 @@ func (*AddMemberNoContent) addMemberRes() {}
 
 type AppRole string
 
+// AskEmailChangeAccepted is response for AskEmailChange operation.
+type AskEmailChangeAccepted struct{}
+
+func (*AskEmailChangeAccepted) askEmailChangeRes() {}
+
 // AssignRoleNoContent is response for AssignRole operation.
 type AssignRoleNoContent struct{}
 
@@ -202,6 +207,7 @@ const (
 	AuditActionTokenMinted         AuditAction = "token-minted"
 	AuditActionTokenRevoked        AuditAction = "token-revoked"
 	AuditActionClientSecretRotated AuditAction = "client-secret-rotated"
+	AuditActionEmailChanged        AuditAction = "email-changed"
 	AuditActionStepUpChanged       AuditAction = "step-up-changed"
 )
 
@@ -227,6 +233,7 @@ func (AuditAction) AllValues() []AuditAction {
 		AuditActionTokenMinted,
 		AuditActionTokenRevoked,
 		AuditActionClientSecretRotated,
+		AuditActionEmailChanged,
 		AuditActionStepUpChanged,
 	}
 }
@@ -271,6 +278,8 @@ func (s AuditAction) MarshalText() ([]byte, error) {
 	case AuditActionTokenRevoked:
 		return []byte(s), nil
 	case AuditActionClientSecretRotated:
+		return []byte(s), nil
+	case AuditActionEmailChanged:
 		return []byte(s), nil
 	case AuditActionStepUpChanged:
 		return []byte(s), nil
@@ -338,6 +347,9 @@ func (s *AuditAction) UnmarshalText(data []byte) error {
 		return nil
 	case AuditActionClientSecretRotated:
 		*s = AuditActionClientSecretRotated
+		return nil
+	case AuditActionEmailChanged:
+		*s = AuditActionEmailChanged
 		return nil
 	case AuditActionStepUpChanged:
 		*s = AuditActionStepUpChanged
@@ -709,6 +721,11 @@ func (s *AuditPerson) SetName(val OptString) {
 	s.Name = val
 }
 
+// CancelEmailChangeNoContent is response for CancelEmailChange operation.
+type CancelEmailChangeNoContent struct{}
+
+func (*CancelEmailChangeNoContent) cancelEmailChangeRes() {}
+
 type Challenge struct {
 	APIKey string
 	Roles  []string
@@ -774,6 +791,11 @@ func (s *CompleteSignInWithPasskeyNoContent) SetSetCookie(val string) {
 }
 
 func (*CompleteSignInWithPasskeyNoContent) completeSignInWithPasskeyRes() {}
+
+// ConfirmEmailChangeNoContent is response for ConfirmEmailChange operation.
+type ConfirmEmailChangeNoContent struct{}
+
+func (*ConfirmEmailChangeNoContent) confirmEmailChangeRes() {}
 
 // ConfirmEmailNoContent is response for ConfirmEmail operation.
 type ConfirmEmailNoContent struct{}
@@ -1018,6 +1040,33 @@ func (*Devices) listDevicesRes() {}
 
 type Email string
 
+// A new sign-in email, with the User's password.
+// Ref: #/components/schemas/EmailChange
+type EmailChange struct {
+	Email    Email    `json:"email"`
+	Password Password `json:"password"`
+}
+
+// GetEmail returns the value of Email.
+func (s *EmailChange) GetEmail() Email {
+	return s.Email
+}
+
+// GetPassword returns the value of Password.
+func (s *EmailChange) GetPassword() Password {
+	return s.Password
+}
+
+// SetEmail sets the value of Email.
+func (s *EmailChange) SetEmail(val Email) {
+	s.Email = val
+}
+
+// SetPassword sets the value of Password.
+func (s *EmailChange) SetPassword(val Password) {
+	s.Password = val
+}
+
 // A named set of Users.
 // Ref: #/components/schemas/Group
 type Group struct {
@@ -1184,6 +1233,23 @@ func (s *LauncherApp) SetIconUrl(val OptString) {
 // SetRoles sets the value of Roles.
 func (s *LauncherApp) SetRoles(val []AppRole) {
 	s.Roles = val
+}
+
+// The token a mailed link carried.
+// Ref: #/components/schemas/LinkToken
+type LinkToken struct {
+	// The token the link carried.
+	Token string `json:"token"`
+}
+
+// GetToken returns the value of Token.
+func (s *LinkToken) GetToken() string {
+	return s.Token
+}
+
+// SetToken sets the value of Token.
+func (s *LinkToken) SetToken(val string) {
+	s.Token = val
 }
 
 // A new token, and its secret, which is shown only here.
@@ -2237,11 +2303,14 @@ func (s *ProblemStatusCode) SetResponse(val Problem) {
 }
 
 func (*ProblemStatusCode) addMemberRes()                 {}
+func (*ProblemStatusCode) askEmailChangeRes()            {}
 func (*ProblemStatusCode) assignRoleRes()                {}
 func (*ProblemStatusCode) assignUserRoleRes()            {}
+func (*ProblemStatusCode) cancelEmailChangeRes()         {}
 func (*ProblemStatusCode) changePasswordRes()            {}
 func (*ProblemStatusCode) completeSignInRes()            {}
 func (*ProblemStatusCode) completeSignInWithPasskeyRes() {}
+func (*ProblemStatusCode) confirmEmailChangeRes()        {}
 func (*ProblemStatusCode) confirmEmailRes()              {}
 func (*ProblemStatusCode) confirmPasskeyRes()            {}
 func (*ProblemStatusCode) confirmTOTPRes()               {}
@@ -2289,8 +2358,9 @@ type Profile struct {
 	// Whether this session was proved with a Second Factor, which the admin pages need.
 	SecondFactor bool `json:"secondFactor"`
 	// Whether the User is an Admin, who manages access. An Admin holds no App Role by being one.
-	Admin bool  `json:"admin"`
-	Email Email `json:"email"`
+	Admin        bool     `json:"admin"`
+	Email        Email    `json:"email"`
+	PendingEmail OptEmail `json:"pendingEmail"`
 	// What the User is called.
 	Name string `json:"name"`
 	// When the User signed up.
@@ -2310,6 +2380,11 @@ func (s *Profile) GetAdmin() bool {
 // GetEmail returns the value of Email.
 func (s *Profile) GetEmail() Email {
 	return s.Email
+}
+
+// GetPendingEmail returns the value of PendingEmail.
+func (s *Profile) GetPendingEmail() OptEmail {
+	return s.PendingEmail
 }
 
 // GetName returns the value of Name.
@@ -2335,6 +2410,11 @@ func (s *Profile) SetAdmin(val bool) {
 // SetEmail sets the value of Email.
 func (s *Profile) SetEmail(val Email) {
 	s.Email = val
+}
+
+// SetPendingEmail sets the value of PendingEmail.
+func (s *Profile) SetPendingEmail(val OptEmail) {
+	s.PendingEmail = val
 }
 
 // SetName sets the value of Name.

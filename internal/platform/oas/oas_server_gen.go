@@ -14,6 +14,13 @@ type Handler interface {
 	//
 	// PUT /api/v1/access/groups/{groupId}/members/{userId}
 	AddMember(ctx context.Context, params AddMemberParams) (AddMemberRes, error)
+	// AskEmailChange implements askEmailChange operation.
+	//
+	// Mails the new address a link that makes it the sign-in email once followed; until then the current
+	// one stays. Needs the User's password. An address in use gets the same answer.
+	//
+	// POST /api/v1/profile/email-change
+	AskEmailChange(ctx context.Context, req *EmailChange) (AskEmailChangeRes, error)
 	// AssignRole implements assignRole operation.
 	//
 	// Makes an Assignment. The Client must be in the cluster and declare the App Role, and the admins
@@ -28,6 +35,12 @@ type Handler interface {
 	//
 	// PUT /api/v1/access/users/{userId}/roles/{clientId}/{role}
 	AssignUserRole(ctx context.Context, params AssignUserRoleParams) (AssignUserRoleRes, error)
+	// CancelEmailChange implements cancelEmailChange operation.
+	//
+	// The link stops working; the sign-in email stays as it is.
+	//
+	// DELETE /api/v1/profile/email-change
+	CancelEmailChange(ctx context.Context) (CancelEmailChangeRes, error)
 	// ChangePassword implements changePassword operation.
 	//
 	// Replaces the password after checking the current one.
@@ -55,6 +68,14 @@ type Handler interface {
 	//
 	// POST /api/v1/confirmations
 	ConfirmEmail(ctx context.Context, req *Confirmation) (ConfirmEmailRes, error)
+	// ConfirmEmailChange implements confirmEmailChange operation.
+	//
+	// Makes the address a change link was mailed to the User's sign-in email, and tells the old address.
+	// The link works once, for 24 hours; a link for an address taken since fails the same way as a spent
+	// one.
+	//
+	// POST /api/v1/email-changes/confirmation
+	ConfirmEmailChange(ctx context.Context, req *LinkToken) (ConfirmEmailChangeRes, error)
 	// ConfirmPasskey implements confirmPasskey operation.
 	//
 	// Keeps the passkey the browser made, given the User's password. A User who already has a Second

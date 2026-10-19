@@ -49,6 +49,41 @@ func encodeAddMemberResponse(response AddMemberRes, w http.ResponseWriter, span 
 	}
 }
 
+func encodeAskEmailChangeResponse(response AskEmailChangeRes, w http.ResponseWriter, span trace.Span) error {
+	switch response := response.(type) {
+	case *AskEmailChangeAccepted:
+		w.WriteHeader(202)
+
+		return nil
+
+	case *ProblemStatusCode:
+		w.Header().Set("Content-Type", "application/problem+json")
+		code := response.StatusCode
+		if code == 0 {
+			// Set default status code.
+			code = http.StatusOK
+		}
+		w.WriteHeader(code)
+		if code >= http.StatusInternalServerError {
+			span.SetStatus(codes.Error, http.StatusText(code))
+		}
+
+		e := new(jx.Encoder)
+		response.Response.Encode(e)
+		if _, err := e.WriteTo(w); err != nil {
+			return errors.Wrap(err, "write")
+		}
+
+		if code >= http.StatusInternalServerError {
+			return errors.Wrapf(ht.ErrInternalServerErrorResponse, "code: %d, message: %s", code, http.StatusText(code))
+		}
+		return nil
+
+	default:
+		return errors.Errorf("unexpected response type: %T", response)
+	}
+}
+
 func encodeAssignRoleResponse(response AssignRoleRes, w http.ResponseWriter, span trace.Span) error {
 	switch response := response.(type) {
 	case *AssignRoleNoContent:
@@ -87,6 +122,41 @@ func encodeAssignRoleResponse(response AssignRoleRes, w http.ResponseWriter, spa
 func encodeAssignUserRoleResponse(response AssignUserRoleRes, w http.ResponseWriter, span trace.Span) error {
 	switch response := response.(type) {
 	case *AssignUserRoleNoContent:
+		w.WriteHeader(204)
+
+		return nil
+
+	case *ProblemStatusCode:
+		w.Header().Set("Content-Type", "application/problem+json")
+		code := response.StatusCode
+		if code == 0 {
+			// Set default status code.
+			code = http.StatusOK
+		}
+		w.WriteHeader(code)
+		if code >= http.StatusInternalServerError {
+			span.SetStatus(codes.Error, http.StatusText(code))
+		}
+
+		e := new(jx.Encoder)
+		response.Response.Encode(e)
+		if _, err := e.WriteTo(w); err != nil {
+			return errors.Wrap(err, "write")
+		}
+
+		if code >= http.StatusInternalServerError {
+			return errors.Wrapf(ht.ErrInternalServerErrorResponse, "code: %d, message: %s", code, http.StatusText(code))
+		}
+		return nil
+
+	default:
+		return errors.Errorf("unexpected response type: %T", response)
+	}
+}
+
+func encodeCancelEmailChangeResponse(response CancelEmailChangeRes, w http.ResponseWriter, span trace.Span) error {
+	switch response := response.(type) {
+	case *CancelEmailChangeNoContent:
 		w.WriteHeader(204)
 
 		return nil
@@ -261,6 +331,41 @@ func encodeCompleteSignInWithPasskeyResponse(response CompleteSignInWithPasskeyR
 func encodeConfirmEmailResponse(response ConfirmEmailRes, w http.ResponseWriter, span trace.Span) error {
 	switch response := response.(type) {
 	case *ConfirmEmailNoContent:
+		w.WriteHeader(204)
+
+		return nil
+
+	case *ProblemStatusCode:
+		w.Header().Set("Content-Type", "application/problem+json")
+		code := response.StatusCode
+		if code == 0 {
+			// Set default status code.
+			code = http.StatusOK
+		}
+		w.WriteHeader(code)
+		if code >= http.StatusInternalServerError {
+			span.SetStatus(codes.Error, http.StatusText(code))
+		}
+
+		e := new(jx.Encoder)
+		response.Response.Encode(e)
+		if _, err := e.WriteTo(w); err != nil {
+			return errors.Wrap(err, "write")
+		}
+
+		if code >= http.StatusInternalServerError {
+			return errors.Wrapf(ht.ErrInternalServerErrorResponse, "code: %d, message: %s", code, http.StatusText(code))
+		}
+		return nil
+
+	default:
+		return errors.Errorf("unexpected response type: %T", response)
+	}
+}
+
+func encodeConfirmEmailChangeResponse(response ConfirmEmailChangeRes, w http.ResponseWriter, span trace.Span) error {
+	switch response := response.(type) {
+	case *ConfirmEmailChangeNoContent:
 		w.WriteHeader(204)
 
 		return nil

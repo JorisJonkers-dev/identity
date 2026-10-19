@@ -16,5 +16,8 @@ overrides:
       - "v1/openapi.yaml#/paths/~1api~1v1~1signup/post"
       - "v1/openapi.yaml#/paths/~1api~1v1~1confirmations/post"
       - "v1/openapi.yaml#/paths/~1api~1v1~1session/post"
+  # The link mailed to a new address is followed in whatever browser opens the mail, signed in or
+  # not; the link's token is the proof.
+      - "v1/openapi.yaml#/paths/~1api~1v1~1email-changes~1confirmation/post"
     rules:
       owasp:api2:2023-write-restricted: off

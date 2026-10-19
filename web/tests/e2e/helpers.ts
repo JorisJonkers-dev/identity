@@ -50,7 +50,12 @@ export async function toAdmin(page: Page) {
 }
 
 /** The confirmation link Mailpit received for to, waiting for it to arrive. */
-export async function confirmationLink(page: Page, to: string): Promise<string> {
+export function confirmationLink(page: Page, to: string): Promise<string> {
+  return mailedLink(page, to, '/confirm')
+}
+
+/** The newest link to path in the mail Mailpit received for to, waiting for it to arrive. */
+export async function mailedLink(page: Page, to: string, path: string): Promise<string> {
   let link = ''
   await expect(async () => {
     const search = await page.request.get(`${mailpit}/api/v1/search?query=${encodeURIComponent(`to:"${to}"`)}`)
@@ -58,7 +63,7 @@ export async function confirmationLink(page: Page, to: string): Promise<string> 
     expect(messages.length).toBeGreaterThan(0)
     const message = await page.request.get(`${mailpit}/api/v1/message/${messages[0]?.ID ?? ''}`)
     const { Text } = (await message.json()) as { Text: string }
-    link = /https?:\/\/\S+\/confirm\?token=\S+/.exec(Text)?.[0] ?? ''
+    link = new RegExp(`https?://\\S+${path}\\?token=\\S+`).exec(Text)?.[0] ?? ''
     expect(link).not.toBe('')
   }).toPass({ timeout: 10_000 })
   return link

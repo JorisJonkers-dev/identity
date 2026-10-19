@@ -106,6 +106,29 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/email-changes/confirmation:
+    post:
+      operationId: confirmEmailChange
+      summary: Confirm a new sign-in email
+      description: >-
+        Makes the address a change link was mailed to the User's sign-in email, and tells the old
+        address. The link works once, for 24 hours; a link for an address taken since fails the
+        same way as a spent one.
+      tags: [account]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinkToken"
+      responses:
+        "204":
+          description: The User signs in with the new email.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /api/v1/session:
     post:
       operationId: signIn
@@ -223,6 +246,39 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Profile"
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/profile/email-change:
+    post:
+      operationId: askEmailChange
+      summary: Ask to change the sign-in email
+      description: >-
+        Mails the new address a link that makes it the sign-in email once followed; until then the
+        current one stays. Needs the User's password. An address in use gets the same answer.
+      tags: [profile]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailChange"
+      responses:
+        "202":
+          description: The link is on its way.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: cancelEmailChange
+      summary: Cancel a pending email change
+      description: The link stops working; the sign-in email stays as it is.
+      tags: [profile]
+      responses:
+        "204":
+          description: No change is pending.
         "4XX":
           $ref: "#/components/responses/Problem"
         default:
@@ -1063,6 +1119,7 @@ components:
         - token-minted
         - token-revoked
         - client-secret-rotated
+        - email-changed
         - step-up-changed
     AuditCursor:
       description: Where a page of Audit Events ends; opaque.
@@ -1357,6 +1414,27 @@ components:
           example: Ada Lovelace
         password:
           $ref: "#/components/schemas/Password"
+    LinkToken:
+      description: The token a mailed link carried.
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: The token the link carried.
+    EmailChange:
+      description: A new sign-in email, with the User's password.
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email:
+          $ref: "#/components/schemas/Email"
+        password:
+          $ref: "#/components/schemas/Password"
     Confirmation:
       description: >-
         A confirmation token from a mailed link, with the password chosen at sign-up, so a link
@@ -1400,6 +1478,8 @@ components:
           type: boolean
           description: Whether the User is an Admin, who manages access. An Admin holds no App Role by being one.
         email:
+          $ref: "#/components/schemas/Email"
+        pendingEmail:
           $ref: "#/components/schemas/Email"
         name:
           type: string

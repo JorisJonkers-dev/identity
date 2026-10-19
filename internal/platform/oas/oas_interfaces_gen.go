@@ -5,12 +5,20 @@ type AddMemberRes interface {
 	addMemberRes()
 }
 
+type AskEmailChangeRes interface {
+	askEmailChangeRes()
+}
+
 type AssignRoleRes interface {
 	assignRoleRes()
 }
 
 type AssignUserRoleRes interface {
 	assignUserRoleRes()
+}
+
+type CancelEmailChangeRes interface {
+	cancelEmailChangeRes()
 }
 
 type ChangePasswordRes interface {
@@ -23,6 +31,10 @@ type CompleteSignInRes interface {
 
 type CompleteSignInWithPasskeyRes interface {
 	completeSignInWithPasskeyRes()
+}
+
+type ConfirmEmailChangeRes interface {
+	confirmEmailChangeRes()
 }
 
 type ConfirmEmailRes interface {

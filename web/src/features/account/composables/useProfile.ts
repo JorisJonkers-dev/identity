@@ -1,6 +1,8 @@
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed } from 'vue'
 import {
+  askEmailChangeMutation,
+  cancelEmailChangeMutation,
   changePasswordMutation,
   getProfileOptions,
   getProfileQueryKey,
@@ -15,6 +17,9 @@ export function useProfile() {
   const queryClient = useQueryClient()
   const query = useQuery({ ...getProfileOptions(), retry: false })
   const rename = useAction(updateProfileMutation())
+  const ask = useAction(askEmailChangeMutation())
+  const cancel = useAction(cancelEmailChangeMutation())
+  const refresh = () => void queryClient.invalidateQueries({ queryKey: getProfileQueryKey() })
   return {
     profile: computed<Profile | undefined>(() => query.data.value),
     loadError: computed(() => (query.error.value ? describeError(query.error.value) : null)),
@@ -25,5 +30,20 @@ export function useProfile() {
       },
     },
     changePassword: useAction(changePasswordMutation()),
+    askEmail: {
+      ...ask,
+      run: (email: string, password: string, done: () => void) => {
+        ask.run({ body: { email, password } }, () => {
+          done()
+          refresh()
+        })
+      },
+    },
+    cancelEmail: {
+      ...cancel,
+      run: () => {
+        cancel.run({}, refresh)
+      },
+    },
   }
 }

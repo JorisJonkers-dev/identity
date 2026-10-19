@@ -183,6 +183,15 @@ func (q *Queries) DeleteChallenge(ctx context.Context, tokenHash []byte) error {
 	return err
 }
 
+const deleteEmailChange = `-- name: DeleteEmailChange :exec
+DELETE FROM email_changes WHERE user_id = $1
+`
+
+func (q *Queries) DeleteEmailChange(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteEmailChange, userID)
+	return err
+}
+
 const deleteOtherSessions = `-- name: DeleteOtherSessions :many
 DELETE FROM sessions WHERE user_id = $1 AND token_hash IS DISTINCT FROM $2::bytea RETURNING id
 `
@@ -292,6 +301,22 @@ func (q *Queries) DeleteTOTPFactor(ctx context.Context, arg DeleteTOTPFactorPara
 	return result.RowsAffected(), nil
 }
 
+const emailChangeOfUser = `-- name: EmailChangeOfUser :one
+SELECT user_id, email, token_hash, expires_at FROM email_changes WHERE user_id = $1
+`
+
+func (q *Queries) EmailChangeOfUser(ctx context.Context, userID uuid.UUID) (EmailChange, error) {
+	row := q.db.QueryRow(ctx, emailChangeOfUser, userID)
+	var i EmailChange
+	err := row.Scan(
+		&i.UserID,
+		&i.Email,
+		&i.TokenHash,
+		&i.ExpiresAt,
+	)
+	return i, err
+}
+
 const listUsers = `-- name: ListUsers :many
 SELECT id, email, name, password_hash, created_at FROM users ORDER BY lower(name), email
 `
@@ -369,6 +394,29 @@ func (q *Queries) PasskeysOfUser(ctx context.Context, userID uuid.UUID) ([]Passk
 		return nil, err
 	}
 	return items, nil
+}
+
+const saveEmailChange = `-- name: SaveEmailChange :exec
+INSERT INTO email_changes (user_id, email, token_hash, expires_at) VALUES ($1, $2, $3, $4)
+ON CONFLICT (user_id) DO UPDATE SET email = EXCLUDED.email, token_hash = EXCLUDED.token_hash, expires_at = EXCLUDED.expires_at
+`
+
+type SaveEmailChangeParams struct {
+	UserID    uuid.UUID
+	Email     string
+	TokenHash []byte
+	ExpiresAt time.Time
+}
+
+// A User has one pending email change; asking again replaces it.
+func (q *Queries) SaveEmailChange(ctx context.Context, arg SaveEmailChangeParams) error {
+	_, err := q.db.Exec(ctx, saveEmailChange,
+		arg.UserID,
+		arg.Email,
+		arg.TokenHash,
+		arg.ExpiresAt,
+	)
+	return err
 }
 
 const sessionByHash = `-- name: SessionByHash :one
@@ -647,6 +695,23 @@ func (q *Queries) TakeChallengeCeremony(ctx context.Context, arg TakeChallengeCe
 	return i, err
 }
 
+const takeEmailChange = `-- name: TakeEmailChange :one
+DELETE FROM email_changes WHERE token_hash = $1 RETURNING user_id, email, token_hash, expires_at
+`
+
+// Following the link spends it, whatever happens next.
+func (q *Queries) TakeEmailChange(ctx context.Context, tokenHash []byte) (EmailChange, error) {
+	row := q.db.QueryRow(ctx, takeEmailChange, tokenHash)
+	var i EmailChange
+	err := row.Scan(
+		&i.UserID,
+		&i.Email,
+		&i.TokenHash,
+		&i.ExpiresAt,
+	)
+	return i, err
+}
+
 const touchSession = `-- name: TouchSession :exec
 UPDATE sessions SET last_seen_at = $2, expires_at = $3 WHERE token_hash = $1
 `
@@ -659,6 +724,20 @@ type TouchSessionParams struct {
 
 func (q *Queries) TouchSession(ctx context.Context, arg TouchSessionParams) error {
 	_, err := q.db.Exec(ctx, touchSession, arg.TokenHash, arg.LastSeenAt, arg.ExpiresAt)
+	return err
+}
+
+const updateEmail = `-- name: UpdateEmail :exec
+UPDATE users SET email = $2 WHERE id = $1
+`
+
+type UpdateEmailParams struct {
+	ID    uuid.UUID
+	Email string
+}
+
+func (q *Queries) UpdateEmail(ctx context.Context, arg UpdateEmailParams) error {
+	_, err := q.db.Exec(ctx, updateEmail, arg.ID, arg.Email)
 	return err
 }
 

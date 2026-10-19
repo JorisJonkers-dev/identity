@@ -25,9 +25,11 @@ const (
 	SignInFailed Action = "sign-in-failed"
 	SignedOut    Action = "signed-out"
 
-	UserCreated         Action = "user-created"
-	UserRenamed         Action = "user-renamed"
-	PasswordChanged     Action = "password-changed"
+	UserCreated     Action = "user-created"
+	UserRenamed     Action = "user-renamed"
+	PasswordChanged Action = "password-changed"
+	// EmailChanged is a User's sign-in email changing; Email is the address it replaced.
+	EmailChanged        Action = "email-changed"
 	SecondFactorAdded   Action = "second-factor-added"
 	SecondFactorRemoved Action = "second-factor-removed"
 	AdminPromoted       Action = "admin-promoted"
@@ -53,7 +55,7 @@ func (a Action) Kind() Kind {
 	switch a {
 	case SignedIn, SignInFailed, SignedOut:
 		return KindSignIn
-	case UserCreated, UserRenamed, PasswordChanged, SecondFactorAdded, SecondFactorRemoved, AdminPromoted:
+	case UserCreated, UserRenamed, PasswordChanged, EmailChanged, SecondFactorAdded, SecondFactorRemoved, AdminPromoted:
 		return KindPeople
 	case GroupCreated, GroupRenamed, GroupDeleted, MemberAdded, MemberRemoved, RoleAssigned, RoleRemoved, ClientSecretRotated, StepUpChanged:
 		return KindAccess

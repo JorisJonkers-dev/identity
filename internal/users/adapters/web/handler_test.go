@@ -34,6 +34,8 @@ type useCases struct {
 	kinds      []string
 	kindsErr   error
 	devices    []app.Device
+	pending    string
+	pendingErr error
 }
 
 func (u *useCases) SignUp(context.Context, string, string, string) error { return u.err }
@@ -92,6 +94,25 @@ func (u *useCases) StepUpPasskeyOptions(_ context.Context, token string) ([]byte
 
 func (u *useCases) StepUpWithPasskey(_ context.Context, token string, response []byte) error {
 	u.asked = append(u.asked, token, string(response))
+	return u.err
+}
+
+func (u *useCases) AskEmailChange(_ context.Context, _ uuid.UUID, email, password string) error {
+	u.asked = append(u.asked, email, password)
+	return u.err
+}
+
+func (u *useCases) PendingEmail(context.Context, uuid.UUID) (string, error) {
+	return u.pending, u.pendingErr
+}
+
+func (u *useCases) CancelEmailChange(context.Context, uuid.UUID) error {
+	u.asked = append(u.asked, "cancel")
+	return u.err
+}
+
+func (u *useCases) ConfirmEmailChange(_ context.Context, token string) error {
+	u.asked = append(u.asked, token)
 	return u.err
 }
 
@@ -717,5 +738,95 @@ func TestADevicesFailureIsPassedOn(t *testing.T) {
 				t.Fatalf("err = %v", err)
 			}
 		})
+	}
+}
+
+func TestAskingForANewEmailSendsTheAddressAndThePassword(t *testing.T) {
+	uc := &useCases{}
+	h := web.New(uc, admins{})
+	res, err := h.AskEmailChange(signedIn(t, h), &oas.EmailChange{Email: "new@example.org", Password: "pw"})
+	if _, ok := res.(*oas.AskEmailChangeAccepted); err != nil || !ok || !slices.Equal(uc.asked, []string{"new@example.org", "pw"}) {
+		t.Fatalf("AskEmailChange = %#v, %v, asked %v", res, err, uc.asked)
+	}
+}
+
+func TestAWrongPasswordForANewEmailSaysSo(t *testing.T) {
+	h := web.New(&useCases{err: app.ErrInvalidCredentials}, admins{})
+	res, err := h.AskEmailChange(context.Background(), &oas.EmailChange{})
+	if p, ok := res.(*oas.ProblemStatusCode); err != nil || !ok || p.StatusCode != http.StatusUnprocessableEntity || p.Response.Detail.Value != "Your password is wrong. Enter it again." {
+		t.Fatalf("AskEmailChange = %#v, %v", res, err)
+	}
+}
+
+func TestAnInvalidNewEmailIsRefused(t *testing.T) {
+	h := web.New(&useCases{err: domain.ErrInvalidEmail}, admins{})
+	res, err := h.AskEmailChange(context.Background(), &oas.EmailChange{})
+	if p, ok := res.(*oas.ProblemStatusCode); err != nil || !ok || p.Response.Detail.Value != "Enter a valid email address." {
+		t.Fatalf("AskEmailChange = %#v, %v", res, err)
+	}
+}
+
+func TestCancellingAnEmailChangeAnswersNoContent(t *testing.T) {
+	uc := &useCases{}
+	h := web.New(uc, admins{})
+	res, err := h.CancelEmailChange(signedIn(t, h))
+	if _, ok := res.(*oas.CancelEmailChangeNoContent); err != nil || !ok || uc.asked[0] != "cancel" {
+		t.Fatalf("CancelEmailChange = %#v, %v", res, err)
+	}
+}
+
+func TestConfirmingAnEmailChangeSendsTheToken(t *testing.T) {
+	uc := &useCases{}
+	res, err := web.New(uc, admins{}).ConfirmEmailChange(context.Background(), &oas.LinkToken{Token: "tok-1"})
+	if _, ok := res.(*oas.ConfirmEmailChangeNoContent); err != nil || !ok || uc.asked[0] != "tok-1" {
+		t.Fatalf("ConfirmEmailChange = %#v, %v", res, err)
+	}
+}
+
+func TestASpentEmailChangeLinkFailsTheSameWayAsAnyOther(t *testing.T) {
+	res, err := web.New(&useCases{err: app.ErrInvalidToken}, admins{}).ConfirmEmailChange(context.Background(), &oas.LinkToken{})
+	if p, ok := res.(*oas.ProblemStatusCode); err != nil || !ok || p.StatusCode != http.StatusUnprocessableEntity || p.Response.Detail.Value != "This link has expired or was already used. Ask for a new one on the Account page." {
+		t.Fatalf("ConfirmEmailChange = %#v, %v", res, err)
+	}
+}
+
+func TestTheProfileShowsAPendingEmail(t *testing.T) {
+	uc := &useCases{pending: "new@example.org"}
+	h := web.New(uc, admins{})
+	res, err := h.GetProfile(signedIn(t, h))
+	if p, ok := res.(*oas.Profile); err != nil || !ok || p.PendingEmail != oas.NewOptEmail("new@example.org") {
+		t.Fatalf("GetProfile = %#v, %v", res, err)
+	}
+}
+
+func TestAnEmailChangeFailureIsPassedOn(t *testing.T) {
+	for _, op := range []struct {
+		name string
+		call func(h *web.Handler, ctx context.Context) (any, error)
+	}{
+		{"asking", func(h *web.Handler, ctx context.Context) (any, error) {
+			return h.AskEmailChange(ctx, &oas.EmailChange{})
+		}},
+		{"cancelling", func(h *web.Handler, ctx context.Context) (any, error) { return h.CancelEmailChange(ctx) }},
+		{"confirming", func(h *web.Handler, ctx context.Context) (any, error) {
+			return h.ConfirmEmailChange(ctx, &oas.LinkToken{})
+		}},
+	} {
+		t.Run(op.name, func(t *testing.T) {
+			h := web.New(&useCases{err: errBoom}, admins{})
+			if _, err := op.call(h, context.Background()); !errors.Is(err, errBoom) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
+
+func TestTheProfileFailsWhenThePendingEmailCannotBeRead(t *testing.T) {
+	uc := &useCases{}
+	h := web.New(uc, admins{})
+	ctx := signedIn(t, h)
+	uc.pendingErr = errBoom
+	if _, err := h.GetProfile(ctx); !errors.Is(err, errBoom) {
+		t.Fatalf("err = %v", err)
 	}
 }
