@@ -19,12 +19,19 @@ function server(start: AccessOverview = overview()) {
     'GET /api/v1/access': () => Response.json(o),
   }
   let stepUp = 0
-  const tokens = { live: 0 }
+  const tokens = { live: 0, connectedApps: 0 }
+  const mcp = { on: false }
   for (const c of o.clients) {
-    answers[`GET /api/v1/apps/${c.id}/step-up`] = () => Response.json({ minutes: stepUp, tokens: tokens.live })
+    answers[`GET /api/v1/apps/${c.id}/step-up`] = () => Response.json({ minutes: stepUp, tokens: tokens.live, connectedApps: tokens.connectedApps })
     answers[`PUT /api/v1/apps/${c.id}/step-up`] = () => {
       stepUp = 15
       tokens.live = 0
+      tokens.connectedApps = 0
+      return ok()
+    }
+    answers[`GET /api/v1/apps/${c.id}/mcp`] = () => Response.json({ on: mcp.on, connectedApps: tokens.connectedApps })
+    answers[`PUT /api/v1/apps/${c.id}/mcp`] = () => {
+      mcp.on = !mcp.on
       return ok()
     }
   }
@@ -72,7 +79,7 @@ function server(start: AccessOverview = overview()) {
       }
     }
   }
-  return { o, answers, tokens }
+  return { o, answers, tokens, mcp }
 }
 
 function button(wrapper: { findAll: (selector: string) => DOMWrapper<Element>[] }, text: string) {
@@ -463,6 +470,7 @@ describe('the Apps page', () => {
 
 describe('an app’s page', () => {
   const stepUpRow = (wrapper: VueWrapper) => wrapper.get('.row.step-up')
+  const mcpRow = (wrapper: VueWrapper) => wrapper.get('.row.mcp')
   const block = (wrapper: VueWrapper, role: string) => {
     const found = wrapper.findAll('.role-block').find((b) => b.get('.role').text() === role)
     if (!found) throw new Error(`no role ${role}`)
@@ -580,6 +588,53 @@ describe('an app’s page', () => {
     await button(wrapper.get('.confirm'), 'Cancel').trigger('click')
     expect(wrapper.find('.confirm').exists()).toBe(false)
     expect(requests.some((r) => r.key === 'PUT /api/v1/apps/grafana/step-up')).toBe(false)
+  })
+
+  it('warns that turning step-up on disconnects the connected apps', async () => {
+    const { answers, tokens } = server()
+    tokens.connectedApps = 1
+    const { wrapper } = await mountAt('/admin/apps/grafana', answers)
+    await pick(wrapper, 'Ask for two-factor again in Grafana', '15 minutes')
+    expect(wrapper.get('.confirm .ask').text()).toBe('Turn on step-up for Grafana?This disconnects 1 connected app from Grafana. Apps cannot connect again while step-up is on.')
+  })
+
+  it('warns about tokens and connected apps together', async () => {
+    const { answers, tokens } = server()
+    tokens.live = 2
+    tokens.connectedApps = 3
+    const { wrapper } = await mountAt('/admin/apps/grafana', answers)
+    await pick(wrapper, 'Ask for two-factor again in Grafana', '15 minutes')
+    expect(wrapper.get('.confirm .ask small').text()).toBe('This revokes 2 tokens and disconnects 3 connected apps for Grafana. Scripts using the tokens stop working, and apps cannot connect again while step-up is on.')
+  })
+
+  it('says no app connects until an Admin lets them', async () => {
+    const { wrapper } = await mountAt('/admin/apps/grafana', server().answers)
+    expect(mcpRow(wrapper).get('small').text()).toBe('Off. No app can use Grafana as someone.')
+  })
+
+  it('lets apps connect to the app', async () => {
+    const { answers, tokens } = server()
+    tokens.connectedApps = 1
+    const { wrapper, requests } = await mountAt('/admin/apps/grafana', answers)
+    await mcpRow(wrapper).get('input').trigger('click')
+    await settle()
+    expect(requests.find((r) => r.key === 'PUT /api/v1/apps/grafana/mcp')?.body).toEqual({ on: true })
+    expect(mcpRow(wrapper).get('small').text()).toBe('People can let apps use Grafana as them. 1 app connected.')
+  })
+
+  it('says apps cannot connect while the app asks for two-factor again', async () => {
+    const { answers, mcp } = server()
+    mcp.on = true
+    const { wrapper } = await mountAt('/admin/apps/grafana', answers)
+    await pick(wrapper, 'Ask for two-factor again in Grafana', '15 minutes')
+    expect(mcpRow(wrapper).get('small').text()).toBe('On, but apps cannot connect while Grafana asks for two-factor again.')
+  })
+
+  it('shows a refused connected-apps change', async () => {
+    const { wrapper } = await mountAt('/admin/apps/grafana', { ...server().answers, 'PUT /api/v1/apps/grafana/mcp': () => problem(403, 'Only Admins can change this.') })
+    await mcpRow(wrapper).get('input').trigger('click')
+    await settle()
+    expect(wrapper.get('[role="alert"]').text()).toBe('Only Admins can change this.')
   })
 
   it('shows a refused step-up', async () => {

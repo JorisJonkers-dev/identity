@@ -59,6 +59,13 @@ describe('an Audit Event reads as a sentence', () => {
     ['a Machine Identity given a secret', { action: 'machine-secret-rotated', actor: joris, machineName: 'Backup' }, '**Joris** gave the Machine Identity Backup a new secret'],
     ['a role given to a Machine Identity', { action: 'role-assigned', actor: joris, machineName: 'Backup', role: 'viewer', client: grafana }, '**Joris** gave Backup [viewer] on Grafana'],
     ['step-up turned off', { action: 'step-up-changed', actor: joris, client: grafana, minutes: 0 }, '**Joris** turned off asking for two-factor again in Grafana'],
+    ['an app connected', { action: 'connected-app-authorized', kind: 'tokens', user: noor, client: grafana, appName: 'Claude Code' }, '**Noor Bakker** connected Claude Code to Grafana'],
+    ['an app disconnected by its User', { action: 'connected-app-revoked', kind: 'tokens', user: noor, client: grafana, appName: 'Claude Code' }, '**Noor Bakker** disconnected Claude Code from Grafana'],
+    ['an app disconnected by an Admin', { action: 'connected-app-revoked', kind: 'tokens', actor: joris, user: noor, client: grafana, appName: 'Claude Code' }, '**Joris** disconnected Claude Code from Grafana for **Noor Bakker**'],
+    ['an app disconnected for a reused token', { action: 'connected-app-revoked', kind: 'tokens', user: noor, client: grafana, appName: 'Claude Code', reason: 'token-reused' }, 'Claude Code was disconnected from Grafana for **Noor Bakker** because its token was used twice'],
+    ['an unnamed app connected', { action: 'connected-app-authorized', kind: 'tokens', user: noor, client: grafana }, '**Noor Bakker** connected an app to Grafana'],
+    ['apps let connect', { action: 'mcp-resource-marked', actor: joris, client: grafana }, '**Joris** let apps connect to Grafana'],
+    ['apps stopped connecting', { action: 'mcp-resource-unmarked', actor: joris, client: grafana }, '**Joris** stopped apps connecting to Grafana'],
   ])('%s', (_, e, want) => {
     expect(sentence(e)).toBe(want)
   })

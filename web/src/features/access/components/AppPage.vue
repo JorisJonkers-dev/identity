@@ -11,8 +11,9 @@ import GlassSelect from '../../../shared/GlassSelect.vue'
 import Icon from '../../../shared/Icon'
 import { useAccess } from '../composables/useAccess'
 import { useStepUp } from '../composables/useStepUp'
-import { counted } from '../../admin/format'
-import { minutesOf, stepUpChoices, stepUpSummary } from '../stepUp'
+import { useMcpResource } from '../../connected/composables/useMcpResource'
+import { mcpSummary } from '../../connected/mcp'
+import { minutesOf, stepUpChoices, stepUpLoss, stepUpSummary } from '../stepUp'
 import { directHolders, holders } from '../model'
 
 const route = useRoute()
@@ -23,16 +24,17 @@ const rotate = useAction(rotateClientSecretMutation())
 const asking = ref(false)
 const stepUp = useStepUp(clientId)
 const stepUpChoice = computed(() => String(stepUp.minutes.value ?? 0))
-// Turning step-up on revokes the app's tokens, so the Admin sees how many first.
+// Turning step-up on revokes the app's tokens and connected apps, so the Admin sees how many first.
 const pendingStepUp = ref<string | null>(null)
 function pickStepUp(choice: string) {
-  if (!stepUp.minutes.value && minutesOf(choice) > 0 && stepUp.tokens.value) pendingStepUp.value = choice
+  if (!stepUp.minutes.value && minutesOf(choice) > 0 && (stepUp.tokens.value || stepUp.connectedApps.value)) pendingStepUp.value = choice
   else stepUp.set(minutesOf(choice))
 }
 function confirmStepUp(choice: string) {
   pendingStepUp.value = null
   stepUp.set(minutesOf(choice))
 }
+const mcp = useMcpResource(clientId)
 const addable = (o: AccessOverview, role: string) => {
   return o.groups.filter((g) => !g.admins && !holders(o, clientId.value, role).some((h) => h.id === g.id)).map((g) => ({ value: g.id, label: g.name }))
 }
@@ -92,11 +94,17 @@ function rotateNow() {
           <GlassSelect :model-value="stepUpChoice" :options="stepUpChoices" :label="`Ask for two-factor again in ${app.label}`" small @pick="pickStepUp" />
         </div>
         <div v-if="pendingStepUp" class="confirm">
-          <div class="ask">Turn on step-up for {{ app.label }}?<small>This revokes {{ counted(Number(stepUp.tokens.value), 'token') }} for {{ app.label }}. Scripts that use them stop working.</small></div>
+          <div class="ask">Turn on step-up for {{ app.label }}?<small>{{ stepUpLoss(Number(stepUp.tokens.value), Number(stepUp.connectedApps.value), app.label) }}</small></div>
           <button class="btn sm" type="button" @click="pendingStepUp = null">Cancel</button>
           <button class="btn sm danger-solid" type="button" @click="confirmStepUp(pendingStepUp)">Turn on and revoke</button>
         </div>
         <p v-if="stepUp.error.value" role="alert" class="alert"><Icon name="alert" />{{ stepUp.error.value }}</p>
+        <div class="row mcp">
+          <span class="row-ic"><Icon name="bot" /></span>
+          <span class="grow"><b>Connected apps</b><small>{{ mcpSummary(mcp.on.value, mcp.connectedApps.value, !!stepUp.minutes.value, app.label) }}</small></span>
+          <label class="switch"><input type="checkbox" :aria-label="`Let apps use ${app.label} as the people who connect them`" :checked="mcp.on.value" @click.prevent="mcp.set(!mcp.on.value)" /><span class="sw" /></label>
+        </div>
+        <p v-if="mcp.error.value" role="alert" class="alert"><Icon name="alert" />{{ mcp.error.value }}</p>
       </section>
     </template>
   </AppShell>
