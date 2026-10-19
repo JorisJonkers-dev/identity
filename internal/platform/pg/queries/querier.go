@@ -17,6 +17,7 @@ type Querier interface {
 	AdminsGroup(ctx context.Context) (AdminsGroupRow, error)
 	AppendAuditEvent(ctx context.Context, arg AppendAuditEventParams) error
 	Assign(ctx context.Context, arg AssignParams) (int64, error)
+	AssignMachine(ctx context.Context, arg AssignMachineParams) (int64, error)
 	AssignUser(ctx context.Context, arg AssignUserParams) (int64, error)
 	AuthRequestByID(ctx context.Context, id uuid.UUID) (AuthRequest, error)
 	ChallengeCeremony(ctx context.Context, arg ChallengeCeremonyParams) (ChallengeCeremonyRow, error)
@@ -39,6 +40,7 @@ type Querier interface {
 	CreateGateCode(ctx context.Context, arg CreateGateCodeParams) error
 	CreateGateSession(ctx context.Context, arg CreateGateSessionParams) error
 	CreateGroup(ctx context.Context, arg CreateGroupParams) error
+	CreateMachine(ctx context.Context, arg CreateMachineParams) error
 	CreatePasskey(ctx context.Context, arg CreatePasskeyParams) error
 	CreatePersonalToken(ctx context.Context, arg CreatePersonalTokenParams) error
 	CreateSealedSecret(ctx context.Context, arg CreateSealedSecretParams) error
@@ -50,9 +52,12 @@ type Querier interface {
 	DeleteAuditEventsBefore(ctx context.Context, at time.Time) (int64, error)
 	DeleteAuthRequest(ctx context.Context, id uuid.UUID) error
 	DeleteChallenge(ctx context.Context, tokenHash []byte) error
+	DeleteClientSecret(ctx context.Context, clientID string) error
 	DeleteEmailChange(ctx context.Context, userID uuid.UUID) error
 	// The admins Group stays, whatever the caller checked.
 	DeleteGroup(ctx context.Context, id uuid.UUID) error
+	// Its Assignments go with it; its secret, kept under its id as a Client's is, is deleted beside.
+	DeleteMachine(ctx context.Context, id uuid.UUID) (int64, error)
 	// Ends every session of a User but the one keep names (or every one, when keep is null), and says
 	// which ended, so exactly those are announced (docs/adr/0007).
 	DeleteOtherSessions(ctx context.Context, arg DeleteOtherSessionsParams) ([]uuid.UUID, error)
@@ -85,6 +90,7 @@ type Querier interface {
 	// Newest first, before a (at, id) cursor; a User filter matches what they did and what was done to them.
 	ListAuditEvents(ctx context.Context, arg ListAuditEventsParams) ([]AuditEvent, error)
 	ListGroups(ctx context.Context) ([]ListGroupsRow, error)
+	ListMachines(ctx context.Context) ([]MachineIdentity, error)
 	ListMemberships(ctx context.Context) ([]Membership, error)
 	ListPersonalTokens(ctx context.Context, userID uuid.UUID) ([]ListPersonalTokensRow, error)
 	ListSigningKeys(ctx context.Context) ([]SigningKey, error)
@@ -105,6 +111,12 @@ type Querier interface {
 	// Held until the transaction ends, so of two replicas starting together one makes the key and the
 	// other reads it.
 	LockKeys(ctx context.Context) error
+	MachineAssignments(ctx context.Context) ([]MachineAssignmentsRow, error)
+	// The Machine Identity a ServiceAccount signs in as.
+	MachineByBinding(ctx context.Context, arg MachineByBindingParams) (MachineIdentity, error)
+	MachineByID(ctx context.Context, id uuid.UUID) (MachineIdentity, error)
+	// A Machine Identity's App Roles on a Client: only its own, as it is never in a Group.
+	MachineRolesOf(ctx context.Context, arg MachineRolesOfParams) ([]string, error)
 	PasskeyEnrolment(ctx context.Context, userID uuid.UUID) (PasskeyEnrolmentRow, error)
 	PasskeysOfUser(ctx context.Context, userID uuid.UUID) ([]Passkey, error)
 	PasswordResetByHash(ctx context.Context, tokenHash []byte) (PasswordReset, error)
@@ -171,6 +183,7 @@ type Querier interface {
 	TouchPersonalToken(ctx context.Context, arg TouchPersonalTokenParams) error
 	TouchSession(ctx context.Context, arg TouchSessionParams) error
 	Unassign(ctx context.Context, arg UnassignParams) (int64, error)
+	UnassignMachine(ctx context.Context, arg UnassignMachineParams) (int64, error)
 	UnassignUser(ctx context.Context, arg UnassignUserParams) (int64, error)
 	UpdateEmail(ctx context.Context, arg UpdateEmailParams) error
 	UpdateUserName(ctx context.Context, arg UpdateUserNameParams) error

@@ -154,6 +154,41 @@ func encodeAskUserEmailChangeResponse(response AskUserEmailChangeRes, w http.Res
 	}
 }
 
+func encodeAssignMachineRoleResponse(response AssignMachineRoleRes, w http.ResponseWriter, span trace.Span) error {
+	switch response := response.(type) {
+	case *AssignMachineRoleNoContent:
+		w.WriteHeader(204)
+
+		return nil
+
+	case *ProblemStatusCode:
+		w.Header().Set("Content-Type", "application/problem+json")
+		code := response.StatusCode
+		if code == 0 {
+			// Set default status code.
+			code = http.StatusOK
+		}
+		w.WriteHeader(code)
+		if code >= http.StatusInternalServerError {
+			span.SetStatus(codes.Error, http.StatusText(code))
+		}
+
+		e := new(jx.Encoder)
+		response.Response.Encode(e)
+		if _, err := e.WriteTo(w); err != nil {
+			return errors.Wrap(err, "write")
+		}
+
+		if code >= http.StatusInternalServerError {
+			return errors.Wrapf(ht.ErrInternalServerErrorResponse, "code: %d, message: %s", code, http.StatusText(code))
+		}
+		return nil
+
+	default:
+		return errors.Errorf("unexpected response type: %T", response)
+	}
+}
+
 func encodeAssignRoleResponse(response AssignRoleRes, w http.ResponseWriter, span trace.Span) error {
 	switch response := response.(type) {
 	case *AssignRoleNoContent:
@@ -657,6 +692,48 @@ func encodeCreateGroupResponse(response CreateGroupRes, w http.ResponseWriter, s
 	}
 }
 
+func encodeCreateMachineResponse(response CreateMachineRes, w http.ResponseWriter, span trace.Span) error {
+	switch response := response.(type) {
+	case *Machine:
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(201)
+
+		e := new(jx.Encoder)
+		response.Encode(e)
+		if _, err := e.WriteTo(w); err != nil {
+			return errors.Wrap(err, "write")
+		}
+
+		return nil
+
+	case *ProblemStatusCode:
+		w.Header().Set("Content-Type", "application/problem+json")
+		code := response.StatusCode
+		if code == 0 {
+			// Set default status code.
+			code = http.StatusOK
+		}
+		w.WriteHeader(code)
+		if code >= http.StatusInternalServerError {
+			span.SetStatus(codes.Error, http.StatusText(code))
+		}
+
+		e := new(jx.Encoder)
+		response.Response.Encode(e)
+		if _, err := e.WriteTo(w); err != nil {
+			return errors.Wrap(err, "write")
+		}
+
+		if code >= http.StatusInternalServerError {
+			return errors.Wrapf(ht.ErrInternalServerErrorResponse, "code: %d, message: %s", code, http.StatusText(code))
+		}
+		return nil
+
+	default:
+		return errors.Errorf("unexpected response type: %T", response)
+	}
+}
+
 func encodeDeleteAccountResponse(response DeleteAccountRes, w http.ResponseWriter, span trace.Span) error {
 	switch response := response.(type) {
 	case *DeleteAccountNoContent:
@@ -712,6 +789,41 @@ func encodeDeleteAccountResponse(response DeleteAccountRes, w http.ResponseWrite
 func encodeDeleteGroupResponse(response DeleteGroupRes, w http.ResponseWriter, span trace.Span) error {
 	switch response := response.(type) {
 	case *DeleteGroupNoContent:
+		w.WriteHeader(204)
+
+		return nil
+
+	case *ProblemStatusCode:
+		w.Header().Set("Content-Type", "application/problem+json")
+		code := response.StatusCode
+		if code == 0 {
+			// Set default status code.
+			code = http.StatusOK
+		}
+		w.WriteHeader(code)
+		if code >= http.StatusInternalServerError {
+			span.SetStatus(codes.Error, http.StatusText(code))
+		}
+
+		e := new(jx.Encoder)
+		response.Response.Encode(e)
+		if _, err := e.WriteTo(w); err != nil {
+			return errors.Wrap(err, "write")
+		}
+
+		if code >= http.StatusInternalServerError {
+			return errors.Wrapf(ht.ErrInternalServerErrorResponse, "code: %d, message: %s", code, http.StatusText(code))
+		}
+		return nil
+
+	default:
+		return errors.Errorf("unexpected response type: %T", response)
+	}
+}
+
+func encodeDeleteMachineResponse(response DeleteMachineRes, w http.ResponseWriter, span trace.Span) error {
+	switch response := response.(type) {
+	case *DeleteMachineNoContent:
 		w.WriteHeader(204)
 
 		return nil
@@ -1076,6 +1188,48 @@ func encodeListAuditEventsResponse(response ListAuditEventsRes, w http.ResponseW
 func encodeListDevicesResponse(response ListDevicesRes, w http.ResponseWriter, span trace.Span) error {
 	switch response := response.(type) {
 	case *Devices:
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(200)
+
+		e := new(jx.Encoder)
+		response.Encode(e)
+		if _, err := e.WriteTo(w); err != nil {
+			return errors.Wrap(err, "write")
+		}
+
+		return nil
+
+	case *ProblemStatusCode:
+		w.Header().Set("Content-Type", "application/problem+json")
+		code := response.StatusCode
+		if code == 0 {
+			// Set default status code.
+			code = http.StatusOK
+		}
+		w.WriteHeader(code)
+		if code >= http.StatusInternalServerError {
+			span.SetStatus(codes.Error, http.StatusText(code))
+		}
+
+		e := new(jx.Encoder)
+		response.Response.Encode(e)
+		if _, err := e.WriteTo(w); err != nil {
+			return errors.Wrap(err, "write")
+		}
+
+		if code >= http.StatusInternalServerError {
+			return errors.Wrapf(ht.ErrInternalServerErrorResponse, "code: %d, message: %s", code, http.StatusText(code))
+		}
+		return nil
+
+	default:
+		return errors.Errorf("unexpected response type: %T", response)
+	}
+}
+
+func encodeListMachinesResponse(response ListMachinesRes, w http.ResponseWriter, span trace.Span) error {
+	switch response := response.(type) {
+	case *MachinesOverview:
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.WriteHeader(200)
 
@@ -1682,6 +1836,48 @@ func encodeRotateClientSecretResponse(response RotateClientSecretRes, w http.Res
 	}
 }
 
+func encodeRotateMachineSecretResponse(response RotateMachineSecretRes, w http.ResponseWriter, span trace.Span) error {
+	switch response := response.(type) {
+	case *MachineSecret:
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(200)
+
+		e := new(jx.Encoder)
+		response.Encode(e)
+		if _, err := e.WriteTo(w); err != nil {
+			return errors.Wrap(err, "write")
+		}
+
+		return nil
+
+	case *ProblemStatusCode:
+		w.Header().Set("Content-Type", "application/problem+json")
+		code := response.StatusCode
+		if code == 0 {
+			// Set default status code.
+			code = http.StatusOK
+		}
+		w.WriteHeader(code)
+		if code >= http.StatusInternalServerError {
+			span.SetStatus(codes.Error, http.StatusText(code))
+		}
+
+		e := new(jx.Encoder)
+		response.Response.Encode(e)
+		if _, err := e.WriteTo(w); err != nil {
+			return errors.Wrap(err, "write")
+		}
+
+		if code >= http.StatusInternalServerError {
+			return errors.Wrapf(ht.ErrInternalServerErrorResponse, "code: %d, message: %s", code, http.StatusText(code))
+		}
+		return nil
+
+	default:
+		return errors.Errorf("unexpected response type: %T", response)
+	}
+}
+
 func encodeSetGroupTwoFactorResponse(response SetGroupTwoFactorRes, w http.ResponseWriter, span trace.Span) error {
 	switch response := response.(type) {
 	case *SetGroupTwoFactorNoContent:
@@ -2231,6 +2427,41 @@ func encodeStepUpWithCodeResponse(response StepUpWithCodeRes, w http.ResponseWri
 func encodeStepUpWithPasskeyResponse(response StepUpWithPasskeyRes, w http.ResponseWriter, span trace.Span) error {
 	switch response := response.(type) {
 	case *StepUpWithPasskeyNoContent:
+		w.WriteHeader(204)
+
+		return nil
+
+	case *ProblemStatusCode:
+		w.Header().Set("Content-Type", "application/problem+json")
+		code := response.StatusCode
+		if code == 0 {
+			// Set default status code.
+			code = http.StatusOK
+		}
+		w.WriteHeader(code)
+		if code >= http.StatusInternalServerError {
+			span.SetStatus(codes.Error, http.StatusText(code))
+		}
+
+		e := new(jx.Encoder)
+		response.Response.Encode(e)
+		if _, err := e.WriteTo(w); err != nil {
+			return errors.Wrap(err, "write")
+		}
+
+		if code >= http.StatusInternalServerError {
+			return errors.Wrapf(ht.ErrInternalServerErrorResponse, "code: %d, message: %s", code, http.StatusText(code))
+		}
+		return nil
+
+	default:
+		return errors.Errorf("unexpected response type: %T", response)
+	}
+}
+
+func encodeUnassignMachineRoleResponse(response UnassignMachineRoleRes, w http.ResponseWriter, span trace.Span) error {
+	switch response := response.(type) {
+	case *UnassignMachineRoleNoContent:
 		w.WriteHeader(204)
 
 		return nil

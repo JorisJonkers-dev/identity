@@ -22,6 +22,8 @@ type useCases struct {
 	err      error
 	overview app.Overview
 	group    domain.Group
+	machines app.MachinesOverview
+	machine  domain.Machine
 	actor    app.Actor
 	asked    []any
 }

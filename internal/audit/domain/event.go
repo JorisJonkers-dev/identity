@@ -52,6 +52,11 @@ const (
 	GroupTwoFactorDropped  Action = "group-two-factor-dropped"
 	// StepUpChanged is an Admin setting how fresh a Client wants two-factor (docs/adr/0019).
 	StepUpChanged Action = "step-up-changed"
+	// MachineCreated and MachineDeleted are an Admin adding or removing a Machine Identity, and
+	// MachineSecretRotated giving one a new client secret (identity#22).
+	MachineCreated       Action = "machine-created"
+	MachineDeleted       Action = "machine-deleted"
+	MachineSecretRotated Action = "machine-secret-rotated"
 
 	TokenMinted  Action = "token-minted"
 	TokenRevoked Action = "token-revoked"
@@ -64,7 +69,8 @@ func (a Action) Kind() Kind {
 		return KindSignIn
 	case UserCreated, UserRenamed, PasswordChanged, EmailChanged, AccountDeleted, PasswordReset, SecondFactorAdded, SecondFactorRemoved, AdminPromoted:
 		return KindPeople
-	case GroupCreated, GroupRenamed, GroupDeleted, MemberAdded, MemberRemoved, RoleAssigned, RoleRemoved, ClientSecretRotated, StepUpChanged, GroupTwoFactorRequired, GroupTwoFactorDropped:
+	case GroupCreated, GroupRenamed, GroupDeleted, MemberAdded, MemberRemoved, RoleAssigned, RoleRemoved, ClientSecretRotated, StepUpChanged, GroupTwoFactorRequired, GroupTwoFactorDropped,
+		MachineCreated, MachineDeleted, MachineSecretRotated:
 		return KindAccess
 	case TokenMinted, TokenRevoked:
 		return KindTokens
@@ -96,6 +102,9 @@ type Event struct {
 	Reason string
 	// Minutes is the step-up window a StepUpChanged event set, 0 for off.
 	Minutes int
+	// Machine is the Machine Identity the event is about, and MachineName what it was called then.
+	Machine     uuid.UUID
+	MachineName string
 }
 
 // Filter narrows a listing; a zero field does not filter.

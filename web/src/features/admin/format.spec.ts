@@ -54,6 +54,10 @@ describe('an Audit Event reads as a sentence', () => {
     ['a token revoked', { action: 'token-revoked', kind: 'tokens', user: noor }, '**Noor Bakker** revoked a token'],
     ['an app given a new secret', { action: 'client-secret-rotated', actor: joris, client: grafana }, '**Joris** gave Grafana a new secret'],
     ['step-up set', { action: 'step-up-changed', actor: joris, client: grafana, minutes: 15 }, '**Joris** set Grafana to ask for two-factor again after 15 minutes'],
+    ['a Machine Identity added', { action: 'machine-created', actor: joris, machineName: 'Backup' }, '**Joris** added the Machine Identity Backup'],
+    ['a Machine Identity deleted', { action: 'machine-deleted', actor: joris, machineName: 'Backup' }, '**Joris** deleted the Machine Identity Backup'],
+    ['a Machine Identity given a secret', { action: 'machine-secret-rotated', actor: joris, machineName: 'Backup' }, '**Joris** gave the Machine Identity Backup a new secret'],
+    ['a role given to a Machine Identity', { action: 'role-assigned', actor: joris, machineName: 'Backup', role: 'viewer', client: grafana }, '**Joris** gave Backup [viewer] on Grafana'],
     ['step-up turned off', { action: 'step-up-changed', actor: joris, client: grafana, minutes: 0 }, '**Joris** turned off asking for two-factor again in Grafana'],
   ])('%s', (_, e, want) => {
     expect(sentence(e)).toBe(want)
@@ -61,6 +65,10 @@ describe('an Audit Event reads as a sentence', () => {
 
   it('names a User who is gone, and a Group and app it no longer knows', () => {
     expect(sentence({ action: 'role-assigned', actor: { id: joris.id } })).toBe('**a deleted User** gave a Group [] on an app')
+  })
+
+  it('names a Machine Identity it no longer knows', () => {
+    expect(sentence({ action: 'machine-deleted', actor: joris })).toBe('**Joris** deleted a Machine Identity')
   })
 
   it('names a User by their email when they have no name', () => {

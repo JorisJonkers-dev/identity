@@ -1065,6 +1065,118 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/access/machines:
+    get:
+      operationId: listMachines
+      summary: Machine Identities, their roles and the Clients
+      description: Everything the Machines tab shows, in one read. Admins only.
+      tags: [access]
+      responses:
+        "200":
+          description: The Machine Identities.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MachinesOverview"
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createMachine
+      summary: Add a Machine Identity
+      description: >-
+        Adds a Machine Identity bound to one Kubernetes ServiceAccount, holding no App Role yet.
+        Names are unique whatever their case, and one ServiceAccount binds one Machine Identity.
+        Admins only.
+      tags: [access]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MachineDraft"
+      responses:
+        "201":
+          description: The new Machine Identity.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Machine"
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/access/machines/{machineId}:
+    parameters:
+      - $ref: "#/components/parameters/MachineId"
+    delete:
+      operationId: deleteMachine
+      summary: Delete a Machine Identity
+      description: >-
+        Deletes a Machine Identity with its App Roles and client secret. Access tokens it already
+        holds end when they expire. Admins only.
+      tags: [access]
+      responses:
+        "204":
+          description: Deleted.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/access/machines/{machineId}/roles/{clientId}/{role}:
+    parameters:
+      - $ref: "#/components/parameters/MachineId"
+      - $ref: "#/components/parameters/ClientId"
+      - $ref: "#/components/parameters/Role"
+    put:
+      operationId: assignMachineRole
+      summary: Give a Machine Identity an App Role on a Client
+      description: >-
+        The Client must be in the cluster and declare the App Role. Assigning twice changes
+        nothing. Admins only.
+      tags: [access]
+      responses:
+        "204":
+          description: The Machine Identity holds the App Role.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: unassignMachineRole
+      summary: Take a Machine Identity's App Role
+      description: Removes the Assignment, also one on a Removed Client. Admins only.
+      tags: [access]
+      responses:
+        "204":
+          description: The Machine Identity does not hold the App Role.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/access/machines/{machineId}/secret:
+    parameters:
+      - $ref: "#/components/parameters/MachineId"
+    post:
+      operationId: rotateMachineSecret
+      summary: Give a Machine Identity a new client secret
+      description: >-
+        For a workload outside the cluster, which signs in with the client credentials grant. The
+        secret is answered once, here, and kept only as a hash. The previous secret keeps working
+        until the new one is first used. Admins only, from a session that proved a Second Factor.
+      tags: [access]
+      responses:
+        "200":
+          description: The new secret, shown once.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MachineSecret"
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /api/v1/audit:
     get:
       operationId: listAuditEvents
@@ -1298,6 +1410,13 @@ components:
       description: The Group.
       schema:
         $ref: "#/components/schemas/Id"
+    MachineId:
+      name: machineId
+      in: path
+      required: true
+      description: The Machine Identity.
+      schema:
+        $ref: "#/components/schemas/Id"
     UserId:
       name: userId
       in: path
@@ -1374,6 +1493,9 @@ components:
         - account-deleted
         - password-reset
         - step-up-changed
+        - machine-created
+        - machine-deleted
+        - machine-secret-rotated
     AuditCursor:
       description: Where a page of Audit Events ends; opaque.
       type: string
@@ -1445,6 +1567,10 @@ components:
           maximum: 60
           enum: [0, 5, 15, 60]
           description: The step-up window an Admin set, 0 for off.
+        machineName:
+          type: string
+          maxLength: 256
+          description: The Machine Identity the event is about, as it was called then.
     TokenClient:
       description: A Client a token is for.
       type: object
@@ -1984,6 +2110,99 @@ components:
           $ref: "#/components/schemas/ClientId"
         role:
           $ref: "#/components/schemas/AppRole"
+    MachineDraft:
+      description: A Machine Identity to add.
+      type: object
+      additionalProperties: false
+      required: [name, namespace, serviceAccount]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 256
+          description: What the Machine Identity is called, 1 to 64 characters.
+          example: Backup job
+        namespace:
+          type: string
+          minLength: 1
+          maxLength: 63
+          description: The Kubernetes namespace of its ServiceAccount.
+          example: media
+        serviceAccount:
+          type: string
+          minLength: 1
+          maxLength: 253
+          description: The Kubernetes ServiceAccount it signs in as.
+          example: backup
+    Machine:
+      description: >-
+        A Machine Identity: a workload that signs in as itself, bound to one Kubernetes
+        ServiceAccount. Its id is its client_id at the token endpoint.
+      type: object
+      additionalProperties: false
+      required: [id, name, namespace, serviceAccount, createdAt]
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        name:
+          type: string
+          maxLength: 256
+        namespace:
+          type: string
+          maxLength: 63
+        serviceAccount:
+          type: string
+          maxLength: 253
+        createdAt:
+          type: string
+          format: date-time
+          maxLength: 64
+    MachineAssignment:
+      description: A Machine Identity holding one App Role on one Client.
+      type: object
+      additionalProperties: false
+      required: [machineId, clientId, role]
+      properties:
+        machineId:
+          $ref: "#/components/schemas/Id"
+        clientId:
+          $ref: "#/components/schemas/ClientId"
+        role:
+          $ref: "#/components/schemas/AppRole"
+    MachinesOverview:
+      description: >-
+        Every Machine Identity, every Assignment one holds, including those on Removed Clients,
+        and every Client in the cluster.
+      type: object
+      additionalProperties: false
+      required: [machines, assignments, clients]
+      properties:
+        machines:
+          type: array
+          maxItems: 10000
+          description: By name.
+          items:
+            $ref: "#/components/schemas/Machine"
+        assignments:
+          type: array
+          maxItems: 1000000
+          items:
+            $ref: "#/components/schemas/MachineAssignment"
+        clients:
+          type: array
+          maxItems: 10000
+          description: Every Client in the cluster, by label.
+          items:
+            $ref: "#/components/schemas/AccessClient"
+    MachineSecret:
+      description: A Machine Identity's new client secret, shown once.
+      type: object
+      additionalProperties: false
+      required: [secret]
+      properties:
+        secret:
+          type: string
+          maxLength: 128
     TwoFactorRequirement:
       description: Whether a Group requires two-factor of its members.
       type: object

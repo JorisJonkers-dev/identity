@@ -66,7 +66,7 @@ func serve(t *testing.T, requests app.Requests, accounts app.Accounts, access ap
 	ups := stepUps{}
 	svc.SetStepUps(ups)
 	var err error
-	h, err = New(Config{Issuer: srv.URL, Insecure: true, SessionCookie: cookieName}, svc, NewRing(testKey()), slog.New(slog.DiscardHandler), time.Now)
+	h, err = New(Config{Issuer: srv.URL, Insecure: true, SessionCookie: cookieName}, svc, nil, NewRing(testKey()), slog.New(slog.DiscardHandler), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

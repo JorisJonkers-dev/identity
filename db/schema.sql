@@ -5,8 +5,9 @@ CREATE TABLE public.assignments (
     client_id text NOT NULL,
     role text NOT NULL,
     user_id uuid,
+    machine_id uuid,
     CONSTRAINT assignments_client_id_length CHECK (((char_length(client_id) >= 1) AND (char_length(client_id) <= 253))),
-    CONSTRAINT assignments_one_holder CHECK ((num_nonnulls(group_id, user_id) = 1)),
+    CONSTRAINT assignments_one_holder CHECK ((num_nonnulls(group_id, user_id, machine_id) = 1)),
     CONSTRAINT assignments_role_shape CHECK ((role ~ '^[a-z][a-z0-9-]{0,62}$'::text))
 );
 
@@ -23,7 +24,9 @@ CREATE TABLE public.audit_events (
     role text,
     email text,
     reason text,
-    minutes integer
+    minutes integer,
+    machine_id uuid,
+    machine_name text
 );
 
 CREATE TABLE public.auth_requests (
@@ -85,6 +88,14 @@ CREATE TABLE public.groups (
     requires_two_factor boolean DEFAULT false NOT NULL,
     CONSTRAINT groups_admins_require_two_factor CHECK ((requires_two_factor OR (NOT admins))),
     CONSTRAINT groups_name_length CHECK (((name = btrim(name)) AND ((char_length(name) >= 1) AND (char_length(name) <= 64))))
+);
+
+CREATE TABLE public.machine_identities (
+    id uuid NOT NULL,
+    name text NOT NULL,
+    namespace text NOT NULL,
+    service_account text NOT NULL,
+    created_at timestamp with time zone NOT NULL
 );
 
 CREATE TABLE public.memberships (
@@ -239,6 +250,12 @@ ALTER TABLE ONLY public.gate_sessions
 ALTER TABLE ONLY public.groups
     ADD CONSTRAINT groups_pkey PRIMARY KEY (id);
 
+ALTER TABLE ONLY public.machine_identities
+    ADD CONSTRAINT machine_identities_binding_key UNIQUE (namespace, service_account);
+
+ALTER TABLE ONLY public.machine_identities
+    ADD CONSTRAINT machine_identities_pkey PRIMARY KEY (id);
+
 ALTER TABLE ONLY public.memberships
     ADD CONSTRAINT memberships_pkey PRIMARY KEY (group_id, user_id);
 
@@ -309,6 +326,8 @@ CREATE INDEX assignments_client_idx ON public.assignments USING btree (client_id
 
 CREATE UNIQUE INDEX assignments_group_key ON public.assignments USING btree (group_id, client_id, role) WHERE (group_id IS NOT NULL);
 
+CREATE UNIQUE INDEX assignments_machine_key ON public.assignments USING btree (machine_id, client_id, role) WHERE (machine_id IS NOT NULL);
+
 CREATE UNIQUE INDEX assignments_user_key ON public.assignments USING btree (user_id, client_id, role) WHERE (user_id IS NOT NULL);
 
 CREATE INDEX audit_events_actor_idx ON public.audit_events USING btree (actor_id, at);
@@ -328,6 +347,8 @@ CREATE INDEX gate_sessions_session_idx ON public.gate_sessions USING btree (sess
 CREATE UNIQUE INDEX groups_name_key ON public.groups USING btree (lower(name));
 
 CREATE UNIQUE INDEX groups_one_admins ON public.groups USING btree (admins) WHERE admins;
+
+CREATE UNIQUE INDEX machine_identities_name_key ON public.machine_identities USING btree (lower(name));
 
 CREATE INDEX memberships_user_idx ON public.memberships USING btree (user_id);
 
@@ -349,6 +370,9 @@ CREATE INDEX totp_factors_user_idx ON public.totp_factors USING btree (user_id);
 
 ALTER TABLE ONLY public.assignments
     ADD CONSTRAINT assignments_group_fk FOREIGN KEY (group_id) REFERENCES public.groups(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.assignments
+    ADD CONSTRAINT assignments_machine_fk FOREIGN KEY (machine_id) REFERENCES public.machine_identities(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.assignments
     ADD CONSTRAINT assignments_user_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;

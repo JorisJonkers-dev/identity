@@ -7,6 +7,7 @@ package queries
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -63,6 +64,24 @@ type AssignParams struct {
 
 func (q *Queries) Assign(ctx context.Context, arg AssignParams) (int64, error) {
 	result, err := q.db.Exec(ctx, assign, arg.GroupID, arg.ClientID, arg.Role)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const assignMachine = `-- name: AssignMachine :execrows
+INSERT INTO assignments (machine_id, client_id, role) VALUES ($1::uuid, $2, $3) ON CONFLICT DO NOTHING
+`
+
+type AssignMachineParams struct {
+	MachineID uuid.UUID
+	ClientID  string
+	Role      string
+}
+
+func (q *Queries) AssignMachine(ctx context.Context, arg AssignMachineParams) (int64, error) {
+	result, err := q.db.Exec(ctx, assignMachine, arg.MachineID, arg.ClientID, arg.Role)
 	if err != nil {
 		return 0, err
 	}
@@ -138,6 +157,29 @@ func (q *Queries) CreateGroup(ctx context.Context, arg CreateGroupParams) error 
 	return err
 }
 
+const createMachine = `-- name: CreateMachine :exec
+INSERT INTO machine_identities (id, name, namespace, service_account, created_at) VALUES ($1, $2, $3, $4, $5)
+`
+
+type CreateMachineParams struct {
+	ID             uuid.UUID
+	Name           string
+	Namespace      string
+	ServiceAccount string
+	CreatedAt      time.Time
+}
+
+func (q *Queries) CreateMachine(ctx context.Context, arg CreateMachineParams) error {
+	_, err := q.db.Exec(ctx, createMachine,
+		arg.ID,
+		arg.Name,
+		arg.Namespace,
+		arg.ServiceAccount,
+		arg.CreatedAt,
+	)
+	return err
+}
+
 const deleteGroup = `-- name: DeleteGroup :exec
 DELETE FROM groups WHERE id = $1 AND NOT admins
 `
@@ -146,6 +188,19 @@ DELETE FROM groups WHERE id = $1 AND NOT admins
 func (q *Queries) DeleteGroup(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteGroup, id)
 	return err
+}
+
+const deleteMachine = `-- name: DeleteMachine :execrows
+DELETE FROM machine_identities WHERE id = $1
+`
+
+// Its Assignments go with it; its secret, kept under its id as a Client's is, is deleted beside.
+func (q *Queries) DeleteMachine(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteMachine, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const groupByID = `-- name: GroupByID :one
@@ -281,6 +336,36 @@ func (q *Queries) ListGroups(ctx context.Context) ([]ListGroupsRow, error) {
 	return items, nil
 }
 
+const listMachines = `-- name: ListMachines :many
+SELECT id, name, namespace, service_account, created_at FROM machine_identities ORDER BY lower(name), id
+`
+
+func (q *Queries) ListMachines(ctx context.Context) ([]MachineIdentity, error) {
+	rows, err := q.db.Query(ctx, listMachines)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []MachineIdentity{}
+	for rows.Next() {
+		var i MachineIdentity
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Namespace,
+			&i.ServiceAccount,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMemberships = `-- name: ListMemberships :many
 SELECT group_id, user_id FROM memberships
 `
@@ -373,6 +458,106 @@ func (q *Queries) LockGroup(ctx context.Context, id uuid.UUID) (bool, error) {
 	var admins bool
 	err := row.Scan(&admins)
 	return admins, err
+}
+
+const machineAssignments = `-- name: MachineAssignments :many
+SELECT machine_id::uuid AS machine_id, client_id, role FROM assignments WHERE machine_id IS NOT NULL ORDER BY client_id, role
+`
+
+type MachineAssignmentsRow struct {
+	MachineID uuid.UUID
+	ClientID  string
+	Role      string
+}
+
+func (q *Queries) MachineAssignments(ctx context.Context) ([]MachineAssignmentsRow, error) {
+	rows, err := q.db.Query(ctx, machineAssignments)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []MachineAssignmentsRow{}
+	for rows.Next() {
+		var i MachineAssignmentsRow
+		if err := rows.Scan(&i.MachineID, &i.ClientID, &i.Role); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const machineByBinding = `-- name: MachineByBinding :one
+SELECT id, name, namespace, service_account, created_at FROM machine_identities WHERE namespace = $1 AND service_account = $2
+`
+
+type MachineByBindingParams struct {
+	Namespace      string
+	ServiceAccount string
+}
+
+// The Machine Identity a ServiceAccount signs in as.
+func (q *Queries) MachineByBinding(ctx context.Context, arg MachineByBindingParams) (MachineIdentity, error) {
+	row := q.db.QueryRow(ctx, machineByBinding, arg.Namespace, arg.ServiceAccount)
+	var i MachineIdentity
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Namespace,
+		&i.ServiceAccount,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const machineByID = `-- name: MachineByID :one
+SELECT id, name, namespace, service_account, created_at FROM machine_identities WHERE id = $1
+`
+
+func (q *Queries) MachineByID(ctx context.Context, id uuid.UUID) (MachineIdentity, error) {
+	row := q.db.QueryRow(ctx, machineByID, id)
+	var i MachineIdentity
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Namespace,
+		&i.ServiceAccount,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const machineRolesOf = `-- name: MachineRolesOf :many
+SELECT role FROM assignments WHERE machine_id = $1::uuid AND client_id = $2 ORDER BY role
+`
+
+type MachineRolesOfParams struct {
+	MachineID uuid.UUID
+	ClientID  string
+}
+
+// A Machine Identity's App Roles on a Client: only its own, as it is never in a Group.
+func (q *Queries) MachineRolesOf(ctx context.Context, arg MachineRolesOfParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, machineRolesOf, arg.MachineID, arg.ClientID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var role string
+		if err := rows.Scan(&role); err != nil {
+			return nil, err
+		}
+		items = append(items, role)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const removeMember = `-- name: RemoveMember :execrows
@@ -513,6 +698,24 @@ type UnassignParams struct {
 
 func (q *Queries) Unassign(ctx context.Context, arg UnassignParams) (int64, error) {
 	result, err := q.db.Exec(ctx, unassign, arg.GroupID, arg.ClientID, arg.Role)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const unassignMachine = `-- name: UnassignMachine :execrows
+DELETE FROM assignments WHERE machine_id = $1::uuid AND client_id = $2 AND role = $3
+`
+
+type UnassignMachineParams struct {
+	MachineID uuid.UUID
+	ClientID  string
+	Role      string
+}
+
+func (q *Queries) UnassignMachine(ctx context.Context, arg UnassignMachineParams) (int64, error) {
+	result, err := q.db.Exec(ctx, unassignMachine, arg.MachineID, arg.ClientID, arg.Role)
 	if err != nil {
 		return 0, err
 	}

@@ -144,8 +144,17 @@ func TestAnEventLeavesOutWhatItDoesNotName(t *testing.T) {
 	t.Parallel()
 	entry := app.Entry{Event: domain.Event{ID: uuid.New(), At: t0, Action: domain.SignedOut}, Kind: domain.KindSignIn}
 	got := list(t, &useCases{page: app.Page{Entries: []app.Entry{entry}}}, oas.ListAuditEventsParams{}).(*oas.AuditPage).Events[0]
-	if got.Actor.Set || got.User.Set || got.Client.Set || got.GroupName.Set || got.Role.Set || got.Email.Set || got.Reason.Set || got.Minutes.Set {
+	if got.Actor.Set || got.User.Set || got.Client.Set || got.GroupName.Set || got.Role.Set || got.Email.Set || got.Reason.Set || got.Minutes.Set || got.MachineName.Set {
 		t.Fatalf("event = %+v", got)
+	}
+}
+
+func TestAMachineIdentityEventCarriesItsName(t *testing.T) {
+	t.Parallel()
+	entry := app.Entry{Event: domain.Event{ID: uuid.New(), At: t0, Action: domain.MachineCreated, Machine: uuid.New(), MachineName: "Backup"}, Kind: domain.KindAccess}
+	got := list(t, &useCases{page: app.Page{Entries: []app.Entry{entry}}}, oas.ListAuditEventsParams{}).(*oas.AuditPage).Events[0]
+	if got.MachineName != oas.NewOptString("Backup") {
+		t.Fatalf("machine name = %+v", got.MachineName)
 	}
 }
 

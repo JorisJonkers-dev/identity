@@ -12,7 +12,7 @@ export type AuditKind = 'sign-in' | 'people' | 'access' | 'tokens';
 /**
  * What an Audit Event records.
  */
-export type AuditAction = 'signed-in' | 'sign-in-failed' | 'signed-out' | 'user-created' | 'user-renamed' | 'password-changed' | 'second-factor-added' | 'second-factor-removed' | 'admin-promoted' | 'group-created' | 'group-renamed' | 'group-deleted' | 'member-added' | 'member-removed' | 'role-assigned' | 'role-removed' | 'token-minted' | 'token-revoked' | 'client-secret-rotated' | 'group-two-factor-required' | 'group-two-factor-dropped' | 'email-changed' | 'account-deleted' | 'password-reset' | 'step-up-changed';
+export type AuditAction = 'signed-in' | 'sign-in-failed' | 'signed-out' | 'user-created' | 'user-renamed' | 'password-changed' | 'second-factor-added' | 'second-factor-removed' | 'admin-promoted' | 'group-created' | 'group-renamed' | 'group-deleted' | 'member-added' | 'member-removed' | 'role-assigned' | 'role-removed' | 'token-minted' | 'token-revoked' | 'client-secret-rotated' | 'group-two-factor-required' | 'group-two-factor-dropped' | 'email-changed' | 'account-deleted' | 'password-reset' | 'step-up-changed' | 'machine-created' | 'machine-deleted' | 'machine-secret-rotated';
 
 /**
  * Where a page of Audit Events ends; opaque.
@@ -61,6 +61,10 @@ export type AuditEvent = {
      * The step-up window an Admin set, 0 for off.
      */
     minutes?: 0 | 5 | 15 | 60;
+    /**
+     * The Machine Identity the event is about, as it was called then.
+     */
+    machineName?: string;
 };
 
 /**
@@ -480,6 +484,66 @@ export type Assignment = {
 };
 
 /**
+ * A Machine Identity to add.
+ */
+export type MachineDraft = {
+    /**
+     * What the Machine Identity is called, 1 to 64 characters.
+     */
+    name: string;
+    /**
+     * The Kubernetes namespace of its ServiceAccount.
+     */
+    namespace: string;
+    /**
+     * The Kubernetes ServiceAccount it signs in as.
+     */
+    serviceAccount: string;
+};
+
+/**
+ * A Machine Identity: a workload that signs in as itself, bound to one Kubernetes ServiceAccount. Its id is its client_id at the token endpoint.
+ */
+export type Machine = {
+    id: Id;
+    name: string;
+    namespace: string;
+    serviceAccount: string;
+    createdAt: string;
+};
+
+/**
+ * A Machine Identity holding one App Role on one Client.
+ */
+export type MachineAssignment = {
+    machineId: Id;
+    clientId: ClientId;
+    role: AppRole;
+};
+
+/**
+ * Every Machine Identity, every Assignment one holds, including those on Removed Clients, and every Client in the cluster.
+ */
+export type MachinesOverview = {
+    /**
+     * By name.
+     */
+    machines: Array<Machine>;
+    assignments: Array<MachineAssignment>;
+    /**
+     * Every Client in the cluster, by label.
+     */
+    clients: Array<AccessClient>;
+};
+
+/**
+ * A Machine Identity's new client secret, shown once.
+ */
+export type MachineSecret = {
+    secret: string;
+};
+
+/**
  * Whether a Group requires two-factor of its members.
  */
 export type TwoFactorRequirement = {
@@ -730,6 +794,11 @@ export type Problem = {
  * The Group.
  */
 export type GroupId = Id;
+
+/**
+ * The Machine Identity.
+ */
+export type MachineId = Id;
 
 /**
  * The User.
@@ -2316,6 +2385,216 @@ export type AssignUserRoleResponses = {
 };
 
 export type AssignUserRoleResponse = AssignUserRoleResponses[keyof AssignUserRoleResponses];
+
+export type ListMachinesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/access/machines';
+};
+
+export type ListMachinesErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type ListMachinesError = ListMachinesErrors[keyof ListMachinesErrors];
+
+export type ListMachinesResponses = {
+    /**
+     * The Machine Identities.
+     */
+    200: MachinesOverview;
+};
+
+export type ListMachinesResponse = ListMachinesResponses[keyof ListMachinesResponses];
+
+export type CreateMachineData = {
+    body: MachineDraft;
+    path?: never;
+    query?: never;
+    url: '/api/v1/access/machines';
+};
+
+export type CreateMachineErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type CreateMachineError = CreateMachineErrors[keyof CreateMachineErrors];
+
+export type CreateMachineResponses = {
+    /**
+     * The new Machine Identity.
+     */
+    201: Machine;
+};
+
+export type CreateMachineResponse = CreateMachineResponses[keyof CreateMachineResponses];
+
+export type DeleteMachineData = {
+    body?: never;
+    path: {
+        /**
+         * The Machine Identity.
+         */
+        machineId: Id;
+    };
+    query?: never;
+    url: '/api/v1/access/machines/{machineId}';
+};
+
+export type DeleteMachineErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type DeleteMachineError = DeleteMachineErrors[keyof DeleteMachineErrors];
+
+export type DeleteMachineResponses = {
+    /**
+     * Deleted.
+     */
+    204: void;
+};
+
+export type DeleteMachineResponse = DeleteMachineResponses[keyof DeleteMachineResponses];
+
+export type UnassignMachineRoleData = {
+    body?: never;
+    path: {
+        /**
+         * The Machine Identity.
+         */
+        machineId: Id;
+        /**
+         * The Client, by its id.
+         */
+        clientId: ClientId;
+        /**
+         * The App Role.
+         */
+        role: AppRole;
+    };
+    query?: never;
+    url: '/api/v1/access/machines/{machineId}/roles/{clientId}/{role}';
+};
+
+export type UnassignMachineRoleErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type UnassignMachineRoleError = UnassignMachineRoleErrors[keyof UnassignMachineRoleErrors];
+
+export type UnassignMachineRoleResponses = {
+    /**
+     * The Machine Identity does not hold the App Role.
+     */
+    204: void;
+};
+
+export type UnassignMachineRoleResponse = UnassignMachineRoleResponses[keyof UnassignMachineRoleResponses];
+
+export type AssignMachineRoleData = {
+    body?: never;
+    path: {
+        /**
+         * The Machine Identity.
+         */
+        machineId: Id;
+        /**
+         * The Client, by its id.
+         */
+        clientId: ClientId;
+        /**
+         * The App Role.
+         */
+        role: AppRole;
+    };
+    query?: never;
+    url: '/api/v1/access/machines/{machineId}/roles/{clientId}/{role}';
+};
+
+export type AssignMachineRoleErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type AssignMachineRoleError = AssignMachineRoleErrors[keyof AssignMachineRoleErrors];
+
+export type AssignMachineRoleResponses = {
+    /**
+     * The Machine Identity holds the App Role.
+     */
+    204: void;
+};
+
+export type AssignMachineRoleResponse = AssignMachineRoleResponses[keyof AssignMachineRoleResponses];
+
+export type RotateMachineSecretData = {
+    body?: never;
+    path: {
+        /**
+         * The Machine Identity.
+         */
+        machineId: Id;
+    };
+    query?: never;
+    url: '/api/v1/access/machines/{machineId}/secret';
+};
+
+export type RotateMachineSecretErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type RotateMachineSecretError = RotateMachineSecretErrors[keyof RotateMachineSecretErrors];
+
+export type RotateMachineSecretResponses = {
+    /**
+     * The new secret, shown once.
+     */
+    200: MachineSecret;
+};
+
+export type RotateMachineSecretResponse = RotateMachineSecretResponses[keyof RotateMachineSecretResponses];
 
 export type ListAuditEventsData = {
     body?: never;

@@ -21,7 +21,13 @@ hashes (rehashed with argon2id at their next sign-in), finished authenticator ap
 `SERVICE_*` grant as a direct `user` role on the Client named like the service (`--client
 MAIL=stalwart` names another), and ADMINs into the admins Group. `--dry-run` prints the same lines
 and changes nothing; a second run skips everyone already imported
-([0006](docs/adr/0006-legacy-auth-is-a-client-during-migration.md)). Users add authenticator apps (TOTP, sealed by Vault
+([0006](docs/adr/0006-legacy-auth-is-a-client-during-migration.md)). A workload signs in as a Machine Identity
+([0008](docs/adr/0008-three-kinds-of-credential-without-a-browser.md)), which Admins add on the
+Machines tab and give roles directly. In the cluster it exchanges its projected ServiceAccount token
+(audience: identity's issuer URL) at `/oidc/token` with the token-exchange grant, its Machine
+Identity id as `client_id` in basic auth with an empty secret, and `audience` naming the one Client
+it calls; outside the cluster it uses the client credentials grant with a secret made on its page.
+Either way the access token carries its `roles` on that Client and lasts 15 minutes. Users add authenticator apps (TOTP, sealed by Vault
 transit) and passkeys (WebAuthn, on go-webauthn) on the Security page; sign-in then asks for one,
 and Admins manage access only from a session that gave one
 ([0015](docs/adr/0015-a-second-factor-is-proved-not-just-held.md)). The Gate signs Users in for

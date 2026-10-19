@@ -21,6 +21,14 @@
   .cols-apps2 { grid-template-columns: minmax(0, 1fr) auto; }
   .cols-apps2 > :nth-child(2) { display: none; }
 }
+.cols-machines { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.3fr) 100px 16px; }
+.mc-add { margin-bottom: 16px; }
+.mc-fields { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 10px 14px; align-items: center; margin: 12px 0; }
+@media (max-width: 720px) {
+  .cols-machines { grid-template-columns: minmax(0, 1fr) auto; }
+  .cols-machines > :nth-child(2), .cols-machines > :nth-child(3) { display: none; }
+  .mc-fields { grid-template-columns: minmax(0, 1fr); }
+}
 .cols-people2 { grid-template-columns: 28px minmax(0, 1.4fr) minmax(0, 2fr) 20px; }
 .bulk.shown { visibility: visible; opacity: 1; transform: translate(-50%, 0); }
 @media (max-width: 720px) {

@@ -108,3 +108,33 @@ WHERE m.user_id = $1 AND g.requires_two_factor
   AND NOT EXISTS (SELECT 1 FROM totp_factors f WHERE f.user_id = $1)
   AND NOT EXISTS (SELECT 1 FROM passkeys p WHERE p.user_id = $1)
 ORDER BY a.client_id;
+
+-- name: ListMachines :many
+SELECT id, name, namespace, service_account, created_at FROM machine_identities ORDER BY lower(name), id;
+
+-- name: MachineByID :one
+SELECT id, name, namespace, service_account, created_at FROM machine_identities WHERE id = $1;
+
+-- name: MachineByBinding :one
+-- The Machine Identity a ServiceAccount signs in as.
+SELECT id, name, namespace, service_account, created_at FROM machine_identities WHERE namespace = $1 AND service_account = $2;
+
+-- name: CreateMachine :exec
+INSERT INTO machine_identities (id, name, namespace, service_account, created_at) VALUES ($1, $2, $3, $4, $5);
+
+-- name: DeleteMachine :execrows
+-- Its Assignments go with it; its secret, kept under its id as a Client's is, is deleted beside.
+DELETE FROM machine_identities WHERE id = $1;
+
+-- name: MachineAssignments :many
+SELECT machine_id::uuid AS machine_id, client_id, role FROM assignments WHERE machine_id IS NOT NULL ORDER BY client_id, role;
+
+-- name: AssignMachine :execrows
+INSERT INTO assignments (machine_id, client_id, role) VALUES (sqlc.arg(machine_id)::uuid, sqlc.arg(client_id), sqlc.arg(role)) ON CONFLICT DO NOTHING;
+
+-- name: UnassignMachine :execrows
+DELETE FROM assignments WHERE machine_id = sqlc.arg(machine_id)::uuid AND client_id = sqlc.arg(client_id) AND role = sqlc.arg(role);
+
+-- name: MachineRolesOf :many
+-- A Machine Identity's App Roles on a Client: only its own, as it is never in a Group.
+SELECT role FROM assignments WHERE machine_id = sqlc.arg(machine_id)::uuid AND client_id = sqlc.arg(client_id) ORDER BY role;

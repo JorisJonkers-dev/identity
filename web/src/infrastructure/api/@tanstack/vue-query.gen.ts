@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/vue-query';
 
 import { client } from '../client.gen';
-import { addMember, askEmailChange, askPasswordReset, askUserEmailChange, assignRole, assignUserRole, cancelEmailChange, changePassword, checkPasswordReset, completePasswordReset, completeSignIn, completeSignInWithPasskey, confirmEmail, confirmEmailChange, confirmPasskey, confirmTotp, createGroup, deleteAccount, deleteGroup, deleteUser, getAccess, getDashboard, getLauncher, getProfile, getStepUp, getVersion, listAuditEvents, listDevices, listMyTokens, listSecondFactors, listUserTokens, mintToken, type Options, passkeyOptions, removeMember, removeSecondFactor, renameGroup, renameUser, resetPasskeyOptions, resetWithCode, resetWithPasskey, revokeMyToken, revokeUserToken, rotateClientSecret, setGroupTwoFactor, setStepUp, signIn, signOut, signOutDevice, signOutOtherDevices, signOutUser, signUp, startPasskey, startStepUp, startTotp, stepUpPasskeyOptions, stepUpWithCode, stepUpWithPasskey, unassignRole, unassignUserRole, updateProfile } from '../sdk.gen';
-import type { AddMemberData, AddMemberError, AddMemberResponse, AskEmailChangeData, AskEmailChangeError, AskPasswordResetData, AskPasswordResetError, AskUserEmailChangeData, AskUserEmailChangeError, AssignRoleData, AssignRoleError, AssignRoleResponse, AssignUserRoleData, AssignUserRoleError, AssignUserRoleResponse, AuditCursor, CancelEmailChangeData, CancelEmailChangeError, CancelEmailChangeResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CheckPasswordResetData, CheckPasswordResetError, CheckPasswordResetResponse, CompletePasswordResetData, CompletePasswordResetError, CompletePasswordResetResponse, CompleteSignInData, CompleteSignInError, CompleteSignInResponse, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyError, CompleteSignInWithPasskeyResponse, ConfirmEmailChangeData, ConfirmEmailChangeError, ConfirmEmailChangeResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, ConfirmPasskeyData, ConfirmPasskeyError, ConfirmPasskeyResponse, ConfirmTotpData, ConfirmTotpError, ConfirmTotpResponse, CreateGroupData, CreateGroupError, CreateGroupResponse, DeleteAccountData, DeleteAccountError, DeleteAccountResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, GetAccessData, GetAccessError, GetAccessResponse, GetDashboardData, GetDashboardError, GetDashboardResponse, GetLauncherData, GetLauncherError, GetLauncherResponse, GetProfileData, GetProfileError, GetProfileResponse, GetStepUpData, GetStepUpError, GetStepUpResponse, GetVersionData, GetVersionError, GetVersionResponse, ListAuditEventsData, ListAuditEventsError, ListAuditEventsResponse, ListDevicesData, ListDevicesError, ListDevicesResponse, ListMyTokensData, ListMyTokensError, ListMyTokensResponse, ListSecondFactorsData, ListSecondFactorsError, ListSecondFactorsResponse, ListUserTokensData, ListUserTokensError, ListUserTokensResponse, MintTokenData, MintTokenError, MintTokenResponse, PasskeyOptionsData, PasskeyOptionsError, PasskeyOptionsResponse, RemoveMemberData, RemoveMemberError, RemoveMemberResponse, RemoveSecondFactorData, RemoveSecondFactorError, RemoveSecondFactorResponse, RenameGroupData, RenameGroupError, RenameGroupResponse, RenameUserData, RenameUserError, RenameUserResponse, ResetPasskeyOptionsData, ResetPasskeyOptionsError, ResetPasskeyOptionsResponse, ResetWithCodeData, ResetWithCodeError, ResetWithCodeResponse, ResetWithPasskeyData, ResetWithPasskeyError, ResetWithPasskeyResponse, RevokeMyTokenData, RevokeMyTokenError, RevokeMyTokenResponse, RevokeUserTokenData, RevokeUserTokenError, RevokeUserTokenResponse, RotateClientSecretData, RotateClientSecretError, RotateClientSecretResponse, SetGroupTwoFactorData, SetGroupTwoFactorError, SetGroupTwoFactorResponse, SetStepUpData, SetStepUpError, SetStepUpResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutDeviceData, SignOutDeviceError, SignOutDeviceResponse, SignOutError, SignOutOtherDevicesData, SignOutOtherDevicesError, SignOutOtherDevicesResponse, SignOutResponse, SignOutUserData, SignOutUserError, SignOutUserResponse, SignUpData, SignUpError, StartPasskeyData, StartPasskeyError, StartPasskeyResponse, StartStepUpData, StartStepUpError, StartStepUpResponse, StartTotpData, StartTotpError, StartTotpResponse, StepUpPasskeyOptionsData, StepUpPasskeyOptionsError, StepUpPasskeyOptionsResponse, StepUpWithCodeData, StepUpWithCodeError, StepUpWithCodeResponse, StepUpWithPasskeyData, StepUpWithPasskeyError, StepUpWithPasskeyResponse, UnassignRoleData, UnassignRoleError, UnassignRoleResponse, UnassignUserRoleData, UnassignUserRoleError, UnassignUserRoleResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
+import { addMember, askEmailChange, askPasswordReset, askUserEmailChange, assignMachineRole, assignRole, assignUserRole, cancelEmailChange, changePassword, checkPasswordReset, completePasswordReset, completeSignIn, completeSignInWithPasskey, confirmEmail, confirmEmailChange, confirmPasskey, confirmTotp, createGroup, createMachine, deleteAccount, deleteGroup, deleteMachine, deleteUser, getAccess, getDashboard, getLauncher, getProfile, getStepUp, getVersion, listAuditEvents, listDevices, listMachines, listMyTokens, listSecondFactors, listUserTokens, mintToken, type Options, passkeyOptions, removeMember, removeSecondFactor, renameGroup, renameUser, resetPasskeyOptions, resetWithCode, resetWithPasskey, revokeMyToken, revokeUserToken, rotateClientSecret, rotateMachineSecret, setGroupTwoFactor, setStepUp, signIn, signOut, signOutDevice, signOutOtherDevices, signOutUser, signUp, startPasskey, startStepUp, startTotp, stepUpPasskeyOptions, stepUpWithCode, stepUpWithPasskey, unassignMachineRole, unassignRole, unassignUserRole, updateProfile } from '../sdk.gen';
+import type { AddMemberData, AddMemberError, AddMemberResponse, AskEmailChangeData, AskEmailChangeError, AskPasswordResetData, AskPasswordResetError, AskUserEmailChangeData, AskUserEmailChangeError, AssignMachineRoleData, AssignMachineRoleError, AssignMachineRoleResponse, AssignRoleData, AssignRoleError, AssignRoleResponse, AssignUserRoleData, AssignUserRoleError, AssignUserRoleResponse, AuditCursor, CancelEmailChangeData, CancelEmailChangeError, CancelEmailChangeResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CheckPasswordResetData, CheckPasswordResetError, CheckPasswordResetResponse, CompletePasswordResetData, CompletePasswordResetError, CompletePasswordResetResponse, CompleteSignInData, CompleteSignInError, CompleteSignInResponse, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyError, CompleteSignInWithPasskeyResponse, ConfirmEmailChangeData, ConfirmEmailChangeError, ConfirmEmailChangeResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, ConfirmPasskeyData, ConfirmPasskeyError, ConfirmPasskeyResponse, ConfirmTotpData, ConfirmTotpError, ConfirmTotpResponse, CreateGroupData, CreateGroupError, CreateGroupResponse, CreateMachineData, CreateMachineError, CreateMachineResponse, DeleteAccountData, DeleteAccountError, DeleteAccountResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, DeleteMachineData, DeleteMachineError, DeleteMachineResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, GetAccessData, GetAccessError, GetAccessResponse, GetDashboardData, GetDashboardError, GetDashboardResponse, GetLauncherData, GetLauncherError, GetLauncherResponse, GetProfileData, GetProfileError, GetProfileResponse, GetStepUpData, GetStepUpError, GetStepUpResponse, GetVersionData, GetVersionError, GetVersionResponse, ListAuditEventsData, ListAuditEventsError, ListAuditEventsResponse, ListDevicesData, ListDevicesError, ListDevicesResponse, ListMachinesData, ListMachinesError, ListMachinesResponse, ListMyTokensData, ListMyTokensError, ListMyTokensResponse, ListSecondFactorsData, ListSecondFactorsError, ListSecondFactorsResponse, ListUserTokensData, ListUserTokensError, ListUserTokensResponse, MintTokenData, MintTokenError, MintTokenResponse, PasskeyOptionsData, PasskeyOptionsError, PasskeyOptionsResponse, RemoveMemberData, RemoveMemberError, RemoveMemberResponse, RemoveSecondFactorData, RemoveSecondFactorError, RemoveSecondFactorResponse, RenameGroupData, RenameGroupError, RenameGroupResponse, RenameUserData, RenameUserError, RenameUserResponse, ResetPasskeyOptionsData, ResetPasskeyOptionsError, ResetPasskeyOptionsResponse, ResetWithCodeData, ResetWithCodeError, ResetWithCodeResponse, ResetWithPasskeyData, ResetWithPasskeyError, ResetWithPasskeyResponse, RevokeMyTokenData, RevokeMyTokenError, RevokeMyTokenResponse, RevokeUserTokenData, RevokeUserTokenError, RevokeUserTokenResponse, RotateClientSecretData, RotateClientSecretError, RotateClientSecretResponse, RotateMachineSecretData, RotateMachineSecretError, RotateMachineSecretResponse, SetGroupTwoFactorData, SetGroupTwoFactorError, SetGroupTwoFactorResponse, SetStepUpData, SetStepUpError, SetStepUpResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutDeviceData, SignOutDeviceError, SignOutDeviceResponse, SignOutError, SignOutOtherDevicesData, SignOutOtherDevicesError, SignOutOtherDevicesResponse, SignOutResponse, SignOutUserData, SignOutUserError, SignOutUserResponse, SignUpData, SignUpError, StartPasskeyData, StartPasskeyError, StartPasskeyResponse, StartStepUpData, StartStepUpError, StartStepUpResponse, StartTotpData, StartTotpError, StartTotpResponse, StepUpPasskeyOptionsData, StepUpPasskeyOptionsError, StepUpPasskeyOptionsResponse, StepUpWithCodeData, StepUpWithCodeError, StepUpWithCodeResponse, StepUpWithPasskeyData, StepUpWithPasskeyError, StepUpWithPasskeyResponse, UnassignMachineRoleData, UnassignMachineRoleError, UnassignMachineRoleResponse, UnassignRoleData, UnassignRoleError, UnassignRoleResponse, UnassignUserRoleData, UnassignUserRoleError, UnassignUserRoleResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -985,6 +985,121 @@ export const assignUserRoleMutation = (options?: Partial<Options<AssignUserRoleD
     const mutationOptions: UseMutationOptions<AssignUserRoleResponse, AssignUserRoleError, Options<AssignUserRoleData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await assignUserRole({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listMachinesQueryKey = (options?: Options<ListMachinesData>) => createQueryKey('listMachines', options);
+
+/**
+ * Machine Identities, their roles and the Clients
+ *
+ * Everything the Machines tab shows, in one read. Admins only.
+ */
+export const listMachinesOptions = (options?: Options<ListMachinesData>) => queryOptions<ListMachinesResponse, ListMachinesError, ListMachinesResponse, ReturnType<typeof listMachinesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listMachines({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listMachinesQueryKey(options)
+});
+
+/**
+ * Add a Machine Identity
+ *
+ * Adds a Machine Identity bound to one Kubernetes ServiceAccount, holding no App Role yet. Names are unique whatever their case, and one ServiceAccount binds one Machine Identity. Admins only.
+ */
+export const createMachineMutation = (options?: Partial<Options<CreateMachineData>>): UseMutationOptions<CreateMachineResponse, CreateMachineError, Options<CreateMachineData>> => {
+    const mutationOptions: UseMutationOptions<CreateMachineResponse, CreateMachineError, Options<CreateMachineData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createMachine({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete a Machine Identity
+ *
+ * Deletes a Machine Identity with its App Roles and client secret. Access tokens it already holds end when they expire. Admins only.
+ */
+export const deleteMachineMutation = (options?: Partial<Options<DeleteMachineData>>): UseMutationOptions<DeleteMachineResponse, DeleteMachineError, Options<DeleteMachineData>> => {
+    const mutationOptions: UseMutationOptions<DeleteMachineResponse, DeleteMachineError, Options<DeleteMachineData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteMachine({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Take a Machine Identity's App Role
+ *
+ * Removes the Assignment, also one on a Removed Client. Admins only.
+ */
+export const unassignMachineRoleMutation = (options?: Partial<Options<UnassignMachineRoleData>>): UseMutationOptions<UnassignMachineRoleResponse, UnassignMachineRoleError, Options<UnassignMachineRoleData>> => {
+    const mutationOptions: UseMutationOptions<UnassignMachineRoleResponse, UnassignMachineRoleError, Options<UnassignMachineRoleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await unassignMachineRole({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Give a Machine Identity an App Role on a Client
+ *
+ * The Client must be in the cluster and declare the App Role. Assigning twice changes nothing. Admins only.
+ */
+export const assignMachineRoleMutation = (options?: Partial<Options<AssignMachineRoleData>>): UseMutationOptions<AssignMachineRoleResponse, AssignMachineRoleError, Options<AssignMachineRoleData>> => {
+    const mutationOptions: UseMutationOptions<AssignMachineRoleResponse, AssignMachineRoleError, Options<AssignMachineRoleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await assignMachineRole({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Give a Machine Identity a new client secret
+ *
+ * For a workload outside the cluster, which signs in with the client credentials grant. The secret is answered once, here, and kept only as a hash. The previous secret keeps working until the new one is first used. Admins only, from a session that proved a Second Factor.
+ */
+export const rotateMachineSecretMutation = (options?: Partial<Options<RotateMachineSecretData>>): UseMutationOptions<RotateMachineSecretResponse, RotateMachineSecretError, Options<RotateMachineSecretData>> => {
+    const mutationOptions: UseMutationOptions<RotateMachineSecretResponse, RotateMachineSecretError, Options<RotateMachineSecretData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await rotateMachineSecret({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

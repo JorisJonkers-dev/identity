@@ -39,6 +39,8 @@ import (
 	"github.com/JorisJonkers-dev/identity/internal/server"
 	"github.com/JorisJonkers-dev/identity/internal/signin/adapters/accounts"
 	"github.com/JorisJonkers-dev/identity/internal/signin/adapters/clients"
+	"github.com/JorisJonkers-dev/identity/internal/signin/adapters/kubernetes"
+	"github.com/JorisJonkers-dev/identity/internal/signin/adapters/machines"
 	signinoidc "github.com/JorisJonkers-dev/identity/internal/signin/adapters/oidc"
 	signinpersistence "github.com/JorisJonkers-dev/identity/internal/signin/adapters/persistence"
 	"github.com/JorisJonkers-dev/identity/internal/signin/adapters/secretstore"
@@ -90,8 +92,11 @@ type Config struct {
 	IconTransport http.RoundTripper
 	// Grafana is where the dashboard links for charts over time; nil links nowhere.
 	Grafana *url.URL
-	Logger  *slog.Logger
-	Version string
+	// ServiceAccounts checks the ServiceAccount tokens Machine Identities exchange (identity#22);
+	// nil refuses every one, as outside a cluster.
+	ServiceAccounts signinapp.ServiceAccountTokens
+	Logger          *slog.Logger
+	Version         string
 	// Now is the clock of the use cases, so a local run's seed can record a past day; nil is the
 	// real clock. Signing keys always run on the real clock.
 	Now func() time.Time
@@ -142,7 +147,9 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 	}
 	q := cfg.Store.Queries()
 	users := app.New(persistence.New(q, cfg.Store), passwords.NewArgon2id(maxConcurrentHashes, hashWait), cfg.Mailer, now, rand.Reader, cfg.PublicURL, opts...)
-	access = accessapp.New(accesspersistence.New(q, cfg.Store), catalog.New(cfg.Index), people.New(users), recorder, rand.Reader)
+	accessStore := accesspersistence.New(q, cfg.Store)
+	access = accessapp.New(accessStore, catalog.New(cfg.Index), people.New(users), recorder, rand.Reader)
+	access.SetMachines(accessStore, now)
 	keys := signinapp.NewKeys(signinpersistence.NewKeys(q, cfg.Store, time.Now), cfg.KeySealer, newSigningKey, time.Now, rand.Reader)
 	ring, err := signinoidc.LoadRing(ctx, keys.Load)
 	if err != nil {
@@ -154,7 +161,13 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 	}
 	logouts := signinoidc.NewLogouts(cfg.PublicURL, ring, &http.Client{}, cfg.Logger, time.Now)
 	signIn := signinapp.New(signinpersistence.New(q), cfg.Index, accounts.New(users), access, logouts, recorder, now, rand.Reader)
-	secrets := signinapp.NewClientSecrets(signinpersistence.NewClientSecrets(q, cfg.Store, time.Now), secretstore.New(cfg.KV), cfg.Index, admins, recorder, rand.Reader)
+	secretHashes := signinpersistence.NewClientSecrets(q, cfg.Store, time.Now)
+	secrets := signinapp.NewClientSecrets(secretHashes, secretstore.New(cfg.KV), cfg.Index, admins, recorder, rand.Reader)
+	serviceAccounts := cfg.ServiceAccounts
+	if serviceAccounts == nil {
+		serviceAccounts = kubernetes.Disabled{}
+	}
+	machineSignIn := signinapp.NewMachineSignIn(machines.New(access), serviceAccounts, secretHashes, cfg.Index, admins, recorder, rand.Reader)
 	signIn.SetClientSecrets(secrets)
 	stepUpSettings := signinpersistence.NewStepUps(q, now)
 	signIn.SetStepUps(stepUpSettings)
@@ -169,7 +182,7 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 		transport = http.DefaultTransport
 	}
 	launcher := launcherapp.New(launcherContexts, launcherContexts, launcherfetch.New(transport, iconTimeout), now)
-	api, err := httpapi.New(cfg.Logger, cfg.Version, users, access, auditweb.New(audit, cfg.Grafana), launcher, tokensweb.New(tokens), signinweb.New(secrets, stepUps))
+	api, err := httpapi.New(cfg.Logger, cfg.Version, users, access, auditweb.New(audit, cfg.Grafana), launcher, tokensweb.New(tokens), signinweb.New(secrets, stepUps, machineSignIn))
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +191,7 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 		Insecure:      strings.HasPrefix(cfg.PublicURL, "http://"),
 		SessionCookie: usersweb.CookieName,
 		CryptoKey:     cryptoKey,
-	}, signIn, ring, cfg.Logger, time.Now)
+	}, signIn, machineSignIn, ring, cfg.Logger, time.Now)
 	if err != nil {
 		return nil, err
 	}

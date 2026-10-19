@@ -14,24 +14,26 @@ import (
 )
 
 const appendAuditEvent = `-- name: AppendAuditEvent :exec
-INSERT INTO audit_events (id, at, kind, action, actor_id, user_id, client_id, group_id, group_name, role, email, reason, minutes)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+INSERT INTO audit_events (id, at, kind, action, actor_id, user_id, client_id, group_id, group_name, role, email, reason, minutes, machine_id, machine_name)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 `
 
 type AppendAuditEventParams struct {
-	ID        uuid.UUID
-	At        time.Time
-	Kind      string
-	Action    string
-	ActorID   *uuid.UUID
-	UserID    *uuid.UUID
-	ClientID  pgtype.Text
-	GroupID   *uuid.UUID
-	GroupName pgtype.Text
-	Role      pgtype.Text
-	Email     pgtype.Text
-	Reason    pgtype.Text
-	Minutes   pgtype.Int4
+	ID          uuid.UUID
+	At          time.Time
+	Kind        string
+	Action      string
+	ActorID     *uuid.UUID
+	UserID      *uuid.UUID
+	ClientID    pgtype.Text
+	GroupID     *uuid.UUID
+	GroupName   pgtype.Text
+	Role        pgtype.Text
+	Email       pgtype.Text
+	Reason      pgtype.Text
+	Minutes     pgtype.Int4
+	MachineID   *uuid.UUID
+	MachineName pgtype.Text
 }
 
 func (q *Queries) AppendAuditEvent(ctx context.Context, arg AppendAuditEventParams) error {
@@ -49,6 +51,8 @@ func (q *Queries) AppendAuditEvent(ctx context.Context, arg AppendAuditEventPara
 		arg.Email,
 		arg.Reason,
 		arg.Minutes,
+		arg.MachineID,
+		arg.MachineName,
 	)
 	return err
 }
@@ -103,7 +107,7 @@ func (q *Queries) DeleteAuditEventsBefore(ctx context.Context, at time.Time) (in
 }
 
 const listAuditEvents = `-- name: ListAuditEvents :many
-SELECT id, at, kind, action, actor_id, user_id, client_id, group_id, group_name, role, email, reason, minutes
+SELECT id, at, kind, action, actor_id, user_id, client_id, group_id, group_name, role, email, reason, minutes, machine_id, machine_name
 FROM audit_events
 WHERE ($1::uuid IS NULL OR user_id = $1 OR actor_id = $1)
   AND ($2::text IS NULL OR client_id = $2)
@@ -153,6 +157,8 @@ func (q *Queries) ListAuditEvents(ctx context.Context, arg ListAuditEventsParams
 			&i.Email,
 			&i.Reason,
 			&i.Minutes,
+			&i.MachineID,
+			&i.MachineName,
 		); err != nil {
 			return nil, err
 		}

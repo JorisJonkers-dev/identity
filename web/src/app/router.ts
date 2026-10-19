@@ -29,6 +29,8 @@ export function createAppRouter(history: RouterHistory = createWebHistory()): Ro
       { path: '/admin/apps/:clientId', name: 'app', component: () => import('../features/access/components/AppPage.vue') },
       { path: '/admin/people', name: 'people', component: () => import('../features/access/components/PeoplePage.vue') },
       { path: '/admin/people/:userId', name: 'person', component: () => import('../features/access/components/PersonPage.vue') },
+      { path: '/admin/machines', name: 'machines', component: () => import('../features/access/components/MachinesPage.vue') },
+      { path: '/admin/machines/:machineId', name: 'machine', component: () => import('../features/access/components/MachinePage.vue') },
       { path: '/admin/audit', name: 'audit', component: () => import('../features/admin/components/AuditPage.vue') },
       // Where the pages used to be, for links already sent or bookmarked.
       { path: '/profile', redirect: '/account' },

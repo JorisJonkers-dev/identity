@@ -52,6 +52,16 @@ func (UnimplementedHandler) AskUserEmailChange(ctx context.Context, req *EmailAd
 	return r, ht.ErrNotImplemented
 }
 
+// AssignMachineRole implements assignMachineRole operation.
+//
+// The Client must be in the cluster and declare the App Role. Assigning twice changes nothing. Admins
+// only.
+//
+// PUT /api/v1/access/machines/{machineId}/roles/{clientId}/{role}
+func (UnimplementedHandler) AssignMachineRole(ctx context.Context, params AssignMachineRoleParams) (r AssignMachineRoleRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // AssignRole implements assignRole operation.
 //
 // Makes an Assignment. The Client must be in the cluster and declare the App Role, and the admins
@@ -181,6 +191,16 @@ func (UnimplementedHandler) CreateGroup(ctx context.Context, req *GroupDraft) (r
 	return r, ht.ErrNotImplemented
 }
 
+// CreateMachine implements createMachine operation.
+//
+// Adds a Machine Identity bound to one Kubernetes ServiceAccount, holding no App Role yet. Names are
+// unique whatever their case, and one ServiceAccount binds one Machine Identity. Admins only.
+//
+// POST /api/v1/access/machines
+func (UnimplementedHandler) CreateMachine(ctx context.Context, req *MachineDraft) (r CreateMachineRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // DeleteAccount implements deleteAccount operation.
 //
 // Needs the password and, when the User has two-factor, a session that proved it within five minutes.
@@ -200,6 +220,16 @@ func (UnimplementedHandler) DeleteAccount(ctx context.Context, req *PasswordChec
 //
 // DELETE /api/v1/access/groups/{groupId}
 func (UnimplementedHandler) DeleteGroup(ctx context.Context, params DeleteGroupParams) (r DeleteGroupRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// DeleteMachine implements deleteMachine operation.
+//
+// Deletes a Machine Identity with its App Roles and client secret. Access tokens it already holds end
+// when they expire. Admins only.
+//
+// DELETE /api/v1/access/machines/{machineId}
+func (UnimplementedHandler) DeleteMachine(ctx context.Context, params DeleteMachineParams) (r DeleteMachineRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -289,6 +319,15 @@ func (UnimplementedHandler) ListAuditEvents(ctx context.Context, params ListAudi
 //
 // GET /api/v1/profile/devices
 func (UnimplementedHandler) ListDevices(ctx context.Context) (r ListDevicesRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// ListMachines implements listMachines operation.
+//
+// Everything the Machines tab shows, in one read. Admins only.
+//
+// GET /api/v1/access/machines
+func (UnimplementedHandler) ListMachines(ctx context.Context) (r ListMachinesRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -431,6 +470,17 @@ func (UnimplementedHandler) RotateClientSecret(ctx context.Context, params Rotat
 	return r, ht.ErrNotImplemented
 }
 
+// RotateMachineSecret implements rotateMachineSecret operation.
+//
+// For a workload outside the cluster, which signs in with the client credentials grant. The secret is
+// answered once, here, and kept only as a hash. The previous secret keeps working until the new one is
+// first used. Admins only, from a session that proved a Second Factor.
+//
+// POST /api/v1/access/machines/{machineId}/secret
+func (UnimplementedHandler) RotateMachineSecret(ctx context.Context, params RotateMachineSecretParams) (r RotateMachineSecretRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // SetGroupTwoFactor implements setGroupTwoFactor operation.
 //
 // While a Group requires two-factor, a member without it holds none of the Group's App Roles; their
@@ -564,6 +614,15 @@ func (UnimplementedHandler) StepUpWithCode(ctx context.Context, req *SecondFacto
 //
 // POST /api/v1/session/step-up/passkey/assertion
 func (UnimplementedHandler) StepUpWithPasskey(ctx context.Context, req *PasskeyAssertion) (r StepUpWithPasskeyRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// UnassignMachineRole implements unassignMachineRole operation.
+//
+// Removes the Assignment, also one on a Removed Client. Admins only.
+//
+// DELETE /api/v1/access/machines/{machineId}/roles/{clientId}/{role}
+func (UnimplementedHandler) UnassignMachineRole(ctx context.Context, params UnassignMachineRoleParams) (r UnassignMachineRoleRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 

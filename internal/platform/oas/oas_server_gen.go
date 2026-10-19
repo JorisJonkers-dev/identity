@@ -35,6 +35,13 @@ type Handler interface {
 	//
 	// POST /api/v1/access/users/{userId}/email-change
 	AskUserEmailChange(ctx context.Context, req *EmailAddress, params AskUserEmailChangeParams) (AskUserEmailChangeRes, error)
+	// AssignMachineRole implements assignMachineRole operation.
+	//
+	// The Client must be in the cluster and declare the App Role. Assigning twice changes nothing. Admins
+	// only.
+	//
+	// PUT /api/v1/access/machines/{machineId}/roles/{clientId}/{role}
+	AssignMachineRole(ctx context.Context, params AssignMachineRoleParams) (AssignMachineRoleRes, error)
 	// AssignRole implements assignRole operation.
 	//
 	// Makes an Assignment. The Client must be in the cluster and declare the App Role, and the admins
@@ -125,6 +132,13 @@ type Handler interface {
 	//
 	// POST /api/v1/access/groups
 	CreateGroup(ctx context.Context, req *GroupDraft) (CreateGroupRes, error)
+	// CreateMachine implements createMachine operation.
+	//
+	// Adds a Machine Identity bound to one Kubernetes ServiceAccount, holding no App Role yet. Names are
+	// unique whatever their case, and one ServiceAccount binds one Machine Identity. Admins only.
+	//
+	// POST /api/v1/access/machines
+	CreateMachine(ctx context.Context, req *MachineDraft) (CreateMachineRes, error)
 	// DeleteAccount implements deleteAccount operation.
 	//
 	// Needs the password and, when the User has two-factor, a session that proved it within five minutes.
@@ -141,6 +155,13 @@ type Handler interface {
 	//
 	// DELETE /api/v1/access/groups/{groupId}
 	DeleteGroup(ctx context.Context, params DeleteGroupParams) (DeleteGroupRes, error)
+	// DeleteMachine implements deleteMachine operation.
+	//
+	// Deletes a Machine Identity with its App Roles and client secret. Access tokens it already holds end
+	// when they expire. Admins only.
+	//
+	// DELETE /api/v1/access/machines/{machineId}
+	DeleteMachine(ctx context.Context, params DeleteMachineParams) (DeleteMachineRes, error)
 	// DeleteUser implements deleteUser operation.
 	//
 	// Deletes the person as their own deletion does: every session ends with back-channel logout, their
@@ -203,6 +224,12 @@ type Handler interface {
 	//
 	// GET /api/v1/profile/devices
 	ListDevices(ctx context.Context) (ListDevicesRes, error)
+	// ListMachines implements listMachines operation.
+	//
+	// Everything the Machines tab shows, in one read. Admins only.
+	//
+	// GET /api/v1/access/machines
+	ListMachines(ctx context.Context) (ListMachinesRes, error)
 	// ListMyTokens implements listMyTokens operation.
 	//
 	// The signed-in User's tokens, newest first, and the Clients they may mint one for.
@@ -297,6 +324,14 @@ type Handler interface {
 	//
 	// POST /api/v1/apps/{clientId}/secret
 	RotateClientSecret(ctx context.Context, params RotateClientSecretParams) (RotateClientSecretRes, error)
+	// RotateMachineSecret implements rotateMachineSecret operation.
+	//
+	// For a workload outside the cluster, which signs in with the client credentials grant. The secret is
+	// answered once, here, and kept only as a hash. The previous secret keeps working until the new one is
+	// first used. Admins only, from a session that proved a Second Factor.
+	//
+	// POST /api/v1/access/machines/{machineId}/secret
+	RotateMachineSecret(ctx context.Context, params RotateMachineSecretParams) (RotateMachineSecretRes, error)
 	// SetGroupTwoFactor implements setGroupTwoFactor operation.
 	//
 	// While a Group requires two-factor, a member without it holds none of the Group's App Roles; their
@@ -391,6 +426,12 @@ type Handler interface {
 	//
 	// POST /api/v1/session/step-up/passkey/assertion
 	StepUpWithPasskey(ctx context.Context, req *PasskeyAssertion) (StepUpWithPasskeyRes, error)
+	// UnassignMachineRole implements unassignMachineRole operation.
+	//
+	// Removes the Assignment, also one on a Removed Client. Admins only.
+	//
+	// DELETE /api/v1/access/machines/{machineId}/roles/{clientId}/{role}
+	UnassignMachineRole(ctx context.Context, params UnassignMachineRoleParams) (UnassignMachineRoleRes, error)
 	// UnassignRole implements unassignRole operation.
 	//
 	// Removes an Assignment, also one on a Removed Client. Admins only.

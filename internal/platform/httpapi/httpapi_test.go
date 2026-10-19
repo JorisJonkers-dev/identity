@@ -130,7 +130,7 @@ func (launcher) Icon(context.Context, string) (launcherdomain.Icon, error) {
 
 func serve(t *testing.T) *httptest.Server {
 	t.Helper()
-	h, err := httpapi.New(slog.New(slog.DiscardHandler), "1.2.3", users{}, access{}, auditweb.New(audit{}, nil), launcher{}, tokensweb.New(nil), signinweb.New(nil, nil))
+	h, err := httpapi.New(slog.New(slog.DiscardHandler), "1.2.3", users{}, access{}, auditweb.New(audit{}, nil), launcher{}, tokensweb.New(nil), signinweb.New(nil, nil, nil))
 	if err != nil {
 		t.Fatal(err)
 	}

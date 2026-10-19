@@ -41,6 +41,15 @@ func (q *Queries) CreateClientSecret(ctx context.Context, arg CreateClientSecret
 	return err
 }
 
+const deleteClientSecret = `-- name: DeleteClientSecret :exec
+DELETE FROM client_secrets WHERE client_id = $1
+`
+
+func (q *Queries) DeleteClientSecret(ctx context.Context, clientID string) error {
+	_, err := q.db.Exec(ctx, deleteClientSecret, clientID)
+	return err
+}
+
 const endPreviousClientSecret = `-- name: EndPreviousClientSecret :exec
 UPDATE client_secrets SET previous_hash = NULL WHERE client_id = $1 AND hash = $2
 `

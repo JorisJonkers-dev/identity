@@ -30,6 +30,7 @@ type UseCases interface {
 	UnassignUser(ctx context.Context, actor app.Actor, a domain.UserAssignment) error
 	SignOutUser(ctx context.Context, actor app.Actor, userID uuid.UUID) error
 	SetTwoFactor(ctx context.Context, actor app.Actor, id uuid.UUID, required bool) error
+	MachineUseCases
 }
 
 // Access implements the access operations.
@@ -51,7 +52,7 @@ func (h *Access) GetAccess(ctx context.Context) (oas.GetAccessRes, error) {
 	res := &oas.AccessOverview{
 		Groups:          make([]oas.Group, 0, len(o.Groups)),
 		Users:           make([]oas.Person, 0, len(o.People)),
-		Clients:         make([]oas.AccessClient, 0, len(o.Clients)),
+		Clients:         clients(o.Clients),
 		Assignments:     make([]oas.Assignment, 0, len(o.Assignments)),
 		UserAssignments: make([]oas.UserAssignment, 0, len(o.UserAssignments)),
 	}
@@ -60,13 +61,6 @@ func (h *Access) GetAccess(ctx context.Context) (oas.GetAccessRes, error) {
 	}
 	for _, p := range o.People {
 		res.Users = append(res.Users, oas.Person{ID: oas.ID(p.ID), Email: oas.Email(p.Email), Name: p.Name, TwoFactor: p.TwoFactor})
-	}
-	for _, c := range o.Clients {
-		roles := make([]oas.AppRole, 0, len(c.Roles))
-		for _, r := range c.Roles {
-			roles = append(roles, oas.AppRole(r))
-		}
-		res.Clients = append(res.Clients, oas.AccessClient{ID: oas.ClientId(c.ID), Label: c.Label, Roles: roles})
 	}
 	for _, a := range o.Assignments {
 		res.Assignments = append(res.Assignments, oas.Assignment{
@@ -174,6 +168,18 @@ func (h *Access) SetGroupTwoFactor(ctx context.Context, req *oas.TwoFactorRequir
 		return refusal(err)
 	}
 	return &oas.SetGroupTwoFactorNoContent{}, nil
+}
+
+func clients(cs []domain.Client) []oas.AccessClient {
+	out := make([]oas.AccessClient, 0, len(cs))
+	for _, c := range cs {
+		roles := make([]oas.AppRole, 0, len(c.Roles))
+		for _, r := range c.Roles {
+			roles = append(roles, oas.AppRole(r))
+		}
+		out = append(out, oas.AccessClient{ID: oas.ClientId(c.ID), Label: c.Label, Roles: roles})
+	}
+	return out
 }
 
 func actor(ctx context.Context) app.Actor {
