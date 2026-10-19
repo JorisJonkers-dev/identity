@@ -141,6 +141,8 @@ func Start(t *testing.T, cs ...signindomain.Client) *Env {
 		Logger:    logger,
 		Version:   "itest",
 		Now:       clk.now,
+
+		ServiceAccounts: serviceAccounts(t),
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -22,8 +22,9 @@ export function describeEvent(e: AuditEvent): Part[] {
   const user: Part = { text: name(e.user), as: 'name' }
   const to = e.client ? ` to ${e.client.label}` : ''
   const group = e.groupName ?? 'a Group'
-  // A role given to a person directly names them; one given to a Group names the Group.
-  const holder = e.groupName === undefined && e.user ? name(e.user) : group
+  const machine = e.machineName ? `the Machine Identity ${e.machineName}` : 'a Machine Identity'
+  // A role given to a person or a Machine Identity directly names it; one given to a Group names the Group.
+  const holder = e.machineName ?? (e.groupName === undefined && e.user ? name(e.user) : group)
   const role: Part = { text: e.role ?? '', as: 'pill' }
   const client = e.client?.label ?? 'an app'
   switch (e.action) {
@@ -79,6 +80,12 @@ export function describeEvent(e: AuditEvent): Part[] {
       return [user, { text: ' revoked a token' }]
     case 'client-secret-rotated':
       return [actor, { text: ` gave ${client} a new secret` }]
+    case 'machine-created':
+      return [actor, { text: ` added ${machine}` }]
+    case 'machine-deleted':
+      return [actor, { text: ` deleted ${machine}` }]
+    case 'machine-secret-rotated':
+      return [actor, { text: ` gave ${machine} a new secret` }]
     case 'step-up-changed':
       return [actor, { text: e.minutes ? ` set ${client} to ask for two-factor again after ${String(e.minutes)} minutes` : ` turned off asking for two-factor again in ${client}` }]
   }

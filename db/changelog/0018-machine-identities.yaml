@@ -1,0 +1,61 @@
+# Machine Identities (identity#22, docs/adr/0008): a workload bound to one Kubernetes
+# ServiceAccount, holding Assignments directly and never in a Group (docs/adr/0018). Its client
+# secret, when it has one, is kept in client_secrets under its id, as a Secret Client's is.
+databaseChangeLog:
+  - changeSet:
+      id: 0018-machine-identities
+      author: identity
+      changes:
+        - createTable:
+            tableName: machine_identities
+            columns:
+              - column: {name: id, type: uuid, constraints: {primaryKey: true, nullable: false}}
+              - column: {name: name, type: text, constraints: {nullable: false}}
+              - column: {name: namespace, type: text, constraints: {nullable: false}}
+              - column: {name: service_account, type: text, constraints: {nullable: false}}
+              - column: {name: created_at, type: timestamptz, constraints: {nullable: false}}
+        - addUniqueConstraint:
+            tableName: machine_identities
+            columnNames: namespace, service_account
+            constraintName: machine_identities_binding_key
+
+  - changeSet:
+      id: 0018-machine-identities-name
+      author: identity
+      changes:
+        - sql:
+            sql: CREATE UNIQUE INDEX machine_identities_name_key ON machine_identities (lower(name))
+      rollback:
+        - sql:
+            sql: DROP INDEX machine_identities_name_key
+
+  - changeSet:
+      id: 0018-assignments-held-by-machines
+      author: identity
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE assignments ADD COLUMN machine_id uuid
+                CONSTRAINT assignments_machine_fk REFERENCES machine_identities(id) ON DELETE CASCADE;
+              ALTER TABLE assignments DROP CONSTRAINT assignments_one_holder;
+              ALTER TABLE assignments ADD CONSTRAINT assignments_one_holder CHECK (num_nonnulls(group_id, user_id, machine_id) = 1);
+              CREATE UNIQUE INDEX assignments_machine_key ON assignments (machine_id, client_id, role) WHERE machine_id IS NOT NULL
+      rollback:
+        - sql:
+            sql: >-
+              DELETE FROM assignments WHERE machine_id IS NOT NULL;
+              DROP INDEX assignments_machine_key;
+              ALTER TABLE assignments DROP CONSTRAINT assignments_one_holder;
+              ALTER TABLE assignments ADD CONSTRAINT assignments_one_holder CHECK (num_nonnulls(group_id, user_id) = 1);
+              ALTER TABLE assignments DROP COLUMN machine_id
+
+  - changeSet:
+      id: 0018-audit-events-machines
+      author: identity
+      changes:
+        - addColumn:
+            tableName: audit_events
+            columns:
+              # The Machine Identity an event is about, and its name then, kept after it is deleted.
+              - column: {name: machine_id, type: uuid}
+              - column: {name: machine_name, type: text}

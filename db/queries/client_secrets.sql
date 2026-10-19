@@ -21,3 +21,6 @@ SET previous_hash = COALESCE(client_secrets.previous_hash, client_secrets.hash),
 -- name: EndPreviousClientSecret :exec
 -- Only while hash is still the current secret, so a rotation in between keeps its own previous.
 UPDATE client_secrets SET previous_hash = NULL WHERE client_id = $1 AND hash = $2;
+
+-- name: DeleteClientSecret :exec
+DELETE FROM client_secrets WHERE client_id = $1;

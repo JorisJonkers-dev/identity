@@ -56,7 +56,7 @@ func asRoot() context.Context {
 func TestAnAdminGivesAClientANewSecret(t *testing.T) {
 	t.Parallel()
 	s := &secrets{}
-	res, err := web.New(s, nil).RotateClientSecret(asRoot(), oas.RotateClientSecretParams{ClientId: "grafana"})
+	res, err := web.New(s, nil, nil).RotateClientSecret(asRoot(), oas.RotateClientSecretParams{ClientId: "grafana"})
 	if _, ok := res.(*oas.RotateClientSecretNoContent); err != nil || !ok {
 		t.Fatalf("RotateClientSecret = %+v, %v", res, err)
 	}
@@ -80,7 +80,7 @@ func TestARefusedRotationSaysWhy(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			res, err := web.New(&secrets{err: tc.err}, nil).RotateClientSecret(asRoot(), oas.RotateClientSecretParams{ClientId: "grafana"})
+			res, err := web.New(&secrets{err: tc.err}, nil, nil).RotateClientSecret(asRoot(), oas.RotateClientSecretParams{ClientId: "grafana"})
 			p, ok := res.(*oas.ProblemStatusCode)
 			if err != nil || !ok || p.StatusCode != tc.status || p.Response.Detail.Value != tc.detail {
 				t.Fatalf("RotateClientSecret = %+v, %v", res, err)
@@ -100,7 +100,7 @@ func TestAFailedRotationIsPassedOn(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			if _, err := web.New(&secrets{err: tc.err}, nil).RotateClientSecret(asRoot(), oas.RotateClientSecretParams{}); !errors.Is(err, tc.err) {
+			if _, err := web.New(&secrets{err: tc.err}, nil, nil).RotateClientSecret(asRoot(), oas.RotateClientSecretParams{}); !errors.Is(err, tc.err) {
 				t.Fatalf("err = %v", err)
 			}
 		})
@@ -110,7 +110,7 @@ func TestAFailedRotationIsPassedOn(t *testing.T) {
 func TestAnAdminReadsAClientsStepUp(t *testing.T) {
 	t.Parallel()
 	s := &stepUps{minutes: 15}
-	res, err := web.New(nil, s).GetStepUp(asRoot(), oas.GetStepUpParams{ClientId: "grafana"})
+	res, err := web.New(nil, s, nil).GetStepUp(asRoot(), oas.GetStepUpParams{ClientId: "grafana"})
 	if got, ok := res.(*oas.StepUpState); err != nil || !ok || got.Minutes != 15 || got.Tokens != 3 || s.client != "grafana" || s.actor != (app.Actor{ID: root, SecondFactor: true}) {
 		t.Fatalf("GetStepUp = %+v, %v", res, err)
 	}
@@ -119,7 +119,7 @@ func TestAnAdminReadsAClientsStepUp(t *testing.T) {
 func TestAnAdminSetsAClientsStepUp(t *testing.T) {
 	t.Parallel()
 	s := &stepUps{}
-	res, err := web.New(nil, s).SetStepUp(asRoot(), &oas.StepUp{Minutes: 60}, oas.SetStepUpParams{ClientId: "grafana"})
+	res, err := web.New(nil, s, nil).SetStepUp(asRoot(), &oas.StepUp{Minutes: 60}, oas.SetStepUpParams{ClientId: "grafana"})
 	if _, ok := res.(*oas.SetStepUpNoContent); err != nil || !ok || s.set != 60 || s.client != "grafana" || s.actor != (app.Actor{ID: root, SecondFactor: true}) {
 		t.Fatalf("SetStepUp = %+v, %v", res, err)
 	}
@@ -139,7 +139,7 @@ func TestARefusedStepUpSaysWhy(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			res, err := web.New(nil, &stepUps{err: tc.err}).SetStepUp(asRoot(), &oas.StepUp{}, oas.SetStepUpParams{ClientId: "grafana"})
+			res, err := web.New(nil, &stepUps{err: tc.err}, nil).SetStepUp(asRoot(), &oas.StepUp{}, oas.SetStepUpParams{ClientId: "grafana"})
 			p, ok := res.(*oas.ProblemStatusCode)
 			if err != nil || !ok || p.StatusCode != tc.status || p.Response.Detail.Value != tc.detail {
 				t.Fatalf("SetStepUp = %+v, %v", res, err)
@@ -150,7 +150,7 @@ func TestARefusedStepUpSaysWhy(t *testing.T) {
 
 func TestAStepUpThatCannotBeReadIsPassedOn(t *testing.T) {
 	t.Parallel()
-	if _, err := web.New(nil, &stepUps{err: errBoom}).GetStepUp(asRoot(), oas.GetStepUpParams{}); !errors.Is(err, errBoom) {
+	if _, err := web.New(nil, &stepUps{err: errBoom}, nil).GetStepUp(asRoot(), oas.GetStepUpParams{}); !errors.Is(err, errBoom) {
 		t.Fatalf("err = %v", err)
 	}
 }

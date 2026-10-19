@@ -41,7 +41,7 @@ type Config struct {
 
 // New returns the Provider's handler: discovery at /.well-known/openid-configuration and every
 // other endpoint under /oidc/.
-func New(cfg Config, svc *app.Service, ring *Ring, logger *slog.Logger, now func() time.Time) (http.Handler, error) {
+func New(cfg Config, svc *app.Service, machines *app.MachineSignIn, ring *Ring, logger *slog.Logger, now func() time.Time) (http.Handler, error) {
 	opts := []op.Option{
 		op.WithLogger(logger),
 		op.WithCustomEndpoints(
@@ -57,7 +57,7 @@ func New(cfg Config, svc *app.Service, ring *Ring, logger *slog.Logger, now func
 	provider, err := op.NewProvider(&op.Config{
 		CryptoKey: cfg.CryptoKey, CodeMethodS256: true, AuthMethodPost: true,
 		BackChannelLogoutSupported: true, BackChannelLogoutSessionSupported: true,
-	}, &storage{svc: svc, ring: ring, logger: logger, now: now}, op.StaticIssuer(cfg.Issuer), opts...)
+	}, &storage{svc: svc, machines: machines, ring: ring, logger: logger, now: now}, op.StaticIssuer(cfg.Issuer), opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -66,6 +66,7 @@ func New(cfg Config, svc *app.Service, ring *Ring, logger *slog.Logger, now func
 	mux.Handle("/oidc/authorize", bind(provider))
 	mux.Handle("/oidc/authorize/callback", bound(provider)) // every method: bound refuses all but GET
 	mux.Handle("GET "+loginPath, op.NewIssuerInterceptor(provider.IssuerFromRequest).Handler(l))
+	mux.Handle("/oidc/token", grants(provider))
 	mux.Handle("/", provider)
 	return mux, nil
 }

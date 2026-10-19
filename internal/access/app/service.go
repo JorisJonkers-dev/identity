@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -115,11 +116,13 @@ type Overview struct {
 
 // Service is the access use cases.
 type Service struct {
-	store   Store
-	clients Clients
-	people  People
-	audit   Audit
-	random  io.Reader
+	store    Store
+	clients  Clients
+	people   People
+	audit    Audit
+	random   io.Reader
+	machines MachineStore
+	now      func() time.Time
 }
 
 // New returns a Service. random is where Group ids come from.

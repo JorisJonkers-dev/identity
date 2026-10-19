@@ -184,7 +184,7 @@ func TestAClientRunsWithTheProvidersDefaults(t *testing.T) {
 
 func TestAnHTTPIssuerNeedsInsecure(t *testing.T) {
 	s, _, _ := newStorage()
-	if _, err := New(Config{Issuer: "http://auth.test"}, s.svc, s.ring, s.logger, time.Now); err == nil {
+	if _, err := New(Config{Issuer: "http://auth.test"}, s.svc, nil, s.ring, s.logger, time.Now); err == nil {
 		t.Fatal("an http Issuer was accepted without Insecure")
 	}
 }

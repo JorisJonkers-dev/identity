@@ -48,7 +48,7 @@ describe('the bar on every signed-in page', () => {
 
   it('shows the Admin tabs on an Admin page, with the people waiting for a Group', async () => {
     const { wrapper } = await mountAt('/admin/groups', adminPage())
-    expect(wrapper.findAll('nav.tabs a').map((t) => t.text())).toEqual(['Dashboard', 'Unassigned1', 'Groups', 'Apps', 'People', 'Audit'])
+    expect(wrapper.findAll('nav.tabs a').map((t) => t.text())).toEqual(['Dashboard', 'Unassigned1', 'Groups', 'Apps', 'People', 'Machines', 'Audit'])
     expect(wrapper.get('.viewsw a[aria-current="true"]').text()).toBe('Admin')
     expect(wrapper.get('.viewsw .dot').attributes('aria-label')).toBe('1 waiting')
   })

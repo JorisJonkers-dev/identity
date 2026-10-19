@@ -12,26 +12,29 @@ import (
 )
 
 type Assignment struct {
-	GroupID  *uuid.UUID
-	ClientID string
-	Role     string
-	UserID   *uuid.UUID
+	GroupID   *uuid.UUID
+	ClientID  string
+	Role      string
+	UserID    *uuid.UUID
+	MachineID *uuid.UUID
 }
 
 type AuditEvent struct {
-	ID        uuid.UUID
-	At        time.Time
-	Kind      string
-	Action    string
-	ActorID   *uuid.UUID
-	UserID    *uuid.UUID
-	ClientID  pgtype.Text
-	GroupID   *uuid.UUID
-	GroupName pgtype.Text
-	Role      pgtype.Text
-	Email     pgtype.Text
-	Reason    pgtype.Text
-	Minutes   pgtype.Int4
+	ID          uuid.UUID
+	At          time.Time
+	Kind        string
+	Action      string
+	ActorID     *uuid.UUID
+	UserID      *uuid.UUID
+	ClientID    pgtype.Text
+	GroupID     *uuid.UUID
+	GroupName   pgtype.Text
+	Role        pgtype.Text
+	Email       pgtype.Text
+	Reason      pgtype.Text
+	Minutes     pgtype.Int4
+	MachineID   *uuid.UUID
+	MachineName pgtype.Text
 }
 
 type AuthRequest struct {
@@ -91,6 +94,14 @@ type Group struct {
 	Admins            bool
 	CreatedAt         time.Time
 	RequiresTwoFactor bool
+}
+
+type MachineIdentity struct {
+	ID             uuid.UUID
+	Name           string
+	Namespace      string
+	ServiceAccount string
+	CreatedAt      time.Time
 }
 
 type Membership struct {

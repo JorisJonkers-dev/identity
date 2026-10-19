@@ -145,6 +145,11 @@ type AskUserEmailChangeAccepted struct{}
 
 func (*AskUserEmailChangeAccepted) askUserEmailChangeRes() {}
 
+// AssignMachineRoleNoContent is response for AssignMachineRole operation.
+type AssignMachineRoleNoContent struct{}
+
+func (*AssignMachineRoleNoContent) assignMachineRoleRes() {}
+
 // AssignRoleNoContent is response for AssignRole operation.
 type AssignRoleNoContent struct{}
 
@@ -223,6 +228,9 @@ const (
 	AuditActionAccountDeleted         AuditAction = "account-deleted"
 	AuditActionPasswordReset          AuditAction = "password-reset"
 	AuditActionStepUpChanged          AuditAction = "step-up-changed"
+	AuditActionMachineCreated         AuditAction = "machine-created"
+	AuditActionMachineDeleted         AuditAction = "machine-deleted"
+	AuditActionMachineSecretRotated   AuditAction = "machine-secret-rotated"
 )
 
 // AllValues returns all AuditAction values.
@@ -253,6 +261,9 @@ func (AuditAction) AllValues() []AuditAction {
 		AuditActionAccountDeleted,
 		AuditActionPasswordReset,
 		AuditActionStepUpChanged,
+		AuditActionMachineCreated,
+		AuditActionMachineDeleted,
+		AuditActionMachineSecretRotated,
 	}
 }
 
@@ -308,6 +319,12 @@ func (s AuditAction) MarshalText() ([]byte, error) {
 	case AuditActionPasswordReset:
 		return []byte(s), nil
 	case AuditActionStepUpChanged:
+		return []byte(s), nil
+	case AuditActionMachineCreated:
+		return []byte(s), nil
+	case AuditActionMachineDeleted:
+		return []byte(s), nil
+	case AuditActionMachineSecretRotated:
 		return []byte(s), nil
 	default:
 		return nil, errors.Errorf("invalid value: %q", s)
@@ -392,6 +409,15 @@ func (s *AuditAction) UnmarshalText(data []byte) error {
 	case AuditActionStepUpChanged:
 		*s = AuditActionStepUpChanged
 		return nil
+	case AuditActionMachineCreated:
+		*s = AuditActionMachineCreated
+		return nil
+	case AuditActionMachineDeleted:
+		*s = AuditActionMachineDeleted
+		return nil
+	case AuditActionMachineSecretRotated:
+		*s = AuditActionMachineSecretRotated
+		return nil
 	default:
 		return errors.Errorf("invalid value: %q", data)
 	}
@@ -444,6 +470,8 @@ type AuditEvent struct {
 	Reason OptAuditEventReason `json:"reason"`
 	// The step-up window an Admin set, 0 for off.
 	Minutes OptAuditEventMinutes `json:"minutes"`
+	// The Machine Identity the event is about, as it was called then.
+	MachineName OptString `json:"machineName"`
 }
 
 // GetID returns the value of ID.
@@ -506,6 +534,11 @@ func (s *AuditEvent) GetMinutes() OptAuditEventMinutes {
 	return s.Minutes
 }
 
+// GetMachineName returns the value of MachineName.
+func (s *AuditEvent) GetMachineName() OptString {
+	return s.MachineName
+}
+
 // SetID sets the value of ID.
 func (s *AuditEvent) SetID(val ID) {
 	s.ID = val
@@ -564,6 +597,11 @@ func (s *AuditEvent) SetReason(val OptAuditEventReason) {
 // SetMinutes sets the value of Minutes.
 func (s *AuditEvent) SetMinutes(val OptAuditEventMinutes) {
 	s.Minutes = val
+}
+
+// SetMachineName sets the value of MachineName.
+func (s *AuditEvent) SetMachineName(val OptString) {
+	s.MachineName = val
 }
 
 // The step-up window an Admin set, 0 for off.
@@ -1028,6 +1066,11 @@ type DeleteGroupNoContent struct{}
 
 func (*DeleteGroupNoContent) deleteGroupRes() {}
 
+// DeleteMachineNoContent is response for DeleteMachine operation.
+type DeleteMachineNoContent struct{}
+
+func (*DeleteMachineNoContent) deleteMachineRes() {}
+
 // DeleteUserNoContent is response for DeleteUser operation.
 type DeleteUserNoContent struct{}
 
@@ -1356,6 +1399,209 @@ func (s *LinkToken) GetToken() string {
 func (s *LinkToken) SetToken(val string) {
 	s.Token = val
 }
+
+// A Machine Identity: a workload that signs in as itself, bound to one Kubernetes ServiceAccount. Its
+// id is its client_id at the token endpoint.
+// Ref: #/components/schemas/Machine
+type Machine struct {
+	ID             ID        `json:"id"`
+	Name           string    `json:"name"`
+	Namespace      string    `json:"namespace"`
+	ServiceAccount string    `json:"serviceAccount"`
+	CreatedAt      time.Time `json:"createdAt"`
+}
+
+// GetID returns the value of ID.
+func (s *Machine) GetID() ID {
+	return s.ID
+}
+
+// GetName returns the value of Name.
+func (s *Machine) GetName() string {
+	return s.Name
+}
+
+// GetNamespace returns the value of Namespace.
+func (s *Machine) GetNamespace() string {
+	return s.Namespace
+}
+
+// GetServiceAccount returns the value of ServiceAccount.
+func (s *Machine) GetServiceAccount() string {
+	return s.ServiceAccount
+}
+
+// GetCreatedAt returns the value of CreatedAt.
+func (s *Machine) GetCreatedAt() time.Time {
+	return s.CreatedAt
+}
+
+// SetID sets the value of ID.
+func (s *Machine) SetID(val ID) {
+	s.ID = val
+}
+
+// SetName sets the value of Name.
+func (s *Machine) SetName(val string) {
+	s.Name = val
+}
+
+// SetNamespace sets the value of Namespace.
+func (s *Machine) SetNamespace(val string) {
+	s.Namespace = val
+}
+
+// SetServiceAccount sets the value of ServiceAccount.
+func (s *Machine) SetServiceAccount(val string) {
+	s.ServiceAccount = val
+}
+
+// SetCreatedAt sets the value of CreatedAt.
+func (s *Machine) SetCreatedAt(val time.Time) {
+	s.CreatedAt = val
+}
+
+func (*Machine) createMachineRes() {}
+
+// A Machine Identity holding one App Role on one Client.
+// Ref: #/components/schemas/MachineAssignment
+type MachineAssignment struct {
+	MachineId ID       `json:"machineId"`
+	ClientId  ClientId `json:"clientId"`
+	Role      AppRole  `json:"role"`
+}
+
+// GetMachineId returns the value of MachineId.
+func (s *MachineAssignment) GetMachineId() ID {
+	return s.MachineId
+}
+
+// GetClientId returns the value of ClientId.
+func (s *MachineAssignment) GetClientId() ClientId {
+	return s.ClientId
+}
+
+// GetRole returns the value of Role.
+func (s *MachineAssignment) GetRole() AppRole {
+	return s.Role
+}
+
+// SetMachineId sets the value of MachineId.
+func (s *MachineAssignment) SetMachineId(val ID) {
+	s.MachineId = val
+}
+
+// SetClientId sets the value of ClientId.
+func (s *MachineAssignment) SetClientId(val ClientId) {
+	s.ClientId = val
+}
+
+// SetRole sets the value of Role.
+func (s *MachineAssignment) SetRole(val AppRole) {
+	s.Role = val
+}
+
+// A Machine Identity to add.
+// Ref: #/components/schemas/MachineDraft
+type MachineDraft struct {
+	// What the Machine Identity is called, 1 to 64 characters.
+	Name string `json:"name"`
+	// The Kubernetes namespace of its ServiceAccount.
+	Namespace string `json:"namespace"`
+	// The Kubernetes ServiceAccount it signs in as.
+	ServiceAccount string `json:"serviceAccount"`
+}
+
+// GetName returns the value of Name.
+func (s *MachineDraft) GetName() string {
+	return s.Name
+}
+
+// GetNamespace returns the value of Namespace.
+func (s *MachineDraft) GetNamespace() string {
+	return s.Namespace
+}
+
+// GetServiceAccount returns the value of ServiceAccount.
+func (s *MachineDraft) GetServiceAccount() string {
+	return s.ServiceAccount
+}
+
+// SetName sets the value of Name.
+func (s *MachineDraft) SetName(val string) {
+	s.Name = val
+}
+
+// SetNamespace sets the value of Namespace.
+func (s *MachineDraft) SetNamespace(val string) {
+	s.Namespace = val
+}
+
+// SetServiceAccount sets the value of ServiceAccount.
+func (s *MachineDraft) SetServiceAccount(val string) {
+	s.ServiceAccount = val
+}
+
+// A Machine Identity's new client secret, shown once.
+// Ref: #/components/schemas/MachineSecret
+type MachineSecret struct {
+	Secret string `json:"secret"`
+}
+
+// GetSecret returns the value of Secret.
+func (s *MachineSecret) GetSecret() string {
+	return s.Secret
+}
+
+// SetSecret sets the value of Secret.
+func (s *MachineSecret) SetSecret(val string) {
+	s.Secret = val
+}
+
+func (*MachineSecret) rotateMachineSecretRes() {}
+
+// Every Machine Identity, every Assignment one holds, including those on Removed Clients, and every
+// Client in the cluster.
+// Ref: #/components/schemas/MachinesOverview
+type MachinesOverview struct {
+	// By name.
+	Machines    []Machine           `json:"machines"`
+	Assignments []MachineAssignment `json:"assignments"`
+	// Every Client in the cluster, by label.
+	Clients []AccessClient `json:"clients"`
+}
+
+// GetMachines returns the value of Machines.
+func (s *MachinesOverview) GetMachines() []Machine {
+	return s.Machines
+}
+
+// GetAssignments returns the value of Assignments.
+func (s *MachinesOverview) GetAssignments() []MachineAssignment {
+	return s.Assignments
+}
+
+// GetClients returns the value of Clients.
+func (s *MachinesOverview) GetClients() []AccessClient {
+	return s.Clients
+}
+
+// SetMachines sets the value of Machines.
+func (s *MachinesOverview) SetMachines(val []Machine) {
+	s.Machines = val
+}
+
+// SetAssignments sets the value of Assignments.
+func (s *MachinesOverview) SetAssignments(val []MachineAssignment) {
+	s.Assignments = val
+}
+
+// SetClients sets the value of Clients.
+func (s *MachinesOverview) SetClients(val []AccessClient) {
+	s.Clients = val
+}
+
+func (*MachinesOverview) listMachinesRes() {}
 
 // A new token, and its secret, which is shown only here.
 // Ref: #/components/schemas/MintedToken
@@ -2424,6 +2670,7 @@ func (*ProblemStatusCode) addMemberRes()                 {}
 func (*ProblemStatusCode) askEmailChangeRes()            {}
 func (*ProblemStatusCode) askPasswordResetRes()          {}
 func (*ProblemStatusCode) askUserEmailChangeRes()        {}
+func (*ProblemStatusCode) assignMachineRoleRes()         {}
 func (*ProblemStatusCode) assignRoleRes()                {}
 func (*ProblemStatusCode) assignUserRoleRes()            {}
 func (*ProblemStatusCode) cancelEmailChangeRes()         {}
@@ -2437,8 +2684,10 @@ func (*ProblemStatusCode) confirmEmailRes()              {}
 func (*ProblemStatusCode) confirmPasskeyRes()            {}
 func (*ProblemStatusCode) confirmTOTPRes()               {}
 func (*ProblemStatusCode) createGroupRes()               {}
+func (*ProblemStatusCode) createMachineRes()             {}
 func (*ProblemStatusCode) deleteAccountRes()             {}
 func (*ProblemStatusCode) deleteGroupRes()               {}
+func (*ProblemStatusCode) deleteMachineRes()             {}
 func (*ProblemStatusCode) deleteUserRes()                {}
 func (*ProblemStatusCode) getAccessRes()                 {}
 func (*ProblemStatusCode) getDashboardRes()              {}
@@ -2448,6 +2697,7 @@ func (*ProblemStatusCode) getStepUpRes()                 {}
 func (*ProblemStatusCode) getVersionRes()                {}
 func (*ProblemStatusCode) listAuditEventsRes()           {}
 func (*ProblemStatusCode) listDevicesRes()               {}
+func (*ProblemStatusCode) listMachinesRes()              {}
 func (*ProblemStatusCode) listMyTokensRes()              {}
 func (*ProblemStatusCode) listSecondFactorsRes()         {}
 func (*ProblemStatusCode) listUserTokensRes()            {}
@@ -2463,6 +2713,7 @@ func (*ProblemStatusCode) resetWithPasskeyRes()          {}
 func (*ProblemStatusCode) revokeMyTokenRes()             {}
 func (*ProblemStatusCode) revokeUserTokenRes()           {}
 func (*ProblemStatusCode) rotateClientSecretRes()        {}
+func (*ProblemStatusCode) rotateMachineSecretRes()       {}
 func (*ProblemStatusCode) setGroupTwoFactorRes()         {}
 func (*ProblemStatusCode) setStepUpRes()                 {}
 func (*ProblemStatusCode) signInRes()                    {}
@@ -2477,6 +2728,7 @@ func (*ProblemStatusCode) startTOTPRes()                 {}
 func (*ProblemStatusCode) stepUpPasskeyOptionsRes()      {}
 func (*ProblemStatusCode) stepUpWithCodeRes()            {}
 func (*ProblemStatusCode) stepUpWithPasskeyRes()         {}
+func (*ProblemStatusCode) unassignMachineRoleRes()       {}
 func (*ProblemStatusCode) unassignRoleRes()              {}
 func (*ProblemStatusCode) unassignUserRoleRes()          {}
 func (*ProblemStatusCode) updateProfileRes()             {}
@@ -3390,6 +3642,11 @@ func (s *TwoFactorRequirement) GetRequired() bool {
 func (s *TwoFactorRequirement) SetRequired(val bool) {
 	s.Required = val
 }
+
+// UnassignMachineRoleNoContent is response for UnassignMachineRole operation.
+type UnassignMachineRoleNoContent struct{}
+
+func (*UnassignMachineRoleNoContent) unassignMachineRoleRes() {}
 
 // UnassignRoleNoContent is response for UnassignRole operation.
 type UnassignRoleNoContent struct{}

@@ -7,6 +7,8 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/google/uuid"
+
 	"github.com/JorisJonkers-dev/identity/internal/platform/httpx"
 	"github.com/JorisJonkers-dev/identity/internal/platform/oas"
 	"github.com/JorisJonkers-dev/identity/internal/platform/principal"
@@ -24,14 +26,22 @@ type StepUps interface {
 	Set(ctx context.Context, actor app.Actor, clientID string, minutes int) error
 }
 
-// Apps implements the Client operations.
-type Apps struct {
-	uc      UseCases
-	stepUps StepUps
+// MachineSecrets gives Machine Identities new client secrets (identity#22).
+type MachineSecrets interface {
+	RotateSecret(ctx context.Context, actor app.Actor, id uuid.UUID) (string, error)
 }
 
-// New returns Apps calling uc and stepUps.
-func New(uc UseCases, stepUps StepUps) *Apps { return &Apps{uc: uc, stepUps: stepUps} }
+// Apps implements the Client operations, and the Machine Identity secret beside them.
+type Apps struct {
+	uc       UseCases
+	stepUps  StepUps
+	machines MachineSecrets
+}
+
+// New returns Apps calling uc, stepUps and machines.
+func New(uc UseCases, stepUps StepUps, machines MachineSecrets) *Apps {
+	return &Apps{uc: uc, stepUps: stepUps, machines: machines}
+}
 
 func actor(ctx context.Context) app.Actor {
 	p := principal.From(ctx)
@@ -72,6 +82,20 @@ func (h *Apps) RotateClientSecret(ctx context.Context, params oas.RotateClientSe
 		return refusal(err)
 	}
 	return &oas.RotateClientSecretNoContent{}, nil
+}
+
+// RotateMachineSecret implements rotateMachineSecret.
+func (h *Apps) RotateMachineSecret(ctx context.Context, params oas.RotateMachineSecretParams) (oas.RotateMachineSecretRes, error) {
+	secret, err := h.machines.RotateSecret(ctx, actor(ctx), uuid.UUID(params.MachineId))
+	switch {
+	case errors.Is(err, app.ErrNotAdmin):
+		return problem(http.StatusForbidden, "Only Admins can make a new secret for a Machine Identity."), nil
+	case errors.Is(err, app.ErrNotFound):
+		return problem(http.StatusNotFound, "That Machine Identity no longer exists. Reload the page."), nil
+	case err != nil:
+		return refusal(err)
+	}
+	return &oas.MachineSecret{Secret: secret}, nil
 }
 
 // refusal answers a rule the caller broke with a problem saying which, and passes anything else on.

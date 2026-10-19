@@ -17,6 +17,10 @@ type AskUserEmailChangeRes interface {
 	askUserEmailChangeRes()
 }
 
+type AssignMachineRoleRes interface {
+	assignMachineRoleRes()
+}
+
 type AssignRoleRes interface {
 	assignRoleRes()
 }
@@ -69,12 +73,20 @@ type CreateGroupRes interface {
 	createGroupRes()
 }
 
+type CreateMachineRes interface {
+	createMachineRes()
+}
+
 type DeleteAccountRes interface {
 	deleteAccountRes()
 }
 
 type DeleteGroupRes interface {
 	deleteGroupRes()
+}
+
+type DeleteMachineRes interface {
+	deleteMachineRes()
 }
 
 type DeleteUserRes interface {
@@ -111,6 +123,10 @@ type ListAuditEventsRes interface {
 
 type ListDevicesRes interface {
 	listDevicesRes()
+}
+
+type ListMachinesRes interface {
+	listMachinesRes()
 }
 
 type ListMyTokensRes interface {
@@ -173,6 +189,10 @@ type RotateClientSecretRes interface {
 	rotateClientSecretRes()
 }
 
+type RotateMachineSecretRes interface {
+	rotateMachineSecretRes()
+}
+
 type SetGroupTwoFactorRes interface {
 	setGroupTwoFactorRes()
 }
@@ -227,6 +247,10 @@ type StepUpWithCodeRes interface {
 
 type StepUpWithPasskeyRes interface {
 	stepUpWithPasskeyRes()
+}
+
+type UnassignMachineRoleRes interface {
+	unassignMachineRoleRes()
 }
 
 type UnassignRoleRes interface {

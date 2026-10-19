@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddMemberData, AddMemberErrors, AddMemberResponses, AskEmailChangeData, AskEmailChangeErrors, AskEmailChangeResponses, AskPasswordResetData, AskPasswordResetErrors, AskPasswordResetResponses, AskUserEmailChangeData, AskUserEmailChangeErrors, AskUserEmailChangeResponses, AssignRoleData, AssignRoleErrors, AssignRoleResponses, AssignUserRoleData, AssignUserRoleErrors, AssignUserRoleResponses, CancelEmailChangeData, CancelEmailChangeErrors, CancelEmailChangeResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, CheckPasswordResetData, CheckPasswordResetErrors, CheckPasswordResetResponses, CompletePasswordResetData, CompletePasswordResetErrors, CompletePasswordResetResponses, CompleteSignInData, CompleteSignInErrors, CompleteSignInResponses, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyErrors, CompleteSignInWithPasskeyResponses, ConfirmEmailChangeData, ConfirmEmailChangeErrors, ConfirmEmailChangeResponses, ConfirmEmailData, ConfirmEmailErrors, ConfirmEmailResponses, ConfirmPasskeyData, ConfirmPasskeyErrors, ConfirmPasskeyResponses, ConfirmTotpData, ConfirmTotpErrors, ConfirmTotpResponses, CreateGroupData, CreateGroupErrors, CreateGroupResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteGroupData, DeleteGroupErrors, DeleteGroupResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, GetAccessData, GetAccessErrors, GetAccessResponses, GetDashboardData, GetDashboardErrors, GetDashboardResponses, GetLauncherData, GetLauncherErrors, GetLauncherResponses, GetProfileData, GetProfileErrors, GetProfileResponses, GetStepUpData, GetStepUpErrors, GetStepUpResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListAuditEventsData, ListAuditEventsErrors, ListAuditEventsResponses, ListDevicesData, ListDevicesErrors, ListDevicesResponses, ListMyTokensData, ListMyTokensErrors, ListMyTokensResponses, ListSecondFactorsData, ListSecondFactorsErrors, ListSecondFactorsResponses, ListUserTokensData, ListUserTokensErrors, ListUserTokensResponses, MintTokenData, MintTokenErrors, MintTokenResponses, PasskeyOptionsData, PasskeyOptionsErrors, PasskeyOptionsResponses, RemoveMemberData, RemoveMemberErrors, RemoveMemberResponses, RemoveSecondFactorData, RemoveSecondFactorErrors, RemoveSecondFactorResponses, RenameGroupData, RenameGroupErrors, RenameGroupResponses, RenameUserData, RenameUserErrors, RenameUserResponses, ResetPasskeyOptionsData, ResetPasskeyOptionsErrors, ResetPasskeyOptionsResponses, ResetWithCodeData, ResetWithCodeErrors, ResetWithCodeResponses, ResetWithPasskeyData, ResetWithPasskeyErrors, ResetWithPasskeyResponses, RevokeMyTokenData, RevokeMyTokenErrors, RevokeMyTokenResponses, RevokeUserTokenData, RevokeUserTokenErrors, RevokeUserTokenResponses, RotateClientSecretData, RotateClientSecretErrors, RotateClientSecretResponses, SetGroupTwoFactorData, SetGroupTwoFactorErrors, SetGroupTwoFactorResponses, SetStepUpData, SetStepUpErrors, SetStepUpResponses, SignInData, SignInErrors, SignInResponses, SignOutData, SignOutDeviceData, SignOutDeviceErrors, SignOutDeviceResponses, SignOutErrors, SignOutOtherDevicesData, SignOutOtherDevicesErrors, SignOutOtherDevicesResponses, SignOutResponses, SignOutUserData, SignOutUserErrors, SignOutUserResponses, SignUpData, SignUpErrors, SignUpResponses, StartPasskeyData, StartPasskeyErrors, StartPasskeyResponses, StartStepUpData, StartStepUpErrors, StartStepUpResponses, StartTotpData, StartTotpErrors, StartTotpResponses, StepUpPasskeyOptionsData, StepUpPasskeyOptionsErrors, StepUpPasskeyOptionsResponses, StepUpWithCodeData, StepUpWithCodeErrors, StepUpWithCodeResponses, StepUpWithPasskeyData, StepUpWithPasskeyErrors, StepUpWithPasskeyResponses, UnassignRoleData, UnassignRoleErrors, UnassignRoleResponses, UnassignUserRoleData, UnassignUserRoleErrors, UnassignUserRoleResponses, UpdateProfileData, UpdateProfileErrors, UpdateProfileResponses } from './types.gen';
-import { zAddMemberPath, zAddMemberResponse, zAskEmailChangeBody, zAskPasswordResetBody, zAskUserEmailChangeBody, zAskUserEmailChangePath, zAssignRolePath, zAssignRoleResponse, zAssignUserRolePath, zAssignUserRoleResponse, zCancelEmailChangeResponse, zChangePasswordBody, zChangePasswordResponse, zCheckPasswordResetBody, zCheckPasswordResetResponse, zCompletePasswordResetBody, zCompletePasswordResetResponse, zCompleteSignInBody, zCompleteSignInResponse, zCompleteSignInWithPasskeyBody, zCompleteSignInWithPasskeyResponse, zConfirmEmailBody, zConfirmEmailChangeBody, zConfirmEmailChangeResponse, zConfirmEmailResponse, zConfirmPasskeyBody, zConfirmPasskeyResponse, zConfirmTotpBody, zConfirmTotpResponse, zCreateGroupBody, zCreateGroupResponse, zDeleteAccountBody, zDeleteAccountResponse, zDeleteGroupPath, zDeleteGroupResponse, zDeleteUserPath, zDeleteUserResponse, zGetAccessResponse, zGetDashboardResponse, zGetLauncherResponse, zGetProfileResponse, zGetStepUpPath, zGetStepUpResponse, zGetVersionResponse, zListAuditEventsQuery, zListAuditEventsResponse, zListDevicesResponse, zListMyTokensResponse, zListSecondFactorsResponse, zListUserTokensPath, zListUserTokensResponse, zMintTokenBody, zMintTokenResponse, zPasskeyOptionsResponse, zRemoveMemberPath, zRemoveMemberResponse, zRemoveSecondFactorBody, zRemoveSecondFactorPath, zRemoveSecondFactorResponse, zRenameGroupBody, zRenameGroupPath, zRenameGroupResponse, zRenameUserBody, zRenameUserPath, zRenameUserResponse, zResetPasskeyOptionsBody, zResetPasskeyOptionsResponse, zResetWithCodeBody, zResetWithCodeResponse, zResetWithPasskeyBody, zResetWithPasskeyResponse, zRevokeMyTokenPath, zRevokeMyTokenResponse, zRevokeUserTokenPath, zRevokeUserTokenResponse, zRotateClientSecretPath, zRotateClientSecretResponse, zSetGroupTwoFactorBody, zSetGroupTwoFactorPath, zSetGroupTwoFactorResponse, zSetStepUpBody, zSetStepUpPath, zSetStepUpResponse, zSignInBody, zSignInResponse, zSignOutDevicePath, zSignOutDeviceResponse, zSignOutOtherDevicesResponse, zSignOutResponse, zSignOutUserPath, zSignOutUserResponse, zSignUpBody, zStartPasskeyResponse, zStartStepUpResponse, zStartTotpResponse, zStepUpPasskeyOptionsResponse, zStepUpWithCodeBody, zStepUpWithCodeResponse, zStepUpWithPasskeyBody, zStepUpWithPasskeyResponse, zUnassignRolePath, zUnassignRoleResponse, zUnassignUserRolePath, zUnassignUserRoleResponse, zUpdateProfileBody, zUpdateProfileResponse } from './zod.gen';
+import type { AddMemberData, AddMemberErrors, AddMemberResponses, AskEmailChangeData, AskEmailChangeErrors, AskEmailChangeResponses, AskPasswordResetData, AskPasswordResetErrors, AskPasswordResetResponses, AskUserEmailChangeData, AskUserEmailChangeErrors, AskUserEmailChangeResponses, AssignMachineRoleData, AssignMachineRoleErrors, AssignMachineRoleResponses, AssignRoleData, AssignRoleErrors, AssignRoleResponses, AssignUserRoleData, AssignUserRoleErrors, AssignUserRoleResponses, CancelEmailChangeData, CancelEmailChangeErrors, CancelEmailChangeResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, CheckPasswordResetData, CheckPasswordResetErrors, CheckPasswordResetResponses, CompletePasswordResetData, CompletePasswordResetErrors, CompletePasswordResetResponses, CompleteSignInData, CompleteSignInErrors, CompleteSignInResponses, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyErrors, CompleteSignInWithPasskeyResponses, ConfirmEmailChangeData, ConfirmEmailChangeErrors, ConfirmEmailChangeResponses, ConfirmEmailData, ConfirmEmailErrors, ConfirmEmailResponses, ConfirmPasskeyData, ConfirmPasskeyErrors, ConfirmPasskeyResponses, ConfirmTotpData, ConfirmTotpErrors, ConfirmTotpResponses, CreateGroupData, CreateGroupErrors, CreateGroupResponses, CreateMachineData, CreateMachineErrors, CreateMachineResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteGroupData, DeleteGroupErrors, DeleteGroupResponses, DeleteMachineData, DeleteMachineErrors, DeleteMachineResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, GetAccessData, GetAccessErrors, GetAccessResponses, GetDashboardData, GetDashboardErrors, GetDashboardResponses, GetLauncherData, GetLauncherErrors, GetLauncherResponses, GetProfileData, GetProfileErrors, GetProfileResponses, GetStepUpData, GetStepUpErrors, GetStepUpResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListAuditEventsData, ListAuditEventsErrors, ListAuditEventsResponses, ListDevicesData, ListDevicesErrors, ListDevicesResponses, ListMachinesData, ListMachinesErrors, ListMachinesResponses, ListMyTokensData, ListMyTokensErrors, ListMyTokensResponses, ListSecondFactorsData, ListSecondFactorsErrors, ListSecondFactorsResponses, ListUserTokensData, ListUserTokensErrors, ListUserTokensResponses, MintTokenData, MintTokenErrors, MintTokenResponses, PasskeyOptionsData, PasskeyOptionsErrors, PasskeyOptionsResponses, RemoveMemberData, RemoveMemberErrors, RemoveMemberResponses, RemoveSecondFactorData, RemoveSecondFactorErrors, RemoveSecondFactorResponses, RenameGroupData, RenameGroupErrors, RenameGroupResponses, RenameUserData, RenameUserErrors, RenameUserResponses, ResetPasskeyOptionsData, ResetPasskeyOptionsErrors, ResetPasskeyOptionsResponses, ResetWithCodeData, ResetWithCodeErrors, ResetWithCodeResponses, ResetWithPasskeyData, ResetWithPasskeyErrors, ResetWithPasskeyResponses, RevokeMyTokenData, RevokeMyTokenErrors, RevokeMyTokenResponses, RevokeUserTokenData, RevokeUserTokenErrors, RevokeUserTokenResponses, RotateClientSecretData, RotateClientSecretErrors, RotateClientSecretResponses, RotateMachineSecretData, RotateMachineSecretErrors, RotateMachineSecretResponses, SetGroupTwoFactorData, SetGroupTwoFactorErrors, SetGroupTwoFactorResponses, SetStepUpData, SetStepUpErrors, SetStepUpResponses, SignInData, SignInErrors, SignInResponses, SignOutData, SignOutDeviceData, SignOutDeviceErrors, SignOutDeviceResponses, SignOutErrors, SignOutOtherDevicesData, SignOutOtherDevicesErrors, SignOutOtherDevicesResponses, SignOutResponses, SignOutUserData, SignOutUserErrors, SignOutUserResponses, SignUpData, SignUpErrors, SignUpResponses, StartPasskeyData, StartPasskeyErrors, StartPasskeyResponses, StartStepUpData, StartStepUpErrors, StartStepUpResponses, StartTotpData, StartTotpErrors, StartTotpResponses, StepUpPasskeyOptionsData, StepUpPasskeyOptionsErrors, StepUpPasskeyOptionsResponses, StepUpWithCodeData, StepUpWithCodeErrors, StepUpWithCodeResponses, StepUpWithPasskeyData, StepUpWithPasskeyErrors, StepUpWithPasskeyResponses, UnassignMachineRoleData, UnassignMachineRoleErrors, UnassignMachineRoleResponses, UnassignRoleData, UnassignRoleErrors, UnassignRoleResponses, UnassignUserRoleData, UnassignUserRoleErrors, UnassignUserRoleResponses, UpdateProfileData, UpdateProfileErrors, UpdateProfileResponses } from './types.gen';
+import { zAddMemberPath, zAddMemberResponse, zAskEmailChangeBody, zAskPasswordResetBody, zAskUserEmailChangeBody, zAskUserEmailChangePath, zAssignMachineRolePath, zAssignMachineRoleResponse, zAssignRolePath, zAssignRoleResponse, zAssignUserRolePath, zAssignUserRoleResponse, zCancelEmailChangeResponse, zChangePasswordBody, zChangePasswordResponse, zCheckPasswordResetBody, zCheckPasswordResetResponse, zCompletePasswordResetBody, zCompletePasswordResetResponse, zCompleteSignInBody, zCompleteSignInResponse, zCompleteSignInWithPasskeyBody, zCompleteSignInWithPasskeyResponse, zConfirmEmailBody, zConfirmEmailChangeBody, zConfirmEmailChangeResponse, zConfirmEmailResponse, zConfirmPasskeyBody, zConfirmPasskeyResponse, zConfirmTotpBody, zConfirmTotpResponse, zCreateGroupBody, zCreateGroupResponse, zCreateMachineBody, zCreateMachineResponse, zDeleteAccountBody, zDeleteAccountResponse, zDeleteGroupPath, zDeleteGroupResponse, zDeleteMachinePath, zDeleteMachineResponse, zDeleteUserPath, zDeleteUserResponse, zGetAccessResponse, zGetDashboardResponse, zGetLauncherResponse, zGetProfileResponse, zGetStepUpPath, zGetStepUpResponse, zGetVersionResponse, zListAuditEventsQuery, zListAuditEventsResponse, zListDevicesResponse, zListMachinesResponse, zListMyTokensResponse, zListSecondFactorsResponse, zListUserTokensPath, zListUserTokensResponse, zMintTokenBody, zMintTokenResponse, zPasskeyOptionsResponse, zRemoveMemberPath, zRemoveMemberResponse, zRemoveSecondFactorBody, zRemoveSecondFactorPath, zRemoveSecondFactorResponse, zRenameGroupBody, zRenameGroupPath, zRenameGroupResponse, zRenameUserBody, zRenameUserPath, zRenameUserResponse, zResetPasskeyOptionsBody, zResetPasskeyOptionsResponse, zResetWithCodeBody, zResetWithCodeResponse, zResetWithPasskeyBody, zResetWithPasskeyResponse, zRevokeMyTokenPath, zRevokeMyTokenResponse, zRevokeUserTokenPath, zRevokeUserTokenResponse, zRotateClientSecretPath, zRotateClientSecretResponse, zRotateMachineSecretPath, zRotateMachineSecretResponse, zSetGroupTwoFactorBody, zSetGroupTwoFactorPath, zSetGroupTwoFactorResponse, zSetStepUpBody, zSetStepUpPath, zSetStepUpResponse, zSignInBody, zSignInResponse, zSignOutDevicePath, zSignOutDeviceResponse, zSignOutOtherDevicesResponse, zSignOutResponse, zSignOutUserPath, zSignOutUserResponse, zSignUpBody, zStartPasskeyResponse, zStartStepUpResponse, zStartTotpResponse, zStepUpPasskeyOptionsResponse, zStepUpWithCodeBody, zStepUpWithCodeResponse, zStepUpWithPasskeyBody, zStepUpWithPasskeyResponse, zUnassignMachineRolePath, zUnassignMachineRoleResponse, zUnassignRolePath, zUnassignRoleResponse, zUnassignUserRolePath, zUnassignUserRoleResponse, zUpdateProfileBody, zUpdateProfileResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -1113,6 +1113,136 @@ export const assignUserRole = <ThrowOnError extends boolean = false>(options: Op
             type: 'apiKey'
         }],
     url: '/api/v1/access/users/{userId}/roles/{clientId}/{role}',
+    ...options
+});
+
+/**
+ * Machine Identities, their roles and the Clients
+ *
+ * Everything the Machines tab shows, in one read. Admins only.
+ */
+export const listMachines = <ThrowOnError extends boolean = false>(options?: Options<ListMachinesData, ThrowOnError>): RequestResult<ListMachinesResponses, ListMachinesErrors, ThrowOnError> => (options?.client ?? client).get<ListMachinesResponses, ListMachinesErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zListMachinesResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/access/machines',
+    ...options
+});
+
+/**
+ * Add a Machine Identity
+ *
+ * Adds a Machine Identity bound to one Kubernetes ServiceAccount, holding no App Role yet. Names are unique whatever their case, and one ServiceAccount binds one Machine Identity. Admins only.
+ */
+export const createMachine = <ThrowOnError extends boolean = false>(options: Options<CreateMachineData, ThrowOnError>): RequestResult<CreateMachineResponses, CreateMachineErrors, ThrowOnError> => (options.client ?? client).post<CreateMachineResponses, CreateMachineErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zCreateMachineBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zCreateMachineResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/access/machines',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete a Machine Identity
+ *
+ * Deletes a Machine Identity with its App Roles and client secret. Access tokens it already holds end when they expire. Admins only.
+ */
+export const deleteMachine = <ThrowOnError extends boolean = false>(options: Options<DeleteMachineData, ThrowOnError>): RequestResult<DeleteMachineResponses, DeleteMachineErrors, ThrowOnError> => (options.client ?? client).delete<DeleteMachineResponses, DeleteMachineErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zDeleteMachinePath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zDeleteMachineResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/access/machines/{machineId}',
+    ...options
+});
+
+/**
+ * Take a Machine Identity's App Role
+ *
+ * Removes the Assignment, also one on a Removed Client. Admins only.
+ */
+export const unassignMachineRole = <ThrowOnError extends boolean = false>(options: Options<UnassignMachineRoleData, ThrowOnError>): RequestResult<UnassignMachineRoleResponses, UnassignMachineRoleErrors, ThrowOnError> => (options.client ?? client).delete<UnassignMachineRoleResponses, UnassignMachineRoleErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zUnassignMachineRolePath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zUnassignMachineRoleResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/access/machines/{machineId}/roles/{clientId}/{role}',
+    ...options
+});
+
+/**
+ * Give a Machine Identity an App Role on a Client
+ *
+ * The Client must be in the cluster and declare the App Role. Assigning twice changes nothing. Admins only.
+ */
+export const assignMachineRole = <ThrowOnError extends boolean = false>(options: Options<AssignMachineRoleData, ThrowOnError>): RequestResult<AssignMachineRoleResponses, AssignMachineRoleErrors, ThrowOnError> => (options.client ?? client).put<AssignMachineRoleResponses, AssignMachineRoleErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zAssignMachineRolePath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zAssignMachineRoleResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/access/machines/{machineId}/roles/{clientId}/{role}',
+    ...options
+});
+
+/**
+ * Give a Machine Identity a new client secret
+ *
+ * For a workload outside the cluster, which signs in with the client credentials grant. The secret is answered once, here, and kept only as a hash. The previous secret keeps working until the new one is first used. Admins only, from a session that proved a Second Factor.
+ */
+export const rotateMachineSecret = <ThrowOnError extends boolean = false>(options: Options<RotateMachineSecretData, ThrowOnError>): RequestResult<RotateMachineSecretResponses, RotateMachineSecretErrors, ThrowOnError> => (options.client ?? client).post<RotateMachineSecretResponses, RotateMachineSecretErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zRotateMachineSecretPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zRotateMachineSecretResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-identity_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/access/machines/{machineId}/secret',
     ...options
 });
 

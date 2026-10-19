@@ -40,7 +40,10 @@ export const zAuditAction = z.enum([
     'email-changed',
     'account-deleted',
     'password-reset',
-    'step-up-changed'
+    'step-up-changed',
+    'machine-created',
+    'machine-deleted',
+    'machine-secret-rotated'
 ]);
 
 /**
@@ -298,7 +301,8 @@ export const zAuditEvent = z.object({
         z.literal(5),
         z.literal(15),
         z.literal(60)
-    ]).optional()
+    ]).optional(),
+    machineName: z.string().max(256).optional()
 });
 
 /**
@@ -415,6 +419,51 @@ export const zAssignment = z.object({
     groupId: zId,
     clientId: zClientId,
     role: zAppRole
+});
+
+/**
+ * A Machine Identity to add.
+ */
+export const zMachineDraft = z.object({
+    name: z.string().min(1).max(256),
+    namespace: z.string().min(1).max(63),
+    serviceAccount: z.string().min(1).max(253)
+});
+
+/**
+ * A Machine Identity: a workload that signs in as itself, bound to one Kubernetes ServiceAccount. Its id is its client_id at the token endpoint.
+ */
+export const zMachine = z.object({
+    id: zId,
+    name: z.string().max(256),
+    namespace: z.string().max(63),
+    serviceAccount: z.string().max(253),
+    createdAt: z.iso.datetime({ offset: true }).max(64)
+});
+
+/**
+ * A Machine Identity holding one App Role on one Client.
+ */
+export const zMachineAssignment = z.object({
+    machineId: zId,
+    clientId: zClientId,
+    role: zAppRole
+});
+
+/**
+ * Every Machine Identity, every Assignment one holds, including those on Removed Clients, and every Client in the cluster.
+ */
+export const zMachinesOverview = z.object({
+    machines: z.array(zMachine).max(10000),
+    assignments: z.array(zMachineAssignment).max(1000000),
+    clients: z.array(zAccessClient).max(10000)
+});
+
+/**
+ * A Machine Identity's new client secret, shown once.
+ */
+export const zMachineSecret = z.object({
+    secret: z.string().max(128)
 });
 
 /**
@@ -598,6 +647,11 @@ export const zProblem = z.object({
  * The Group.
  */
 export const zGroupId = zId;
+
+/**
+ * The Machine Identity.
+ */
+export const zMachineId = zId;
 
 /**
  * The User.
@@ -975,6 +1029,58 @@ export const zAssignUserRolePath = z.object({
  * The User holds the App Role directly.
  */
 export const zAssignUserRoleResponse = z.void();
+
+/**
+ * The Machine Identities.
+ */
+export const zListMachinesResponse = zMachinesOverview;
+
+export const zCreateMachineBody = zMachineDraft;
+
+/**
+ * The new Machine Identity.
+ */
+export const zCreateMachineResponse = zMachine;
+
+export const zDeleteMachinePath = z.object({
+    machineId: zId
+});
+
+/**
+ * Deleted.
+ */
+export const zDeleteMachineResponse = z.void();
+
+export const zUnassignMachineRolePath = z.object({
+    machineId: zId,
+    clientId: zClientId,
+    role: zAppRole
+});
+
+/**
+ * The Machine Identity does not hold the App Role.
+ */
+export const zUnassignMachineRoleResponse = z.void();
+
+export const zAssignMachineRolePath = z.object({
+    machineId: zId,
+    clientId: zClientId,
+    role: zAppRole
+});
+
+/**
+ * The Machine Identity holds the App Role.
+ */
+export const zAssignMachineRoleResponse = z.void();
+
+export const zRotateMachineSecretPath = z.object({
+    machineId: zId
+});
+
+/**
+ * The new secret, shown once.
+ */
+export const zRotateMachineSecretResponse = zMachineSecret;
 
 export const zListAuditEventsQuery = z.object({
     user: zId.optional(),

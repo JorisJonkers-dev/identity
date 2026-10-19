@@ -50,6 +50,7 @@ const adminTabs = computed(() => [
   { to: '/admin/groups', label: 'Groups' },
   { to: '/admin/apps', label: 'Apps' },
   { to: '/admin/people', label: 'People' },
+  { to: '/admin/machines', label: 'Machines' },
   { to: '/admin/audit', label: 'Audit' },
 ])
 const tabs = computed(() => (props.admin ? adminTabs.value : personal))

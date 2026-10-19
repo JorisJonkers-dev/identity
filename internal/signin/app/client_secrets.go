@@ -122,7 +122,12 @@ func (s *ClientSecrets) provision(ctx context.Context, c domain.Client) error {
 // Authorize checks a Client's secret in constant time: its current secret, or the one a rotation
 // replaced, until the current one is first used.
 func (s *ClientSecrets) Authorize(ctx context.Context, clientID, secret string) error {
-	current, previous, err := s.hashes.Hashes(ctx, clientID)
+	return checkSecret(ctx, s.hashes, clientID, secret)
+}
+
+// checkSecret checks a secret kept under id in hashes, a Client's or a Machine Identity's.
+func checkSecret(ctx context.Context, hashes SecretHashes, id, secret string) error {
+	current, previous, err := hashes.Hashes(ctx, id)
 	if errors.Is(err, ErrNotFound) {
 		return ErrInvalidClient
 	}
@@ -134,7 +139,7 @@ func (s *ClientSecrets) Authorize(ctx context.Context, clientID, secret string) 
 		if previous == nil {
 			return nil
 		}
-		return s.hashes.EndPrevious(ctx, clientID, current)
+		return hashes.EndPrevious(ctx, id, current)
 	}
 	if subtle.ConstantTimeCompare(h, previous) == 1 {
 		return nil
@@ -194,9 +199,11 @@ func admin(ctx context.Context, admins Admins, actor Actor) error {
 	return nil
 }
 
-func (s *ClientSecrets) newSecret() (string, error) {
+func (s *ClientSecrets) newSecret() (string, error) { return newSecret(s.random) }
+
+func newSecret(random io.Reader) (string, error) {
 	b := make([]byte, secretBytes)
-	if _, err := io.ReadFull(s.random, b); err != nil {
+	if _, err := io.ReadFull(random, b); err != nil {
 		return "", err
 	}
 	return base64.RawURLEncoding.EncodeToString(b), nil

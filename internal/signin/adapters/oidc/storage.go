@@ -21,10 +21,11 @@ import (
 // storage is the op.Storage. Every failure the library may show a browser or a Client is an OIDC
 // error with a generic description; the cause goes to the log.
 type storage struct {
-	svc    *app.Service
-	ring   *Ring
-	logger *slog.Logger
-	now    func() time.Time
+	svc      *app.Service
+	machines *app.MachineSignIn
+	ring     *Ring
+	logger   *slog.Logger
+	now      func() time.Time
 }
 
 var (
@@ -145,6 +146,12 @@ func (s *storage) SignatureAlgorithms(context.Context) ([]jose.SignatureAlgorith
 func (s *storage) KeySet(context.Context) ([]op.Key, error) { return s.ring.Published(), nil }
 
 func (s *storage) GetClientByClientID(ctx context.Context, id string) (op.Client, error) {
+	if m, ok, err := s.machine(ctx, id); ok || err != nil {
+		if err != nil {
+			return nil, s.fail(ctx, err)
+		}
+		return machineClient{m}, nil
+	}
 	c, err := s.svc.Client(ctx, id)
 	if err != nil {
 		return nil, s.fail(ctx, err)
@@ -153,6 +160,12 @@ func (s *storage) GetClientByClientID(ctx context.Context, id string) (op.Client
 }
 
 func (s *storage) AuthorizeClientIDSecret(ctx context.Context, id, secret string) error {
+	if m, ok, err := s.machine(ctx, id); ok || err != nil {
+		if err != nil {
+			return s.fail(ctx, err)
+		}
+		return s.authorizeMachine(ctx, m, secret)
+	}
 	if err := s.svc.AuthorizeSecret(ctx, id, secret); err != nil {
 		return s.fail(ctx, err)
 	}

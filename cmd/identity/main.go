@@ -11,7 +11,10 @@
 // VAULT_TRANSIT_MOUNT (transit), VAULT_SIGNING_KEY (identity-signing) seals the signing keys and
 // VAULT_TOTP_KEY (identity-totp) the authenticator apps' secrets (docs/adr/0013). Secret Clients'
 // secrets are written to Vault KV at the path each Client object names (identity#32). Outside a cluster, CLIENTS_FILE names a YAML file of Client objects for a local run.
-// GRAFANA_URL, an https address, is where the Admin dashboard links for charts over time.
+// GRAFANA_URL, an https address, is where the Admin dashboard links for charts over time. In a
+// cluster, Machine Identities exchange ServiceAccount tokens checked against SERVICE_ACCOUNT_ISSUER
+// and the keys at SERVICE_ACCOUNT_JWKS_URL, fetched with identity's own token and the cluster CA at
+// SERVICE_ACCOUNT_CA_FILE; the defaults are the API server's in-cluster addresses.
 package main
 
 import (
@@ -39,6 +42,7 @@ import (
 	"github.com/JorisJonkers-dev/identity/internal/platform/vault"
 	"github.com/JorisJonkers-dev/identity/internal/server"
 	"github.com/JorisJonkers-dev/identity/internal/signin/adapters/clients"
+	"github.com/JorisJonkers-dev/identity/internal/signin/adapters/kubernetes"
 )
 
 // version is set at build time with -ldflags "-X main.version=…".
@@ -94,6 +98,13 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 	v := cfg.vault.vault()
 	transit := v.Transit(cfg.vault.transitMount)
 	built.Sealer, built.KeySealer, built.KV = transit.Key(cfg.vault.totpKey), transit.Key(cfg.vault.signingKey), v.KV()
+	if cfg.inCluster {
+		client, err := kubernetes.InCluster(cfg.serviceAccounts.caFile, cfg.vault.jwtPath)
+		if err != nil {
+			return err
+		}
+		built.ServiceAccounts = kubernetes.New(client, cfg.serviceAccounts.issuer, cfg.serviceAccounts.jwksURL, cfg.publicURL)
+	}
 	identity, err := assembly.New(ctx, built)
 	if err != nil {
 		return err
@@ -199,6 +210,13 @@ type config struct {
 	vault       vaultConfig
 	// grafana is where the dashboard links for charts over time; nil when unset.
 	grafana *url.URL
+	// serviceAccounts is where the cluster's ServiceAccount tokens are checked, in a cluster.
+	serviceAccounts serviceAccountConfig
+}
+
+// serviceAccountConfig reaches the API server's keys for ServiceAccount tokens (identity#22).
+type serviceAccountConfig struct {
+	issuer, jwksURL, caFile string
 }
 
 // or is value, or fallback when value is empty.
@@ -236,7 +254,12 @@ func readConfig(getenv func(string) string) (config, error) {
 		metricsAddr: getenv("METRICS_ADDR"),
 		inCluster:   getenv("KUBERNETES_SERVICE_HOST") != "",
 		clientsFile: getenv("CLIENTS_FILE"),
-		vault:       readVault(getenv, need("VAULT_ADDR")),
+		serviceAccounts: serviceAccountConfig{
+			issuer:  or(getenv("SERVICE_ACCOUNT_ISSUER"), "https://kubernetes.default.svc.cluster.local"),
+			jwksURL: or(getenv("SERVICE_ACCOUNT_JWKS_URL"), "https://kubernetes.default.svc/openid/v1/jwks"),
+			caFile:  or(getenv("SERVICE_ACCOUNT_CA_FILE"), "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"),
+		},
+		vault: readVault(getenv, need("VAULT_ADDR")),
 		mailer: mail.SMTP{
 			Addr: need("SMTP_ADDR"), From: need("MAIL_FROM"),
 			Username: getenv("SMTP_USERNAME"), Password: getenv("SMTP_PASSWORD"),

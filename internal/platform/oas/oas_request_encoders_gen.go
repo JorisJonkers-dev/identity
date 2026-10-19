@@ -192,6 +192,20 @@ func encodeCreateGroupRequest(
 	return nil
 }
 
+func encodeCreateMachineRequest(
+	req *MachineDraft,
+	r *http.Request,
+) error {
+	const contentType = "application/json"
+	e := new(jx.Encoder)
+	{
+		req.Encode(e)
+	}
+	encoded := e.Bytes()
+	ht.SetBody(r, bytes.NewReader(encoded), contentType)
+	return nil
+}
+
 func encodeDeleteAccountRequest(
 	req *PasswordCheck,
 	r *http.Request,
