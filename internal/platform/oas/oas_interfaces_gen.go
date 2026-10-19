@@ -53,6 +53,10 @@ type CreateGroupRes interface {
 	createGroupRes()
 }
 
+type DeleteAccountRes interface {
+	deleteAccountRes()
+}
+
 type DeleteGroupRes interface {
 	deleteGroupRes()
 }

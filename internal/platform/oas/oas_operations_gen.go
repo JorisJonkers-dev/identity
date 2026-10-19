@@ -19,6 +19,7 @@ const (
 	ConfirmPasskeyOperation            OperationName = "ConfirmPasskey"
 	ConfirmTOTPOperation               OperationName = "ConfirmTOTP"
 	CreateGroupOperation               OperationName = "CreateGroup"
+	DeleteAccountOperation             OperationName = "DeleteAccount"
 	DeleteGroupOperation               OperationName = "DeleteGroup"
 	GetAccessOperation                 OperationName = "GetAccess"
 	GetDashboardOperation              OperationName = "GetDashboard"

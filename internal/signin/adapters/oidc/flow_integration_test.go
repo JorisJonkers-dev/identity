@@ -55,7 +55,7 @@ func TestASignedUpUserSignsInToAClientOverPostgres(t *testing.T) {
 	q := queries.New(pool)
 
 	mail := &inbox{}
-	users := usersapp.New(userspersistence.New(q), passwords.Argon2id{}, mail, time.Now, rand.Reader, "https://auth.test")
+	users := usersapp.New(userspersistence.New(q, nil), passwords.Argon2id{}, mail, time.Now, rand.Reader, "https://auth.test")
 	const pw = "correct horse battery"
 	if err := users.SignUp(ctx, "ada@example.org", "Ada", pw); err != nil {
 		t.Fatal(err)
@@ -102,7 +102,7 @@ func TestRolesComeFromAssignmentsOverPostgres(t *testing.T) {
 	q := store.Queries()
 
 	mail := &inbox{}
-	users := usersapp.New(userspersistence.New(q), passwords.Argon2id{}, mail, time.Now, rand.Reader, "https://auth.test")
+	users := usersapp.New(userspersistence.New(q, store), passwords.Argon2id{}, mail, time.Now, rand.Reader, "https://auth.test")
 	const pw = "correct horse battery"
 	_ = users.SignUp(ctx, "ada@example.org", "Ada", pw)
 	if err := users.Confirm(ctx, confirmLink.FindStringSubmatch(mail.last.Text)[1], pw); err != nil {

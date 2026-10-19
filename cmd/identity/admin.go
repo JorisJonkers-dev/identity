@@ -57,7 +57,7 @@ func promote(ctx context.Context, databaseURL, email string, force bool, logger 
 		return err
 	}
 	defer store.Close()
-	users := app.New(persistence.New(store.Queries()), nil, nil, nil, nil, "")
+	users := app.New(persistence.New(store.Queries(), store), nil, nil, nil, nil, "")
 	u, err := users.UserByEmail(ctx, email)
 	if errors.Is(err, app.ErrNotFound) {
 		return refusal("no User has the email " + email + ". Have them sign up and confirm their email first.")

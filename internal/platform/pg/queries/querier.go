@@ -57,18 +57,24 @@ type Querier interface {
 	DeleteOtherSessions(ctx context.Context, arg DeleteOtherSessionsParams) ([]uuid.UUID, error)
 	DeletePasskey(ctx context.Context, arg DeletePasskeyParams) (int64, error)
 	DeletePasskeyEnrolment(ctx context.Context, userID uuid.UUID) error
+	DeletePersonalTokensOfUser(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
 	DeleteSessionOfUser(ctx context.Context, arg DeleteSessionOfUserParams) (int64, error)
+	DeleteSessionsOfUser(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
 	// A key no token can still need: it stopped signing before a time.
 	DeleteSigningKeysEndedBefore(ctx context.Context, signsUntil time.Time) error
 	DeleteSignup(ctx context.Context, tokenHash []byte) error
 	DeleteTOTPEnrolment(ctx context.Context, userID uuid.UUID) error
 	DeleteTOTPFactor(ctx context.Context, arg DeleteTOTPFactorParams) (int64, error)
+	// Memberships, direct Assignments, factors and pending changes go with the User; Audit Events,
+	// which keep only ids, stay.
+	DeleteUser(ctx context.Context, id uuid.UUID) error
 	EmailChangeOfUser(ctx context.Context, userID uuid.UUID) (EmailChange, error)
 	// Only while hash is still the current secret, so a rotation in between keeps its own previous.
 	EndPreviousClientSecret(ctx context.Context, arg EndPreviousClientSecretParams) error
 	GateSessionByHash(ctx context.Context, tokenHash []byte) (GateSessionByHashRow, error)
 	GroupByID(ctx context.Context, id uuid.UUID) (GroupByIDRow, error)
 	IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error)
+	IsOnlyAdmin(ctx context.Context, arg IsOnlyAdminParams) (bool, error)
 	ListAssignments(ctx context.Context) ([]ListAssignmentsRow, error)
 	// Newest first, before a (at, id) cursor; a User filter matches what they did and what was done to them.
 	ListAuditEvents(ctx context.Context, arg ListAuditEventsParams) ([]AuditEvent, error)
@@ -80,6 +86,9 @@ type Querier interface {
 	ListUnassigned(ctx context.Context) ([]uuid.UUID, error)
 	ListUserAssignments(ctx context.Context) ([]ListUserAssignmentsRow, error)
 	ListUsers(ctx context.Context) ([]User, error)
+	// Held until the transaction ends, as removing an Admin holds it, so two deletions cannot both see
+	// the other Admin.
+	LockAdminsGroup(ctx context.Context) (uuid.UUID, error)
 	// Held until the transaction ends, so of two replicas seeing a new Client one makes its secret and
 	// the other reads the hash.
 	LockClientSecret(ctx context.Context, clientID string) error

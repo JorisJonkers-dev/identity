@@ -56,6 +56,7 @@ type UseCases interface {
 	PendingEmail(ctx context.Context, userID uuid.UUID) (string, error)
 	CancelEmailChange(ctx context.Context, userID uuid.UUID) error
 	ConfirmEmailChange(ctx context.Context, token string) error
+	DeleteAccount(ctx context.Context, userID uuid.UUID, sessionToken, password string) error
 	SecondFactors(ctx context.Context, userID uuid.UUID) ([]app.Factor, error)
 	StartTOTP(ctx context.Context, userID uuid.UUID) (app.TOTPSetup, error)
 	ConfirmTOTP(ctx context.Context, userID uuid.UUID, sessionToken, label, code, password string) error
@@ -412,6 +413,23 @@ func (h *Handler) SignOut(ctx context.Context) (oas.SignOutRes, error) {
 		return nil, err
 	}
 	return &oas.SignOutNoContent{SetCookie: cookie("", expireNow).String()}, nil
+}
+
+// DeleteAccount implements deleteAccount.
+func (h *Handler) DeleteAccount(ctx context.Context, req *oas.PasswordCheck) (oas.DeleteAccountRes, error) {
+	s := current(ctx)
+	err := h.uc.DeleteAccount(ctx, s.user.ID, s.token, string(req.Password))
+	switch {
+	case errors.Is(err, app.ErrInvalidCredentials):
+		return problem(http.StatusUnprocessableEntity, "Your password is wrong. Enter it again."), nil
+	case errors.Is(err, app.ErrFreshTwoFactorNeeded):
+		return problem(http.StatusForbidden, "Confirm it is you with two-factor first."), nil
+	case errors.Is(err, app.ErrLastAdmin):
+		return problem(http.StatusUnprocessableEntity, "You are the last Admin. Make someone else an Admin before you delete your account."), nil
+	case err != nil:
+		return nil, err
+	}
+	return &oas.DeleteAccountNoContent{SetCookie: cookie("", expireNow).String()}, nil
 }
 
 // GetProfile implements getProfile.

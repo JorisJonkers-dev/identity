@@ -141,6 +141,18 @@ func (UnimplementedHandler) CreateGroup(ctx context.Context, req *GroupDraft) (r
 	return r, ht.ErrNotImplemented
 }
 
+// DeleteAccount implements deleteAccount operation.
+//
+// Needs the password and, when the User has two-factor, a session that proved it within five minutes.
+// Every session ends with back-channel logout, Personal Tokens stop working, and memberships and
+// direct roles go; the email can sign up again. Audit Events about the User stay, naming no one. The
+// last Admin is refused.
+//
+// POST /api/v1/profile/deletion
+func (UnimplementedHandler) DeleteAccount(ctx context.Context, req *PasswordCheck) (r DeleteAccountRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // DeleteGroup implements deleteGroup operation.
 //
 // Deletes a Group with its memberships and Assignments. The admins Group cannot be deleted. Admins

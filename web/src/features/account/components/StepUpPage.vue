@@ -19,6 +19,8 @@ import Icon from '../../../shared/Icon'
 const route = useRoute()
 const router = useRouter()
 const authRequestID = typeof route.query.authRequestID === 'string' ? route.query.authRequestID : ''
+// A page of ours that sent the person here, to go back to; anything else goes to the apps.
+const next = typeof route.query.next === 'string' && /^\/[^/\\]/.test(route.query.next) ? route.query.next : '/'
 const code = ref('')
 const methods = ref<SecondFactorKind[]>([])
 const start = useAction(startStepUpMutation())
@@ -41,7 +43,7 @@ onMounted(() => {
 
 function proved() {
   if (authRequestID) navigation.leave(`/oidc/login?authRequestID=${encodeURIComponent(authRequestID)}`)
-  else void router.push('/')
+  else void router.push(next)
 }
 function submitCode() {
   complete.run({ body: { code: code.value } }, proved)

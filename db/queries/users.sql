@@ -168,3 +168,23 @@ DELETE FROM email_changes WHERE user_id = $1;
 
 -- name: UpdateEmail :exec
 UPDATE users SET email = $2 WHERE id = $1;
+
+-- name: LockAdminsGroup :one
+-- Held until the transaction ends, as removing an Admin holds it, so two deletions cannot both see
+-- the other Admin.
+SELECT id FROM groups WHERE admins FOR UPDATE;
+
+-- name: IsOnlyAdmin :one
+SELECT (EXISTS (SELECT 1 FROM memberships m WHERE m.group_id = sqlc.arg(admins)::uuid AND m.user_id = sqlc.arg(user_id)::uuid)
+  AND (SELECT count(*) FROM memberships c WHERE c.group_id = sqlc.arg(admins)::uuid) = 1)::boolean AS only;
+
+-- name: DeleteSessionsOfUser :many
+DELETE FROM sessions WHERE user_id = $1 RETURNING id;
+
+-- name: DeletePersonalTokensOfUser :many
+DELETE FROM personal_tokens WHERE user_id = $1 RETURNING id;
+
+-- name: DeleteUser :exec
+-- Memberships, direct Assignments, factors and pending changes go with the User; Audit Events,
+-- which keep only ids, stay.
+DELETE FROM users WHERE id = $1;

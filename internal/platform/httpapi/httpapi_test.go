@@ -65,6 +65,7 @@ func (users) AskEmailChange(context.Context, uuid.UUID, string, string) error { 
 func (users) PendingEmail(context.Context, uuid.UUID) (string, error)         { return "", nil }
 func (users) CancelEmailChange(context.Context, uuid.UUID) error              { return nil }
 func (users) ConfirmEmailChange(context.Context, string) error                { return nil }
+func (users) DeleteAccount(context.Context, uuid.UUID, string, string) error  { return nil }
 func (users) SignOutDevice(context.Context, uuid.UUID, uuid.UUID) error       { return nil }
 func (users) SignOutOtherDevices(context.Context, uuid.UUID, string) error    { return nil }
 func (users) ConfirmPasskey(context.Context, uuid.UUID, string, string, []byte, string) error {

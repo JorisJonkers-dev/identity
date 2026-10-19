@@ -116,6 +116,11 @@ func (u *useCases) ConfirmEmailChange(_ context.Context, token string) error {
 	return u.err
 }
 
+func (u *useCases) DeleteAccount(_ context.Context, _ uuid.UUID, token, password string) error {
+	u.asked = append(u.asked, token, password)
+	return u.err
+}
+
 func (u *useCases) Devices(_ context.Context, _ uuid.UUID, token string) ([]app.Device, error) {
 	u.asked = append(u.asked, token)
 	return u.devices, u.err
@@ -827,6 +832,41 @@ func TestTheProfileFailsWhenThePendingEmailCannotBeRead(t *testing.T) {
 	ctx := signedIn(t, h)
 	uc.pendingErr = errBoom
 	if _, err := h.GetProfile(ctx); !errors.Is(err, errBoom) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestDeletingTheAccountSendsTheSessionAndPasswordAndClearsTheCookie(t *testing.T) {
+	uc := &useCases{}
+	h := web.New(uc, admins{})
+	res, err := h.DeleteAccount(signedIn(t, h), &oas.PasswordCheck{Password: "pw"})
+	got, ok := res.(*oas.DeleteAccountNoContent)
+	if err != nil || !ok || !slices.Equal(uc.asked, []string{"tok", "pw"}) || !strings.Contains(got.SetCookie, "Max-Age=0") {
+		t.Fatalf("DeleteAccount = %#v, %v, asked %v", res, err, uc.asked)
+	}
+}
+
+func TestEachRefusedDeletionSaysWhatToDo(t *testing.T) {
+	for _, tc := range []struct {
+		err    error
+		status int
+		detail string
+	}{
+		{app.ErrInvalidCredentials, http.StatusUnprocessableEntity, "Your password is wrong. Enter it again."},
+		{app.ErrFreshTwoFactorNeeded, http.StatusForbidden, "Confirm it is you with two-factor first."},
+		{app.ErrLastAdmin, http.StatusUnprocessableEntity, "You are the last Admin. Make someone else an Admin before you delete your account."},
+	} {
+		t.Run(tc.err.Error(), func(t *testing.T) {
+			res, err := web.New(&useCases{err: tc.err}, admins{}).DeleteAccount(context.Background(), &oas.PasswordCheck{})
+			if p, ok := res.(*oas.ProblemStatusCode); err != nil || !ok || p.StatusCode != tc.status || p.Response.Detail.Value != tc.detail {
+				t.Fatalf("DeleteAccount = %#v, %v", res, err)
+			}
+		})
+	}
+}
+
+func TestAFailedDeletionIsPassedOn(t *testing.T) {
+	if _, err := web.New(&useCases{err: errBoom}, admins{}).DeleteAccount(context.Background(), &oas.PasswordCheck{}); !errors.Is(err, errBoom) {
 		t.Fatalf("err = %v", err)
 	}
 }

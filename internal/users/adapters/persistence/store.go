@@ -17,11 +17,46 @@ import (
 
 const uniqueViolation = "23505"
 
-// Store is the app.Store.
-type Store struct{ q queries.Querier }
+// Transactor runs queries in one transaction.
+type Transactor interface {
+	InTx(ctx context.Context, fn func(*queries.Queries) error) error
+}
 
-// New returns a Store over q.
-func New(q queries.Querier) *Store { return &Store{q: q} }
+// Store is the app.Store.
+type Store struct {
+	q  queries.Querier
+	tx Transactor
+}
+
+// New returns a Store over q, running what must be atomic through tx.
+func New(q queries.Querier, tx Transactor) *Store { return &Store{q: q, tx: tx} }
+
+// DeleteUser deletes a User and, with them, their sessions and Personal Tokens, returning their
+// ids. It holds the admins Group as removing an Admin does, and refuses the last Admin.
+func (s *Store) DeleteUser(ctx context.Context, userID uuid.UUID) (app.Deleted, error) {
+	var d app.Deleted
+	err := s.tx.InTx(ctx, func(q *queries.Queries) error {
+		admins, err := q.LockAdminsGroup(ctx)
+		if err != nil {
+			return err
+		}
+		only, err := q.IsOnlyAdmin(ctx, queries.IsOnlyAdminParams{Admins: admins, UserID: userID})
+		if err != nil {
+			return err
+		}
+		if only {
+			return app.ErrLastAdmin
+		}
+		if d.Sessions, err = q.DeleteSessionsOfUser(ctx, userID); err != nil {
+			return err
+		}
+		if d.Tokens, err = q.DeletePersonalTokensOfUser(ctx, userID); err != nil {
+			return err
+		}
+		return q.DeleteUser(ctx, userID)
+	})
+	return d, err
+}
 
 var _ app.Store = (*Store)(nil)
 

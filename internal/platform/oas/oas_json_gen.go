@@ -586,6 +586,8 @@ func (s *AuditAction) Decode(d *jx.Decoder) error {
 		*s = AuditActionClientSecretRotated
 	case AuditActionEmailChanged:
 		*s = AuditActionEmailChanged
+	case AuditActionAccountDeleted:
+		*s = AuditActionAccountDeleted
 	case AuditActionStepUpChanged:
 		*s = AuditActionStepUpChanged
 	default:

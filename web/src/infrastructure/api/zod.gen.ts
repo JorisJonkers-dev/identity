@@ -36,6 +36,7 @@ export const zAuditAction = z.enum([
     'token-revoked',
     'client-secret-rotated',
     'email-changed',
+    'account-deleted',
     'step-up-changed'
 ]);
 
@@ -615,6 +616,13 @@ export const zUpdateProfileResponse = zProfile;
 export const zCancelEmailChangeResponse = z.void();
 
 export const zAskEmailChangeBody = zEmailChange;
+
+export const zDeleteAccountBody = zPasswordCheck;
+
+/**
+ * The account is deleted.
+ */
+export const zDeleteAccountResponse = z.void();
 
 export const zChangePasswordBody = zPasswordChange;
 

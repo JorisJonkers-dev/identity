@@ -30,7 +30,14 @@ func open(t *testing.T) (*persistence.Store, *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	return persistence.New(queries.New(pool)), pool
+	return persistence.New(queries.New(pool), poolTx{pool}), pool
+}
+
+// poolTx runs a transaction on pool, as pg.Store does.
+type poolTx struct{ pool *pgxpool.Pool }
+
+func (p poolTx) InTx(ctx context.Context, fn func(*queries.Queries) error) error {
+	return pgx.BeginFunc(ctx, p.pool, func(tx pgx.Tx) error { return fn(queries.New(tx)) })
 }
 
 func user(t *testing.T) domain.User {
@@ -700,5 +707,52 @@ func TestDeletingASessionSaysWhetherItWasTheUsers(t *testing.T) {
 	theirs, err := s.DeleteSession(ctx, u.ID, sess.ID)
 	if other || !theirs || err != nil {
 		t.Fatalf("someone else's %v, theirs %v, %v", other, theirs, err)
+	}
+}
+
+func TestDeletingAUserTakesTheirSessionsAndSaysWhich(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	sess := session(u, "hash")
+	_ = s.CreateSession(ctx, sess)
+	d, err := s.DeleteUser(ctx, u.ID)
+	if err != nil || len(d.Sessions) != 1 || d.Sessions[0] != sess.ID || len(d.Tokens) != 0 {
+		t.Fatalf("DeleteUser = %+v, %v", d, err)
+	}
+	if _, err := s.UserByID(ctx, u.ID); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("the User is still there: %v", err)
+	}
+}
+
+func TestTheOnlyAdminIsNotDeleted(t *testing.T) {
+	ctx := context.Background()
+	s, pool, u := stored(t)
+	q := queries.New(pool)
+	admins, _ := q.AdminsGroup(ctx)
+	_, _ = q.AddMember(ctx, queries.AddMemberParams{GroupID: admins.ID, UserID: u.ID})
+	if _, err := s.DeleteUser(ctx, u.ID); !errors.Is(err, app.ErrLastAdmin) {
+		t.Fatalf("DeleteUser = %v", err)
+	}
+	if _, err := s.UserByID(ctx, u.ID); err != nil {
+		t.Fatalf("the last Admin was deleted: %v", err)
+	}
+}
+
+func TestAnAdminWithAnotherAdminIsDeleted(t *testing.T) {
+	ctx := context.Background()
+	s, pool, u := stored(t)
+	q := queries.New(pool)
+	other := user(t)
+	other.ID, other.Email = uuid.New(), domain.Email{}
+	if e, err := domain.NewEmail("grace@example.org"); err == nil {
+		other.Email = e
+	}
+	_ = s.CreateUser(ctx, other)
+	admins, _ := q.AdminsGroup(ctx)
+	for _, id := range []uuid.UUID{u.ID, other.ID} {
+		_, _ = q.AddMember(ctx, queries.AddMemberParams{GroupID: admins.ID, UserID: id})
+	}
+	if _, err := s.DeleteUser(ctx, u.ID); err != nil {
+		t.Fatalf("DeleteUser = %v", err)
 	}
 }

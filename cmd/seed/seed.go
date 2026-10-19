@@ -38,7 +38,7 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer, logg
 		return err
 	}
 	defer store.Close()
-	users := usersapp.New(userspersistence.New(store.Queries()), nil, nil, nil, nil, "")
+	users := usersapp.New(userspersistence.New(store.Queries(), store), nil, nil, nil, nil, "")
 	_, err = users.UserByEmail(ctx, joris.email)
 	if err == nil {
 		_, _ = fmt.Fprintln(stdout, "Already seeded.")

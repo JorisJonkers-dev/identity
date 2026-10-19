@@ -102,6 +102,9 @@ type Store interface {
 	DeleteEmailChange(ctx context.Context, userID uuid.UUID) error
 	// UpdateEmail is ErrEmailTaken when another User has the address.
 	UpdateEmail(ctx context.Context, userID uuid.UUID, email domain.Email) error
+	// DeleteUser deletes a User with their sessions and Personal Tokens, returning their ids; it is
+	// ErrLastAdmin for the last Admin, even when two deletions race.
+	DeleteUser(ctx context.Context, userID uuid.UUID) (Deleted, error)
 	// DeleteSession ends one of a User's sessions, and reports whether it was theirs.
 	DeleteSession(ctx context.Context, userID, id uuid.UUID) (bool, error)
 	// DeleteOtherSessions ends every session of a User but the one keepTokenHash names, or every
@@ -188,8 +191,10 @@ type Service struct {
 	webauthn  WebAuthn
 	admins    Admins
 	signedOut SignedOut
-	audit     Audit
-	matchTOTP TOTPMatch
+	// tokensDeleted is told which Personal Tokens went with a deleted User.
+	tokensDeleted func(ctx context.Context, tokenIDs []uuid.UUID)
+	audit         Audit
+	matchTOTP     TOTPMatch
 
 	decoy atomic.Pointer[string]
 }
