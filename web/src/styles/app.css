@@ -43,3 +43,4 @@
 h1, h2, h3, p { margin: 0; }
 /* A chip with only text, such as the email on the code step, keeps even padding. */
 .from.who:not(:has(> .av, > .i)) { padding: 0 12px; }
+.g-item[aria-current="page"] small { color: var(--ink-2); }
