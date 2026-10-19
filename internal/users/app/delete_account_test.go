@@ -47,6 +47,27 @@ func TestDeletingAnAccountEndsItsSessionsAndTellsTheirApps(t *testing.T) {
 	}
 }
 
+func TestDeletingAnAccountWithNoSessionsTellsNoApp(t *testing.T) {
+	called := false
+	f := newFixture(app.WithSignedOut(func(context.Context, uuid.UUID, []uuid.UUID) { called = true }))
+	id := f.signedUp(t, "ada@example.org")
+	if err := f.DeleteAccount(context.Background(), id, "", pw); err != nil || called {
+		t.Fatalf("err %v, called %v", err, called)
+	}
+}
+
+func TestDeletingAnAccountWithTokensButNothingToTellStillDeletesIt(t *testing.T) {
+	f := newFixture()
+	id := f.signedUp(t, "ada@example.org")
+	f.store.tokens = map[uuid.UUID][]uuid.UUID{id: {uuid.New()}}
+	if err := f.DeleteAccount(context.Background(), id, "", pw); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := f.store.users[id]; ok {
+		t.Fatal("the User is still there")
+	}
+}
+
 func TestDeletingAnAccountForgetsItsPersonalTokens(t *testing.T) {
 	var forgotten []uuid.UUID
 	f := newFixture(app.WithTokensDeleted(func(_ context.Context, ids []uuid.UUID) { forgotten = append(forgotten, ids...) }))
