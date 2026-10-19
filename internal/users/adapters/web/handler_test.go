@@ -1060,7 +1060,7 @@ func TestEachRefusedAdminActionSaysWhatToDo(t *testing.T) {
 		detail string
 	}{
 		{app.ErrNotAdmin, http.StatusForbidden, "Only Admins manage people."},
-		{app.ErrAdminSecondFactorNeeded, http.StatusForbidden, "Sign out, then sign in again with a passkey or authenticator app to manage people."},
+		{app.ErrAdminSecondFactorNeeded, http.StatusForbidden, "Sign in again with a passkey or authenticator app to manage people."},
 		{app.ErrNotFound, http.StatusNotFound, "That person no longer exists. Reload the page."},
 		{app.ErrLastAdmin, http.StatusUnprocessableEntity, "That is the last Admin. Make someone else an Admin first."},
 		{domain.ErrInvalidName, http.StatusUnprocessableEntity, "Enter a name of 1 to 100 characters."},
