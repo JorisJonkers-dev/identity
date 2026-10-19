@@ -33,7 +33,7 @@ const Tag = "000000000000"
 const (
 	image = "postgres:16-alpine"
 	// The migration image's base, pinned by digest like Dockerfile.migration's FROM.
-	runnerImage = "ghcr.io/jorisjonkers-dev/liquibase-runner:v0.1.0@sha256:f19a170f0285818c105939da633053b5800a7cc5d1efb4f2d8211e040bb134af"
+	runnerImage = "ghcr.io/jorisjonkers-dev/liquibase-runner:v0.2.0@sha256:5e0f07bea045f35170f9d66ececa2de5ba198bf8ba51a2d11234e3c1b44ff7ea"
 	template    = "pgtest_template"
 	user        = "pgtest"
 	password    = "pgtest"
