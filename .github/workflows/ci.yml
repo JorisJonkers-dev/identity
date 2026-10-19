@@ -110,7 +110,7 @@ jobs:
   mutation:
     needs: changes
     if: ${{ github.event_name == 'pull_request' }}
-    uses: JorisJonkers-dev/github-workflows/.github/workflows/mutation-report.yml@bdc8ec412fdd619b57b8b8f2855cc7d3c5f76bad # v0.29.0
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/mutation-report.yml@9fdac30685ba17f7cda3975178a1ad4025fe6b79 # v0.32.1
     permissions:
       contents: read
       pull-requests: write
