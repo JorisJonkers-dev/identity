@@ -540,7 +540,7 @@ func adminRefusal(err error) (*oas.ProblemStatusCode, error) {
 	case errors.Is(err, app.ErrNotAdmin):
 		return problem(http.StatusForbidden, "Only Admins manage people."), nil
 	case errors.Is(err, app.ErrAdminSecondFactorNeeded):
-		return problem(http.StatusForbidden, "Sign out, then sign in again with a passkey or authenticator app to manage people."), nil
+		return problem(http.StatusForbidden, "Sign in again with a passkey or authenticator app to manage people."), nil
 	case errors.Is(err, app.ErrNotFound):
 		return problem(http.StatusNotFound, "That person no longer exists. Reload the page."), nil
 	case errors.Is(err, app.ErrLastAdmin):
