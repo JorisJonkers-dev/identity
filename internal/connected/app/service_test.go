@@ -238,7 +238,7 @@ func (s *store) Refresh(_ context.Context, hash []byte) (app.RefreshToken, error
 	}
 	for _, t := range s.tokens {
 		if t.refresh && bytes.Equal(t.hash, hash) {
-			return app.RefreshToken{ID: t.ID, AppID: t.AppID, UserID: t.UserID, ClientID: t.ClientID, ExpiresAt: t.ExpiresAt}, nil
+			return app.RefreshToken{ID: t.ID, AppID: t.AppID, UserID: t.UserID, ClientID: t.ClientID, ExpiresAt: t.ExpiresAt, RegistrationID: s.regOf[t.AppID]}, nil
 		}
 	}
 	return app.RefreshToken{}, app.ErrNotFound
@@ -637,7 +637,7 @@ func TestARefreshTokenIsSpentOnceForItsConnectedApp(t *testing.T) {
 
 	got, err := f.Refresh(ctx, secret)
 
-	if err != nil || got.AppID != appID || got.UserID != ada || got.ClientID != "kb" {
+	if err != nil || got.AppID != appID || got.UserID != ada || got.ClientID != "kb" || !strings.HasPrefix(got.RegistrationID, app.RegistrationPrefix) {
 		t.Fatalf("Refresh = %+v, %v", got, err)
 	}
 }

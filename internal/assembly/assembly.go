@@ -24,6 +24,9 @@ import (
 	auditweb "github.com/JorisJonkers-dev/identity/internal/audit/adapters/web"
 	auditapp "github.com/JorisJonkers-dev/identity/internal/audit/app"
 	auditdomain "github.com/JorisJonkers-dev/identity/internal/audit/domain"
+	connectedcontexts "github.com/JorisJonkers-dev/identity/internal/connected/adapters/contexts"
+	connectedpersistence "github.com/JorisJonkers-dev/identity/internal/connected/adapters/persistence"
+	connectedapp "github.com/JorisJonkers-dev/identity/internal/connected/app"
 	gatecontexts "github.com/JorisJonkers-dev/identity/internal/gate/adapters/contexts"
 	gatepersistence "github.com/JorisJonkers-dev/identity/internal/gate/adapters/persistence"
 	gateweb "github.com/JorisJonkers-dev/identity/internal/gate/adapters/web"
@@ -39,6 +42,7 @@ import (
 	"github.com/JorisJonkers-dev/identity/internal/server"
 	"github.com/JorisJonkers-dev/identity/internal/signin/adapters/accounts"
 	"github.com/JorisJonkers-dev/identity/internal/signin/adapters/clients"
+	signinconnected "github.com/JorisJonkers-dev/identity/internal/signin/adapters/connected"
 	"github.com/JorisJonkers-dev/identity/internal/signin/adapters/kubernetes"
 	"github.com/JorisJonkers-dev/identity/internal/signin/adapters/machines"
 	signinoidc "github.com/JorisJonkers-dev/identity/internal/signin/adapters/oidc"
@@ -103,13 +107,15 @@ type Config struct {
 }
 
 // Identity is identity built: its routes, the count of Users waiting for an App Role, which /metrics
-// reports, and three jobs that run on a schedule: Prune, which removes Audit Events older than a
-// year, RefreshKeys, which starts a new signing key on time and retires old ones, and
+// reports, and four jobs that run on a schedule: Prune, which removes Audit Events older than a
+// year, PruneConnected, which removes registrations nobody consented to and expired Connected App
+// tokens, RefreshKeys, which starts a new signing key on time and retires old ones, and
 // ProvisionSecrets, which gives each new Secret Client its secret.
 type Identity struct {
 	Routes           server.Routes
 	Unassigned       func(ctx context.Context) (int, error)
 	Prune            func(ctx context.Context) (int64, error)
+	PruneConnected   func(ctx context.Context) (int64, error)
 	RefreshKeys      func(ctx context.Context) error
 	ProvisionSecrets func(ctx context.Context) error
 }
@@ -175,6 +181,9 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 	tokens := tokensapp.New(tokenspersistence.New(q), tokenContexts, tokenContexts, admins, recorder, now, rand.Reader)
 	stepUps := signinapp.NewStepUps(stepUpSettings, cfg.Index, admins, recorder, tokens)
 	signIn.SetPersonalTokens(signintokens.New(tokens))
+	connectedContexts := connectedcontexts.New(cfg.Index, stepUpSettings, access)
+	apps := connectedapp.New(connectedpersistence.New(q, cfg.Store), connectedContexts, connectedContexts, admins, recorder, now, rand.Reader)
+	signIn.SetConsents(signinconnected.New(apps))
 	audit = auditapp.New(auditpersistence.New(q), admins, directory.New(users, access, tokens, cfg.Index), cfg.Logger, now, rand.Reader)
 	launcherContexts := launchercontexts.New(cfg.Index, access)
 	transport := cfg.IconTransport
@@ -191,7 +200,7 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 		Insecure:      strings.HasPrefix(cfg.PublicURL, "http://"),
 		SessionCookie: usersweb.CookieName,
 		CryptoKey:     cryptoKey,
-	}, signIn, machineSignIn, ring, cfg.Logger, time.Now)
+	}, signIn, machineSignIn, apps, ring, cfg.Logger, time.Now)
 	if err != nil {
 		return nil, err
 	}
@@ -200,6 +209,7 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 	tokensDeleted = gate.Forget
 	gate.SetTokens(others)
 	tokens.OnRevoked(func(_ context.Context, tokenID uuid.UUID) { gate.Forget([]uuid.UUID{tokenID}) })
+	apps.OnForget(gate.Forget)
 	signedOut = endSessions(gate, signIn, cfg.Logger)
 	gateHandler, err := gateweb.New(gate, gateweb.Config{Issuer: cfg.PublicURL, SessionCookie: usersweb.CookieName}, cfg.Logger)
 	if err != nil {
@@ -221,6 +231,7 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 		},
 		Unassigned:       access.Unassigned,
 		Prune:            audit.Prune,
+		PruneConnected:   apps.Prune,
 		RefreshKeys:      ring.Refresh,
 		ProvisionSecrets: secrets.ProvisionAll,
 	}, nil

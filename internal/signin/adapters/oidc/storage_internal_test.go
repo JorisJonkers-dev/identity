@@ -21,7 +21,7 @@ func newStorage() (*storage, *requests, *accounts) {
 	r, a := newRequests(), &accounts{ada: uuid.New(), sessionID: uuid.New()}
 	svc := app.New(r, testClients, a, newAccess(), noLogouts{}, discard{}, time.Now, rand.Reader)
 	svc.SetClientSecrets(testSecrets)
-	return &storage{svc: svc, ring: NewRing(testKey()), logger: slog.New(slog.DiscardHandler), now: time.Now}, r, a
+	return &storage{svc: svc, apps: newApps(), ring: NewRing(testKey()), logger: slog.New(slog.DiscardHandler), now: time.Now}, r, a
 }
 
 func wantOIDC(t *testing.T, err error, kind string) {
@@ -184,7 +184,7 @@ func TestAClientRunsWithTheProvidersDefaults(t *testing.T) {
 
 func TestAnHTTPIssuerNeedsInsecure(t *testing.T) {
 	s, _, _ := newStorage()
-	if _, err := New(Config{Issuer: "http://auth.test"}, s.svc, nil, s.ring, s.logger, time.Now); err == nil {
+	if _, err := New(Config{Issuer: "http://auth.test"}, s.svc, nil, s.apps, s.ring, s.logger, time.Now); err == nil {
 		t.Fatal("an http Issuer was accepted without Insecure")
 	}
 }

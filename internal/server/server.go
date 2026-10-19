@@ -85,6 +85,8 @@ func (s *Server) Handler() http.Handler {
 	})
 	mux.Handle("/api/", s.routes.API)
 	mux.Handle("/.well-known/openid-configuration", s.routes.OIDC)
+	mux.Handle("/.well-known/oauth-authorization-server", s.routes.OIDC)
+	mux.Handle("/.well-known/oauth-protected-resource/", s.routes.OIDC)
 	mux.Handle("/oidc/", s.routes.OIDC)
 	mux.Handle("/gate/", s.routes.Gate)
 	mux.Handle("/.auth/", s.routes.Gate)

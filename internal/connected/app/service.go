@@ -67,6 +67,8 @@ type RefreshToken struct {
 	UserID    uuid.UUID
 	ClientID  string
 	ExpiresAt time.Time
+	// RegistrationID is the registered tool the Connected App is, which alone may spend the token.
+	RegistrationID string
 }
 
 // Store keeps registrations, MCP marks, Connected Apps and their tokens.

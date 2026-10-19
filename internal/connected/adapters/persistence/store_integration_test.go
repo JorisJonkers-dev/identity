@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -198,7 +199,7 @@ func TestARefreshTokenIsFoundByItsHashAndSpentOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	r, err := f.s.Refresh(f.ctx, hash)
-	if err != nil || r.AppID != a.ID || r.UserID != a.UserID || r.ClientID != "kb" {
+	if err != nil || r.AppID != a.ID || r.UserID != a.UserID || r.ClientID != "kb" || !strings.HasPrefix(r.RegistrationID, "mcp-") {
 		t.Fatalf("Refresh = %+v, %v", r, err)
 	}
 	first, _ := f.s.Spend(f.ctx, r.ID, t0)

@@ -180,7 +180,7 @@ func (s *Store) Refresh(ctx context.Context, hash []byte) (app.RefreshToken, err
 	if err != nil {
 		return app.RefreshToken{}, notFound(err)
 	}
-	return app.RefreshToken{ID: r.ID, AppID: r.AppID, UserID: r.UserID, ClientID: r.ClientID, ExpiresAt: r.ExpiresAt}, nil
+	return app.RefreshToken{ID: r.ID, AppID: r.AppID, UserID: r.UserID, ClientID: r.ClientID, ExpiresAt: r.ExpiresAt, RegistrationID: r.RegistrationID}, nil
 }
 
 func (s *Store) Spend(ctx context.Context, id uuid.UUID, at time.Time) (bool, error) {
