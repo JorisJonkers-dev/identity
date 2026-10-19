@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   changes:
-    uses: JorisJonkers-dev/github-workflows/.github/workflows/path-buckets.yml@v0.23.0
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/path-buckets.yml@bdc8ec412fdd619b57b8b8f2855cc7d3c5f76bad # v0.29.0
     with:
       workflows: .github/workflows/ci.yml
 
@@ -103,14 +103,14 @@ jobs:
 
   # A quarantined test must name its issue and run out within 14 days (estate testing standards).
   quarantine:
-    uses: JorisJonkers-dev/github-workflows/.github/workflows/quarantine-check.yml@v0.27.3
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/quarantine-check.yml@bdc8ec412fdd619b57b8b8f2855cc7d3c5f76bad # v0.29.0
 
   # Mutants that survive on the changed lines, as one pull request comment. A report: it never fails
   # the build, so Pipeline Complete does not wait on it.
   mutation:
     needs: changes
     if: ${{ github.event_name == 'pull_request' }}
-    uses: JorisJonkers-dev/github-workflows/.github/workflows/mutation-report.yml@v0.27.3
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/mutation-report.yml@bdc8ec412fdd619b57b8b8f2855cc7d3c5f76bad # v0.29.0
     permissions:
       contents: read
       pull-requests: write
