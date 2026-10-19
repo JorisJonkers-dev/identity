@@ -11,8 +11,17 @@ databaseChangeLog:
             tableName: sessions
             columns:
               - column: {name: two_factor_at, type: timestamptz}
+
+  # Sessions that proved two-factor before the column existed proved it no later than they began.
+  - changeSet:
+      id: 0013-sessions-two-factor-at-backfill
+      author: identity
+      changes:
         - sql:
             sql: UPDATE sessions SET two_factor_at = created_at WHERE methods && ARRAY['otp', 'hwk']
+      rollback:
+        - sql:
+            sql: UPDATE sessions SET two_factor_at = NULL
 
   - changeSet:
       id: 0013-step-up-challenges
@@ -37,8 +46,16 @@ databaseChangeLog:
               - column: {name: client_id, type: text, constraints: {primaryKey: true, nullable: false}}
               - column: {name: minutes, type: integer, constraints: {nullable: false}}
               - column: {name: changed_at, type: timestamptz, constraints: {nullable: false}}
+
+  - changeSet:
+      id: 0013-step-up-minutes
+      author: identity
+      changes:
         - sql:
             sql: ALTER TABLE step_up ADD CONSTRAINT step_up_minutes CHECK (minutes IN (5, 15, 60))
+      rollback:
+        - sql:
+            sql: ALTER TABLE step_up DROP CONSTRAINT step_up_minutes
 
   - changeSet:
       id: 0013-audit-events-minutes
