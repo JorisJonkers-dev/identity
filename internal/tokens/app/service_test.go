@@ -568,6 +568,17 @@ func TestTurningStepUpOnRevokesEveryLiveTokenForTheClientAsAuditEvents(t *testin
 	}
 }
 
+func TestTurningStepUpOnRevokesTheClientsTokensWithNoCacheToTell(t *testing.T) {
+	f := newFixture()
+	_, _ = f.Mint(context.Background(), ada, "cli", "grafana", 30)
+	if err := f.RevokeForClient(context.Background(), root, "grafana"); err != nil {
+		t.Fatal(err)
+	}
+	if n, _ := f.LiveForClient(context.Background(), "grafana"); n != 0 {
+		t.Fatalf("live after = %d", n)
+	}
+}
+
 func TestStepUpChecksFailWhenStepUpCannotBeRead(t *testing.T) {
 	for _, step := range []struct {
 		name string
