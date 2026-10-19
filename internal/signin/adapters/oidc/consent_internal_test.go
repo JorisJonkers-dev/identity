@@ -19,16 +19,14 @@ func (e *env) asking(t *testing.T) string {
 	return strings.TrimPrefix(next, consentPath+"?authRequestID=")
 }
 
-func (e *env) answer(t *testing.T, body string, signedIn bool) page {
+func (e *env) answer(t *testing.T, body string) page {
 	t.Helper()
 	req, _ := http.NewRequestWithContext(t.Context(), http.MethodPost, e.issuer+consentAPIPath, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	for name, value := range e.cookies {
 		req.AddCookie(&http.Cookie{Name: name, Value: value}) //nolint:gosec // a request's cookie carries no attributes
 	}
-	if signedIn {
-		req.AddCookie(&http.Cookie{Name: cookieName, Value: e.session}) //nolint:gosec // as above
-	}
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: e.session}) //nolint:gosec // as above
 	return e.do(t, req)
 }
 
@@ -55,7 +53,7 @@ func TestTheConsentPageNamesTheAppTheServiceTheRolesAndWhereItReturns(t *testing
 func TestAllowingSendsTheBrowserOnToCollectTheToolsCode(t *testing.T) {
 	e := newEnv(t)
 	id := e.asking(t)
-	callback := next(t, e.answer(t, `{"authRequestID":"`+id+`","allow":true}`, true))
+	callback := next(t, e.answer(t, `{"authRequestID":"`+id+`","allow":true}`))
 	back := redirect(t, e.get(t, callback, false), http.StatusFound, "http://127.0.0.1:33418/callback?")
 	if u, _ := url.Parse(back); u.Query().Get("code") == "" || u.Query().Get("state") != "st" {
 		t.Fatalf("the tool got %s", back)
@@ -65,7 +63,7 @@ func TestAllowingSendsTheBrowserOnToCollectTheToolsCode(t *testing.T) {
 func TestDecliningTellsTheToolThePersonSaidNo(t *testing.T) {
 	e := newEnv(t)
 	id := e.asking(t)
-	u, _ := url.Parse(next(t, e.answer(t, `{"authRequestID":"`+id+`","allow":false}`, true)))
+	u, _ := url.Parse(next(t, e.answer(t, `{"authRequestID":"`+id+`","allow":false}`)))
 	q := u.Query()
 	if u.Host != "127.0.0.1:33418" || q.Get("error") != "access_denied" || q.Get("state") != "st" || q.Get("iss") != e.issuer {
 		t.Fatalf("declined to %s", u)
@@ -88,23 +86,23 @@ func TestAConsentCallIsRefused(t *testing.T) {
 			return e.get(t, consentAPIPath+"?authRequestID="+id, false)
 		}},
 		{"once answered", http.StatusNotFound, func(t *testing.T, e *env, id string) page {
-			e.answer(t, `{"authRequestID":"`+id+`","allow":false}`, true)
-			return e.answer(t, `{"authRequestID":"`+id+`","allow":false}`, true)
+			e.answer(t, `{"authRequestID":"`+id+`","allow":false}`)
+			return e.answer(t, `{"authRequestID":"`+id+`","allow":false}`)
 		}},
 		{"for a User with no App Role there", http.StatusForbidden, func(t *testing.T, e *env, id string) page {
 			e.access.roles = map[string][]string{}
-			return e.answer(t, `{"authRequestID":"`+id+`","allow":true}`, true)
+			return e.answer(t, `{"authRequestID":"`+id+`","allow":true}`)
 		}},
 		{"for a service that stopped taking Connected Apps", http.StatusForbidden, func(t *testing.T, e *env, id string) page {
 			e.apps.refuse = connectedapp.ErrStepUpClient
-			return e.answer(t, `{"authRequestID":"`+id+`","allow":true}`, true)
+			return e.answer(t, `{"authRequestID":"`+id+`","allow":true}`)
 		}},
 		{"when the tool cannot be read", http.StatusInternalServerError, func(t *testing.T, e *env, id string) page {
 			e.apps.fail["Registration"] = errBoom
 			return e.get(t, consentAPIPath+"?authRequestID="+id, true)
 		}},
 		{"with an answer that is not JSON", http.StatusBadRequest, func(t *testing.T, e *env, _ string) page {
-			return e.answer(t, `{`, true)
+			return e.answer(t, `{`)
 		}},
 	} {
 		t.Run(c.name, func(t *testing.T) {

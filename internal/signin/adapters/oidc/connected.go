@@ -65,9 +65,11 @@ func (registeredClient) AuthMethod() oidc.AuthMethod { return oidc.AuthMethodNon
 func (registeredClient) ResponseTypes() []oidc.ResponseType {
 	return []oidc.ResponseType{oidc.ResponseTypeCode}
 }
+
 func (registeredClient) GrantTypes() []oidc.GrantType {
 	return []oidc.GrantType{oidc.GrantTypeCode, oidc.GrantTypeRefreshToken}
 }
+
 func (registeredClient) LoginURL(id string) string            { return loginPath + "?authRequestID=" + id }
 func (registeredClient) AccessTokenType() op.AccessTokenType  { return op.AccessTokenTypeBearer }
 func (registeredClient) IDTokenLifetime() time.Duration       { return idTokenLifetime }
@@ -78,6 +80,7 @@ func (registeredClient) ClockSkew() time.Duration             { return 0 }
 func (registeredClient) RestrictAdditionalIdTokenScopes() func([]string) []string { //nolint:revive // zitadel/oidc's name
 	return none
 }
+
 func (registeredClient) RestrictAdditionalAccessTokenScopes() func([]string) []string { return none }
 
 type resourceKey struct{}
@@ -273,10 +276,12 @@ type registrationError struct {
 	Description string `json:"error_description"`
 }
 
-var (
-	grantTypes    = []string{string(oidc.GrantTypeCode), string(oidc.GrantTypeRefreshToken)}
-	responseTypes = []string{string(oidc.ResponseTypeCode)}
-)
+// grantTypes and responseTypes are what a registered tool may ask for: the code flow and refresh.
+func grantTypes() []string {
+	return []string{string(oidc.GrantTypeCode), string(oidc.GrantTypeRefreshToken)}
+}
+
+func responseTypes() []string { return []string{string(oidc.ResponseTypeCode)} }
 
 // register is the registration endpoint. Anyone may register; a registration holds nothing until a
 // signed-in User consents to it, and one nobody consents to is gone after a day.
@@ -303,7 +308,7 @@ func register(apps ConnectedApps, s *storage) http.HandlerFunc {
 		}
 		writeJSON(w, http.StatusCreated, registrationResponse{
 			ClientID: reg.ClientID, ClientIDIssuedAt: reg.CreatedAt.Unix(), ClientName: reg.Name, RedirectURIs: reg.RedirectURIs,
-			TokenEndpointAuthMethod: string(oidc.AuthMethodNone), GrantTypes: grantTypes, ResponseTypes: responseTypes,
+			TokenEndpointAuthMethod: string(oidc.AuthMethodNone), GrantTypes: grantTypes(), ResponseTypes: responseTypes(),
 		})
 	}
 }
@@ -313,12 +318,12 @@ func publicCodeFlow(req registrationRequest) bool {
 		return false
 	}
 	for _, g := range req.GrantTypes {
-		if !slices.Contains(grantTypes, g) {
+		if !slices.Contains(grantTypes(), g) {
 			return false
 		}
 	}
 	for _, t := range req.ResponseTypes {
-		if !slices.Contains(responseTypes, t) {
+		if !slices.Contains(responseTypes(), t) {
 			return false
 		}
 	}

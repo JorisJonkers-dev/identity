@@ -14,10 +14,8 @@ import (
 	"github.com/google/uuid"
 )
 
-var (
-	// ErrInvalidRegistration is a registration whose name or redirect URIs break the rules.
-	ErrInvalidRegistration = errors.New("a registration names itself in 1 to 100 characters and gives 1 to 10 redirect URIs, each loopback http or https")
-)
+// ErrInvalidRegistration is a registration whose name or redirect URIs break the rules.
+var ErrInvalidRegistration = errors.New("a registration names itself in 1 to 100 characters and gives 1 to 10 redirect URIs, each loopback http or https")
 
 const (
 	maxName         = 100

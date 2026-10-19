@@ -478,7 +478,7 @@ func TestConsentIsRefused(t *testing.T) {
 	}
 }
 
-func TestConsentFails(t *testing.T) {
+func TestNoConsentIsKeptWhenWhatItRestsOnCannotBeRead(t *testing.T) {
 	for _, c := range []struct {
 		name  string
 		spoil func(f *fixture)
@@ -635,6 +635,7 @@ type failingClients struct{}
 func (failingClients) Client(context.Context, string) (app.Client, error) {
 	return app.Client{}, errBoom
 }
+
 func (failingClients) ClientForHost(context.Context, string) (app.Client, error) {
 	return app.Client{}, errBoom
 }
