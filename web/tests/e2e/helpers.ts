@@ -99,7 +99,10 @@ export async function signIn(page: Page, email: string) {
 /** Signs out from the menu under the User's avatar. */
 export async function signOut(page: Page) {
   await page.locator('summary.me-btn').click()
+  // Wait for the session to end: the page is often at / already, so the URL alone proves nothing.
+  const ended = page.waitForResponse((r) => r.request().method() === 'DELETE' && new URL(r.url()).pathname === '/api/v1/session')
   await page.getByRole('button', { name: 'Sign out' }).click()
+  expect((await ended).status()).toBe(204)
   await expect(page).toHaveURL('/')
 }
 
