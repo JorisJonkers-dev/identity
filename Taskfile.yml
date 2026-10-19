@@ -57,6 +57,9 @@ tasks:
       - golangci-lint run --build-tags integration ./...
       - go tool testlint ./...
       - go tool testlint -tags integration ./...
+      # The local run's seed and fixed code, which no release build compiles.
+      - golangci-lint run --build-tags dev,integration ./cmd/seed/... ./cmd/identity/... # dev only
+      - go tool testlint -tags dev,integration ./cmd/seed/... ./cmd/identity/... # dev only
       - golangci-lint fmt --diff ./...
 
   lint:spec:
@@ -90,12 +93,16 @@ tasks:
       - task: test:web
 
   test:go:unit:
-    desc: Go unit tests and their gate (gobco for branches and conditions)
-    cmd: sh scripts/coverage.sh unit
+    desc: Go unit tests and their gate (gobco for branches and conditions), then the local run's fixed code
+    cmds:
+      - sh scripts/coverage.sh unit
+      - go test -count=1 -tags dev -run TestADevBuild ./cmd/identity/ # dev only
 
   test:integration:
-    desc: Go unit and integration tests together (Postgres and liquibase-runner in testcontainers); every function reached
-    cmd: sh scripts/coverage.sh integration
+    desc: Go unit and integration tests together (Postgres and liquibase-runner in testcontainers); every function reached; then the local run's seed
+    cmds:
+      - sh scripts/coverage.sh integration
+      - go test -count=1 -tags dev,integration ./cmd/seed/ # dev only
 
   test:web:
     desc: Web unit tests and the coverage gate in web/vite.config.ts
@@ -146,10 +153,14 @@ tasks:
       - pnpm --filter @{{.APP}}/web exec eslint . --fix
 
   dev:
-    desc: Run Postgres, the API on :8080, and Vite with hot reload on :5173
+    desc: Run identity locally with the canvas's apps at http://localhost:5173 (Vite, hot reload), the API on :18480, Mailpit on :28025
     deps: [db, install]
     cmd: |
       trap 'kill 0' EXIT
+      DATABASE_URL='{{.DATABASE_URL}}' VAULT_ADDR=http://localhost:28200 VAULT_TOKEN=dev-only-root \
+        CLIENTS_FILE=dev/clients.yaml go run -tags dev ./cmd/seed # dev only
       DATABASE_URL='{{.DATABASE_URL}}' PUBLIC_URL=http://localhost:5173 SMTP_ADDR=localhost:21025 \
-        MAIL_FROM=identity@localhost SMTP_TLS=none go run ./cmd/{{.APP}} &
-      pnpm --filter @{{.APP}}/web dev
+        MAIL_FROM=identity@localhost SMTP_TLS=none VAULT_ADDR=http://localhost:28200 VAULT_TOKEN=dev-only-root \
+        CLIENTS_FILE=dev/clients.yaml GRAFANA_URL=https://grafana.example.org/d/identity \
+        ADDR=127.0.0.1:18480 METRICS_ADDR=127.0.0.1:19480 go run -tags dev ./cmd/{{.APP}} & # dev only
+      API_ORIGIN=http://localhost:18480 pnpm --filter @{{.APP}}/web dev

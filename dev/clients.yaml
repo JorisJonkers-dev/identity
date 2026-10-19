@@ -1,0 +1,74 @@
+# The Clients `task dev` runs with, outside a cluster (CLIENTS_FILE): the apps the design canvas
+# draws, so each page can be compared with its frame. None of these hosts serves anything locally.
+# Old wiki is not here: the seed gives it Assignments, so it shows as a Removed app (identity#70).
+apiVersion: identity.jorisjonkers.dev/v1
+kind: Client
+metadata: {name: grafana}
+spec:
+  signIn: native
+  host: grafana.localhost
+  label: Grafana
+  description: Dashboards and alerts
+  launchUrl: http://grafana.localhost
+  redirectUris: [http://grafana.localhost/login/generic_oauth]
+  credential: secret
+  secretPath: secret/data/monitoring/grafana/client
+  roles: [user, viewer, editor]
+---
+apiVersion: identity.jorisjonkers.dev/v1
+kind: Client
+metadata: {name: jellyfin}
+spec:
+  signIn: native
+  host: jellyfin.localhost
+  label: Jellyfin
+  description: Films and series
+  launchUrl: http://jellyfin.localhost
+  redirectUris: [http://jellyfin.localhost/sso/OID/redirect/identity]
+  credential: pkce
+  roles: [user]
+---
+apiVersion: identity.jorisjonkers.dev/v1
+kind: Client
+metadata: {name: grimoire}
+spec:
+  signIn: native
+  host: grimoire.localhost
+  label: Grimoire
+  description: The campaign table
+  launchUrl: http://grimoire.localhost
+  redirectUris: [http://grimoire.localhost/auth/callback]
+  credential: pkce
+  roles: [user, dm]
+---
+apiVersion: identity.jorisjonkers.dev/v1
+kind: Client
+metadata: {name: vault}
+spec:
+  signIn: native
+  host: vault.localhost
+  label: Vault
+  description: Secrets for the estate
+  launchUrl: http://vault.localhost/ui
+  redirectUris: [http://vault.localhost/ui/vault/auth/oidc/oidc/callback]
+  credential: pkce
+  roles: [user, operator]
+---
+apiVersion: identity.jorisjonkers.dev/v1
+kind: Client
+metadata: {name: tribelt-stats}
+spec:
+  signIn: gated
+  host: tribelt.localhost
+  label: Tribelt stats
+  description: Who visits the mirror
+  launchUrl: http://tribelt.localhost/stats
+  roles: [user]
+---
+apiVersion: identity.jorisjonkers.dev/v1
+kind: Client
+metadata: {name: backup}
+spec:
+  signIn: token
+  host: backup.localhost
+  roles: [user]
