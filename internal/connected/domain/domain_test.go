@@ -73,3 +73,10 @@ func TestARegistrationGivesOneToTenRedirectURIsAndAShortName(t *testing.T) {
 		})
 	}
 }
+
+func TestARegistrationMayUseTheFullNameAndTenRedirectURIs(t *testing.T) {
+	ten := slices.Repeat([]string{"https://app.example.org/cb"}, 10)
+	if _, err := domain.NewRegistration("mcp_1", strings.Repeat("a", 100), ten, at); err != nil {
+		t.Fatalf("err = %v", err)
+	}
+}
