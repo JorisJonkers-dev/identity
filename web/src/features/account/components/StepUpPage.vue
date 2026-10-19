@@ -43,6 +43,8 @@ onMounted(() => {
 
 function proved() {
   if (authRequestID) navigation.leave(`/oidc/login?authRequestID=${encodeURIComponent(authRequestID)}`)
+  // The Gate's start is served by the server, not this app.
+  else if (next.startsWith('/gate/')) navigation.leave(next)
   else void router.push(next)
 }
 function submitCode() {

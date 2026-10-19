@@ -45,6 +45,10 @@ type access map[string][]string
 
 func (a access) RolesByClient(context.Context, uuid.UUID) (map[string][]string, error) { return a, nil }
 
+func (a access) HeldBackClients(context.Context, uuid.UUID) ([]string, error) {
+	return []string{"stats"}, nil
+}
+
 func newContexts() *contexts.Contexts {
 	return contexts.New(index{grafana, stats, backup}, access{"grafana": {"viewer"}})
 }
@@ -95,5 +99,11 @@ func TestRolesComeFromTheAccessContext(t *testing.T) {
 	held, err := newContexts().RolesByClient(context.Background(), uuid.New())
 	if err != nil || !slices.Equal(held["grafana"], []string{"viewer"}) {
 		t.Fatalf("RolesByClient = %v, %v", held, err)
+	}
+}
+
+func TestWhatIsHeldBackComesFromAccess(t *testing.T) {
+	if got, err := newContexts().HeldBack(context.Background(), uuid.New()); err != nil || !slices.Equal(got, []string{"stats"}) {
+		t.Fatalf("HeldBack = %v, %v", got, err)
 	}
 }

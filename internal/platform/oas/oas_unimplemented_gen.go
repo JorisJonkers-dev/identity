@@ -42,6 +42,16 @@ func (UnimplementedHandler) AskPasswordReset(ctx context.Context, req *EmailAddr
 	return r, ht.ErrNotImplemented
 }
 
+// AskUserEmailChange implements askUserEmailChange operation.
+//
+// Mails the new address a link that makes it the person's sign-in email once followed, as their own
+// change does. Admins only.
+//
+// POST /api/v1/access/users/{userId}/email-change
+func (UnimplementedHandler) AskUserEmailChange(ctx context.Context, req *EmailAddress, params AskUserEmailChangeParams) (r AskUserEmailChangeRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // AssignRole implements assignRole operation.
 //
 // Makes an Assignment. The Client must be in the cluster and declare the App Role, and the admins
@@ -190,6 +200,17 @@ func (UnimplementedHandler) DeleteAccount(ctx context.Context, req *PasswordChec
 //
 // DELETE /api/v1/access/groups/{groupId}
 func (UnimplementedHandler) DeleteGroup(ctx context.Context, params DeleteGroupParams) (r DeleteGroupRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// DeleteUser implements deleteUser operation.
+//
+// Deletes the person as their own deletion does: every session ends with back-channel logout, their
+// tokens stop working, and their memberships and direct roles go. Audit Events about them stay, naming
+// no one. The last Admin is refused. Admins only.
+//
+// DELETE /api/v1/access/users/{userId}
+func (UnimplementedHandler) DeleteUser(ctx context.Context, params DeleteUserParams) (r DeleteUserRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -345,6 +366,15 @@ func (UnimplementedHandler) RenameGroup(ctx context.Context, req *GroupDraft, pa
 	return r, ht.ErrNotImplemented
 }
 
+// RenameUser implements renameUser operation.
+//
+// Changes what a person is called, as an Admin. Admins only.
+//
+// PATCH /api/v1/access/users/{userId}
+func (UnimplementedHandler) RenameUser(ctx context.Context, req *ProfileUpdate, params RenameUserParams) (r RenameUserRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // ResetPasskeyOptions implements resetPasskeyOptions operation.
 //
 // Returns the WebAuthn options for the reset; checkPasswordReset must have run first.
@@ -398,6 +428,16 @@ func (UnimplementedHandler) RevokeUserToken(ctx context.Context, params RevokeUs
 //
 // POST /api/v1/apps/{clientId}/secret
 func (UnimplementedHandler) RotateClientSecret(ctx context.Context, params RotateClientSecretParams) (r RotateClientSecretRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// SetGroupTwoFactor implements setGroupTwoFactor operation.
+//
+// While a Group requires two-factor, a member without it holds none of the Group's App Roles; their
+// other roles keep working. The admins Group always requires it. Admins only.
+//
+// PUT /api/v1/access/groups/{groupId}/two-factor
+func (UnimplementedHandler) SetGroupTwoFactor(ctx context.Context, req *TwoFactorRequirement, params SetGroupTwoFactorParams) (r SetGroupTwoFactorRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 

@@ -64,6 +64,19 @@ func (s *store) RenameGroup(_ context.Context, id uuid.UUID, name domain.GroupNa
 	return app.ErrNotFound
 }
 
+func (s *store) SetGroupTwoFactor(_ context.Context, id uuid.UUID, required bool) error {
+	if err := s.err("SetGroupTwoFactor"); err != nil {
+		return err
+	}
+	for i, g := range s.groups {
+		if g.ID == id {
+			s.groups[i].RequiresTwoFactor = required
+			return nil
+		}
+	}
+	return app.ErrNotFound
+}
+
 func (s *store) DeleteGroup(_ context.Context, id uuid.UUID) error {
 	s.groups = slices.DeleteFunc(s.groups, func(g domain.Group) bool { return g.ID == id && !g.Admins })
 	return s.err("DeleteGroup")
@@ -180,6 +193,13 @@ func (s *store) UnassignUser(_ context.Context, a domain.UserAssignment) (bool, 
 	return len(s.direct) < n, nil
 }
 
+func (s *store) HeldBackClients(_ context.Context, userID uuid.UUID) ([]string, error) {
+	if userID != ada {
+		return nil, s.err("HeldBackClients")
+	}
+	return []string{"grafana"}, s.err("HeldBackClients")
+}
+
 func (s *store) RolesOf(_ context.Context, userID uuid.UUID, clientID string) ([]string, error) {
 	var roles []string
 	for _, a := range s.direct {
@@ -225,6 +245,13 @@ type people struct {
 	err         error
 	signedOut   []uuid.UUID
 	signedOutBy []uuid.UUID
+	told        []uuid.UUID
+	tellErr     error
+}
+
+func (p *people) TwoFactorRequired(_ context.Context, userID uuid.UUID, _ string) error {
+	p.told = append(p.told, userID)
+	return p.tellErr
 }
 
 func (p *people) People(context.Context) ([]domain.Person, error) { return p.list, p.err }
@@ -297,6 +324,7 @@ var operations = []struct {
 		return f.svc.Unassign(ctx, u, domain.Assignment{GroupID: family.ID, ClientID: "grafana", Role: "viewer"})
 	}},
 	{"signing a User out", func(f *fixture, u app.Actor) error { return f.svc.SignOutUser(ctx, u, ada) }},
+	{"making a Group require two-factor", func(f *fixture, u app.Actor) error { return f.svc.SetTwoFactor(ctx, u, family.ID, true) }},
 	{"giving a person an App Role", func(f *fixture, u app.Actor) error {
 		return f.svc.AssignUser(ctx, u, domain.UserAssignment{UserID: ada, ClientID: "grafana", Role: "viewer"})
 	}},
@@ -684,5 +712,77 @@ func TestTheUnassignedUsersAreThoseInNoGroup(t *testing.T) {
 	f := newFixture()
 	if ids, err := f.svc.UnassignedUsers(context.Background()); err != nil || !slices.Equal(ids, []uuid.UUID{ada}) {
 		t.Fatalf("UnassignedUsers = %v, %v", ids, err)
+	}
+}
+
+func TestAnAdminMakesAGroupRequireTwoFactorAndStop(t *testing.T) {
+	f := newFixture()
+	if err := f.svc.SetTwoFactor(ctx, asAdmin, family.ID, true); err != nil || !f.store.groups[1].RequiresTwoFactor {
+		t.Fatalf("SetTwoFactor = %v, %+v", err, f.store.groups[1])
+	}
+	if err := f.svc.SetTwoFactor(ctx, asAdmin, family.ID, false); err != nil || f.store.groups[1].RequiresTwoFactor {
+		t.Fatalf("SetTwoFactor = %v, %+v", err, f.store.groups[1])
+	}
+}
+
+func TestTheAdminsGroupCannotStopRequiringTwoFactor(t *testing.T) {
+	if err := newFixture().svc.SetTwoFactor(ctx, asAdmin, admins.ID, false); !errors.Is(err, app.ErrAdminsNeedTwoFactor) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestTheAdminsGroupMayBeToldToRequireTwoFactor(t *testing.T) {
+	if err := newFixture().svc.SetTwoFactor(ctx, asAdmin, admins.ID, true); err != nil {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestATwoFactorChangeFailsWhenTheStoreDoes(t *testing.T) {
+	for _, method := range []string{"Group", "SetGroupTwoFactor"} {
+		t.Run(method, func(t *testing.T) {
+			f := newFixture()
+			f.store.fail[method] = errBoom
+			if err := f.svc.SetTwoFactor(ctx, asAdmin, family.ID, true); !errors.Is(err, errBoom) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
+
+func TestMarkingAGroupTellsEachMemberWithoutTwoFactorOnce(t *testing.T) {
+	f := newFixture()
+	f.store.members = append(f.store.members, domain.Membership{GroupID: family.ID, UserID: ada}, domain.Membership{GroupID: family.ID, UserID: admin})
+	f.people.list = []domain.Person{{ID: ada}, {ID: admin, TwoFactor: true}}
+	_ = f.svc.SetTwoFactor(ctx, asAdmin, family.ID, true)
+	_ = f.svc.SetTwoFactor(ctx, asAdmin, family.ID, true)
+	if !slices.Equal(f.people.told, []uuid.UUID{ada}) {
+		t.Fatalf("told %v", f.people.told)
+	}
+}
+
+func TestMarkingAGroupFailsWhenItsMembersCannotBeTold(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		setUp func(f *fixture)
+	}{
+		{"the memberships cannot be read", func(f *fixture) { f.store.fail["Memberships"] = errBoom }},
+		{"the people cannot be read", func(f *fixture) { f.people.err = errBoom }},
+		{"the mail cannot be sent", func(f *fixture) { f.people.tellErr = errBoom }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFixture()
+			f.store.members = append(f.store.members, domain.Membership{GroupID: family.ID, UserID: ada})
+			f.people.list = []domain.Person{{ID: ada}}
+			tc.setUp(f)
+			if err := f.svc.SetTwoFactor(ctx, asAdmin, family.ID, true); !errors.Is(err, errBoom) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
+
+func TestTheClientsHeldBackComeFromTheStore(t *testing.T) {
+	if got, err := newFixture().svc.HeldBackClients(ctx, ada); err != nil || !slices.Equal(got, []string{"grafana"}) {
+		t.Fatalf("HeldBackClients = %v, %v", got, err)
 	}
 }

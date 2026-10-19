@@ -19,14 +19,21 @@ function server(start: AccessOverview = overview()) {
     'GET /api/v1/access': () => Response.json(o),
   }
   let stepUp = 0
+  const tokens = { live: 0 }
   for (const c of o.clients) {
-    answers[`GET /api/v1/apps/${c.id}/step-up`] = () => Response.json({ minutes: stepUp })
+    answers[`GET /api/v1/apps/${c.id}/step-up`] = () => Response.json({ minutes: stepUp, tokens: tokens.live })
     answers[`PUT /api/v1/apps/${c.id}/step-up`] = () => {
       stepUp = 15
+      tokens.live = 0
       return ok()
     }
   }
   for (const g of o.groups) {
+    answers[`PUT /api/v1/access/groups/${g.id}/two-factor`] = () => {
+      const it = group(g.id)
+      if (it) it.requiresTwoFactor = !it.requiresTwoFactor
+      return ok()
+    }
     for (const c of o.clients) {
       for (const r of c.roles) {
         answers[`PUT ${roleAt(g.id, c.id, r)}`] = () => {
@@ -65,7 +72,7 @@ function server(start: AccessOverview = overview()) {
       }
     }
   }
-  return { o, answers }
+  return { o, answers, tokens }
 }
 
 function button(wrapper: { findAll: (selector: string) => DOMWrapper<Element>[] }, text: string) {
@@ -257,7 +264,7 @@ describe('the Groups page', () => {
     const { answers } = server()
     const { wrapper, requests } = await mountAt('/admin/groups', {
       ...answers,
-      'POST /api/v1/access/groups': () => Response.json({ id: '00000000-0000-4000-8000-0000000000b9', name: 'Neighbours', admins: false, members: [] }, { status: 201 }),
+      'POST /api/v1/access/groups': () => Response.json({ id: '00000000-0000-4000-8000-0000000000b9', name: 'Neighbours', admins: false, requiresTwoFactor: false, members: [] }, { status: 201 }),
     })
     await button(wrapper, 'New Group').trigger('click')
     await wrapper.get('#g-name').setValue('Neighbours')
@@ -480,7 +487,7 @@ describe('an app’s page', () => {
 
   it('gives a role to a Group, offering only those without it and never the admins', async () => {
     const { wrapper, requests } = await mountAt('/admin/apps/grafana', server().answers)
-    expect(block(wrapper, 'viewer').findAll('[role="option"]').map((o) => o.text())).toEqual(['Friends'])
+    expect(block(wrapper, 'viewer').get('.rb-line.groups').findAll('[role="option"]').map((o) => o.text())).toEqual(['Friends'])
     await pick(wrapper, 'Give editor to a Group', 'Family')
     expect(requests.some((r) => r.key === `PUT ${roleAt(ids.family, 'grafana', 'editor')}`)).toBe(true)
     expect(block(wrapper, 'editor').findAll('.gchip').map((g) => g.text())).toEqual(['Family'])
@@ -512,6 +519,34 @@ describe('an app’s page', () => {
     expect(wrapper.get('[role="alert"]').text()).toBe('Grafana signs in without a secret.')
   })
 
+  it('lists the people holding each role directly', async () => {
+    const { o, answers } = server()
+    o.userAssignments.push({ userId: ids.ada, clientId: 'grafana', role: 'editor' })
+    const { wrapper } = await mountAt('/admin/apps/grafana', answers)
+    expect(block(wrapper, 'editor').findAll('.rb-line.people .gchip').map((g) => g.text())).toEqual(['Ada Lovelace'])
+    expect(block(wrapper, 'viewer').get('.rb-line.people .soft').text()).toBe('None')
+  })
+
+  it('gives a role to a person, offering only those without it', async () => {
+    const { o, answers } = server()
+    o.userAssignments.push({ userId: ids.ada, clientId: 'grafana', role: 'editor' })
+    const { wrapper, requests } = await mountAt('/admin/apps/grafana', answers)
+    expect(block(wrapper, 'editor').get('.rb-line.people').findAll('[role="option"]').map((x) => x.text())).toEqual(['Joris Jonkers', 'Noor Bakker'])
+    await pick(wrapper, 'Give viewer to a person', 'Noor Bakker')
+    expect(requests.some((r) => r.key === `PUT ${userRoleAt(ids.noor, 'grafana', 'viewer')}`)).toBe(true)
+    expect(block(wrapper, 'viewer').findAll('.rb-line.people .gchip').map((g) => g.text())).toEqual(['Noor Bakker'])
+  })
+
+  it('takes a role from a person', async () => {
+    const { o, answers } = server()
+    o.userAssignments.push({ userId: ids.ada, clientId: 'grafana', role: 'editor' })
+    const { wrapper, requests } = await mountAt('/admin/apps/grafana', answers)
+    await wrapper.get('[aria-label="Take editor from Ada Lovelace"]').trigger('click')
+    await settle()
+    expect(requests.some((r) => r.key === `DELETE ${userRoleAt(ids.ada, 'grafana', 'editor')}`)).toBe(true)
+    expect(block(wrapper, 'editor').findAll('.rb-line.people .gchip')).toHaveLength(0)
+  })
+
   it('says step-up is off until an Admin sets it', async () => {
     const { wrapper } = await mountAt('/admin/apps/grafana', server().answers)
     expect(stepUpRow(wrapper).get('small').text()).toBe('Off. Signed-in people open Grafana without a new check.')
@@ -522,6 +557,29 @@ describe('an app’s page', () => {
     await pick(wrapper, 'Ask for two-factor again in Grafana', '15 minutes')
     expect(requests.find((r) => r.key === 'PUT /api/v1/apps/grafana/step-up')?.body).toEqual({ minutes: 15 })
     expect(stepUpRow(wrapper).get('small').text()).toBe('Asks for two-factor again after 15 minutes.')
+  })
+
+  it('warns how many tokens turning step-up on revokes, then turns it on', async () => {
+    const { answers, tokens } = server()
+    tokens.live = 2
+    const { wrapper, requests } = await mountAt('/admin/apps/grafana', answers)
+    await pick(wrapper, 'Ask for two-factor again in Grafana', '15 minutes')
+    expect(wrapper.get('.confirm .ask').text()).toBe('Turn on step-up for Grafana?This revokes 2 tokens for Grafana. Scripts that use them stop working.')
+    expect(requests.some((r) => r.key === 'PUT /api/v1/apps/grafana/step-up')).toBe(false)
+    await button(wrapper.get('.confirm'), 'Turn on and revoke').trigger('click')
+    await settle()
+    expect(requests.find((r) => r.key === 'PUT /api/v1/apps/grafana/step-up')?.body).toEqual({ minutes: 15 })
+  })
+
+  it('keeps step-up off when the warning is cancelled', async () => {
+    const { answers, tokens } = server()
+    tokens.live = 1
+    const { wrapper, requests } = await mountAt('/admin/apps/grafana', answers)
+    await pick(wrapper, 'Ask for two-factor again in Grafana', '5 minutes')
+    expect(wrapper.get('.confirm .ask').text()).toBe('Turn on step-up for Grafana?This revokes 1 token for Grafana. Scripts that use them stop working.')
+    await button(wrapper.get('.confirm'), 'Cancel').trigger('click')
+    expect(wrapper.find('.confirm').exists()).toBe(false)
+    expect(requests.some((r) => r.key === 'PUT /api/v1/apps/grafana/step-up')).toBe(false)
   })
 
   it('shows a refused step-up', async () => {
@@ -545,6 +603,69 @@ describe('an app’s page', () => {
     await wrapper.get('[aria-label="Take viewer from Family"]').trigger('click')
     await settle()
     expect(wrapper.get('[role="alert"]').text()).toBe('That role is no longer on Grafana.')
+  })
+})
+
+describe('a Group that requires two-factor', () => {
+  const requiring = () => {
+    const { o, answers } = server()
+    o.groups = o.groups.map((g) => (g.id === ids.family ? { ...g, requiresTwoFactor: true } : g))
+    return { o, answers }
+  }
+
+  it('is marked in the Group list', async () => {
+    const { wrapper } = await mountAt('/admin/groups', requiring().answers)
+    expect(wrapper.findAll('.g-item').map((i) => i.find('.gtag.tf').exists())).toEqual([true, true, false])
+  })
+
+  it('is asked for after saying how many members it holds back', async () => {
+    const { wrapper, requests } = await mountAt(`/admin/groups/${ids.family}`, server().answers)
+    await wrapper.get('input[aria-label="Require two-factor"]').trigger('click')
+    expect(wrapper.get('[role="dialog"] p').text()).toBe('1 member has no two-factor. They lose the roles Family gives until they set it up.')
+    await wrapper.get('[role="dialog"]').trigger('submit')
+    await settle()
+    expect(requests.find((r) => r.key === `PUT /api/v1/access/groups/${ids.family}/two-factor`)?.body).toEqual({ required: true })
+    expect((wrapper.get('input[aria-label="Require two-factor"]').element as HTMLInputElement).checked).toBe(true)
+  })
+
+  it('is not asked for when the dialog is cancelled', async () => {
+    const { wrapper, requests } = await mountAt(`/admin/groups/${ids.family}`, server().answers)
+    await wrapper.get('input[aria-label="Require two-factor"]').trigger('click')
+    await wrapper.findAll('[role="dialog"] button').find((b) => b.text() === 'Cancel')?.trigger('click')
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    expect(requests.some((r) => r.key.endsWith('/two-factor'))).toBe(false)
+  })
+
+  it('counts every member without two-factor, and closes on Escape', async () => {
+    const { o, answers } = server()
+    o.groups = o.groups.map((g) => (g.id === ids.friends ? { ...g, members: [ids.ada, ids.noor] } : g))
+    const { wrapper } = await mountAt(`/admin/groups/${ids.friends}`, answers, { attach: true })
+    await wrapper.get('input[aria-label="Require two-factor"]').trigger('click')
+    expect(wrapper.get('[role="dialog"] p').text()).toBe('2 members have no two-factor. They lose the roles Friends gives until they set it up.')
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await settle()
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+  })
+
+  it('stops requiring it without asking', async () => {
+    const { wrapper, requests } = await mountAt(`/admin/groups/${ids.family}`, requiring().answers)
+    await wrapper.get('input[aria-label="Require two-factor"]').trigger('click')
+    await settle()
+    expect(requests.find((r) => r.key === `PUT /api/v1/access/groups/${ids.family}/two-factor`)?.body).toEqual({ required: false })
+  })
+
+  it('says how many members it holds back, and marks them', async () => {
+    const { wrapper } = await mountAt(`/admin/groups/${ids.family}?tab=members`, requiring().answers)
+    expect(wrapper.get('.tf-row small').text()).toBe('Holds back 1 member without two-factor')
+    expect(wrapper.findAll('.m-row').map((r) => r.find('.gtag.warn').exists())).toEqual([false, true])
+  })
+
+  it('cannot be turned off for the admins', async () => {
+    const { wrapper } = await mountAt(`/admin/groups/${ids.admins}`, server().answers)
+    const toggle = wrapper.get('input[aria-label="Require two-factor"]')
+    expect((toggle.element as HTMLInputElement).checked).toBe(true)
+    expect(toggle.attributes('disabled')).toBeDefined()
+    expect(wrapper.get('.tf-row small').text()).toBe('Always on for Admins')
   })
 })
 
@@ -598,6 +719,14 @@ describe('the People page', () => {
     const { wrapper } = await mountAt('/admin/people', answers)
     expect(names(wrapper)[0]).toBe('Noor Bakker')
     expect(wrapper.findAll('.lt-r')[0]?.get('.gtag.warn').text()).toBe('Unassigned')
+  })
+
+  it('narrows to the people holding a role directly', async () => {
+    const { o, answers } = server()
+    o.userAssignments.push({ userId: ids.noor, clientId: 'vault', role: 'user' })
+    const { wrapper } = await mountAt('/admin/people', answers)
+    await pick(wrapper, 'Group', 'With a direct role')
+    expect(names(wrapper)).toEqual(['Noor Bakker'])
   })
 
   it('sorts by name', async () => {
@@ -762,6 +891,84 @@ describe('a person’s page', () => {
     const { wrapper } = await mountAt(`/admin/people/${ids.noor}`, { ...server().answers, [`PUT ${memberAt(ids.family, ids.noor)}`]: () => problem(404, 'That person is gone.') })
     await pick(wrapper, 'Add Noor Bakker to a Group', 'Family')
     expect(wrapper.get('[role="alert"]').text()).toBe('That person is gone.')
+  })
+})
+
+describe('managing a person', () => {
+  const at = `/admin/people/${ids.ada}`
+  const tokens = { [`GET /api/v1/access/users/${ids.ada}/tokens`]: () => Response.json({ tokens: [] }) }
+
+  it('renames them', async () => {
+    const { o, answers } = server()
+    const { wrapper, requests } = await mountAt(at, {
+      ...answers,
+      ...tokens,
+      [`PATCH /api/v1/access/users/${ids.ada}`]: () => {
+        o.users = o.users.map((u) => (u.id === ids.ada ? { ...u, name: 'Ada King' } : u))
+        return ok()
+      },
+    })
+    await button(wrapper, 'Rename').trigger('click')
+    await wrapper.get('#pp-name').setValue('Ada King')
+    await wrapper.get('form.pp-rename').trigger('submit')
+    await settle()
+    expect(requests.find((r) => r.key === `PATCH /api/v1/access/users/${ids.ada}`)?.body).toEqual({ name: 'Ada King' })
+    expect(wrapper.get('h1').text()).toBe('Ada King')
+  })
+
+  it('starts an email change that waits on the link', async () => {
+    const { wrapper, requests } = await mountAt(at, { ...server().answers, ...tokens, [`POST /api/v1/access/users/${ids.ada}/email-change`]: () => new Response(null, { status: 202 }) })
+    await button(wrapper, 'Change email').trigger('click')
+    await wrapper.get('#pp-email').setValue('lovelace@example.org')
+    await wrapper.get('form.pp-email').trigger('submit')
+    await settle()
+    expect(requests.find((r) => r.key === `POST /api/v1/access/users/${ids.ada}/email-change`)?.body).toEqual({ email: 'lovelace@example.org' })
+    expect(wrapper.get('.pp-note').text()).toBe('Link sent to lovelace@example.org. The email changes once it is opened.')
+  })
+
+  it('deletes them after a confirmation that names them', async () => {
+    const { wrapper, router, requests } = await mountAt(at, { ...server().answers, ...tokens, [`DELETE /api/v1/access/users/${ids.ada}`]: ok })
+    await button(wrapper, 'Delete person').trigger('click')
+    expect(wrapper.get('[role="dialog"] h2').text()).toBe('Delete Ada Lovelace?')
+    await wrapper.get('[role="dialog"]').trigger('submit')
+    await settle()
+    expect(requests.some((r) => r.key === `DELETE /api/v1/access/users/${ids.ada}`)).toBe(true)
+    expect(router.currentRoute.value.path).toBe('/admin/people')
+  })
+
+  it('changes nothing when an edit is cancelled', async () => {
+    const { wrapper, requests } = await mountAt(at, { ...server().answers, ...tokens })
+    await button(wrapper, 'Rename').trigger('click')
+    await button(wrapper.get('form.pp-rename'), 'Cancel').trigger('click')
+    await button(wrapper, 'Change email').trigger('click')
+    await button(wrapper.get('form.pp-email'), 'Cancel').trigger('click')
+    expect(wrapper.find('form.pp-rename').exists() || wrapper.find('form.pp-email').exists()).toBe(false)
+    expect(requests.some((r) => r.key.includes(`/users/${ids.ada}`) && !r.key.startsWith('GET'))).toBe(false)
+  })
+
+  it('closes the deletion on Escape', async () => {
+    const { wrapper } = await mountAt(at, { ...server().answers, ...tokens }, { attach: true })
+    await button(wrapper, 'Delete person').trigger('click')
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await settle()
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+  })
+
+  it('keeps them when the deletion is cancelled', async () => {
+    const { wrapper, requests } = await mountAt(at, { ...server().answers, ...tokens })
+    await button(wrapper, 'Delete person').trigger('click')
+    await button(wrapper.get('[role="dialog"]'), 'Cancel').trigger('click')
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    expect(requests.some((r) => r.key.startsWith('DELETE'))).toBe(false)
+  })
+
+  it('shows a refused deletion and stays', async () => {
+    const { wrapper, router } = await mountAt(at, { ...server().answers, ...tokens, [`DELETE /api/v1/access/users/${ids.ada}`]: () => problem(422, 'That is the last Admin. Make someone else an Admin first.') })
+    await button(wrapper, 'Delete person').trigger('click')
+    await wrapper.get('[role="dialog"]').trigger('submit')
+    await settle()
+    expect(wrapper.get('[role="alert"]').text()).toBe('That is the last Admin. Make someone else an Admin first.')
+    expect(router.currentRoute.value.path).toBe(at)
   })
 })
 

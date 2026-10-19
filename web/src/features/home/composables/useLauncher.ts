@@ -11,6 +11,8 @@ export function useLauncher() {
   return {
     // Set once the apps are read: the Launcher shows only for a signed-in User.
     apps: computed(() => query.data.value?.apps),
+    // Apps a Two-factor Group holds back until the User adds two-factor.
+    heldBack: computed(() => query.data.value?.heldBack),
     isLoading: query.isPending,
     signedOut,
     loadError: computed(() => (query.error.value && !signedOut.value ? describeError(query.error.value) : null)),

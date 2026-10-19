@@ -9,4 +9,4 @@ DELETE FROM gate_codes WHERE code_hash = $1 RETURNING host, session_id, state_ha
 INSERT INTO gate_sessions (token_hash, host, session_id, created_at) VALUES ($1, $2, $3, $4);
 
 -- name: GateSessionByHash :one
-SELECT host, session_id FROM gate_sessions WHERE token_hash = $1;
+SELECT host, session_id, created_at FROM gate_sessions WHERE token_hash = $1;

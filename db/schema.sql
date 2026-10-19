@@ -82,6 +82,8 @@ CREATE TABLE public.groups (
     name text NOT NULL,
     admins boolean DEFAULT false NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
+    requires_two_factor boolean DEFAULT false NOT NULL,
+    CONSTRAINT groups_admins_require_two_factor CHECK ((requires_two_factor OR (NOT admins))),
     CONSTRAINT groups_name_length CHECK (((name = btrim(name)) AND ((char_length(name) >= 1) AND (char_length(name) <= 64))))
 );
 

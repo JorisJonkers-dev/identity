@@ -59,18 +59,19 @@ func (q *Queries) CreateGateSession(ctx context.Context, arg CreateGateSessionPa
 }
 
 const gateSessionByHash = `-- name: GateSessionByHash :one
-SELECT host, session_id FROM gate_sessions WHERE token_hash = $1
+SELECT host, session_id, created_at FROM gate_sessions WHERE token_hash = $1
 `
 
 type GateSessionByHashRow struct {
 	Host      string
 	SessionID uuid.UUID
+	CreatedAt time.Time
 }
 
 func (q *Queries) GateSessionByHash(ctx context.Context, tokenHash []byte) (GateSessionByHashRow, error) {
 	row := q.db.QueryRow(ctx, gateSessionByHash, tokenHash)
 	var i GateSessionByHashRow
-	err := row.Scan(&i.Host, &i.SessionID)
+	err := row.Scan(&i.Host, &i.SessionID, &i.CreatedAt)
 	return i, err
 }
 

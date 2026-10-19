@@ -29,19 +29,25 @@ func (q *Queries) AddMember(ctx context.Context, arg AddMemberParams) (int64, er
 }
 
 const adminsGroup = `-- name: AdminsGroup :one
-SELECT id, name, admins FROM groups WHERE admins
+SELECT id, name, admins, requires_two_factor FROM groups WHERE admins
 `
 
 type AdminsGroupRow struct {
-	ID     uuid.UUID
-	Name   string
-	Admins bool
+	ID                uuid.UUID
+	Name              string
+	Admins            bool
+	RequiresTwoFactor bool
 }
 
 func (q *Queries) AdminsGroup(ctx context.Context) (AdminsGroupRow, error) {
 	row := q.db.QueryRow(ctx, adminsGroup)
 	var i AdminsGroupRow
-	err := row.Scan(&i.ID, &i.Name, &i.Admins)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Admins,
+		&i.RequiresTwoFactor,
+	)
 	return i, err
 }
 
@@ -143,20 +149,57 @@ func (q *Queries) DeleteGroup(ctx context.Context, id uuid.UUID) error {
 }
 
 const groupByID = `-- name: GroupByID :one
-SELECT id, name, admins FROM groups WHERE id = $1
+SELECT id, name, admins, requires_two_factor FROM groups WHERE id = $1
 `
 
 type GroupByIDRow struct {
-	ID     uuid.UUID
-	Name   string
-	Admins bool
+	ID                uuid.UUID
+	Name              string
+	Admins            bool
+	RequiresTwoFactor bool
 }
 
 func (q *Queries) GroupByID(ctx context.Context, id uuid.UUID) (GroupByIDRow, error) {
 	row := q.db.QueryRow(ctx, groupByID, id)
 	var i GroupByIDRow
-	err := row.Scan(&i.ID, &i.Name, &i.Admins)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Admins,
+		&i.RequiresTwoFactor,
+	)
 	return i, err
+}
+
+const heldBackClients = `-- name: HeldBackClients :many
+SELECT DISTINCT a.client_id FROM assignments a
+JOIN memberships m ON m.group_id = a.group_id
+JOIN groups g ON g.id = a.group_id
+WHERE m.user_id = $1 AND g.requires_two_factor
+  AND NOT EXISTS (SELECT 1 FROM totp_factors f WHERE f.user_id = $1)
+  AND NOT EXISTS (SELECT 1 FROM passkeys p WHERE p.user_id = $1)
+ORDER BY a.client_id
+`
+
+// The Clients a User's Two-factor Groups give roles on, while the User has no two-factor.
+func (q *Queries) HeldBackClients(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, heldBackClients, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var client_id string
+		if err := rows.Scan(&client_id); err != nil {
+			return nil, err
+		}
+		items = append(items, client_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const isAdmin = `-- name: IsAdmin :one
@@ -203,13 +246,14 @@ func (q *Queries) ListAssignments(ctx context.Context) ([]ListAssignmentsRow, er
 }
 
 const listGroups = `-- name: ListGroups :many
-SELECT id, name, admins FROM groups ORDER BY admins DESC, lower(name)
+SELECT id, name, admins, requires_two_factor FROM groups ORDER BY admins DESC, lower(name)
 `
 
 type ListGroupsRow struct {
-	ID     uuid.UUID
-	Name   string
-	Admins bool
+	ID                uuid.UUID
+	Name              string
+	Admins            bool
+	RequiresTwoFactor bool
 }
 
 func (q *Queries) ListGroups(ctx context.Context) ([]ListGroupsRow, error) {
@@ -221,7 +265,12 @@ func (q *Queries) ListGroups(ctx context.Context) ([]ListGroupsRow, error) {
 	items := []ListGroupsRow{}
 	for rows.Next() {
 		var i ListGroupsRow
-		if err := rows.Scan(&i.ID, &i.Name, &i.Admins); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Admins,
+			&i.RequiresTwoFactor,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -362,7 +411,11 @@ func (q *Queries) RenameGroup(ctx context.Context, arg RenameGroupParams) (int64
 
 const rolesByClient = `-- name: RolesByClient :many
 SELECT DISTINCT a.client_id, a.role FROM assignments a
-WHERE a.user_id = $1::uuid OR a.group_id IN (SELECT m.group_id FROM memberships m WHERE m.user_id = $1::uuid)
+WHERE a.user_id = $1::uuid OR a.group_id IN (
+  SELECT m.group_id FROM memberships m JOIN groups g ON g.id = m.group_id
+  WHERE m.user_id = $1::uuid AND (NOT g.requires_two_factor
+    OR EXISTS (SELECT 1 FROM totp_factors f WHERE f.user_id = m.user_id)
+    OR EXISTS (SELECT 1 FROM passkeys p WHERE p.user_id = m.user_id)))
 ORDER BY a.client_id, a.role
 `
 
@@ -371,7 +424,7 @@ type RolesByClientRow struct {
 	Role     string
 }
 
-// Every App Role a User holds, per Client: their own and their Groups', combined (docs/adr/0018).
+// Every App Role a User holds, per Client, as RolesOf counts them.
 func (q *Queries) RolesByClient(ctx context.Context, userID uuid.UUID) ([]RolesByClientRow, error) {
 	rows, err := q.db.Query(ctx, rolesByClient, userID)
 	if err != nil {
@@ -395,7 +448,11 @@ func (q *Queries) RolesByClient(ctx context.Context, userID uuid.UUID) ([]RolesB
 const rolesOf = `-- name: RolesOf :many
 SELECT DISTINCT a.role FROM assignments a
 WHERE a.client_id = $1
-  AND (a.user_id = $2::uuid OR a.group_id IN (SELECT m.group_id FROM memberships m WHERE m.user_id = $2::uuid))
+  AND (a.user_id = $2::uuid OR a.group_id IN (
+    SELECT m.group_id FROM memberships m JOIN groups g ON g.id = m.group_id
+    WHERE m.user_id = $2::uuid AND (NOT g.requires_two_factor
+      OR EXISTS (SELECT 1 FROM totp_factors f WHERE f.user_id = m.user_id)
+      OR EXISTS (SELECT 1 FROM passkeys p WHERE p.user_id = m.user_id))))
 ORDER BY a.role
 `
 
@@ -404,7 +461,8 @@ type RolesOfParams struct {
 	UserID   uuid.UUID
 }
 
-// A User's App Roles on a Client: their own and their Groups', combined (docs/adr/0018).
+// A User's App Roles on a Client: their own and their Groups', combined (docs/adr/0018), less a
+// Two-factor Group's while they have no two-factor.
 func (q *Queries) RolesOf(ctx context.Context, arg RolesOfParams) ([]string, error) {
 	rows, err := q.db.Query(ctx, rolesOf, arg.ClientID, arg.UserID)
 	if err != nil {
@@ -423,6 +481,24 @@ func (q *Queries) RolesOf(ctx context.Context, arg RolesOfParams) ([]string, err
 		return nil, err
 	}
 	return items, nil
+}
+
+const setGroupTwoFactor = `-- name: SetGroupTwoFactor :execrows
+UPDATE groups SET requires_two_factor = $2 WHERE id = $1
+`
+
+type SetGroupTwoFactorParams struct {
+	ID                uuid.UUID
+	RequiresTwoFactor bool
+}
+
+// The admins Group always requires two-factor; the table refuses otherwise.
+func (q *Queries) SetGroupTwoFactor(ctx context.Context, arg SetGroupTwoFactorParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setGroupTwoFactor, arg.ID, arg.RequiresTwoFactor)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const unassign = `-- name: Unassign :execrows

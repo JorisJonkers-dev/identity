@@ -53,7 +53,11 @@ func (s *Store) DeleteUser(ctx context.Context, userID uuid.UUID) (app.Deleted, 
 		if d.Tokens, err = q.DeletePersonalTokensOfUser(ctx, userID); err != nil {
 			return err
 		}
-		return q.DeleteUser(ctx, userID)
+		n, err := q.DeleteUser(ctx, userID)
+		if err == nil && n == 0 {
+			return app.ErrNotFound
+		}
+		return err
 	})
 	return d, err
 }
@@ -247,6 +251,10 @@ func (s *Store) ProvePasswordReset(ctx context.Context, userID uuid.UUID, at tim
 func (s *Store) TakePasswordReset(ctx context.Context, hash []byte) (bool, error) {
 	n, err := s.q.TakePasswordReset(ctx, hash)
 	return n > 0, err
+}
+
+func (s *Store) UsersWithTwoFactor(ctx context.Context) ([]uuid.UUID, error) {
+	return s.q.ListUsersWithTwoFactor(ctx)
 }
 
 func (s *Store) TouchSession(ctx context.Context, hash []byte, lastSeen, expires time.Time) error {

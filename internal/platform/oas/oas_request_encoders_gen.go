@@ -38,6 +38,20 @@ func encodeAskPasswordResetRequest(
 	return nil
 }
 
+func encodeAskUserEmailChangeRequest(
+	req *EmailAddress,
+	r *http.Request,
+) error {
+	const contentType = "application/json"
+	e := new(jx.Encoder)
+	{
+		req.Encode(e)
+	}
+	encoded := e.Bytes()
+	ht.SetBody(r, bytes.NewReader(encoded), contentType)
+	return nil
+}
+
 func encodeChangePasswordRequest(
 	req *PasswordChange,
 	r *http.Request,
@@ -234,6 +248,20 @@ func encodeRenameGroupRequest(
 	return nil
 }
 
+func encodeRenameUserRequest(
+	req *ProfileUpdate,
+	r *http.Request,
+) error {
+	const contentType = "application/json"
+	e := new(jx.Encoder)
+	{
+		req.Encode(e)
+	}
+	encoded := e.Bytes()
+	ht.SetBody(r, bytes.NewReader(encoded), contentType)
+	return nil
+}
+
 func encodeResetPasskeyOptionsRequest(
 	req *LinkToken,
 	r *http.Request,
@@ -264,6 +292,20 @@ func encodeResetWithCodeRequest(
 
 func encodeResetWithPasskeyRequest(
 	req *ResetPasskey,
+	r *http.Request,
+) error {
+	const contentType = "application/json"
+	e := new(jx.Encoder)
+	{
+		req.Encode(e)
+	}
+	encoded := e.Bytes()
+	ht.SetBody(r, bytes.NewReader(encoded), contentType)
+	return nil
+}
+
+func encodeSetGroupTwoFactorRequest(
+	req *TwoFactorRequirement,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"

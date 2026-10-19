@@ -28,6 +28,8 @@ var ErrNoIcon = errors.New("no icon")
 // Roles is the App Roles a User holds, per Client.
 type Roles interface {
 	RolesByClient(ctx context.Context, userID uuid.UUID) (map[string][]string, error)
+	// HeldBack is the Clients a User's Two-factor Groups would open once they set two-factor up.
+	HeldBack(ctx context.Context, userID uuid.UUID) ([]string, error)
 }
 
 // Clients is the Clients a person can open, as the cluster declares them now.
@@ -62,6 +64,26 @@ type Service struct {
 // New returns a Service.
 func New(roles Roles, clients Clients, fetcher Fetcher, now func() time.Time) *Service {
 	return &Service{roles: roles, clients: clients, fetcher: fetcher, now: now, icons: map[string]cached{}}
+}
+
+// HeldBack is how many apps a User could open once they set two-factor up, for the Launcher's
+// banner (identity#88): those their Two-factor Groups give roles on and they cannot open yet.
+func (s *Service) HeldBack(ctx context.Context, userID uuid.UUID) (int, error) {
+	ids, err := s.roles.HeldBack(ctx, userID)
+	if err != nil || len(ids) == 0 {
+		return 0, err
+	}
+	held, err := s.roles.RolesByClient(ctx, userID)
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, id := range ids {
+		if _, ok := s.clients.Client(id); ok && len(held[id]) == 0 {
+			n++
+		}
+	}
+	return n, nil
 }
 
 // Apps is the Clients a User holds an App Role on, by label.

@@ -1,8 +1,8 @@
 -- name: ListGroups :many
-SELECT id, name, admins FROM groups ORDER BY admins DESC, lower(name);
+SELECT id, name, admins, requires_two_factor FROM groups ORDER BY admins DESC, lower(name);
 
 -- name: GroupByID :one
-SELECT id, name, admins FROM groups WHERE id = $1;
+SELECT id, name, admins, requires_two_factor FROM groups WHERE id = $1;
 
 -- name: CreateGroup :exec
 INSERT INTO groups (id, name) VALUES ($1, $2);
@@ -54,20 +54,29 @@ INSERT INTO assignments (user_id, client_id, role) VALUES (sqlc.arg(user_id)::uu
 DELETE FROM assignments WHERE user_id = sqlc.arg(user_id)::uuid AND client_id = sqlc.arg(client_id) AND role = sqlc.arg(role);
 
 -- name: RolesOf :many
--- A User's App Roles on a Client: their own and their Groups', combined (docs/adr/0018).
+-- A User's App Roles on a Client: their own and their Groups', combined (docs/adr/0018), less a
+-- Two-factor Group's while they have no two-factor.
 SELECT DISTINCT a.role FROM assignments a
 WHERE a.client_id = sqlc.arg(client_id)
-  AND (a.user_id = sqlc.arg(user_id)::uuid OR a.group_id IN (SELECT m.group_id FROM memberships m WHERE m.user_id = sqlc.arg(user_id)::uuid))
+  AND (a.user_id = sqlc.arg(user_id)::uuid OR a.group_id IN (
+    SELECT m.group_id FROM memberships m JOIN groups g ON g.id = m.group_id
+    WHERE m.user_id = sqlc.arg(user_id)::uuid AND (NOT g.requires_two_factor
+      OR EXISTS (SELECT 1 FROM totp_factors f WHERE f.user_id = m.user_id)
+      OR EXISTS (SELECT 1 FROM passkeys p WHERE p.user_id = m.user_id))))
 ORDER BY a.role;
 
 -- name: RolesByClient :many
--- Every App Role a User holds, per Client: their own and their Groups', combined (docs/adr/0018).
+-- Every App Role a User holds, per Client, as RolesOf counts them.
 SELECT DISTINCT a.client_id, a.role FROM assignments a
-WHERE a.user_id = sqlc.arg(user_id)::uuid OR a.group_id IN (SELECT m.group_id FROM memberships m WHERE m.user_id = sqlc.arg(user_id)::uuid)
+WHERE a.user_id = sqlc.arg(user_id)::uuid OR a.group_id IN (
+  SELECT m.group_id FROM memberships m JOIN groups g ON g.id = m.group_id
+  WHERE m.user_id = sqlc.arg(user_id)::uuid AND (NOT g.requires_two_factor
+    OR EXISTS (SELECT 1 FROM totp_factors f WHERE f.user_id = m.user_id)
+    OR EXISTS (SELECT 1 FROM passkeys p WHERE p.user_id = m.user_id)))
 ORDER BY a.client_id, a.role;
 
 -- name: AdminsGroup :one
-SELECT id, name, admins FROM groups WHERE admins;
+SELECT id, name, admins, requires_two_factor FROM groups WHERE admins;
 
 -- name: CountAdmins :one
 SELECT count(*) FROM memberships m JOIN groups g ON g.id = m.group_id WHERE g.admins;
@@ -85,3 +94,17 @@ SELECT u.id FROM users u WHERE NOT EXISTS (
   SELECT 1 FROM assignments a
   WHERE a.user_id = u.id OR a.group_id IN (SELECT m.group_id FROM memberships m WHERE m.user_id = u.id)
 ) AND NOT EXISTS (SELECT 1 FROM memberships m JOIN groups g ON g.id = m.group_id WHERE g.admins AND m.user_id = u.id);
+
+-- name: SetGroupTwoFactor :execrows
+-- The admins Group always requires two-factor; the table refuses otherwise.
+UPDATE groups SET requires_two_factor = $2 WHERE id = $1;
+
+-- name: HeldBackClients :many
+-- The Clients a User's Two-factor Groups give roles on, while the User has no two-factor.
+SELECT DISTINCT a.client_id FROM assignments a
+JOIN memberships m ON m.group_id = a.group_id
+JOIN groups g ON g.id = a.group_id
+WHERE m.user_id = $1 AND g.requires_two_factor
+  AND NOT EXISTS (SELECT 1 FROM totp_factors f WHERE f.user_id = $1)
+  AND NOT EXISTS (SELECT 1 FROM passkeys p WHERE p.user_id = $1)
+ORDER BY a.client_id;

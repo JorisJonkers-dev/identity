@@ -584,6 +584,10 @@ func (s *AuditAction) Decode(d *jx.Decoder) error {
 		*s = AuditActionTokenRevoked
 	case AuditActionClientSecretRotated:
 		*s = AuditActionClientSecretRotated
+	case AuditActionGroupTwoFactorRequired:
+		*s = AuditActionGroupTwoFactorRequired
+	case AuditActionGroupTwoFactorDropped:
+		*s = AuditActionGroupTwoFactorDropped
 	case AuditActionEmailChanged:
 		*s = AuditActionEmailChanged
 	case AuditActionAccountDeleted:
@@ -2373,6 +2377,10 @@ func (s *Group) encodeFields(e *jx.Encoder) {
 		e.Bool(s.Admins)
 	}
 	{
+		e.FieldStart("requiresTwoFactor")
+		e.Bool(s.RequiresTwoFactor)
+	}
+	{
 		e.FieldStart("members")
 		e.ArrStart()
 		for _, elem := range s.Members {
@@ -2382,11 +2390,12 @@ func (s *Group) encodeFields(e *jx.Encoder) {
 	}
 }
 
-var jsonFieldsNameOfGroup = [4]string{
+var jsonFieldsNameOfGroup = [5]string{
 	0: "id",
 	1: "name",
 	2: "admins",
-	3: "members",
+	3: "requiresTwoFactor",
+	4: "members",
 }
 
 // Decode decodes Group from json.
@@ -2432,8 +2441,20 @@ func (s *Group) Decode(d *jx.Decoder) error {
 			}(); err != nil {
 				return errors.Wrap(err, "decode field \"admins\"")
 			}
-		case "members":
+		case "requiresTwoFactor":
 			requiredBitSet[0] |= 1 << 3
+			if err := func() error {
+				v, err := d.Bool()
+				s.RequiresTwoFactor = bool(v)
+				if err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"requiresTwoFactor\"")
+			}
+		case "members":
+			requiredBitSet[0] |= 1 << 4
 			if err := func() error {
 				s.Members = make([]ID, 0)
 				if err := d.Arr(func(d *jx.Decoder) error {
@@ -2460,7 +2481,7 @@ func (s *Group) Decode(d *jx.Decoder) error {
 	// Validate required fields.
 	var failures []validate.FieldError
 	for i, mask := range [1]uint8{
-		0b00001111,
+		0b00011111,
 	} {
 		if result := (requiredBitSet[i] & mask) ^ mask; result != 0 {
 			// Mask only required fields and check equality to mask using XOR.
@@ -2652,6 +2673,10 @@ func (s *Launcher) Encode(e *jx.Encoder) {
 // encodeFields encodes fields.
 func (s *Launcher) encodeFields(e *jx.Encoder) {
 	{
+		e.FieldStart("heldBack")
+		s.HeldBack.Encode(e)
+	}
+	{
 		e.FieldStart("apps")
 		e.ArrStart()
 		for _, elem := range s.Apps {
@@ -2661,8 +2686,9 @@ func (s *Launcher) encodeFields(e *jx.Encoder) {
 	}
 }
 
-var jsonFieldsNameOfLauncher = [1]string{
-	0: "apps",
+var jsonFieldsNameOfLauncher = [2]string{
+	0: "heldBack",
+	1: "apps",
 }
 
 // Decode decodes Launcher from json.
@@ -2674,8 +2700,18 @@ func (s *Launcher) Decode(d *jx.Decoder) error {
 
 	if err := d.ObjBytes(func(d *jx.Decoder, k []byte) error {
 		switch string(k) {
-		case "apps":
+		case "heldBack":
 			requiredBitSet[0] |= 1 << 0
+			if err := func() error {
+				if err := s.HeldBack.Decode(d); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"heldBack\"")
+			}
+		case "apps":
+			requiredBitSet[0] |= 1 << 1
 			if err := func() error {
 				s.Apps = make([]LauncherApp, 0)
 				if err := d.Arr(func(d *jx.Decoder) error {
@@ -2702,7 +2738,7 @@ func (s *Launcher) Decode(d *jx.Decoder) error {
 	// Validate required fields.
 	var failures []validate.FieldError
 	for i, mask := range [1]uint8{
-		0b00000001,
+		0b00000011,
 	} {
 		if result := (requiredBitSet[i] & mask) ^ mask; result != 0 {
 			// Mask only required fields and check equality to mask using XOR.
@@ -4263,12 +4299,17 @@ func (s *Person) encodeFields(e *jx.Encoder) {
 		e.FieldStart("name")
 		e.Str(s.Name)
 	}
+	{
+		e.FieldStart("twoFactor")
+		e.Bool(s.TwoFactor)
+	}
 }
 
-var jsonFieldsNameOfPerson = [3]string{
+var jsonFieldsNameOfPerson = [4]string{
 	0: "id",
 	1: "email",
 	2: "name",
+	3: "twoFactor",
 }
 
 // Decode decodes Person from json.
@@ -4312,6 +4353,18 @@ func (s *Person) Decode(d *jx.Decoder) error {
 			}(); err != nil {
 				return errors.Wrap(err, "decode field \"name\"")
 			}
+		case "twoFactor":
+			requiredBitSet[0] |= 1 << 3
+			if err := func() error {
+				v, err := d.Bool()
+				s.TwoFactor = bool(v)
+				if err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"twoFactor\"")
+			}
 		default:
 			return errors.Errorf("unexpected field %q", k)
 		}
@@ -4322,7 +4375,7 @@ func (s *Person) Decode(d *jx.Decoder) error {
 	// Validate required fields.
 	var failures []validate.FieldError
 	for i, mask := range [1]uint8{
-		0b00000111,
+		0b00001111,
 	} {
 		if result := (requiredBitSet[i] & mask) ^ mask; result != 0 {
 			// Mask only required fields and check equality to mask using XOR.
@@ -6494,6 +6547,147 @@ func (s *StepUpMinutes) UnmarshalJSON(data []byte) error {
 }
 
 // Encode implements json.Marshaler.
+func (s *StepUpState) Encode(e *jx.Encoder) {
+	e.ObjStart()
+	s.encodeFields(e)
+	e.ObjEnd()
+}
+
+// encodeFields encodes fields.
+func (s *StepUpState) encodeFields(e *jx.Encoder) {
+	{
+		e.FieldStart("minutes")
+		s.Minutes.Encode(e)
+	}
+	{
+		e.FieldStart("tokens")
+		s.Tokens.Encode(e)
+	}
+}
+
+var jsonFieldsNameOfStepUpState = [2]string{
+	0: "minutes",
+	1: "tokens",
+}
+
+// Decode decodes StepUpState from json.
+func (s *StepUpState) Decode(d *jx.Decoder) error {
+	if s == nil {
+		return errors.New("invalid: unable to decode StepUpState to nil")
+	}
+	var requiredBitSet [1]uint8
+
+	if err := d.ObjBytes(func(d *jx.Decoder, k []byte) error {
+		switch string(k) {
+		case "minutes":
+			requiredBitSet[0] |= 1 << 0
+			if err := func() error {
+				if err := s.Minutes.Decode(d); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"minutes\"")
+			}
+		case "tokens":
+			requiredBitSet[0] |= 1 << 1
+			if err := func() error {
+				if err := s.Tokens.Decode(d); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"tokens\"")
+			}
+		default:
+			return errors.Errorf("unexpected field %q", k)
+		}
+		return nil
+	}); err != nil {
+		return errors.Wrap(err, "decode StepUpState")
+	}
+	// Validate required fields.
+	var failures []validate.FieldError
+	for i, mask := range [1]uint8{
+		0b00000011,
+	} {
+		if result := (requiredBitSet[i] & mask) ^ mask; result != 0 {
+			// Mask only required fields and check equality to mask using XOR.
+			//
+			// If XOR result is not zero, result is not equal to expected, so some fields are missed.
+			// Bits of fields which would be set are actually bits of missed fields.
+			missed := bits.OnesCount8(result)
+			for bitN := 0; bitN < missed; bitN++ {
+				bitIdx := bits.TrailingZeros8(result)
+				fieldIdx := i*8 + bitIdx
+				var name string
+				if fieldIdx < len(jsonFieldsNameOfStepUpState) {
+					name = jsonFieldsNameOfStepUpState[fieldIdx]
+				} else {
+					name = strconv.Itoa(fieldIdx)
+				}
+				failures = append(failures, validate.FieldError{
+					Name:  name,
+					Error: validate.ErrFieldRequired,
+				})
+				// Reset bit.
+				result &^= 1 << bitIdx
+			}
+		}
+	}
+	if len(failures) > 0 {
+		return &validate.Error{Fields: failures}
+	}
+
+	return nil
+}
+
+// MarshalJSON implements stdjson.Marshaler.
+func (s *StepUpState) MarshalJSON() ([]byte, error) {
+	e := jx.Encoder{}
+	s.Encode(&e)
+	return e.Bytes(), nil
+}
+
+// UnmarshalJSON implements stdjson.Unmarshaler.
+func (s *StepUpState) UnmarshalJSON(data []byte) error {
+	d := jx.DecodeBytes(data)
+	return s.Decode(d)
+}
+
+// Encode encodes StepUpStateMinutes as json.
+func (s StepUpStateMinutes) Encode(e *jx.Encoder) {
+	e.Int32(int32(s))
+}
+
+// Decode decodes StepUpStateMinutes from json.
+func (s *StepUpStateMinutes) Decode(d *jx.Decoder) error {
+	if s == nil {
+		return errors.New("invalid: unable to decode StepUpStateMinutes to nil")
+	}
+	v, err := d.Int32()
+	if err != nil {
+		return err
+	}
+	*s = StepUpStateMinutes(v)
+
+	return nil
+}
+
+// MarshalJSON implements stdjson.Marshaler.
+func (s StepUpStateMinutes) MarshalJSON() ([]byte, error) {
+	e := jx.Encoder{}
+	s.Encode(&e)
+	return e.Bytes(), nil
+}
+
+// UnmarshalJSON implements stdjson.Unmarshaler.
+func (s *StepUpStateMinutes) UnmarshalJSON(data []byte) error {
+	d := jx.DecodeBytes(data)
+	return s.Decode(d)
+}
+
+// Encode implements json.Marshaler.
 func (s *TOTPConfirmation) Encode(e *jx.Encoder) {
 	e.ObjStart()
 	s.encodeFields(e)
@@ -7105,6 +7299,102 @@ func (s *TokenList) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON implements stdjson.Unmarshaler.
 func (s *TokenList) UnmarshalJSON(data []byte) error {
+	d := jx.DecodeBytes(data)
+	return s.Decode(d)
+}
+
+// Encode implements json.Marshaler.
+func (s *TwoFactorRequirement) Encode(e *jx.Encoder) {
+	e.ObjStart()
+	s.encodeFields(e)
+	e.ObjEnd()
+}
+
+// encodeFields encodes fields.
+func (s *TwoFactorRequirement) encodeFields(e *jx.Encoder) {
+	{
+		e.FieldStart("required")
+		e.Bool(s.Required)
+	}
+}
+
+var jsonFieldsNameOfTwoFactorRequirement = [1]string{
+	0: "required",
+}
+
+// Decode decodes TwoFactorRequirement from json.
+func (s *TwoFactorRequirement) Decode(d *jx.Decoder) error {
+	if s == nil {
+		return errors.New("invalid: unable to decode TwoFactorRequirement to nil")
+	}
+	var requiredBitSet [1]uint8
+
+	if err := d.ObjBytes(func(d *jx.Decoder, k []byte) error {
+		switch string(k) {
+		case "required":
+			requiredBitSet[0] |= 1 << 0
+			if err := func() error {
+				v, err := d.Bool()
+				s.Required = bool(v)
+				if err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"required\"")
+			}
+		default:
+			return errors.Errorf("unexpected field %q", k)
+		}
+		return nil
+	}); err != nil {
+		return errors.Wrap(err, "decode TwoFactorRequirement")
+	}
+	// Validate required fields.
+	var failures []validate.FieldError
+	for i, mask := range [1]uint8{
+		0b00000001,
+	} {
+		if result := (requiredBitSet[i] & mask) ^ mask; result != 0 {
+			// Mask only required fields and check equality to mask using XOR.
+			//
+			// If XOR result is not zero, result is not equal to expected, so some fields are missed.
+			// Bits of fields which would be set are actually bits of missed fields.
+			missed := bits.OnesCount8(result)
+			for bitN := 0; bitN < missed; bitN++ {
+				bitIdx := bits.TrailingZeros8(result)
+				fieldIdx := i*8 + bitIdx
+				var name string
+				if fieldIdx < len(jsonFieldsNameOfTwoFactorRequirement) {
+					name = jsonFieldsNameOfTwoFactorRequirement[fieldIdx]
+				} else {
+					name = strconv.Itoa(fieldIdx)
+				}
+				failures = append(failures, validate.FieldError{
+					Name:  name,
+					Error: validate.ErrFieldRequired,
+				})
+				// Reset bit.
+				result &^= 1 << bitIdx
+			}
+		}
+	}
+	if len(failures) > 0 {
+		return &validate.Error{Fields: failures}
+	}
+
+	return nil
+}
+
+// MarshalJSON implements stdjson.Marshaler.
+func (s *TwoFactorRequirement) MarshalJSON() ([]byte, error) {
+	e := jx.Encoder{}
+	s.Encode(&e)
+	return e.Bytes(), nil
+}
+
+// UnmarshalJSON implements stdjson.Unmarshaler.
+func (s *TwoFactorRequirement) UnmarshalJSON(data []byte) error {
 	d := jx.DecodeBytes(data)
 	return s.Decode(d)
 }

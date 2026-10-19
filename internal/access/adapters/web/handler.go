@@ -29,6 +29,7 @@ type UseCases interface {
 	AssignUser(ctx context.Context, actor app.Actor, a domain.UserAssignment) error
 	UnassignUser(ctx context.Context, actor app.Actor, a domain.UserAssignment) error
 	SignOutUser(ctx context.Context, actor app.Actor, userID uuid.UUID) error
+	SetTwoFactor(ctx context.Context, actor app.Actor, id uuid.UUID, required bool) error
 }
 
 // Access implements the access operations.
@@ -58,7 +59,7 @@ func (h *Access) GetAccess(ctx context.Context) (oas.GetAccessRes, error) {
 		res.Groups = append(res.Groups, group(g, members[g.ID]))
 	}
 	for _, p := range o.People {
-		res.Users = append(res.Users, oas.Person{ID: oas.ID(p.ID), Email: oas.Email(p.Email), Name: p.Name})
+		res.Users = append(res.Users, oas.Person{ID: oas.ID(p.ID), Email: oas.Email(p.Email), Name: p.Name, TwoFactor: p.TwoFactor})
 	}
 	for _, c := range o.Clients {
 		roles := make([]oas.AppRole, 0, len(c.Roles))
@@ -167,6 +168,14 @@ func (h *Access) UnassignUserRole(ctx context.Context, p oas.UnassignUserRolePar
 	return &oas.UnassignUserRoleNoContent{}, nil
 }
 
+// SetGroupTwoFactor implements setGroupTwoFactor.
+func (h *Access) SetGroupTwoFactor(ctx context.Context, req *oas.TwoFactorRequirement, p oas.SetGroupTwoFactorParams) (oas.SetGroupTwoFactorRes, error) {
+	if err := h.uc.SetTwoFactor(ctx, actor(ctx), uuid.UUID(p.GroupId), req.Required); err != nil {
+		return refusal(err)
+	}
+	return &oas.SetGroupTwoFactorNoContent{}, nil
+}
+
 func actor(ctx context.Context) app.Actor {
 	p := principal.From(ctx)
 	return app.Actor{ID: p.UserID, SecondFactor: p.SecondFactor}
@@ -176,7 +185,7 @@ func group(g domain.Group, members []oas.ID) oas.Group {
 	if members == nil {
 		members = []oas.ID{}
 	}
-	return oas.Group{ID: oas.ID(g.ID), Name: g.Name, Admins: g.Admins, Members: members}
+	return oas.Group{ID: oas.ID(g.ID), Name: g.Name, Admins: g.Admins, RequiresTwoFactor: g.RequiresTwoFactor, Members: members}
 }
 
 // refusal answers a rule the caller broke with a problem saying which, and passes anything else on
@@ -199,6 +208,8 @@ func refusal(err error) (*oas.ProblemStatusCode, error) {
 		return problem(http.StatusUnprocessableEntity, "Add another Admin before you remove the last one."), nil
 	case errors.Is(err, app.ErrUnknownClient):
 		return problem(http.StatusUnprocessableEntity, "That app is not registered."), nil
+	case errors.Is(err, app.ErrAdminsNeedTwoFactor):
+		return problem(http.StatusUnprocessableEntity, "The admins Group always requires two-factor."), nil
 	case errors.Is(err, app.ErrUnknownRole):
 		return problem(http.StatusUnprocessableEntity, "That app has no such role."), nil
 	default:

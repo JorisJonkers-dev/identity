@@ -36,6 +36,7 @@ function create() {
         <p class="g-list-h">Groups <span>{{ view.o.groups.length }}</span></p>
         <RouterLink v-for="g in view.o.groups" :key="g.id" class="g-item" :to="`/admin/groups/${g.id}`" :aria-current="g.id === view.group.id ? 'page' : undefined">
           <b><Icon v-if="g.admins" name="shield" />{{ g.name }}</b>
+          <span v-if="g.requiresTwoFactor" class="gtag tf">Two-factor</span>
           <small>{{ g.members.length }} people · {{ g.admins ? 'Admin console' : `${appsOf(view.o, g.id).length} apps` }}</small>
         </RouterLink>
       </nav>

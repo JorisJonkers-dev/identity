@@ -80,7 +80,8 @@ gobco_total() {
   shift
   reports=$(mktemp -d "$copy/.gobco-$mode.XXXXXX")
   for package in $unit; do echo "${package#"$module"/}"; done |
-    xargs -P "$jobs" -I{} sh -c 'cd "$1" && go tool gobco $2 "./$3" >"$4/$(echo "$3" | tr / _).txt" 2>&1' _ "$copy" "$*" {} "$reports"
+    xargs -P "$jobs" -I{} sh -c 'cd "$1" && go tool gobco $2 "./$3" >"$4/$(echo "$3" | tr / _).txt" 2>&1' _ "$copy" "$*" {} "$reports" ||
+    true # a package whose gobco failed has no coverage line, so the loop below prints it and fails
   taken=0
   total=0
   for report in "$reports"/*.txt; do

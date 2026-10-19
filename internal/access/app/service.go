@@ -22,6 +22,8 @@ var (
 	ErrUnknownClient = errors.New("no such Client")
 	ErrUnknownRole   = errors.New("the Client declares no such App Role")
 	ErrAdminExists   = errors.New("an Admin exists already")
+	// ErrAdminsNeedTwoFactor is turning off the admins Group's two-factor requirement.
+	ErrAdminsNeedTwoFactor = errors.New("the admins Group always requires two-factor")
 	// ErrSecondFactorNeeded is an Admin whose session did not prove a Second Factor.
 	ErrSecondFactorNeeded = errors.New("access is managed only from a session proved with a Second Factor")
 )
@@ -41,6 +43,8 @@ type Store interface {
 	CreateGroup(ctx context.Context, g domain.Group) error
 	// RenameGroup is ErrNotFound or ErrNameTaken.
 	RenameGroup(ctx context.Context, id uuid.UUID, name domain.GroupName) error
+	// SetGroupTwoFactor is ErrNotFound when the Group is not there.
+	SetGroupTwoFactor(ctx context.Context, id uuid.UUID, required bool) error
 	// DeleteGroup never deletes the admins Group.
 	DeleteGroup(ctx context.Context, id uuid.UUID) error
 	Memberships(ctx context.Context) ([]domain.Membership, error)
@@ -69,6 +73,9 @@ type Store interface {
 	UnassignUser(ctx context.Context, a domain.UserAssignment) (bool, error)
 	// RolesOf is the App Roles a User holds on a Client, directly and through their Groups.
 	RolesOf(ctx context.Context, userID uuid.UUID, clientID string) ([]string, error)
+	// HeldBackClients is the Clients a User's Two-factor Groups give roles on while they have no
+	// two-factor.
+	HeldBackClients(ctx context.Context, userID uuid.UUID) ([]string, error)
 	// RolesByClient is every App Role a User holds, directly and through their Groups, per Client.
 	RolesByClient(ctx context.Context, userID uuid.UUID) (map[string][]string, error)
 }
@@ -84,6 +91,9 @@ type People interface {
 	People(ctx context.Context) ([]domain.Person, error)
 	// SignOut signs a User out everywhere at the actor's asking.
 	SignOut(ctx context.Context, actor, userID uuid.UUID) error
+	// TwoFactorRequired tells a User a Group they are in now holds back its roles until they set
+	// two-factor up.
+	TwoFactorRequired(ctx context.Context, userID uuid.UUID, group string) error
 }
 
 // Audit records each change as an Audit Event, after it is made.
@@ -158,6 +168,11 @@ func (s *Service) UnassignedUsers(ctx context.Context) ([]uuid.UUID, error) {
 // Admin adds none.
 func (s *Service) Roles(ctx context.Context, userID uuid.UUID, clientID string) ([]string, error) {
 	return s.store.RolesOf(ctx, userID, clientID)
+}
+
+// HeldBackClients is the Clients a User's Two-factor Groups would open if they set two-factor up.
+func (s *Service) HeldBackClients(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	return s.store.HeldBackClients(ctx, userID)
 }
 
 // RolesByClient is every App Role a User holds, per Client, including Removed ones.
@@ -375,4 +390,58 @@ func (s *Service) UnassignUser(ctx context.Context, actor Actor, a domain.UserAs
 		s.audit.Record(ctx, audit.Event{Action: audit.RoleRemoved, Actor: actor.ID, User: a.UserID, Client: a.ClientID, Role: a.Role})
 	}
 	return err
+}
+
+// SetTwoFactor makes a Group require two-factor, or stop: a member without it holds none of the
+// Group's App Roles while it does (identity#83). The admins Group always requires it.
+func (s *Service) SetTwoFactor(ctx context.Context, actor Actor, id uuid.UUID, required bool) error {
+	if err := s.admin(ctx, actor); err != nil {
+		return err
+	}
+	g, err := s.store.Group(ctx, id)
+	if err != nil {
+		return err
+	}
+	if g.Admins && !required {
+		return ErrAdminsNeedTwoFactor
+	}
+	if err := s.store.SetGroupTwoFactor(ctx, id, required); err != nil {
+		return err
+	}
+	if required && !g.RequiresTwoFactor {
+		if err := s.tellHeldBack(ctx, g); err != nil {
+			return err
+		}
+	}
+	action := audit.GroupTwoFactorDropped
+	if required {
+		action = audit.GroupTwoFactorRequired
+	}
+	s.audit.Record(ctx, audit.Event{Action: action, Actor: actor.ID, Group: id, GroupName: g.Name})
+	return nil
+}
+
+// tellHeldBack mails each member of a Group that has just started requiring two-factor and who has
+// none, once (identity#88).
+func (s *Service) tellHeldBack(ctx context.Context, g domain.Group) error {
+	members, err := s.store.Memberships(ctx)
+	if err != nil {
+		return err
+	}
+	people, err := s.people.People(ctx)
+	if err != nil {
+		return err
+	}
+	without := map[uuid.UUID]bool{}
+	for _, p := range people {
+		without[p.ID] = !p.TwoFactor
+	}
+	for _, m := range members {
+		if m.GroupID == g.ID && without[m.UserID] {
+			if err := s.people.TwoFactorRequired(ctx, m.UserID, g.Name); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

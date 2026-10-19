@@ -35,6 +35,8 @@ export const zAuditAction = z.enum([
     'token-minted',
     'token-revoked',
     'client-secret-rotated',
+    'group-two-factor-required',
+    'group-two-factor-dropped',
     'email-changed',
     'account-deleted',
     'password-reset',
@@ -363,6 +365,7 @@ export const zGroup = z.object({
     id: zId,
     name: z.string().max(256),
     admins: z.boolean(),
+    requiresTwoFactor: z.boolean(),
     members: z.array(zId).max(100000)
 });
 
@@ -382,6 +385,7 @@ export const zLauncherApp = z.object({
  * The apps a User can open.
  */
 export const zLauncher = z.object({
+    heldBack: zCount,
     apps: z.array(zLauncherApp).max(500)
 });
 
@@ -391,7 +395,8 @@ export const zLauncher = z.object({
 export const zPerson = z.object({
     id: zId,
     email: zEmail,
-    name: z.string().max(400)
+    name: z.string().max(400),
+    twoFactor: z.boolean()
 });
 
 /**
@@ -413,6 +418,13 @@ export const zAssignment = z.object({
 });
 
 /**
+ * Whether a Group requires two-factor of its members.
+ */
+export const zTwoFactorRequirement = z.object({
+    required: z.boolean()
+});
+
+/**
  * A User holding one App Role on one Client directly, without a Group.
  */
 export const zUserAssignment = z.object({
@@ -430,6 +442,19 @@ export const zAccessOverview = z.object({
     clients: z.array(zAccessClient).max(10000),
     assignments: z.array(zAssignment).max(1000000),
     userAssignments: z.array(zUserAssignment).max(1000000)
+});
+
+/**
+ * How fresh a Client wants two-factor, and how many live Personal Tokens turning step-up on would revoke: none can satisfy it (docs/adr/0019).
+ */
+export const zStepUpState = z.object({
+    minutes: z.union([
+        z.literal(0),
+        z.literal(5),
+        z.literal(15),
+        z.literal(60)
+    ]),
+    tokens: zCount
 });
 
 /**
@@ -861,6 +886,43 @@ export const zAddMemberPath = z.object({
  */
 export const zAddMemberResponse = z.void();
 
+export const zSetGroupTwoFactorBody = zTwoFactorRequirement;
+
+export const zSetGroupTwoFactorPath = z.object({
+    groupId: zId
+});
+
+/**
+ * The Group's requirement is set.
+ */
+export const zSetGroupTwoFactorResponse = z.void();
+
+export const zDeleteUserPath = z.object({
+    userId: zId
+});
+
+/**
+ * The person is deleted.
+ */
+export const zDeleteUserResponse = z.void();
+
+export const zRenameUserBody = zProfileUpdate;
+
+export const zRenameUserPath = z.object({
+    userId: zId
+});
+
+/**
+ * The person has the new name.
+ */
+export const zRenameUserResponse = z.void();
+
+export const zAskUserEmailChangeBody = zEmailAddress;
+
+export const zAskUserEmailChangePath = z.object({
+    userId: zId
+});
+
 export const zSignOutUserPath = z.object({
     userId: zId
 });
@@ -987,7 +1049,7 @@ export const zGetStepUpPath = z.object({
 /**
  * The Client's step-up.
  */
-export const zGetStepUpResponse = zStepUp;
+export const zGetStepUpResponse = zStepUpState;
 
 export const zSetStepUpBody = zStepUp;
 

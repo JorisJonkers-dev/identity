@@ -12,6 +12,8 @@ export function useStepUp(clientId: Ref<string>) {
   const set = useAction(setStepUpMutation())
   return {
     minutes: computed(() => query.data.value?.minutes),
+    // The live tokens turning step-up on would revoke.
+    tokens: computed(() => query.data.value?.tokens),
     error: set.error,
     set: (minutes: StepUp['minutes']) => {
       set.run({ path: { clientId: clientId.value }, body: { minutes } }, () => void queryClient.invalidateQueries({ queryKey: getStepUpQueryKey({ path: { clientId: clientId.value } }) }))

@@ -901,6 +901,88 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v1/access/groups/{groupId}/two-factor:
+    parameters:
+      - $ref: "#/components/parameters/GroupId"
+    put:
+      operationId: setGroupTwoFactor
+      summary: Make a Group require two-factor, or stop
+      description: >-
+        While a Group requires two-factor, a member without it holds none of the Group's App
+        Roles; their other roles keep working. The admins Group always requires it. Admins only.
+      tags: [access]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TwoFactorRequirement"
+      responses:
+        "204":
+          description: The Group's requirement is set.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/access/users/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    patch:
+      operationId: renameUser
+      summary: Rename a person
+      description: Changes what a person is called, as an Admin. Admins only.
+      tags: [access]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+      responses:
+        "204":
+          description: The person has the new name.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: deleteUser
+      summary: Delete a person
+      description: >-
+        Deletes the person as their own deletion does: every session ends with back-channel
+        logout, their tokens stop working, and their memberships and direct roles go. Audit Events
+        about them stay, naming no one. The last Admin is refused. Admins only.
+      tags: [access]
+      responses:
+        "204":
+          description: The person is deleted.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/access/users/{userId}/email-change:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    post:
+      operationId: askUserEmailChange
+      summary: Start a person's email change
+      description: >-
+        Mails the new address a link that makes it the person's sign-in email once followed, as
+        their own change does. Admins only.
+      tags: [access]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailAddress"
+      responses:
+        "202":
+          description: The link is on its way.
+        "4XX":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /api/v1/access/users/{userId}/sign-out:
     parameters:
       - $ref: "#/components/parameters/UserId"
@@ -1167,7 +1249,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/StepUp"
+                $ref: "#/components/schemas/StepUpState"
         "4XX":
           $ref: "#/components/responses/Problem"
         default:
@@ -1286,6 +1368,8 @@ components:
         - token-minted
         - token-revoked
         - client-secret-rotated
+        - group-two-factor-required
+        - group-two-factor-dropped
         - email-changed
         - account-deleted
         - password-reset
@@ -1779,7 +1863,7 @@ components:
       description: A named set of Users.
       type: object
       additionalProperties: false
-      required: [id, name, admins, members]
+      required: [id, name, admins, requiresTwoFactor, members]
       properties:
         id:
           $ref: "#/components/schemas/Id"
@@ -1791,6 +1875,9 @@ components:
         admins:
           type: boolean
           description: Whether this is the admins Group, whose members are Admins and which holds no App Role.
+        requiresTwoFactor:
+          type: boolean
+          description: Whether a member without two-factor holds none of the Group's App Roles. The admins Group always does.
         members:
           type: array
           maxItems: 100000
@@ -1801,8 +1888,10 @@ components:
       description: The apps a User can open.
       type: object
       additionalProperties: false
-      required: [apps]
+      required: [apps, heldBack]
       properties:
+        heldBack:
+          $ref: "#/components/schemas/Count"
         apps:
           type: array
           maxItems: 500
@@ -1850,7 +1939,7 @@ components:
       description: A User, as the access page lists one.
       type: object
       additionalProperties: false
-      required: [id, email, name]
+      required: [id, email, name, twoFactor]
       properties:
         id:
           $ref: "#/components/schemas/Id"
@@ -1861,6 +1950,9 @@ components:
           maxLength: 400
           description: What the User is called.
           example: Ada Lovelace
+        twoFactor:
+          type: boolean
+          description: Whether the User added an authenticator app or a passkey.
     AccessClient:
       description: A Client in the cluster, with the App Roles it declares.
       type: object
@@ -1892,6 +1984,14 @@ components:
           $ref: "#/components/schemas/ClientId"
         role:
           $ref: "#/components/schemas/AppRole"
+    TwoFactorRequirement:
+      description: Whether a Group requires two-factor of its members.
+      type: object
+      additionalProperties: false
+      required: [required]
+      properties:
+        required:
+          type: boolean
     UserAssignment:
       description: A User holding one App Role on one Client directly, without a Group.
       type: object
@@ -1942,6 +2042,23 @@ components:
           description: Every Assignment held by a User directly.
           items:
             $ref: "#/components/schemas/UserAssignment"
+    StepUpState:
+      description: >-
+        How fresh a Client wants two-factor, and how many live Personal Tokens turning step-up on
+        would revoke: none can satisfy it (docs/adr/0019).
+      type: object
+      additionalProperties: false
+      required: [minutes, tokens]
+      properties:
+        minutes:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 60
+          enum: [0, 5, 15, 60]
+          description: The window in minutes; 0 is off.
+        tokens:
+          $ref: "#/components/schemas/Count"
     StepUp:
       description: How fresh a Client wants a session's two-factor proof (docs/adr/0019).
       type: object

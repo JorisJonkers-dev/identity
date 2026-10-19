@@ -361,6 +361,15 @@ describe('proving two-factor again for an app', () => {
     expect(router.currentRoute.value.path).toBe('/security/delete')
   })
 
+  it('goes back to the Gate when a gated app asked', async () => {
+    const leave = vi.spyOn(navigation, 'leave').mockImplementation(() => undefined)
+    const gate = '/gate/start?host=stats.jorisjonkers.dev&state=s&rd=%2F'
+    const { wrapper } = await mountAt(`/signin/step-up?next=${encodeURIComponent(gate)}`, { ...asks(['totp']), 'POST /api/v1/session/step-up/code': noContent() })
+    await typeCode(wrapper, '492039')
+    expect(leave).toHaveBeenCalledWith(gate)
+    leave.mockRestore()
+  })
+
   it('ignores a page to go back to that is not one of ours', async () => {
     const { wrapper, router } = await mountAt('/signin/step-up?next=//evil.test/', { ...asks(['totp']), 'POST /api/v1/session/step-up/code': noContent(), 'GET /api/v1/profile': ada })
     await typeCode(wrapper, '492039')
@@ -505,7 +514,7 @@ describe('the Account page', () => {
   const answers = (over: Record<string, unknown> = {}) => ({
     'GET /api/v1/profile': () => Response.json(profile(over)),
     'GET /api/v1/profile/second-factors': () => Response.json({ factors: [] }),
-    'GET /api/v1/launcher': () => Response.json({ apps: [] }),
+    'GET /api/v1/launcher': () => Response.json({ apps: [], heldBack: 0 }),
   })
 
   it('shows who is signed in', async () => {
@@ -638,7 +647,7 @@ describe('the Account page', () => {
   it('counts the apps the User can open', async () => {
     const { wrapper } = await mountAt('/account', {
       ...answers(),
-      'GET /api/v1/launcher': () => Response.json({ apps: [{ id: 'grafana', label: 'Grafana', launchUrl: 'https://grafana.test/', roles: ['viewer'] }] }),
+      'GET /api/v1/launcher': () => Response.json({ apps: [{ id: 'grafana', label: 'Grafana', launchUrl: 'https://grafana.test/', roles: ['viewer'] }], heldBack: 0 }),
     })
     expect(wrapper.get('.pills').text()).toContain('1 apps')
   })

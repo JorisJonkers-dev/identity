@@ -5,6 +5,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
+
 	audit "github.com/JorisJonkers-dev/identity/internal/audit/domain"
 	"github.com/JorisJonkers-dev/identity/internal/signin/domain"
 )
@@ -55,28 +57,48 @@ func (s *Service) fresh(ctx context.Context, signIn domain.SignIn, clientID stri
 	return ErrStepUpNeeded
 }
 
+// ClientTokens is the Personal Tokens for a Client, which step-up ends: a bearer token proves
+// nothing fresh.
+type ClientTokens interface {
+	LiveForClient(ctx context.Context, clientID string) (int, error)
+	RevokeForClient(ctx context.Context, actor uuid.UUID, clientID string) error
+}
+
 // StepUps lets Admins set how fresh each Client wants two-factor.
 type StepUps struct {
 	settings StepUpSettings
 	clients  Clients
 	admins   Admins
 	audit    Audit
+	tokens   ClientTokens
 }
 
 // NewStepUps returns StepUps.
-func NewStepUps(settings StepUpSettings, clients Clients, admins Admins, audit Audit) *StepUps {
-	return &StepUps{settings: settings, clients: clients, admins: admins, audit: audit}
+func NewStepUps(settings StepUpSettings, clients Clients, admins Admins, audit Audit, tokens ClientTokens) *StepUps {
+	return &StepUps{settings: settings, clients: clients, admins: admins, audit: audit, tokens: tokens}
 }
 
-// StepUp is a Client's window in minutes, 0 when it is off, as an Admin reads it.
-func (s *StepUps) StepUp(ctx context.Context, actor Actor, clientID string) (int, error) {
+// StepUpState is a Client's window in minutes, 0 when it is off, and how many live Personal
+// Tokens turning it on would revoke.
+type StepUpState struct {
+	Minutes int
+	Tokens  int
+}
+
+// StepUp is a Client's step-up, as an Admin reads it.
+func (s *StepUps) StepUp(ctx context.Context, actor Actor, clientID string) (StepUpState, error) {
 	if err := admin(ctx, s.admins, actor); err != nil {
-		return 0, err
+		return StepUpState{}, err
 	}
 	if _, err := s.clients.Client(ctx, clientID); err != nil {
-		return 0, err
+		return StepUpState{}, err
 	}
-	return s.settings.StepUp(ctx, clientID)
+	minutes, err := s.settings.StepUp(ctx, clientID)
+	if err != nil {
+		return StepUpState{}, err
+	}
+	tokens, err := s.tokens.LiveForClient(ctx, clientID)
+	return StepUpState{Minutes: minutes, Tokens: tokens}, err
 }
 
 // Set sets a Client's window: off (0), 5, 15 or 60 minutes.
@@ -91,6 +113,12 @@ func (s *StepUps) Set(ctx context.Context, actor Actor, clientID string, minutes
 	}
 	if _, err := s.clients.Client(ctx, clientID); err != nil {
 		return err
+	}
+	// The tokens go first: should setting fail after, none is left that step-up would refuse.
+	if minutes > 0 {
+		if err := s.tokens.RevokeForClient(ctx, actor.ID, clientID); err != nil {
+			return err
+		}
 	}
 	if err := s.settings.SetStepUp(ctx, clientID, minutes); err != nil {
 		return err

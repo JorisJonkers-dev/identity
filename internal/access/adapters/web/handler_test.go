@@ -76,6 +76,11 @@ func (u *useCases) UnassignUser(_ context.Context, actor app.Actor, a domain.Use
 	return u.err
 }
 
+func (u *useCases) SetTwoFactor(_ context.Context, actor app.Actor, id uuid.UUID, required bool) error {
+	u.actor, u.asked = actor, append(u.asked, id, required)
+	return u.err
+}
+
 func (u *useCases) SignOutUser(_ context.Context, actor app.Actor, userID uuid.UUID) error {
 	u.actor, u.asked = actor, append(u.asked, userID)
 	return u.err
@@ -240,6 +245,7 @@ func TestEachRefusalBecomesAProblemSayingWhatToDo(t *testing.T) {
 		{app.ErrLastAdmin, http.StatusUnprocessableEntity, "Add another Admin before you remove the last one."},
 		{app.ErrUnknownClient, http.StatusUnprocessableEntity, "That app is not registered."},
 		{app.ErrUnknownRole, http.StatusUnprocessableEntity, "That app has no such role."},
+		{app.ErrAdminsNeedTwoFactor, http.StatusUnprocessableEntity, "The admins Group always requires two-factor."},
 	} {
 		t.Run(tc.err.Error(), func(t *testing.T) {
 			res, err := web.New(&useCases{err: tc.err}).GetAccess(signedIn())
@@ -271,6 +277,9 @@ func TestEveryOperationAnswersARefusalAsAProblem(t *testing.T) {
 			return h.UnassignRole(signedIn(), oas.UnassignRoleParams{GroupId: gid})
 		}},
 		{"signing a User out", func(h *web.Access) (any, error) { return h.SignOutUser(signedIn(), oas.SignOutUserParams{}) }},
+		{"making a Group require two-factor", func(h *web.Access) (any, error) {
+			return h.SetGroupTwoFactor(signedIn(), &oas.TwoFactorRequirement{}, oas.SetGroupTwoFactorParams{GroupId: gid})
+		}},
 		{"giving a person an App Role", func(h *web.Access) (any, error) {
 			return h.AssignUserRole(signedIn(), oas.AssignUserRoleParams{})
 		}},
@@ -288,5 +297,25 @@ func TestEveryOperationAnswersARefusalAsAProblem(t *testing.T) {
 func TestAnUnexpectedFailureIsPassedOnForA500(t *testing.T) {
 	if _, err := web.New(&useCases{err: errBoom}).GetAccess(signedIn()); !errors.Is(err, errBoom) {
 		t.Fatalf("err = %v, want it passed on", err)
+	}
+}
+
+func TestMakingAGroupRequireTwoFactorSendsTheGroupAndTheChoice(t *testing.T) {
+	uc := &useCases{}
+	res, err := web.New(uc).SetGroupTwoFactor(signedIn(), &oas.TwoFactorRequirement{Required: true}, oas.SetGroupTwoFactorParams{GroupId: oas.ID(family)})
+	if _, ok := res.(*oas.SetGroupTwoFactorNoContent); err != nil || !ok || uc.asked[0] != family || uc.asked[1] != true || uc.actor != asAdmin {
+		t.Fatalf("SetGroupTwoFactor = %#v, %v, asked %v", res, err, uc.asked)
+	}
+}
+
+func TestTheOverviewSaysWhichGroupsRequireTwoFactorAndWhoHasIt(t *testing.T) {
+	uc := &useCases{overview: app.Overview{
+		Groups: []domain.Group{{ID: family, Name: "Family", RequiresTwoFactor: true}},
+		People: []domain.Person{{ID: ada, Email: "ada@example.org", Name: "Ada", TwoFactor: true}},
+	}}
+	res, _ := web.New(uc).GetAccess(signedIn())
+	o := res.(*oas.AccessOverview)
+	if !o.Groups[0].RequiresTwoFactor || !o.Users[0].TwoFactor {
+		t.Fatalf("overview = %+v", o)
 	}
 }

@@ -209,3 +209,19 @@ func TestABadIssuerIsRefused(t *testing.T) {
 		t.Fatal("a bad Issuer was accepted")
 	}
 }
+
+func TestStartSendsAStaleProofToProveTwoFactorAgainAndBack(t *testing.T) {
+	target := "https://auth.test/gate/start?host=tribelt.jorisjonkers.dev&state=state-1&rd=%2Fstats"
+	rec := get(t, serve(t, &useCases{startErr: app.ErrStepUpNeeded}), target, nil)
+	want := "/signin/step-up?next=" + url.QueryEscape("/gate/start?host=tribelt.jorisjonkers.dev&state=state-1&rd=%2Fstats")
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != want {
+		t.Fatalf("start = %d %q, want %q", rec.Code, rec.Header().Get("Location"), want)
+	}
+}
+
+func TestStartSendsAUserWithNoTwoFactorToSetItUp(t *testing.T) {
+	rec := get(t, serve(t, &useCases{startErr: app.ErrTwoFactorNeeded}), "https://auth.test/gate/start?host=tribelt.jorisjonkers.dev&state=s", nil)
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/security/two-factor?for=step-up" {
+		t.Fatalf("start = %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+}

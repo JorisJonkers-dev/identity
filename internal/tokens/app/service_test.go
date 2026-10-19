@@ -76,6 +76,31 @@ func (s *store) OfUser(_ context.Context, userID uuid.UUID) ([]domain.Token, err
 	return out, s.fail["OfUser"]
 }
 
+func (s *store) RevokeForClient(_ context.Context, clientID string, at time.Time) ([]domain.Token, error) {
+	if err := s.fail["RevokeForClient"]; err != nil {
+		return nil, err
+	}
+	var out []domain.Token
+	for id, t := range s.tokens {
+		if t.ClientID == clientID && t.RevokedAt == nil && t.ExpiresAt.After(at) {
+			t.RevokedAt = &at
+			s.tokens[id] = t
+			out = append(out, t)
+		}
+	}
+	return out, nil
+}
+
+func (s *store) LiveForClient(_ context.Context, clientID string, now time.Time) (int, error) {
+	n := 0
+	for _, t := range s.tokens {
+		if t.ClientID == clientID && t.RevokedAt == nil && t.ExpiresAt.After(now) {
+			n++
+		}
+	}
+	return n, s.fail["LiveForClient"]
+}
+
 func (s *store) Revoke(_ context.Context, id, userID uuid.UUID, at time.Time) (bool, error) {
 	if err := s.fail["Revoke"]; err != nil {
 		return false, err
@@ -103,6 +128,13 @@ func (s *store) CountExpiring(_ context.Context, now, before time.Time) (int, er
 type contexts struct {
 	held map[string][]string
 	err  error
+	// stepUp is the Clients with step-up on; stepUpErr makes asking fail.
+	stepUp    map[string]bool
+	stepUpErr error
+}
+
+func (c *contexts) StepUp(_ context.Context, id string) (bool, error) {
+	return c.stepUp[id], c.stepUpErr
 }
 
 func (c *contexts) Roles(_ context.Context, userID uuid.UUID, clientID string) ([]string, error) {
@@ -488,5 +520,95 @@ func TestTheDashboardCountsTokensEndingWithinSevenDays(t *testing.T) {
 	n, err := f.ExpiringSoon(context.Background())
 	if err != nil || n != 2 || f.store.until != [2]time.Time{t0, t0.Add(7 * 24 * time.Hour)} {
 		t.Fatalf("ExpiringSoon = %d, %v; window %v", n, err, f.store.until)
+	}
+}
+
+func TestATokenForAStepUpClientIsRefused(t *testing.T) {
+	f := newFixture()
+	f.contexts.stepUp = map[string]bool{"grafana": true}
+	if _, err := f.Mint(context.Background(), ada, "cli", "grafana", 30); !errors.Is(err, app.ErrStepUpClient) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestAStepUpClientIsNotOfferedForTokens(t *testing.T) {
+	f := newFixture()
+	f.contexts.stepUp = map[string]bool{"grafana": true}
+	if got, err := f.Mintable(context.Background(), ada); err != nil || len(got) != 0 {
+		t.Fatalf("Mintable = %+v, %v", got, err)
+	}
+}
+
+func TestATokenForAClientThatTurnedStepUpOnIsInactive(t *testing.T) {
+	f := newFixture()
+	m, _ := f.Mint(context.Background(), ada, "cli", "grafana", 30)
+	f.contexts.stepUp = map[string]bool{"grafana": true}
+	if _, err := f.Check(context.Background(), m.Token.ID, "grafana"); !errors.Is(err, app.ErrInactive) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestTurningStepUpOnRevokesEveryLiveTokenForTheClientAsAuditEvents(t *testing.T) {
+	var forgotten []uuid.UUID
+	f := newFixture()
+	f.OnRevoked(func(_ context.Context, id uuid.UUID) { forgotten = append(forgotten, id) })
+	m, _ := f.Mint(context.Background(), ada, "cli", "grafana", 30)
+	if n, _ := f.LiveForClient(context.Background(), "grafana"); n != 1 {
+		t.Fatalf("live = %d", n)
+	}
+	*f.events = nil
+	if err := f.RevokeForClient(context.Background(), root, "grafana"); err != nil {
+		t.Fatal(err)
+	}
+	if len(forgotten) != 1 || forgotten[0] != m.Token.ID || len(*f.events) != 1 || (*f.events)[0] != (audit.Event{Action: audit.TokenRevoked, Actor: root, User: ada, Client: "grafana"}) {
+		t.Fatalf("forgot %v, events %+v", forgotten, *f.events)
+	}
+	if n, _ := f.LiveForClient(context.Background(), "grafana"); n != 0 {
+		t.Fatalf("live after = %d", n)
+	}
+}
+
+func TestTurningStepUpOnRevokesTheClientsTokensWithNoCacheToTell(t *testing.T) {
+	f := newFixture()
+	_, _ = f.Mint(context.Background(), ada, "cli", "grafana", 30)
+	if err := f.RevokeForClient(context.Background(), root, "grafana"); err != nil {
+		t.Fatal(err)
+	}
+	if n, _ := f.LiveForClient(context.Background(), "grafana"); n != 0 {
+		t.Fatalf("live after = %d", n)
+	}
+}
+
+func TestStepUpChecksFailWhenStepUpCannotBeRead(t *testing.T) {
+	for _, step := range []struct {
+		name string
+		call func(f *fixture, tokenID uuid.UUID) error
+	}{
+		{"minting", func(f *fixture, _ uuid.UUID) error {
+			_, err := f.Mint(context.Background(), ada, "cli", "grafana", 30)
+			return err
+		}},
+		{"offering", func(f *fixture, _ uuid.UUID) error { _, err := f.Mintable(context.Background(), ada); return err }},
+		{"checking", func(f *fixture, id uuid.UUID) error {
+			_, err := f.Check(context.Background(), id, "grafana")
+			return err
+		}},
+	} {
+		t.Run(step.name, func(t *testing.T) {
+			f := newFixture()
+			m, _ := f.Mint(context.Background(), ada, "cli", "grafana", 30)
+			f.contexts.stepUpErr = errBoom
+			if err := step.call(f, m.Token.ID); !errors.Is(err, errBoom) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
+
+func TestRevokingAClientsTokensFailsWhenTheStoreDoes(t *testing.T) {
+	f := newFixture()
+	f.store.fail["RevokeForClient"] = errBoom
+	if err := f.RevokeForClient(context.Background(), root, "grafana"); !errors.Is(err, errBoom) {
+		t.Fatalf("err = %v", err)
 	}
 }

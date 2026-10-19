@@ -184,7 +184,7 @@ DELETE FROM sessions WHERE user_id = $1 RETURNING id;
 -- name: DeletePersonalTokensOfUser :many
 DELETE FROM personal_tokens WHERE user_id = $1 RETURNING id;
 
--- name: DeleteUser :exec
+-- name: DeleteUser :execrows
 -- Memberships, direct Assignments, factors and pending changes go with the User; Audit Events,
 -- which keep only ids, stay.
 DELETE FROM users WHERE id = $1;
@@ -203,3 +203,7 @@ UPDATE password_resets SET proved_at = $2 WHERE user_id = $1;
 -- name: TakePasswordReset :execrows
 -- Finishing a reset spends its link; of two racing, one gets it.
 DELETE FROM password_resets WHERE token_hash = $1;
+
+-- name: ListUsersWithTwoFactor :many
+-- The Users who added an authenticator app or a passkey.
+SELECT user_id FROM totp_factors UNION SELECT user_id FROM passkeys;

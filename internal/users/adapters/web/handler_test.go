@@ -146,6 +146,21 @@ func (u *useCases) CompletePasswordReset(_ context.Context, token, password stri
 	return u.err
 }
 
+func (u *useCases) RenameAs(_ context.Context, actor app.Actor, userID uuid.UUID, name string) error {
+	u.asked = append(u.asked, actor.ID.String(), userID.String(), name)
+	return u.err
+}
+
+func (u *useCases) AskEmailChangeAs(_ context.Context, actor app.Actor, userID uuid.UUID, email string) error {
+	u.asked = append(u.asked, actor.ID.String(), userID.String(), email)
+	return u.err
+}
+
+func (u *useCases) DeleteAs(_ context.Context, actor app.Actor, userID uuid.UUID) error {
+	u.asked = append(u.asked, actor.ID.String(), userID.String())
+	return u.err
+}
+
 func (u *useCases) DeleteAccount(_ context.Context, _ uuid.UUID, token, password string) error {
 	u.asked = append(u.asked, token, password)
 	return u.err
@@ -999,6 +1014,81 @@ func TestEveryResetStepAnswersARefusalAsAProblem(t *testing.T) {
 		t.Run(op.name, func(t *testing.T) {
 			res, err := op.call(web.New(&useCases{err: app.ErrInvalidToken}, admins{}))
 			if p, ok := res.(*oas.ProblemStatusCode); err != nil || !ok || p.StatusCode != http.StatusUnprocessableEntity {
+				t.Fatalf("got %#v, %v", res, err)
+			}
+		})
+	}
+}
+
+var (
+	root   = uuid.MustParse("00000000-0000-4000-8000-00000000a0a0")
+	target = uuid.MustParse("00000000-0000-4000-8000-0000000000a2")
+)
+
+func asRoot() context.Context {
+	return principal.With(context.Background(), principal.Principal{UserID: root, SecondFactor: true})
+}
+
+func TestAnAdminsRenameSendsTheAdminThePersonAndTheName(t *testing.T) {
+	uc := &useCases{}
+	res, err := web.New(uc, admins{}).RenameUser(asRoot(), &oas.ProfileUpdate{Name: "Ada King"}, oas.RenameUserParams{UserId: oas.ID(target)})
+	if _, ok := res.(*oas.RenameUserNoContent); err != nil || !ok || !slices.Equal(uc.asked, []string{root.String(), target.String(), "Ada King"}) {
+		t.Fatalf("RenameUser = %#v, %v, asked %v", res, err, uc.asked)
+	}
+}
+
+func TestAnAdminsEmailChangeSendsTheAdminThePersonAndTheAddress(t *testing.T) {
+	uc := &useCases{}
+	res, err := web.New(uc, admins{}).AskUserEmailChange(asRoot(), &oas.EmailAddress{Email: "new@example.org"}, oas.AskUserEmailChangeParams{UserId: oas.ID(target)})
+	if _, ok := res.(*oas.AskUserEmailChangeAccepted); err != nil || !ok || !slices.Equal(uc.asked, []string{root.String(), target.String(), "new@example.org"}) {
+		t.Fatalf("AskUserEmailChange = %#v, %v, asked %v", res, err, uc.asked)
+	}
+}
+
+func TestAnAdminsDeletionSendsTheAdminAndThePerson(t *testing.T) {
+	uc := &useCases{}
+	res, err := web.New(uc, admins{}).DeleteUser(asRoot(), oas.DeleteUserParams{UserId: oas.ID(target)})
+	if _, ok := res.(*oas.DeleteUserNoContent); err != nil || !ok || !slices.Equal(uc.asked, []string{root.String(), target.String()}) {
+		t.Fatalf("DeleteUser = %#v, %v, asked %v", res, err, uc.asked)
+	}
+}
+
+func TestEachRefusedAdminActionSaysWhatToDo(t *testing.T) {
+	for _, tc := range []struct {
+		err    error
+		status int
+		detail string
+	}{
+		{app.ErrNotAdmin, http.StatusForbidden, "Only Admins manage people."},
+		{app.ErrAdminSecondFactorNeeded, http.StatusForbidden, "Sign in again with a passkey or authenticator app to manage people."},
+		{app.ErrNotFound, http.StatusNotFound, "That person no longer exists. Reload the page."},
+		{app.ErrLastAdmin, http.StatusUnprocessableEntity, "That is the last Admin. Make someone else an Admin first."},
+		{domain.ErrInvalidName, http.StatusUnprocessableEntity, "Enter a name of 1 to 100 characters."},
+	} {
+		t.Run(tc.err.Error(), func(t *testing.T) {
+			res, err := web.New(&useCases{err: tc.err}, admins{}).DeleteUser(asRoot(), oas.DeleteUserParams{})
+			if p, ok := res.(*oas.ProblemStatusCode); err != nil || !ok || p.StatusCode != tc.status || p.Response.Detail.Value != tc.detail {
+				t.Fatalf("DeleteUser = %#v, %v", res, err)
+			}
+		})
+	}
+}
+
+func TestEveryAdminActionAnswersARefusalAsAProblem(t *testing.T) {
+	for _, op := range []struct {
+		name string
+		call func(h *web.Handler) (any, error)
+	}{
+		{"renaming", func(h *web.Handler) (any, error) {
+			return h.RenameUser(asRoot(), &oas.ProfileUpdate{}, oas.RenameUserParams{})
+		}},
+		{"an email change", func(h *web.Handler) (any, error) {
+			return h.AskUserEmailChange(asRoot(), &oas.EmailAddress{}, oas.AskUserEmailChangeParams{})
+		}},
+	} {
+		t.Run(op.name, func(t *testing.T) {
+			res, err := op.call(web.New(&useCases{err: app.ErrNotAdmin}, admins{}))
+			if p, ok := res.(*oas.ProblemStatusCode); err != nil || !ok || p.StatusCode != http.StatusForbidden {
 				t.Fatalf("got %#v, %v", res, err)
 			}
 		})

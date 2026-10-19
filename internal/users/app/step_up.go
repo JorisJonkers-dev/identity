@@ -79,3 +79,23 @@ func (s *Service) stepUpChallenge(ctx context.Context, sessionToken string) ([]b
 func (s *Service) HasSecondFactor(ctx context.Context, userID uuid.UUID) (bool, error) {
 	return s.hasSecondFactor(ctx, userID)
 }
+
+// UsersWithTwoFactor is every User who added an authenticator app or a passkey.
+func (s *Service) UsersWithTwoFactor(ctx context.Context) ([]uuid.UUID, error) {
+	return s.store.UsersWithTwoFactor(ctx)
+}
+
+// NotifyTwoFactorRequired mails a User that a Group of theirs now requires two-factor, and holds
+// back its roles until they set it up (identity#88).
+func (s *Service) NotifyTwoFactorRequired(ctx context.Context, userID uuid.UUID, group string) error {
+	u, err := s.store.UserByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	return s.mailer.Send(ctx, Mail{
+		To:      u.Email.String(),
+		Subject: group + " now requires two-factor",
+		Text: "The apps " + group + " gives you stay closed until you add a passkey or an authenticator app:\n\n" +
+			s.publicURL + "/security/two-factor\n\nYour other apps keep working.\n",
+	})
+}

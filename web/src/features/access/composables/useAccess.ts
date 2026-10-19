@@ -3,13 +3,17 @@ import { computed } from 'vue'
 import {
   addMemberMutation,
   assignRoleMutation,
+  askUserEmailChangeMutation,
   assignUserRoleMutation,
   createGroupMutation,
   deleteGroupMutation,
+  deleteUserMutation,
   getAccessOptions,
   getAccessQueryKey,
   removeMemberMutation,
   renameGroupMutation,
+  renameUserMutation,
+  setGroupTwoFactorMutation,
   signOutUserMutation,
   unassignRoleMutation,
   unassignUserRoleMutation,
@@ -34,7 +38,11 @@ export function useAccess() {
   const signOut = useAction(signOutUserMutation())
   const give = useAction(assignUserRoleMutation())
   const take = useAction(unassignUserRoleMutation())
-  const actions = [create, rename, remove, join, leave, assign, unassign, signOut, give, take]
+  const twoFactor = useAction(setGroupTwoFactorMutation())
+  const renamePerson = useAction(renameUserMutation())
+  const emailPerson = useAction(askUserEmailChangeMutation())
+  const deletePerson = useAction(deleteUserMutation())
+  const actions = [create, rename, remove, join, leave, assign, unassign, signOut, give, take, twoFactor, renamePerson, emailPerson, deletePerson]
 
   const overview = computed<AccessOverview | undefined>(() => query.data.value)
   return {
@@ -70,6 +78,22 @@ export function useAccess() {
       const path = { groupId, clientId, role }
       if (held) assign.run({ path }, refresh)
       else unassign.run({ path }, refresh)
+    },
+    renameUser: (userId: string, name: string) => {
+      renamePerson.run({ path: { userId }, body: { name } }, refresh)
+    },
+    askUserEmail: (userId: string, email: string, done: () => void) => {
+      emailPerson.run({ path: { userId }, body: { email } }, done)
+    },
+    // done runs before the caller leaves the page: a callback for an unmounted page never fires.
+    deleteUser: (userId: string, done: () => void) => {
+      deletePerson.run({ path: { userId } }, () => {
+        refresh()
+        done()
+      })
+    },
+    setTwoFactor: (groupId: string, required: boolean) => {
+      twoFactor.run({ path: { groupId }, body: { required } }, refresh)
     },
     setUserRole: (userId: string, clientId: string, role: string, held: boolean) => {
       const path = { userId, clientId, role }

@@ -756,3 +756,10 @@ func TestAnAdminWithAnotherAdminIsDeleted(t *testing.T) {
 		t.Fatalf("DeleteUser = %v", err)
 	}
 }
+
+func TestDeletingAUserWhoIsGoneIsNotFound(t *testing.T) {
+	s, _ := open(t)
+	if _, err := s.DeleteUser(context.Background(), uuid.New()); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("err = %v", err)
+	}
+}

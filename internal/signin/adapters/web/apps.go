@@ -20,7 +20,7 @@ type UseCases interface {
 
 // StepUps is the step-up use cases.
 type StepUps interface {
-	StepUp(ctx context.Context, actor app.Actor, clientID string) (int, error)
+	StepUp(ctx context.Context, actor app.Actor, clientID string) (app.StepUpState, error)
 	Set(ctx context.Context, actor app.Actor, clientID string, minutes int) error
 }
 
@@ -40,11 +40,11 @@ func actor(ctx context.Context) app.Actor {
 
 // GetStepUp implements getStepUp.
 func (h *Apps) GetStepUp(ctx context.Context, params oas.GetStepUpParams) (oas.GetStepUpRes, error) {
-	minutes, err := h.stepUps.StepUp(ctx, actor(ctx), string(params.ClientId))
+	s, err := h.stepUps.StepUp(ctx, actor(ctx), string(params.ClientId))
 	if err != nil {
 		return stepUpRefusal(err)
 	}
-	return &oas.StepUp{Minutes: oas.StepUpMinutes(minutes)}, nil //nolint:gosec // 0 to 60
+	return &oas.StepUpState{Minutes: oas.StepUpStateMinutes(s.Minutes), Tokens: oas.Count(s.Tokens)}, nil //nolint:gosec // 0 to 60, and a count
 }
 
 // SetStepUp implements setStepUp.

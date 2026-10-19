@@ -11,22 +11,33 @@ import GlassSelect from '../../../shared/GlassSelect.vue'
 import Icon from '../../../shared/Icon'
 import { useAccess } from '../composables/useAccess'
 import { useStepUp } from '../composables/useStepUp'
+import { counted } from '../../admin/format'
 import { minutesOf, stepUpChoices, stepUpSummary } from '../stepUp'
-import { holders } from '../model'
+import { directHolders, holders } from '../model'
 
 const route = useRoute()
-const { overview, loadError, actionError, setRole } = useAccess()
+const { overview, loadError, actionError, setRole, setUserRole } = useAccess()
 const clientId = computed(() => String(route.params.clientId))
 const app = computed(() => overview.value?.clients.find((c) => c.id === clientId.value))
 const rotate = useAction(rotateClientSecretMutation())
 const asking = ref(false)
 const stepUp = useStepUp(clientId)
 const stepUpChoice = computed(() => String(stepUp.minutes.value ?? 0))
+// Turning step-up on revokes the app's tokens, so the Admin sees how many first.
+const pendingStepUp = ref<string | null>(null)
 function pickStepUp(choice: string) {
+  if (!stepUp.minutes.value && minutesOf(choice) > 0 && stepUp.tokens.value) pendingStepUp.value = choice
+  else stepUp.set(minutesOf(choice))
+}
+function confirmStepUp(choice: string) {
+  pendingStepUp.value = null
   stepUp.set(minutesOf(choice))
 }
 const addable = (o: AccessOverview, role: string) => {
   return o.groups.filter((g) => !g.admins && !holders(o, clientId.value, role).some((h) => h.id === g.id)).map((g) => ({ value: g.id, label: g.name }))
+}
+const addablePeople = (o: AccessOverview, role: string) => {
+  return o.users.filter((u) => !directHolders(o, clientId.value, role).some((h) => h.id === u.id)).map((u) => ({ value: u.id, label: u.name }))
 }
 function rotateNow() {
   asking.value = false
@@ -44,13 +55,21 @@ function rotateNow() {
         <div class="group-h"><h2>Roles</h2></div>
         <div v-for="r in app.roles" :key="r" class="role-block">
           <div class="rb-h"><span class="role big">{{ r }}</span><span class="soft mono">{{ holders(overview, app.id, r).length }} Groups</span></div>
-          <div class="rb-line">
+          <div class="rb-line groups">
             <span class="rb-k"><Icon name="users" />Groups</span>
             <div class="gchips gchips-inline">
               <span v-for="g in holders(overview, app.id, r)" :key="g.id" class="gchip">{{ g.name }}<button type="button" :aria-label="`Take ${r} from ${g.name}`" @click="setRole(g.id, app.id, r, false)"><Icon name="x" /></button></span>
               <span v-if="holders(overview, app.id, r).length === 0" class="soft">None</span>
             </div>
             <GlassSelect :options="addable(overview, r)" :label="`Give ${r} to a Group`" placeholder="Add a Group" small @pick="(g) => setRole(g, app!.id, r, true)" />
+          </div>
+          <div class="rb-line people">
+            <span class="rb-k"><Icon name="user" />People</span>
+            <div class="gchips gchips-inline">
+              <span v-for="p in directHolders(overview, app.id, r)" :key="p.id" class="gchip">{{ p.name }}<button type="button" :aria-label="`Take ${r} from ${p.name}`" @click="setUserRole(p.id, app.id, r, false)"><Icon name="x" /></button></span>
+              <span v-if="directHolders(overview, app.id, r).length === 0" class="soft">None</span>
+            </div>
+            <GlassSelect :options="addablePeople(overview, r)" :label="`Give ${r} to a person`" placeholder="Add a person" small @pick="(u) => setUserRole(u, app!.id, r, true)" />
           </div>
         </div>
       </section>
@@ -71,6 +90,11 @@ function rotateNow() {
           <span class="row-ic"><Icon name="shield" /></span>
           <span class="grow"><b>Ask for two-factor again</b><small>{{ stepUpSummary(stepUp.minutes.value, app.label) }}</small></span>
           <GlassSelect :model-value="stepUpChoice" :options="stepUpChoices" :label="`Ask for two-factor again in ${app.label}`" small @pick="pickStepUp" />
+        </div>
+        <div v-if="pendingStepUp" class="confirm">
+          <div class="ask">Turn on step-up for {{ app.label }}?<small>This revokes {{ counted(Number(stepUp.tokens.value), 'token') }} for {{ app.label }}. Scripts that use them stop working.</small></div>
+          <button class="btn sm" type="button" @click="pendingStepUp = null">Cancel</button>
+          <button class="btn sm danger-solid" type="button" @click="confirmStepUp(pendingStepUp)">Turn on and revoke</button>
         </div>
         <p v-if="stepUp.error.value" role="alert" class="alert"><Icon name="alert" />{{ stepUp.error.value }}</p>
       </section>

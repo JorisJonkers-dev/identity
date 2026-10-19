@@ -42,7 +42,7 @@ func (s *Store) Groups(ctx context.Context) ([]domain.Group, error) {
 	}
 	groups := make([]domain.Group, 0, len(rows))
 	for _, r := range rows {
-		groups = append(groups, domain.Group{ID: r.ID, Name: r.Name, Admins: r.Admins})
+		groups = append(groups, domain.Group{ID: r.ID, Name: r.Name, Admins: r.Admins, RequiresTwoFactor: r.RequiresTwoFactor})
 	}
 	return groups, nil
 }
@@ -55,7 +55,7 @@ func (s *Store) Group(ctx context.Context, id uuid.UUID) (domain.Group, error) {
 	if err != nil {
 		return domain.Group{}, err
 	}
-	return domain.Group{ID: r.ID, Name: r.Name, Admins: r.Admins}, nil
+	return domain.Group{ID: r.ID, Name: r.Name, Admins: r.Admins, RequiresTwoFactor: r.RequiresTwoFactor}, nil
 }
 
 func (s *Store) CreateGroup(ctx context.Context, g domain.Group) error {
@@ -75,6 +75,17 @@ func (s *Store) RenameGroup(ctx context.Context, id uuid.UUID, name domain.Group
 
 func (s *Store) DeleteGroup(ctx context.Context, id uuid.UUID) error {
 	return s.q.DeleteGroup(ctx, id)
+}
+
+func (s *Store) SetGroupTwoFactor(ctx context.Context, id uuid.UUID, required bool) error {
+	n, err := s.q.SetGroupTwoFactor(ctx, queries.SetGroupTwoFactorParams{ID: id, RequiresTwoFactor: required})
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return app.ErrNotFound
+	}
+	return nil
 }
 
 func (s *Store) Memberships(ctx context.Context) ([]domain.Membership, error) {
@@ -134,7 +145,7 @@ func (s *Store) AdminsGroup(ctx context.Context) (domain.Group, error) {
 	if err != nil {
 		return domain.Group{}, err
 	}
-	return domain.Group{ID: r.ID, Name: r.Name, Admins: r.Admins}, nil
+	return domain.Group{ID: r.ID, Name: r.Name, Admins: r.Admins, RequiresTwoFactor: r.RequiresTwoFactor}, nil
 }
 
 func (s *Store) CountAdmins(ctx context.Context) (int, error) {
@@ -193,6 +204,10 @@ func (s *Store) AssignUser(ctx context.Context, a domain.UserAssignment) (bool, 
 func (s *Store) UnassignUser(ctx context.Context, a domain.UserAssignment) (bool, error) {
 	n, err := s.q.UnassignUser(ctx, queries.UnassignUserParams{UserID: a.UserID, ClientID: a.ClientID, Role: a.Role})
 	return n > 0, err
+}
+
+func (s *Store) HeldBackClients(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	return s.q.HeldBackClients(ctx, userID)
 }
 
 func (s *Store) RolesOf(ctx context.Context, userID uuid.UUID, clientID string) ([]string, error) {

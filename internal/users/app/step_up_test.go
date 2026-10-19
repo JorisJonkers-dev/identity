@@ -4,8 +4,11 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/JorisJonkers-dev/identity/internal/users/app"
 )
@@ -239,5 +242,32 @@ func TestStepUpPasskeyOptionsFailWhenTheStoreDoes(t *testing.T) {
 	f.store.fail["StepUpChallenge"] = errBoomSF
 	if _, err := f.StepUpPasskeyOptions(context.Background(), session); !errors.Is(err, errBoomSF) {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestTheUsersWithTwoFactorAreThoseWhoAddedIt(t *testing.T) {
+	f := newFixture()
+	f.signedUp(t, "bob@example.org")
+	id, _, _ := f.enrolled(t, "ada@example.org")
+	if ids, err := f.UsersWithTwoFactor(context.Background()); err != nil || !slices.Equal(ids, []uuid.UUID{id}) {
+		t.Fatalf("UsersWithTwoFactor = %v, %v", ids, err)
+	}
+}
+
+func TestAMemberHeldBackByATwoFactorGroupIsMailedHowToGetTheirAppsBack(t *testing.T) {
+	f := newFixture()
+	id := f.signedUp(t, "ada@example.org")
+	if err := f.NotifyTwoFactorRequired(context.Background(), id, "Family"); err != nil {
+		t.Fatal(err)
+	}
+	m := f.mailer.sent[len(f.mailer.sent)-1]
+	if m.To != "ada@example.org" || m.Subject != "Family now requires two-factor" || !strings.Contains(m.Text, "https://auth.test/security/two-factor") {
+		t.Fatalf("mail = %+v", m)
+	}
+}
+
+func TestNoOneWhoIsGoneIsMailed(t *testing.T) {
+	if err := newFixture().NotifyTwoFactorRequired(context.Background(), uuid.New(), "Family"); err == nil {
+		t.Fatal("mailed someone who is gone")
 	}
 }

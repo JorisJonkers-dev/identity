@@ -21,6 +21,7 @@ type Index interface {
 // Access is what the Launcher needs from the access context.
 type Access interface {
 	RolesByClient(ctx context.Context, userID uuid.UUID) (map[string][]string, error)
+	HeldBackClients(ctx context.Context, userID uuid.UUID) ([]string, error)
 }
 
 // Contexts is the app.Clients and app.Roles.
@@ -58,6 +59,10 @@ func (c *Contexts) Client(id string) (domain.Client, bool) {
 
 func (c *Contexts) RolesByClient(ctx context.Context, userID uuid.UUID) (map[string][]string, error) {
 	return c.access.RolesByClient(ctx, userID)
+}
+
+func (c *Contexts) HeldBack(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	return c.access.HeldBackClients(ctx, userID)
 }
 
 func client(x signindomain.Client) domain.Client {

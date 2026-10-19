@@ -158,9 +158,9 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 	signIn.SetClientSecrets(secrets)
 	stepUpSettings := signinpersistence.NewStepUps(q, now)
 	signIn.SetStepUps(stepUpSettings)
-	stepUps := signinapp.NewStepUps(stepUpSettings, cfg.Index, admins, recorder)
-	tokenContexts := tokenscontexts.New(signIn, access, cfg.Index)
+	tokenContexts := tokenscontexts.New(signIn, access, cfg.Index, stepUpSettings)
 	tokens := tokensapp.New(tokenspersistence.New(q), tokenContexts, tokenContexts, admins, recorder, now, rand.Reader)
+	stepUps := signinapp.NewStepUps(stepUpSettings, cfg.Index, admins, recorder, tokens)
 	signIn.SetPersonalTokens(signintokens.New(tokens))
 	audit = auditapp.New(auditpersistence.New(q), admins, directory.New(users, access, tokens, cfg.Index), cfg.Logger, now, rand.Reader)
 	launcherContexts := launchercontexts.New(cfg.Index, access)
@@ -182,7 +182,7 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 	if err != nil {
 		return nil, err
 	}
-	others := gatecontexts.New(signIn, users)
+	others := gatecontexts.New(signIn, users, stepUpSettings)
 	gate := gateapp.New(gatepersistence.New(q), others, others, others, recorder, now, rand.Reader, gateCacheTTL)
 	tokensDeleted = gate.Forget
 	gate.SetTokens(others)

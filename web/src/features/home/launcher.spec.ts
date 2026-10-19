@@ -14,9 +14,9 @@ const grafana = {
 const jellyfin = { id: 'jellyfin', label: 'Jellyfin', launchUrl: 'https://jellyfin.test/web', roles: ['user'] }
 const oldWiki = { id: 'old-wiki', label: 'Old wiki', launchUrl: 'https://wiki.test/', roles: ['reader'] }
 
-function signedIn(apps: unknown[], tokens: PersonalToken[] = [], asAdmin = false) {
+function signedIn(apps: unknown[], tokens: PersonalToken[] = [], asAdmin = false, heldBack = 0) {
   return {
-    'GET /api/v1/launcher': () => Response.json({ apps }),
+    'GET /api/v1/launcher': () => Response.json({ apps, heldBack }),
     'GET /api/v1/profile': () => Response.json(asAdmin ? admin() : profile()),
     'GET /api/v1/version': () => Response.json({ version: '0.4.0' }),
     'GET /api/v1/profile/tokens': () => Response.json({ tokens, clients: [] }),
@@ -161,5 +161,23 @@ describe('the expiring tokens strip', () => {
   it('stays away while no token expires this week', async () => {
     const { wrapper } = await mountAt('/', signedIn([grafana], [token({ state: 'active', expiresAt: '2027-02-02T09:00:00Z' })]))
     expect(wrapper.find('.strip').exists()).toBe(false)
+  })
+})
+
+describe('the Launcher, for someone a Two-factor Group holds back', () => {
+  it('says how many apps two-factor gives back, and links to set it up', async () => {
+    const { wrapper } = await mountAt('/', signedIn([jellyfin], [], false, 2))
+    expect(wrapper.get('.note.warn').text()).toBe('Add two-factor to open 2 more apps.Set up two-factor')
+    expect(wrapper.get('.note.warn a').attributes('href')).toBe('/security/two-factor')
+  })
+
+  it('says it for one app', async () => {
+    const { wrapper } = await mountAt('/', signedIn([jellyfin], [], false, 1))
+    expect(wrapper.get('.note.warn').text()).toBe('Add two-factor to open 1 more app.Set up two-factor')
+  })
+
+  it('says nothing once nothing is held back', async () => {
+    const { wrapper } = await mountAt('/', signedIn([jellyfin]))
+    expect(wrapper.find('.note.warn').exists()).toBe(false)
   })
 })

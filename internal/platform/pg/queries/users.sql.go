@@ -349,15 +349,18 @@ func (q *Queries) DeleteTOTPFactor(ctx context.Context, arg DeleteTOTPFactorPara
 	return result.RowsAffected(), nil
 }
 
-const deleteUser = `-- name: DeleteUser :exec
+const deleteUser = `-- name: DeleteUser :execrows
 DELETE FROM users WHERE id = $1
 `
 
 // Memberships, direct Assignments, factors and pending changes go with the User; Audit Events,
 // which keep only ids, stay.
-func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, deleteUser, id)
-	return err
+func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteUser, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const emailChangeOfUser = `-- name: EmailChangeOfUser :one
@@ -416,6 +419,31 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUsersWithTwoFactor = `-- name: ListUsersWithTwoFactor :many
+SELECT user_id FROM totp_factors UNION SELECT user_id FROM passkeys
+`
+
+// The Users who added an authenticator app or a passkey.
+func (q *Queries) ListUsersWithTwoFactor(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listUsersWithTwoFactor)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []uuid.UUID{}
+	for rows.Next() {
+		var user_id uuid.UUID
+		if err := rows.Scan(&user_id); err != nil {
+			return nil, err
+		}
+		items = append(items, user_id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

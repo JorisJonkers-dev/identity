@@ -61,19 +61,22 @@ func (users) StepUpWithPasskey(context.Context, string, []byte) error { return n
 func (users) Devices(context.Context, uuid.UUID, string) ([]app.Device, error) {
 	return nil, nil
 }
-func (users) AskEmailChange(context.Context, uuid.UUID, string, string) error { return nil }
-func (users) PendingEmail(context.Context, uuid.UUID) (string, error)         { return "", nil }
-func (users) CancelEmailChange(context.Context, uuid.UUID) error              { return nil }
-func (users) ConfirmEmailChange(context.Context, string) error                { return nil }
-func (users) AskPasswordReset(context.Context, string) error                  { return nil }
-func (users) CheckPasswordReset(context.Context, string) ([]string, error)    { return nil, nil }
-func (users) ResetWithCode(context.Context, string, string) error             { return nil }
-func (users) ResetPasskeyOptions(context.Context, string) ([]byte, error)     { return nil, nil }
-func (users) ResetWithPasskey(context.Context, string, []byte) error          { return nil }
-func (users) CompletePasswordReset(context.Context, string, string) error     { return nil }
-func (users) DeleteAccount(context.Context, uuid.UUID, string, string) error  { return nil }
-func (users) SignOutDevice(context.Context, uuid.UUID, uuid.UUID) error       { return nil }
-func (users) SignOutOtherDevices(context.Context, uuid.UUID, string) error    { return nil }
+func (users) AskEmailChange(context.Context, uuid.UUID, string, string) error      { return nil }
+func (users) PendingEmail(context.Context, uuid.UUID) (string, error)              { return "", nil }
+func (users) CancelEmailChange(context.Context, uuid.UUID) error                   { return nil }
+func (users) ConfirmEmailChange(context.Context, string) error                     { return nil }
+func (users) AskPasswordReset(context.Context, string) error                       { return nil }
+func (users) CheckPasswordReset(context.Context, string) ([]string, error)         { return nil, nil }
+func (users) ResetWithCode(context.Context, string, string) error                  { return nil }
+func (users) ResetPasskeyOptions(context.Context, string) ([]byte, error)          { return nil, nil }
+func (users) ResetWithPasskey(context.Context, string, []byte) error               { return nil }
+func (users) CompletePasswordReset(context.Context, string, string) error          { return nil }
+func (users) RenameAs(context.Context, app.Actor, uuid.UUID, string) error         { return nil }
+func (users) AskEmailChangeAs(context.Context, app.Actor, uuid.UUID, string) error { return nil }
+func (users) DeleteAs(context.Context, app.Actor, uuid.UUID) error                 { return nil }
+func (users) DeleteAccount(context.Context, uuid.UUID, string, string) error       { return nil }
+func (users) SignOutDevice(context.Context, uuid.UUID, uuid.UUID) error            { return nil }
+func (users) SignOutOtherDevices(context.Context, uuid.UUID, string) error         { return nil }
 func (users) ConfirmPasskey(context.Context, uuid.UUID, string, string, []byte, string) error {
 	return nil
 }
@@ -118,6 +121,8 @@ type launcher struct{}
 func (launcher) Apps(context.Context, uuid.UUID) ([]launcherdomain.App, error) {
 	return []launcherdomain.App{{Client: launcherdomain.Client{ID: "grafana", Label: "Grafana", Host: "grafana.test"}, Roles: []string{"user"}}}, nil
 }
+
+func (launcher) HeldBack(context.Context, uuid.UUID) (int, error) { return 0, nil }
 
 func (launcher) Icon(context.Context, string) (launcherdomain.Icon, error) {
 	return launcherdomain.Icon{}, nil

@@ -119,6 +119,41 @@ func encodeAskPasswordResetResponse(response AskPasswordResetRes, w http.Respons
 	}
 }
 
+func encodeAskUserEmailChangeResponse(response AskUserEmailChangeRes, w http.ResponseWriter, span trace.Span) error {
+	switch response := response.(type) {
+	case *AskUserEmailChangeAccepted:
+		w.WriteHeader(202)
+
+		return nil
+
+	case *ProblemStatusCode:
+		w.Header().Set("Content-Type", "application/problem+json")
+		code := response.StatusCode
+		if code == 0 {
+			// Set default status code.
+			code = http.StatusOK
+		}
+		w.WriteHeader(code)
+		if code >= http.StatusInternalServerError {
+			span.SetStatus(codes.Error, http.StatusText(code))
+		}
+
+		e := new(jx.Encoder)
+		response.Response.Encode(e)
+		if _, err := e.WriteTo(w); err != nil {
+			return errors.Wrap(err, "write")
+		}
+
+		if code >= http.StatusInternalServerError {
+			return errors.Wrapf(ht.ErrInternalServerErrorResponse, "code: %d, message: %s", code, http.StatusText(code))
+		}
+		return nil
+
+	default:
+		return errors.Errorf("unexpected response type: %T", response)
+	}
+}
+
 func encodeAssignRoleResponse(response AssignRoleRes, w http.ResponseWriter, span trace.Span) error {
 	switch response := response.(type) {
 	case *AssignRoleNoContent:
@@ -709,6 +744,41 @@ func encodeDeleteGroupResponse(response DeleteGroupRes, w http.ResponseWriter, s
 	}
 }
 
+func encodeDeleteUserResponse(response DeleteUserRes, w http.ResponseWriter, span trace.Span) error {
+	switch response := response.(type) {
+	case *DeleteUserNoContent:
+		w.WriteHeader(204)
+
+		return nil
+
+	case *ProblemStatusCode:
+		w.Header().Set("Content-Type", "application/problem+json")
+		code := response.StatusCode
+		if code == 0 {
+			// Set default status code.
+			code = http.StatusOK
+		}
+		w.WriteHeader(code)
+		if code >= http.StatusInternalServerError {
+			span.SetStatus(codes.Error, http.StatusText(code))
+		}
+
+		e := new(jx.Encoder)
+		response.Response.Encode(e)
+		if _, err := e.WriteTo(w); err != nil {
+			return errors.Wrap(err, "write")
+		}
+
+		if code >= http.StatusInternalServerError {
+			return errors.Wrapf(ht.ErrInternalServerErrorResponse, "code: %d, message: %s", code, http.StatusText(code))
+		}
+		return nil
+
+	default:
+		return errors.Errorf("unexpected response type: %T", response)
+	}
+}
+
 func encodeGetAccessResponse(response GetAccessRes, w http.ResponseWriter, span trace.Span) error {
 	switch response := response.(type) {
 	case *AccessOverview:
@@ -879,7 +949,7 @@ func encodeGetProfileResponse(response GetProfileRes, w http.ResponseWriter, spa
 
 func encodeGetStepUpResponse(response GetStepUpRes, w http.ResponseWriter, span trace.Span) error {
 	switch response := response.(type) {
-	case *StepUp:
+	case *StepUpState:
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.WriteHeader(200)
 
@@ -1360,6 +1430,41 @@ func encodeRenameGroupResponse(response RenameGroupRes, w http.ResponseWriter, s
 	}
 }
 
+func encodeRenameUserResponse(response RenameUserRes, w http.ResponseWriter, span trace.Span) error {
+	switch response := response.(type) {
+	case *RenameUserNoContent:
+		w.WriteHeader(204)
+
+		return nil
+
+	case *ProblemStatusCode:
+		w.Header().Set("Content-Type", "application/problem+json")
+		code := response.StatusCode
+		if code == 0 {
+			// Set default status code.
+			code = http.StatusOK
+		}
+		w.WriteHeader(code)
+		if code >= http.StatusInternalServerError {
+			span.SetStatus(codes.Error, http.StatusText(code))
+		}
+
+		e := new(jx.Encoder)
+		response.Response.Encode(e)
+		if _, err := e.WriteTo(w); err != nil {
+			return errors.Wrap(err, "write")
+		}
+
+		if code >= http.StatusInternalServerError {
+			return errors.Wrapf(ht.ErrInternalServerErrorResponse, "code: %d, message: %s", code, http.StatusText(code))
+		}
+		return nil
+
+	default:
+		return errors.Errorf("unexpected response type: %T", response)
+	}
+}
+
 func encodeResetPasskeyOptionsResponse(response ResetPasskeyOptionsRes, w http.ResponseWriter, span trace.Span) error {
 	switch response := response.(type) {
 	case *PasskeyOptions:
@@ -1545,6 +1650,41 @@ func encodeRevokeUserTokenResponse(response RevokeUserTokenRes, w http.ResponseW
 func encodeRotateClientSecretResponse(response RotateClientSecretRes, w http.ResponseWriter, span trace.Span) error {
 	switch response := response.(type) {
 	case *RotateClientSecretNoContent:
+		w.WriteHeader(204)
+
+		return nil
+
+	case *ProblemStatusCode:
+		w.Header().Set("Content-Type", "application/problem+json")
+		code := response.StatusCode
+		if code == 0 {
+			// Set default status code.
+			code = http.StatusOK
+		}
+		w.WriteHeader(code)
+		if code >= http.StatusInternalServerError {
+			span.SetStatus(codes.Error, http.StatusText(code))
+		}
+
+		e := new(jx.Encoder)
+		response.Response.Encode(e)
+		if _, err := e.WriteTo(w); err != nil {
+			return errors.Wrap(err, "write")
+		}
+
+		if code >= http.StatusInternalServerError {
+			return errors.Wrapf(ht.ErrInternalServerErrorResponse, "code: %d, message: %s", code, http.StatusText(code))
+		}
+		return nil
+
+	default:
+		return errors.Errorf("unexpected response type: %T", response)
+	}
+}
+
+func encodeSetGroupTwoFactorResponse(response SetGroupTwoFactorRes, w http.ResponseWriter, span trace.Span) error {
+	switch response := response.(type) {
+	case *SetGroupTwoFactorNoContent:
 		w.WriteHeader(204)
 
 		return nil

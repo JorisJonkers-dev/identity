@@ -21,6 +21,11 @@ type Access interface {
 	RolesByClient(ctx context.Context, userID uuid.UUID) (map[string][]string, error)
 }
 
+// StepUps is each Client's step-up window in minutes, 0 when it is off.
+type StepUps interface {
+	StepUp(ctx context.Context, clientID string) (int, error)
+}
+
 // Index is the Clients the cluster declares.
 type Index interface {
 	Client(ctx context.Context, id string) (signindomain.Client, error)
@@ -28,14 +33,20 @@ type Index interface {
 
 // Contexts is the app.Roles and app.Clients.
 type Contexts struct {
-	signIn SignIn
-	access Access
-	index  Index
+	signIn  SignIn
+	access  Access
+	index   Index
+	stepUps StepUps
 }
 
-// New returns Contexts over the three.
-func New(signIn SignIn, access Access, index Index) *Contexts {
-	return &Contexts{signIn: signIn, access: access, index: index}
+// New returns Contexts over the four.
+func New(signIn SignIn, access Access, index Index, stepUps StepUps) *Contexts {
+	return &Contexts{signIn: signIn, access: access, index: index, stepUps: stepUps}
+}
+
+func (c *Contexts) StepUp(ctx context.Context, clientID string) (bool, error) {
+	minutes, err := c.stepUps.StepUp(ctx, clientID)
+	return minutes > 0, err
 }
 
 var (

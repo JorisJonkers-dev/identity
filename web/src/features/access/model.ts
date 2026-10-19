@@ -43,6 +43,11 @@ export function holdsDirect(o: AccessOverview, userId: string, clientId: string,
   return o.userAssignments.some((a) => a.userId === userId && a.clientId === clientId && a.role === role)
 }
 
+/** The people holding a role on an app directly, by name. */
+export function directHolders(o: AccessOverview, clientId: string, role: string): Person[] {
+  return o.users.filter((u) => holdsDirect(o, u.id, clientId, role))
+}
+
 /** Whether a person waits for access: no role directly or through a Group, and no Admin. */
 export function unassigned(o: AccessOverview, userId: string): boolean {
   const groups = groupsOf(o, userId)

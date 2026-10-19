@@ -6,7 +6,7 @@ import { navigation } from '../infrastructure/navigation'
 const personalPage = (who = profile()) => ({
   'GET /api/v1/profile': () => Response.json(who),
   'GET /api/v1/profile/second-factors': () => Response.json({ factors: [] }),
-  'GET /api/v1/launcher': () => Response.json({ apps: [] }),
+  'GET /api/v1/launcher': () => Response.json({ apps: [], heldBack: 0 }),
   'GET /api/v1/dashboard': () => Response.json(dashboard()),
 })
 

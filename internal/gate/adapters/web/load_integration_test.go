@@ -45,6 +45,10 @@ const (
 	requests  = 5000
 )
 
+// slowdown scales the target: 1 without the race detector, which race_integration_test.go raises.
+// One variable rather than a constant per build, because gobco reads every file whatever its tags.
+var slowdown time.Duration = 1 //nolint:gochecknoglobals // set once, by the race build's init.
+
 func sum(s string) []byte {
 	h := sha256.Sum256([]byte(s))
 	return h[:]
@@ -79,7 +83,7 @@ func TestTheGateCheckHoldsItsP99(t *testing.T) {
 	users := usersapp.New(userspersistence.New(q, store), nil, nil, time.Now, rand.Reader, "")
 	access := accessapp.New(accesspersistence.New(q, store), catalog.New(index), people.New(users), discard{}, rand.Reader)
 	signIn := signinapp.New(signinpersistence.New(q), index, accounts.New(users), access, nil, discard{}, time.Now, rand.Reader)
-	others := contexts.New(signIn, users)
+	others := contexts.New(signIn, users, signinpersistence.NewStepUps(q, time.Now))
 	gate := gateapp.New(gatepersistence.New(q), others, others, others, discard{}, time.Now, rand.Reader, 30*time.Second)
 	h, err := web.New(gate, web.Config{Issuer: "https://auth.test", SessionCookie: "__Host-identity_session"}, slog.New(slog.DiscardHandler))
 	if err != nil {
@@ -148,8 +152,8 @@ func TestTheGateCheckHoldsItsP99(t *testing.T) {
 	slices.Sort(times)
 	p50, p99 := times[len(times)/2], times[len(times)*99/100]
 	t.Logf("Gate check over %d requests: p50 %v, p99 %v", len(times), p50, p99)
-	if p99 >= p99Target {
-		t.Fatalf("the Gate check's p99 is %v, at or above its %v target (p50 %v)", p99, p99Target, p50)
+	if target := p99Target * slowdown; p99 >= target {
+		t.Fatalf("the Gate check's p99 is %v, at or above its %v target (p50 %v)", p99, target, p50)
 	}
 }
 

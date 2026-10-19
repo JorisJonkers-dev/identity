@@ -68,6 +68,23 @@ func (s *Store) Revoke(ctx context.Context, id, userID uuid.UUID, at time.Time) 
 	return n > 0, err
 }
 
+func (s *Store) RevokeForClient(ctx context.Context, clientID string, at time.Time) ([]domain.Token, error) {
+	rows, err := s.q.RevokeClientTokens(ctx, queries.RevokeClientTokensParams{ClientID: clientID, RevokedAt: &at})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.Token, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, domain.Token{ID: r.ID, UserID: r.UserID, ClientID: clientID})
+	}
+	return out, nil
+}
+
+func (s *Store) LiveForClient(ctx context.Context, clientID string, now time.Time) (int, error) {
+	n, err := s.q.CountLiveClientTokens(ctx, queries.CountLiveClientTokensParams{ClientID: clientID, ExpiresAt: now})
+	return int(n), err
+}
+
 func (s *Store) Touch(ctx context.Context, id uuid.UUID, at time.Time) error {
 	return s.q.TouchPersonalToken(ctx, queries.TouchPersonalTokenParams{ID: id, LastUsedAt: &at})
 }

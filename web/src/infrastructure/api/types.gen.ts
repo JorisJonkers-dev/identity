@@ -12,7 +12,7 @@ export type AuditKind = 'sign-in' | 'people' | 'access' | 'tokens';
 /**
  * What an Audit Event records.
  */
-export type AuditAction = 'signed-in' | 'sign-in-failed' | 'signed-out' | 'user-created' | 'user-renamed' | 'password-changed' | 'second-factor-added' | 'second-factor-removed' | 'admin-promoted' | 'group-created' | 'group-renamed' | 'group-deleted' | 'member-added' | 'member-removed' | 'role-assigned' | 'role-removed' | 'token-minted' | 'token-revoked' | 'client-secret-rotated' | 'email-changed' | 'account-deleted' | 'password-reset' | 'step-up-changed';
+export type AuditAction = 'signed-in' | 'sign-in-failed' | 'signed-out' | 'user-created' | 'user-renamed' | 'password-changed' | 'second-factor-added' | 'second-factor-removed' | 'admin-promoted' | 'group-created' | 'group-renamed' | 'group-deleted' | 'member-added' | 'member-removed' | 'role-assigned' | 'role-removed' | 'token-minted' | 'token-revoked' | 'client-secret-rotated' | 'group-two-factor-required' | 'group-two-factor-dropped' | 'email-changed' | 'account-deleted' | 'password-reset' | 'step-up-changed';
 
 /**
  * Where a page of Audit Events ends; opaque.
@@ -395,6 +395,10 @@ export type Group = {
      */
     admins: boolean;
     /**
+     * Whether a member without two-factor holds none of the Group's App Roles. The admins Group always does.
+     */
+    requiresTwoFactor: boolean;
+    /**
      * The Users in the Group.
      */
     members: Array<Id>;
@@ -404,6 +408,7 @@ export type Group = {
  * The apps a User can open.
  */
 export type Launcher = {
+    heldBack: Count;
     apps: Array<LauncherApp>;
 };
 
@@ -444,6 +449,10 @@ export type Person = {
      * What the User is called.
      */
     name: string;
+    /**
+     * Whether the User added an authenticator app or a passkey.
+     */
+    twoFactor: boolean;
 };
 
 /**
@@ -468,6 +477,13 @@ export type Assignment = {
     groupId: Id;
     clientId: ClientId;
     role: AppRole;
+};
+
+/**
+ * Whether a Group requires two-factor of its members.
+ */
+export type TwoFactorRequirement = {
+    required: boolean;
 };
 
 /**
@@ -503,6 +519,17 @@ export type AccessOverview = {
      * Every Assignment held by a User directly.
      */
     userAssignments: Array<UserAssignment>;
+};
+
+/**
+ * How fresh a Client wants two-factor, and how many live Personal Tokens turning step-up on would revoke: none can satisfy it (docs/adr/0019).
+ */
+export type StepUpState = {
+    /**
+     * The window in minutes; 0 is off.
+     */
+    minutes: 0 | 5 | 15 | 60;
+    tokens: Count;
 };
 
 /**
@@ -1954,6 +1981,140 @@ export type AddMemberResponses = {
 
 export type AddMemberResponse = AddMemberResponses[keyof AddMemberResponses];
 
+export type SetGroupTwoFactorData = {
+    body: TwoFactorRequirement;
+    path: {
+        /**
+         * The Group.
+         */
+        groupId: Id;
+    };
+    query?: never;
+    url: '/api/v1/access/groups/{groupId}/two-factor';
+};
+
+export type SetGroupTwoFactorErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type SetGroupTwoFactorError = SetGroupTwoFactorErrors[keyof SetGroupTwoFactorErrors];
+
+export type SetGroupTwoFactorResponses = {
+    /**
+     * The Group's requirement is set.
+     */
+    204: void;
+};
+
+export type SetGroupTwoFactorResponse = SetGroupTwoFactorResponses[keyof SetGroupTwoFactorResponses];
+
+export type DeleteUserData = {
+    body?: never;
+    path: {
+        /**
+         * The User.
+         */
+        userId: Id;
+    };
+    query?: never;
+    url: '/api/v1/access/users/{userId}';
+};
+
+export type DeleteUserErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type DeleteUserError = DeleteUserErrors[keyof DeleteUserErrors];
+
+export type DeleteUserResponses = {
+    /**
+     * The person is deleted.
+     */
+    204: void;
+};
+
+export type DeleteUserResponse = DeleteUserResponses[keyof DeleteUserResponses];
+
+export type RenameUserData = {
+    body: ProfileUpdate;
+    path: {
+        /**
+         * The User.
+         */
+        userId: Id;
+    };
+    query?: never;
+    url: '/api/v1/access/users/{userId}';
+};
+
+export type RenameUserErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type RenameUserError = RenameUserErrors[keyof RenameUserErrors];
+
+export type RenameUserResponses = {
+    /**
+     * The person has the new name.
+     */
+    204: void;
+};
+
+export type RenameUserResponse = RenameUserResponses[keyof RenameUserResponses];
+
+export type AskUserEmailChangeData = {
+    body: EmailAddress;
+    path: {
+        /**
+         * The User.
+         */
+        userId: Id;
+    };
+    query?: never;
+    url: '/api/v1/access/users/{userId}/email-change';
+};
+
+export type AskUserEmailChangeErrors = {
+    /**
+     * An RFC 9457 problem.
+     */
+    '4XX': Problem;
+    /**
+     * An RFC 9457 problem.
+     */
+    default: Problem;
+};
+
+export type AskUserEmailChangeError = AskUserEmailChangeErrors[keyof AskUserEmailChangeErrors];
+
+export type AskUserEmailChangeResponses = {
+    /**
+     * The link is on its way.
+     */
+    202: unknown;
+};
+
 export type SignOutUserData = {
     body?: never;
     path: {
@@ -2458,7 +2619,7 @@ export type GetStepUpResponses = {
     /**
      * The Client's step-up.
      */
-    200: StepUp;
+    200: StepUpState;
 };
 
 export type GetStepUpResponse = GetStepUpResponses[keyof GetStepUpResponses];
