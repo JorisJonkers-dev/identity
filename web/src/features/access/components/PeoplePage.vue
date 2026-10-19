@@ -16,6 +16,7 @@ const picked = ref(new Set<string>())
 const groupOptions = computed(() => [
   { value: '', label: 'Any Group' },
   { value: 'none', label: 'Unassigned' },
+  { value: 'direct', label: 'With a direct role' },
   ...(overview.value?.groups ?? []).map((g) => ({ value: g.id, label: g.name })),
 ])
 const addOptions = computed(() => (overview.value?.groups ?? []).filter((g) => !g.admins).map((g) => ({ value: g.id, label: g.name })))
@@ -29,7 +30,7 @@ const people = computed(() => {
   const q = find.value.trim().toLowerCase()
   return o.users
     .map((u) => ({ ...u, groups: groupsOf(o, u.id), waiting: unassigned(o, u.id) }))
-    .filter((u) => (!q || u.name.toLowerCase().includes(q) || u.email.includes(q)) && (!group.value || (group.value === 'none' ? u.waiting : u.groups.some((g) => g.id === group.value))))
+    .filter((u) => (!q || u.name.toLowerCase().includes(q) || u.email.includes(q)) && (!group.value || (group.value === 'none' ? u.waiting : group.value === 'direct' ? o.userAssignments.some((a) => a.userId === u.id) : u.groups.some((g) => g.id === group.value))))
     .sort((a, b) => (sort.value === 'unassigned' ? Number(b.waiting) - Number(a.waiting) : 0) || a.name.localeCompare(b.name))
 })
 function pick(id: string, on: boolean) {

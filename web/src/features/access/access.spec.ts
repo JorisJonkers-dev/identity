@@ -480,7 +480,7 @@ describe('an app’s page', () => {
 
   it('gives a role to a Group, offering only those without it and never the admins', async () => {
     const { wrapper, requests } = await mountAt('/admin/apps/grafana', server().answers)
-    expect(block(wrapper, 'viewer').findAll('[role="option"]').map((o) => o.text())).toEqual(['Friends'])
+    expect(block(wrapper, 'viewer').get('.rb-line.groups').findAll('[role="option"]').map((o) => o.text())).toEqual(['Friends'])
     await pick(wrapper, 'Give editor to a Group', 'Family')
     expect(requests.some((r) => r.key === `PUT ${roleAt(ids.family, 'grafana', 'editor')}`)).toBe(true)
     expect(block(wrapper, 'editor').findAll('.gchip').map((g) => g.text())).toEqual(['Family'])
@@ -510,6 +510,34 @@ describe('an app’s page', () => {
     await button(wrapper.get('.confirm'), 'Replace secret').trigger('click')
     await settle()
     expect(wrapper.get('[role="alert"]').text()).toBe('Grafana signs in without a secret.')
+  })
+
+  it('lists the people holding each role directly', async () => {
+    const { o, answers } = server()
+    o.userAssignments.push({ userId: ids.ada, clientId: 'grafana', role: 'editor' })
+    const { wrapper } = await mountAt('/admin/apps/grafana', answers)
+    expect(block(wrapper, 'editor').findAll('.rb-line.people .gchip').map((g) => g.text())).toEqual(['Ada Lovelace'])
+    expect(block(wrapper, 'viewer').get('.rb-line.people .soft').text()).toBe('None')
+  })
+
+  it('gives a role to a person, offering only those without it', async () => {
+    const { o, answers } = server()
+    o.userAssignments.push({ userId: ids.ada, clientId: 'grafana', role: 'editor' })
+    const { wrapper, requests } = await mountAt('/admin/apps/grafana', answers)
+    expect(block(wrapper, 'editor').get('.rb-line.people').findAll('[role="option"]').map((x) => x.text())).toEqual(['Joris Jonkers', 'Noor Bakker'])
+    await pick(wrapper, 'Give viewer to a person', 'Noor Bakker')
+    expect(requests.some((r) => r.key === `PUT ${userRoleAt(ids.noor, 'grafana', 'viewer')}`)).toBe(true)
+    expect(block(wrapper, 'viewer').findAll('.rb-line.people .gchip').map((g) => g.text())).toEqual(['Noor Bakker'])
+  })
+
+  it('takes a role from a person', async () => {
+    const { o, answers } = server()
+    o.userAssignments.push({ userId: ids.ada, clientId: 'grafana', role: 'editor' })
+    const { wrapper, requests } = await mountAt('/admin/apps/grafana', answers)
+    await wrapper.get('[aria-label="Take editor from Ada Lovelace"]').trigger('click')
+    await settle()
+    expect(requests.some((r) => r.key === `DELETE ${userRoleAt(ids.ada, 'grafana', 'editor')}`)).toBe(true)
+    expect(block(wrapper, 'editor').findAll('.rb-line.people .gchip')).toHaveLength(0)
   })
 
   it('says step-up is off until an Admin sets it', async () => {
@@ -598,6 +626,14 @@ describe('the People page', () => {
     const { wrapper } = await mountAt('/admin/people', answers)
     expect(names(wrapper)[0]).toBe('Noor Bakker')
     expect(wrapper.findAll('.lt-r')[0]?.get('.gtag.warn').text()).toBe('Unassigned')
+  })
+
+  it('narrows to the people holding a role directly', async () => {
+    const { o, answers } = server()
+    o.userAssignments.push({ userId: ids.noor, clientId: 'vault', role: 'user' })
+    const { wrapper } = await mountAt('/admin/people', answers)
+    await pick(wrapper, 'Group', 'With a direct role')
+    expect(names(wrapper)).toEqual(['Noor Bakker'])
   })
 
   it('sorts by name', async () => {
