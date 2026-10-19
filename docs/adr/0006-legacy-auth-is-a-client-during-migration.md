@@ -14,3 +14,5 @@ During migration, auth-api and auth-ui keep running as Legacy Auth, but they sto
 ## Consequences
 
 auth.jorisjonkers.dev moves from the auth project to identity at the first cutover, so identity's project file cannot be published before it. Legacy Auth's `.jorisjonkers.dev` cookie stays until it gates no host, then auth-api and auth-ui are archived.
+
+[0018](0018-users-and-machine-identities-hold-assignments-directly.md) changed one step: each `SERVICE_*` grant becomes a direct Assignment of that Client's `user` role, not Group membership.

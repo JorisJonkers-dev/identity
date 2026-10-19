@@ -179,3 +179,37 @@ func TestAGrafanaURLThatIsNotHTTPSIsRefused(t *testing.T) {
 		})
 	}
 }
+
+func TestAnUnknownOrIncompleteImportPrintsTheUsage(t *testing.T) {
+	for _, args := range [][]string{
+		{"import"},
+		{"import", "keycloak"},
+		{"import", "auth-api", "--force"},
+		{"import", "auth-api", "--client"},
+		{"import", "auth-api", "--client", "MAIL"},
+		{"import", "auth-api", "--client", "=stalwart"},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			var out, errs strings.Builder
+			if code := command(t.Context(), env(nil), args, &out, &errs); code != 2 || !strings.Contains(errs.String(), "usage: identity import auth-api") {
+				t.Fatalf("command = %d, %q", code, errs.String())
+			}
+		})
+	}
+}
+
+func TestImportingWithoutTheDatabasesAndVaultSaysWhatIsMissing(t *testing.T) {
+	var out, errs strings.Builder
+	code := command(t.Context(), env(nil), []string{"import", "auth-api", "--dry-run", "--client", "MAIL=stalwart"}, &out, &errs)
+	if code != 1 || !strings.Contains(errs.String(), "DATABASE_URL, LEGACY_DATABASE_URL, VAULT_ADDR not set") {
+		t.Fatalf("command = %d, %q", code, errs.String())
+	}
+}
+
+func TestImportingFromAnUnreachableDatabaseFails(t *testing.T) {
+	vars := map[string]string{"DATABASE_URL": unreachable, "LEGACY_DATABASE_URL": unreachable, "VAULT_ADDR": "http://127.0.0.1:1"}
+	var out, errs strings.Builder
+	if code := command(t.Context(), env(vars), []string{"import", "auth-api"}, &out, &errs); code != 1 || errs.Len() == 0 {
+		t.Fatalf("command = %d, %q", code, errs.String())
+	}
+}

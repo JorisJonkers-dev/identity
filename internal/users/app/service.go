@@ -175,6 +175,8 @@ type Admins interface {
 type Hasher interface {
 	Hash(p domain.Password) (string, error)
 	Verify(hash, password string) (bool, error)
+	// Outdated reports whether hash came from an older scheme, such as auth-api's bcrypt.
+	Outdated(hash string) bool
 }
 
 // Mail is one plain-text message to one address.
@@ -377,6 +379,7 @@ func (s *Service) SignIn(ctx context.Context, rawEmail, password string) (string
 		refused.User = u.ID
 		return "", s.failed(ctx, refused, ErrInvalidCredentials)
 	}
+	s.rehash(ctx, u, password)
 	has, err := s.hasSecondFactor(ctx, u.ID)
 	if err != nil {
 		return "", err
@@ -389,6 +392,17 @@ func (s *Service) SignIn(ctx context.Context, rawEmail, password string) (string
 		return challenge, ErrSecondFactorNeeded
 	}
 	return s.startSession(ctx, u.ID, []string{methodPassword})
+}
+
+// rehash replaces an imported hash with an argon2id one, now the password is known (docs/adr/0006).
+// A failure keeps the old hash, which still verifies, for the next sign-in to try again.
+func (s *Service) rehash(ctx context.Context, u domain.User, password string) {
+	if !s.hasher.Outdated(u.PasswordHash) {
+		return
+	}
+	if hash, err := s.hasher.Hash(domain.ProvenPassword(password)); err == nil {
+		_ = s.store.UpdatePasswordHash(ctx, u.ID, hash)
+	}
 }
 
 // startSession makes a Single sign-on session proved by methods and returns its token. An Admin's

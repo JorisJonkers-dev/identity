@@ -76,8 +76,11 @@ type Querier interface {
 	GroupByID(ctx context.Context, id uuid.UUID) (GroupByIDRow, error)
 	// The Clients a User's Two-factor Groups give roles on, while the User has no two-factor.
 	HeldBackClients(ctx context.Context, userID uuid.UUID) ([]string, error)
+	ImportUser(ctx context.Context, arg ImportUserParams) (int64, error)
 	IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error)
 	IsOnlyAdmin(ctx context.Context, arg IsOnlyAdminParams) (bool, error)
+	// Whether a Legacy Auth account (docs/adr/0006) is already here under its own id, and whether its email is taken.
+	LegacyState(ctx context.Context, arg LegacyStateParams) (LegacyStateRow, error)
 	ListAssignments(ctx context.Context) ([]ListAssignmentsRow, error)
 	// Newest first, before a (at, id) cursor; a User filter matches what they did and what was done to them.
 	ListAuditEvents(ctx context.Context, arg ListAuditEventsParams) ([]AuditEvent, error)

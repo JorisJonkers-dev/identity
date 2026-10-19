@@ -645,8 +645,11 @@ func (h *hasher) Hash(p domain.Password) (string, error) {
 
 func (h *hasher) Verify(hash, password string) (bool, error) {
 	h.verified++
-	return hash == "hash:"+password, h.fail
+	return hash == "hash:"+password || hash == "old:"+password, h.fail
 }
+
+// Outdated is true for an "old:" hash, the kind the import from auth-api leaves.
+func (h *hasher) Outdated(hash string) bool { return strings.HasPrefix(hash, "old:") }
 
 type mailer struct {
 	sent []app.Mail
@@ -1017,6 +1020,62 @@ func TestSignInStartsAThirtyDaySession(t *testing.T) {
 	}
 	if strings.Contains(string(sess.TokenHash), token) {
 		t.Fatal("the session stores the token itself")
+	}
+}
+
+// imported is a User signed up as email whose hash came from auth-api, as the import leaves it.
+func (f *fixture) imported(t *testing.T, email string) uuid.UUID {
+	t.Helper()
+	id := f.signedUp(t, email)
+	u := f.store.users[id]
+	u.PasswordHash = "old:" + pw
+	f.store.users[id] = u
+	return id
+}
+
+func TestSignInHashesAnImportedPasswordAgain(t *testing.T) {
+	f := newFixture()
+	id := f.imported(t, "ada@example.org")
+	if _, err := f.SignIn(context.Background(), "ada@example.org", pw); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.store.users[id].PasswordHash; got != "hash:"+pw {
+		t.Fatalf("the hash after signing in is %q", got)
+	}
+}
+
+func TestSignInStillSignsInWhenAnImportedPasswordCannotBeHashedAgain(t *testing.T) {
+	boom := errors.New("boom")
+	for _, c := range []struct {
+		name  string
+		spoil func(*fixture)
+	}{
+		{"hashing fails", func(f *fixture) { f.hasher.failHash = boom }},
+		{"saving fails", func(f *fixture) { f.store.fail["UpdatePasswordHash"] = boom }},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			f := newFixture()
+			id := f.imported(t, "ada@example.org")
+			c.spoil(f)
+			if _, err := f.SignIn(context.Background(), "ada@example.org", pw); err != nil {
+				t.Fatal(err)
+			}
+			if got := f.store.users[id].PasswordHash; got != "old:"+pw {
+				t.Fatalf("the hash is %q, want the imported one kept for the next sign-in", got)
+			}
+		})
+	}
+}
+
+func TestSignInLeavesACurrentHashAlone(t *testing.T) {
+	f := newFixture()
+	f.signedUp(t, "ada@example.org")
+	before := f.hasher.hashed
+	if _, err := f.SignIn(context.Background(), "ada@example.org", pw); err != nil {
+		t.Fatal(err)
+	}
+	if f.hasher.hashed != before {
+		t.Fatalf("signing in hashed %d times", f.hasher.hashed-before)
 	}
 }
 

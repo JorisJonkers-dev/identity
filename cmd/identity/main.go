@@ -1,7 +1,7 @@
 // Command identity serves the API and the embedded web app, and drains on SIGTERM. It never
 // migrates its database: the identity-migration image does, before it starts (docs/adr/0010).
 //
-// With arguments it runs an admin command instead; see command.
+// With arguments it runs an admin command or the import from auth-api instead; see command.
 //
 // Environment: DATABASE_URL, PUBLIC_URL (where mailed links point), SMTP_ADDR, MAIL_FROM and
 // VAULT_ADDR are required; SMTP_USERNAME and SMTP_PASSWORD sign in to the mail server; SMTP_TLS is
@@ -209,6 +209,16 @@ func or(value, fallback string) string {
 	return value
 }
 
+// readVault reads how to reach Vault at addr, with its defaults.
+func readVault(getenv func(string) string, addr string) vaultConfig {
+	return vaultConfig{
+		addr: addr, token: getenv("VAULT_TOKEN"), signingKey: or(getenv("VAULT_SIGNING_KEY"), "identity-signing"),
+		role: or(getenv("VAULT_ROLE"), "identity"), authMount: or(getenv("VAULT_AUTH_MOUNT"), "kubernetes"),
+		jwtPath:      or(getenv("VAULT_JWT_PATH"), "/var/run/secrets/kubernetes.io/serviceaccount/token"),
+		transitMount: or(getenv("VAULT_TRANSIT_MOUNT"), "transit"), totpKey: or(getenv("VAULT_TOTP_KEY"), "identity-totp"),
+	}
+}
+
 // readConfig reads the environment, naming every required variable that is missing at once.
 func readConfig(getenv func(string) string) (config, error) {
 	var missing []string
@@ -226,12 +236,7 @@ func readConfig(getenv func(string) string) (config, error) {
 		metricsAddr: getenv("METRICS_ADDR"),
 		inCluster:   getenv("KUBERNETES_SERVICE_HOST") != "",
 		clientsFile: getenv("CLIENTS_FILE"),
-		vault: vaultConfig{
-			addr: need("VAULT_ADDR"), token: getenv("VAULT_TOKEN"), signingKey: or(getenv("VAULT_SIGNING_KEY"), "identity-signing"),
-			role: or(getenv("VAULT_ROLE"), "identity"), authMount: or(getenv("VAULT_AUTH_MOUNT"), "kubernetes"),
-			jwtPath:      or(getenv("VAULT_JWT_PATH"), "/var/run/secrets/kubernetes.io/serviceaccount/token"),
-			transitMount: or(getenv("VAULT_TRANSIT_MOUNT"), "transit"), totpKey: or(getenv("VAULT_TOTP_KEY"), "identity-totp"),
-		},
+		vault:       readVault(getenv, need("VAULT_ADDR")),
 		mailer: mail.SMTP{
 			Addr: need("SMTP_ADDR"), From: need("MAIL_FROM"),
 			Username: getenv("SMTP_USERNAME"), Password: getenv("SMTP_PASSWORD"),

@@ -68,6 +68,7 @@ var (
 // Env is one running identity.
 type Env struct {
 	srv   *httptest.Server
+	url   string
 	db    *pg.Store
 	logs  *logBuffer
 	prune func(context.Context) (int64, error)
@@ -113,7 +114,8 @@ func (l *logBuffer) Write(p []byte) (int, error) {
 func Start(t *testing.T, cs ...signindomain.Client) *Env {
 	t.Helper()
 	started(t)
-	store, err := pg.Open(t.Context(), pgtest.URL(t))
+	url := pgtest.URL(t)
+	store, err := pg.Open(t.Context(), url)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +151,7 @@ func Start(t *testing.T, cs ...signindomain.Client) *Env {
 	srv := httptest.NewUnstartedServer(server.New(logger, "itest", built.Routes).Handler())
 	srv.StartTLS()
 	t.Cleanup(srv.Close)
-	return &Env{srv: srv, db: store, logs: logs, prune: built.Prune, clock: clk}
+	return &Env{srv: srv, url: url, db: store, logs: logs, prune: built.Prune, clock: clk}
 }
 
 // Logs is every line identity logged so far, each decoded from its JSON.
@@ -256,6 +258,9 @@ func (e *Env) Userinfo(t *testing.T, token string) int {
 	_ = res.Body.Close()
 	return res.StatusCode
 }
+
+// DatabaseURL is identity's database, for a command that runs beside the server.
+func (e *Env) DatabaseURL() string { return e.url }
 
 // Queries reaches the test's database directly, to set up what no request can, such as an event
 // a year old.

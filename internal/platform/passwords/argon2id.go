@@ -1,5 +1,6 @@
 // Package passwords hashes and verifies passwords with argon2id, in the PHC string format, so each
 // hash records the parameters it was made with and a stronger setting never strands an old hash.
+// It also checks the bcrypt hashes imported from auth-api, until their next sign-in replaces them.
 package passwords
 
 import (
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"golang.org/x/crypto/argon2"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/JorisJonkers-dev/identity/internal/users/app"
 	"github.com/JorisJonkers-dev/identity/internal/users/domain"
@@ -32,6 +34,9 @@ const (
 
 	minHashBytes = 16
 	maxHashBytes = 64
+
+	// auth-api hashed at bcrypt's default, 10; a dearer stored cost is refused like a dearer argon2id.
+	maxBcryptCost = 12
 )
 
 // Argon2id is the app.Hasher. Random defaults to crypto/rand. The zero value runs any number of
@@ -49,17 +54,27 @@ func NewArgon2id(n int, wait time.Duration) Argon2id {
 	return Argon2id{slots: make(chan struct{}, n), wait: wait}
 }
 
-func (a Argon2id) key(password, salt []byte, passes, memory uint32, threads uint8, size uint32) ([]byte, error) {
-	if a.slots != nil {
-		timer := time.NewTimer(a.wait)
-		defer timer.Stop()
-		select {
-		case a.slots <- struct{}{}:
-			defer func() { <-a.slots }()
-		case <-timer.C:
-			return nil, app.ErrBusy
-		}
+// slot waits for a free slot and returns its release, or fails with app.ErrBusy.
+func (a Argon2id) slot() (func(), error) {
+	if a.slots == nil {
+		return func() {}, nil
 	}
+	timer := time.NewTimer(a.wait)
+	defer timer.Stop()
+	select {
+	case a.slots <- struct{}{}:
+		return func() { <-a.slots }, nil
+	case <-timer.C:
+		return nil, app.ErrBusy
+	}
+}
+
+func (a Argon2id) key(password, salt []byte, passes, memory uint32, threads uint8, size uint32) ([]byte, error) {
+	release, err := a.slot()
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	return argon2.IDKey(password, salt, passes, memory, threads, size), nil
 }
 
@@ -81,8 +96,14 @@ func (a Argon2id) Hash(p domain.Password) (string, error) {
 		base64.RawStdEncoding.EncodeToString(salt), base64.RawStdEncoding.EncodeToString(key)), nil
 }
 
+// Outdated reports whether hash is not argon2id, so the next sign-in should hash the password again.
+func (Argon2id) Outdated(hash string) bool { return !strings.HasPrefix(hash, "$argon2id$") }
+
 // Verify reports whether password matches hash, using the parameters hash records.
 func (a Argon2id) Verify(hash, password string) (bool, error) {
+	if isBcrypt(hash) {
+		return a.verifyBcrypt(hash, password)
+	}
 	parts := strings.Split(hash, "$")
 	if len(parts) != 6 || parts[1] != "argon2id" {
 		return false, ErrMalformedHash
@@ -113,6 +134,23 @@ func (a Argon2id) Verify(hash, password string) (bool, error) {
 		return false, err
 	}
 	return subtle.ConstantTimeCompare(got, want) == 1, nil
+}
+
+func isBcrypt(hash string) bool {
+	return strings.HasPrefix(hash, "$2a$") || strings.HasPrefix(hash, "$2b$") || strings.HasPrefix(hash, "$2y$")
+}
+
+func (a Argon2id) verifyBcrypt(hash, password string) (bool, error) {
+	cost, err := bcrypt.Cost([]byte(hash))
+	if err != nil || cost > maxBcryptCost {
+		return false, ErrMalformedHash
+	}
+	release, err := a.slot()
+	if err != nil {
+		return false, err
+	}
+	defer release()
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil, nil
 }
 
 // affordable reports whether a hash's recorded costs are no dearer than Hash's own: no more memory,

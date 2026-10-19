@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/JorisJonkers-dev/identity/internal/platform/passwords"
 	"github.com/JorisJonkers-dev/identity/internal/users/domain"
 )
@@ -88,3 +90,55 @@ func TestHashFailsWithoutEntropy(t *testing.T) {
 type failing struct{}
 
 func (failing) Read([]byte) (int, error) { return 0, errors.New("no entropy") }
+
+// legacyHash is "correct horse battery" under bcrypt at cost 4, as auth-api stored passwords.
+func legacyHash(t *testing.T) string {
+	t.Helper()
+	hash, err := bcrypt.GenerateFromPassword([]byte(secret), bcrypt.MinCost)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(hash)
+}
+
+func TestVerifyAcceptsTheRightPasswordForAnImportedBcryptHash(t *testing.T) {
+	for _, version := range []string{"$2a$", "$2b$", "$2y$"} {
+		t.Run(version, func(t *testing.T) {
+			hash := version + strings.TrimPrefix(legacyHash(t), "$2a$")
+			ok, err := passwords.Argon2id{}.Verify(hash, secret)
+			if !ok || err != nil {
+				t.Fatalf("Verify = %v, %v", ok, err)
+			}
+		})
+	}
+}
+
+func TestVerifyRefusesAWrongPasswordForAnImportedBcryptHash(t *testing.T) {
+	ok, err := passwords.Argon2id{}.Verify(legacyHash(t), "wrong horse battery")
+	if ok || err != nil {
+		t.Fatalf("Verify = %v, %v", ok, err)
+	}
+}
+
+func TestVerifyRefusesAMalformedBcryptHash(t *testing.T) {
+	for _, bad := range []string{
+		"$2a$x",
+		// A cost above 12 would let one stored row make every check slow.
+		"$2a$13$" + strings.Repeat("a", 53),
+	} {
+		if ok, err := (passwords.Argon2id{}).Verify(bad, secret); ok || !errors.Is(err, passwords.ErrMalformedHash) {
+			t.Errorf("Verify(%q) = %v, %v; want ErrMalformedHash", bad, ok, err)
+		}
+	}
+}
+
+func TestABcryptHashIsOutdatedAndAnArgon2idHashIsNot(t *testing.T) {
+	h := passwords.Argon2id{}
+	current, err := h.Hash(password(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !h.Outdated(legacyHash(t)) || h.Outdated(current) {
+		t.Fatalf("Outdated(bcrypt) = %v, Outdated(argon2id) = %v", h.Outdated(legacyHash(t)), h.Outdated(current))
+	}
+}

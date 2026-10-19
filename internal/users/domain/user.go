@@ -67,6 +67,10 @@ func NewPassword(raw string) (Password, error) {
 	return Password{value: raw}, nil
 }
 
+// ProvenPassword is a password that just matched a stored hash, so it is hashed again as it is: the
+// length rule binds a password being chosen, not one an imported account already has.
+func ProvenPassword(raw string) Password { return Password{value: raw} }
+
 func (p Password) String() string { return p.value }
 
 // User is a person registered with the Identity Provider. A User exists only once their email is
