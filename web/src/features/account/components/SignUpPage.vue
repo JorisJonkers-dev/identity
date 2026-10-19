@@ -3,40 +3,45 @@ import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { signUpMutation } from '../../../infrastructure/api/@tanstack/vue-query.gen'
 import { useAction } from '../../../infrastructure/useAction'
-import AuthLayout from '../../../shared/AuthLayout.vue'
+import AuthShell from '../../../shared/AuthShell.vue'
+import Icon from '../../../shared/Icon'
 
 const email = ref('')
 const name = ref('')
 const password = ref('')
+const shown = ref(false)
+const short = ref(false)
 const signUp = useAction(signUpMutation())
 
 function submit() {
-  signUp.run({ body: { email: email.value, name: name.value, password: password.value } })
+  short.value = password.value.length < 12
+  if (!short.value) signUp.run({ body: { email: email.value, name: name.value, password: password.value } })
 }
 </script>
 
 <template>
-  <AuthLayout>
-    <section aria-labelledby="signup-title" class="grid gap-3.5">
-      <h1 id="signup-title" class="page-title">Sign up</h1>
-      <p v-if="signUp.isDone.value" role="status" class="m-0 rounded-[9px] bg-ok-soft px-3 py-2 text-[13px] text-ok">Check your email for a link to finish signing up.</p>
-      <form v-else class="grid gap-3.5" @submit.prevent="submit">
-        <div class="grid gap-1.5">
-          <label for="signup-email" class="field-label">Email</label>
-          <input id="signup-email" v-model="email" class="input" type="email" autocomplete="email" required />
+  <AuthShell>
+    <div v-if="signUp.isDone.value" class="auth-box">
+      <span class="big-ico"><Icon name="mail" /></span>
+      <h1>Check your email</h1>
+      <p class="lead">Link sent to <b>{{ email }}</b>.</p>
+      <RouterLink class="btn lg block" to="/signin">Back to sign in</RouterLink>
+    </div>
+    <form v-else class="auth-box" novalidate @submit.prevent="submit">
+      <h1>Create an account</h1>
+      <div class="field"><label class="label" for="su-name">Name</label><input id="su-name" v-model="name" class="input" autocomplete="name" required /></div>
+      <div class="field"><label class="label" for="su-email">Email</label><input id="su-email" v-model="email" class="input" type="email" autocomplete="email" required /></div>
+      <div class="field">
+        <div class="label"><label for="su-pw">Password</label><span :class="['hint', { bad: short }]">12+ characters</span></div>
+        <div class="pw">
+          <input id="su-pw" v-model="password" class="input" :type="shown ? 'text' : 'password'" autocomplete="new-password" required :aria-invalid="short || undefined" aria-describedby="su-short" />
+          <button type="button" :aria-label="shown ? 'Hide password' : 'Show password'" @click="shown = !shown"><Icon name="eye" /></button>
         </div>
-        <div class="grid gap-1.5">
-          <label for="signup-name" class="field-label">Name</label>
-          <input id="signup-name" v-model="name" class="input" autocomplete="name" required />
-        </div>
-        <div class="grid gap-1.5">
-          <label for="signup-password" class="field-label">Password</label>
-          <input id="signup-password" v-model="password" class="input" type="password" autocomplete="new-password" minlength="12" required />
-        </div>
-        <p v-if="signUp.error.value" role="alert" class="alert">{{ signUp.error.value }}</p>
-        <button type="submit" class="btn-primary w-full py-[11px]" :disabled="signUp.isPending.value">Sign up</button>
-      </form>
-      <p class="fine">Already have an account? <RouterLink to="/signin">Sign in</RouterLink></p>
-    </section>
-  </AuthLayout>
+        <p v-if="short" id="su-short" class="err"><Icon name="alert" />Use at least 12 characters.</p>
+      </div>
+      <p v-if="signUp.error.value" role="alert" class="alert"><Icon name="alert" />{{ signUp.error.value }}</p>
+      <button class="btn primary lg block" type="submit" :disabled="signUp.isPending.value">Create account</button>
+      <p class="auth-foot">Have an account? <RouterLink class="link" to="/signin">Sign in</RouterLink></p>
+    </form>
+  </AuthShell>
 </template>

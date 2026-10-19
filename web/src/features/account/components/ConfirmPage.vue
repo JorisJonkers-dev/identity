@@ -3,11 +3,13 @@ import { ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { confirmEmailMutation } from '../../../infrastructure/api/@tanstack/vue-query.gen'
 import { useAction } from '../../../infrastructure/useAction'
-import CardLayout from '../../../shared/CardLayout.vue'
+import AuthShell from '../../../shared/AuthShell.vue'
+import Icon from '../../../shared/Icon'
 
 const route = useRoute()
 const token = typeof route.query.token === 'string' ? route.query.token : ''
 const password = ref('')
+const shown = ref(false)
 const confirm = useAction(confirmEmailMutation())
 
 // The sign-up password as well as the link: a link sent to someone else's address confirms
@@ -18,22 +20,29 @@ function submit() {
 </script>
 
 <template>
-  <CardLayout glyph="mail">
-    <section aria-labelledby="confirm-title" class="grid gap-3.5">
-      <h1 id="confirm-title" class="page-title">Confirm your email</h1>
-      <p v-if="!token" role="alert" class="alert">This link is incomplete. Open the link in your email again.</p>
-      <p v-else-if="confirm.isDone.value" role="status" class="m-0 rounded-[9px] bg-ok-soft px-3 py-2 text-[13px] text-ok">
-        Your email is confirmed. <RouterLink to="/signin" class="font-semibold text-ok">Sign in</RouterLink>
-      </p>
-      <form v-else class="grid gap-3.5" @submit.prevent="submit">
-        <p class="fine">Enter the password you chose when you signed up.</p>
-        <div class="grid gap-1.5">
-          <label for="confirm-password" class="field-label">Password</label>
-          <input id="confirm-password" v-model="password" class="input" type="password" autocomplete="current-password" required />
+  <AuthShell>
+    <div v-if="!token" class="auth-box">
+      <span class="big-ico warn"><Icon name="link" /></span>
+      <h1>This link is incomplete</h1>
+      <RouterLink class="btn primary lg block" to="/signup">Sign up again</RouterLink>
+    </div>
+    <div v-else-if="confirm.isDone.value" class="auth-box">
+      <span class="big-ico ok"><Icon name="check" /></span>
+      <h1>Email confirmed</h1>
+      <RouterLink class="btn primary lg block" to="/signin">Sign in</RouterLink>
+    </div>
+    <form v-else class="auth-box" novalidate @submit.prevent="submit">
+      <span class="big-ico"><Icon name="mail" /></span>
+      <h1>Confirm your email</h1>
+      <div class="field">
+        <div class="label"><label for="cf-pw">Password</label></div>
+        <div class="pw">
+          <input id="cf-pw" v-model="password" class="input" :type="shown ? 'text' : 'password'" autocomplete="current-password" required />
+          <button type="button" :aria-label="shown ? 'Hide password' : 'Show password'" @click="shown = !shown"><Icon name="eye" /></button>
         </div>
-        <p v-if="confirm.error.value" role="alert" class="alert">{{ confirm.error.value }}</p>
-        <button type="submit" class="btn-primary w-full py-[11px]" :disabled="confirm.isPending.value">Confirm email</button>
-      </form>
-    </section>
-  </CardLayout>
+      </div>
+      <p v-if="confirm.error.value" role="alert" class="alert"><Icon name="alert" />{{ confirm.error.value }}</p>
+      <button class="btn primary lg block" type="submit" :disabled="confirm.isPending.value">Confirm email</button>
+    </form>
+  </AuthShell>
 </template>
