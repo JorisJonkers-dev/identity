@@ -361,6 +361,15 @@ describe('proving two-factor again for an app', () => {
     expect(router.currentRoute.value.path).toBe('/security/delete')
   })
 
+  it('goes back to the Gate when a gated app asked', async () => {
+    const leave = vi.spyOn(navigation, 'leave').mockImplementation(() => undefined)
+    const gate = '/gate/start?host=stats.jorisjonkers.dev&state=s&rd=%2F'
+    const { wrapper } = await mountAt(`/signin/step-up?next=${encodeURIComponent(gate)}`, { ...asks(['totp']), 'POST /api/v1/session/step-up/code': noContent() })
+    await typeCode(wrapper, '492039')
+    expect(leave).toHaveBeenCalledWith(gate)
+    leave.mockRestore()
+  })
+
   it('ignores a page to go back to that is not one of ours', async () => {
     const { wrapper, router } = await mountAt('/signin/step-up?next=//evil.test/', { ...asks(['totp']), 'POST /api/v1/session/step-up/code': noContent(), 'GET /api/v1/profile': ada })
     await typeCode(wrapper, '492039')

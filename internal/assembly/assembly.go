@@ -182,7 +182,7 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 	if err != nil {
 		return nil, err
 	}
-	others := gatecontexts.New(signIn, users)
+	others := gatecontexts.New(signIn, users, stepUpSettings)
 	gate := gateapp.New(gatepersistence.New(q), others, others, others, recorder, now, rand.Reader, gateCacheTTL)
 	tokensDeleted = gate.Forget
 	gate.SetTokens(others)
