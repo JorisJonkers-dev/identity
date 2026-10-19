@@ -353,15 +353,101 @@ func TestTheAdminsAreCounted(t *testing.T) {
 	}
 }
 
-func TestTheUnassignedAreUsersInNoGroup(t *testing.T) {
+func TestTheUnassignedAreUsersWhoHoldNoAppRoleAndAreNotAdmins(t *testing.T) {
 	f := open(t)
-	admins, family := f.admins(t), f.group(t, "Family")
-	ada, bob := f.user(t, "ada@example.org"), f.user(t, "bob@example.org")
-	f.user(t, "cy@example.org")
+	admins, family, empty := f.admins(t), f.group(t, "Family"), f.group(t, "Empty")
+	ada, bob, cy, dee := f.user(t, "ada@example.org"), f.user(t, "bob@example.org"), f.user(t, "cy@example.org"), f.user(t, "dee@example.org")
 	_, _ = f.s.AddMember(f.ctx, domain.Membership{GroupID: admins.ID, UserID: ada})
 	_, _ = f.s.AddMember(f.ctx, domain.Membership{GroupID: family.ID, UserID: bob})
-	if n, err := f.s.CountUnassigned(f.ctx); n != 1 || err != nil {
-		t.Fatalf("CountUnassigned = %d, %v; want only cy", n, err)
+	_, _ = f.s.Assign(f.ctx, domain.Assignment{GroupID: family.ID, ClientID: "grafana", Role: "viewer"})
+	_, _ = f.s.AssignUser(f.ctx, domain.UserAssignment{UserID: cy, ClientID: "grafana", Role: "viewer"})
+	_, _ = f.s.AddMember(f.ctx, domain.Membership{GroupID: empty.ID, UserID: dee})
+	eve := f.user(t, "eve@example.org")
+	if n, err := f.s.CountUnassigned(f.ctx); n != 2 || err != nil {
+		t.Fatalf("CountUnassigned = %d, %v; want dee and eve", n, err)
+	}
+	if ids, err := f.s.Unassigned(f.ctx); err != nil || len(ids) != 2 || !slices.Contains(ids, dee) || !slices.Contains(ids, eve) {
+		t.Fatalf("Unassigned = %v, %v; want dee and eve", ids, err)
+	}
+}
+
+func TestAUsersDirectAndGroupAppRolesAddUp(t *testing.T) {
+	f := open(t)
+	viewers := f.group(t, "Viewers")
+	ada := f.user(t, "ada@example.org")
+	_, _ = f.s.AddMember(f.ctx, domain.Membership{GroupID: viewers.ID, UserID: ada})
+	_, _ = f.s.Assign(f.ctx, domain.Assignment{GroupID: viewers.ID, ClientID: "grafana", Role: "viewer"})
+	_, _ = f.s.AssignUser(f.ctx, domain.UserAssignment{UserID: ada, ClientID: "grafana", Role: "editor"})
+	_, _ = f.s.AssignUser(f.ctx, domain.UserAssignment{UserID: ada, ClientID: "grafana", Role: "viewer"})
+	_, _ = f.s.AssignUser(f.ctx, domain.UserAssignment{UserID: ada, ClientID: "jellyfin", Role: "user"})
+	if roles, err := f.s.RolesOf(f.ctx, ada, "grafana"); err != nil || !slices.Equal(roles, []string{"editor", "viewer"}) {
+		t.Fatalf("RolesOf = %v, %v", roles, err)
+	}
+	held, err := f.s.RolesByClient(f.ctx, ada)
+	if err != nil || len(held) != 2 || !slices.Equal(held["grafana"], []string{"editor", "viewer"}) || !slices.Equal(held["jellyfin"], []string{"user"}) {
+		t.Fatalf("RolesByClient = %v, %v", held, err)
+	}
+}
+
+func TestSomeoneElsesDirectAppRoleIsNotTheirs(t *testing.T) {
+	f := open(t)
+	ada, bob := f.user(t, "ada@example.org"), f.user(t, "bob@example.org")
+	_, _ = f.s.AssignUser(f.ctx, domain.UserAssignment{UserID: bob, ClientID: "grafana", Role: "viewer"})
+	if roles, err := f.s.RolesOf(f.ctx, ada, "grafana"); err != nil || len(roles) != 0 {
+		t.Fatalf("RolesOf = %v, %v", roles, err)
+	}
+}
+
+func TestDirectAssignmentsAreListedApartFromGroupOnes(t *testing.T) {
+	f := open(t)
+	family := f.group(t, "Family")
+	ada := f.user(t, "ada@example.org")
+	_, _ = f.s.Assign(f.ctx, domain.Assignment{GroupID: family.ID, ClientID: "grafana", Role: "viewer"})
+	direct := domain.UserAssignment{UserID: ada, ClientID: "grafana", Role: "editor"}
+	_, _ = f.s.AssignUser(f.ctx, direct)
+	if as, err := f.s.Assignments(f.ctx); err != nil || len(as) != 1 || as[0].GroupID != family.ID {
+		t.Fatalf("Assignments = %+v, %v", as, err)
+	}
+	if as, err := f.s.UserAssignments(f.ctx); err != nil || !slices.Equal(as, []domain.UserAssignment{direct}) {
+		t.Fatalf("UserAssignments = %+v, %v", as, err)
+	}
+}
+
+func TestGivingAPersonAnAppRoleSaysWhetherItIsNew(t *testing.T) {
+	f := open(t)
+	a := domain.UserAssignment{UserID: f.user(t, "ada@example.org"), ClientID: "grafana", Role: "viewer"}
+	first, _ := f.s.AssignUser(f.ctx, a)
+	again, err := f.s.AssignUser(f.ctx, a)
+	if !first || again || err != nil {
+		t.Fatalf("first %v, again %v, %v", first, again, err)
+	}
+}
+
+func TestGivingAnAppRoleToAUserWhoIsGoneIsNotFound(t *testing.T) {
+	f := open(t)
+	if _, err := f.s.AssignUser(f.ctx, domain.UserAssignment{UserID: uuid.New(), ClientID: "grafana", Role: "viewer"}); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("AssignUser = %v", err)
+	}
+}
+
+func TestTakingAPersonsAppRoleSaysWhetherItWasThere(t *testing.T) {
+	f := open(t)
+	a := domain.UserAssignment{UserID: f.user(t, "ada@example.org"), ClientID: "grafana", Role: "viewer"}
+	_, _ = f.s.AssignUser(f.ctx, a)
+	first, _ := f.s.UnassignUser(f.ctx, a)
+	again, err := f.s.UnassignUser(f.ctx, a)
+	if !first || again || err != nil {
+		t.Fatalf("first %v, again %v, %v", first, again, err)
+	}
+}
+
+func TestAGroupAndAPersonHoldingTheSameRoleAreTwoAssignments(t *testing.T) {
+	f := open(t)
+	family := f.group(t, "Family")
+	ada := f.user(t, "ada@example.org")
+	_, _ = f.s.Assign(f.ctx, domain.Assignment{GroupID: family.ID, ClientID: "grafana", Role: "viewer"})
+	if added, err := f.s.AssignUser(f.ctx, domain.UserAssignment{UserID: ada, ClientID: "grafana", Role: "viewer"}); !added || err != nil {
+		t.Fatalf("AssignUser = %v, %v", added, err)
 	}
 }
 

@@ -7,6 +7,7 @@ import type { AccessOverview } from '../../infrastructure/api/types.gen'
 const ok = () => new Response(null, { status: 204 })
 const roleAt = (groupId: string, clientId: string, role: string) => `/api/v1/access/groups/${groupId}/roles/${clientId}/${role}`
 const memberAt = (groupId: string, userId: string) => `/api/v1/access/groups/${groupId}/members/${userId}`
+const userRoleAt = (userId: string, clientId: string, role: string) => `/api/v1/access/users/${userId}/roles/${clientId}/${role}`
 
 /** An Admin's pages over an overview the answers change, as the server would. */
 function server(start: AccessOverview = overview()) {
@@ -39,6 +40,20 @@ function server(start: AccessOverview = overview()) {
         const it = group(g.id)
         if (it) it.members = it.members.filter((m) => m !== u.id)
         return ok()
+      }
+    }
+  }
+  for (const u of o.users) {
+    for (const c of o.clients) {
+      for (const r of c.roles) {
+        answers[`PUT ${userRoleAt(u.id, c.id, r)}`] = () => {
+          o.userAssignments.push({ userId: u.id, clientId: c.id, role: r })
+          return ok()
+        }
+        answers[`DELETE ${userRoleAt(u.id, c.id, r)}`] = () => {
+          o.userAssignments = o.userAssignments.filter((a) => !(a.userId === u.id && a.clientId === c.id && a.role === r))
+          return ok()
+        }
       }
     }
   }
@@ -534,6 +549,30 @@ describe('the People page', () => {
     expect(names(wrapper)).toEqual(['Noor Bakker'])
   })
 
+  it('counts a person with only a direct role as placed', async () => {
+    const { o, answers } = server()
+    o.userAssignments.push({ userId: ids.noor, clientId: 'vault', role: 'user' })
+    const { wrapper } = await mountAt('/admin/people', answers)
+    expect(wrapper.findAll('.gtag.warn')).toHaveLength(0)
+    await pick(wrapper, 'Group', 'Unassigned')
+    expect(wrapper.get('.empty-state').text()).toBe('No one matches.')
+  })
+
+  it('never counts an Admin as Unassigned', async () => {
+    const { o, answers } = server()
+    o.groups = o.groups.map((g) => (g.id === ids.family ? { ...g, members: [ids.ada] } : g))
+    const { wrapper } = await mountAt('/admin/people', answers)
+    expect(wrapper.findAll('.lt-r').find((r) => r.get('.who b').text() === 'Joris Jonkers')?.find('.gtag.warn').exists()).toBe(false)
+  })
+
+  it('counts a person in a Group that gives no role as Unassigned', async () => {
+    const { o, answers } = server()
+    o.groups = o.groups.map((g) => (g.id === ids.friends ? { ...g, members: [ids.noor] } : g))
+    const { wrapper } = await mountAt('/admin/people', answers)
+    expect(names(wrapper)[0]).toBe('Noor Bakker')
+    expect(wrapper.findAll('.lt-r')[0]?.get('.gtag.warn').text()).toBe('Unassigned')
+  })
+
   it('sorts by name', async () => {
     const { wrapper } = await mountAt('/admin/people', server().answers)
     await pick(wrapper, 'Sort', 'A to Z')
@@ -587,10 +626,11 @@ describe('a person’s page', () => {
   it('shows each app’s roles as coming through Groups', async () => {
     const { wrapper } = await mountAt(`/admin/people/${ids.ada}`, server().answers)
     const grafana = wrapper.findAll('.acc-row')[0]
-    expect(grafana?.get('.acc-n small').text()).toBe('via Family')
+    expect(grafana?.get('.acc-n small').text()).toBe('Via Family')
+    expect(grafana?.classes()).toContain('held')
     const viewer = grafana?.findAll('.chip').find((c) => c.text() === 'viewer')
     expect(viewer?.attributes('disabled')).toBeDefined()
-    expect(viewer?.attributes('title')).toBe('via Family')
+    expect(viewer?.attributes('title')).toBe('From Family. Change it on the Group.')
     expect(grafana?.findAll('.chip').find((c) => c.text() === 'editor')?.attributes('aria-pressed')).toBe('false')
   })
 
@@ -599,13 +639,63 @@ describe('a person’s page', () => {
     o.groups = o.groups.map((g) => (g.id === ids.friends ? { ...g, members: [ids.ada] } : g))
     o.assignments.push({ groupId: ids.friends, clientId: 'grafana', role: 'viewer' })
     const { wrapper } = await mountAt(`/admin/people/${ids.ada}`, answers)
-    expect(wrapper.findAll('.acc-row')[0]?.findAll('.chip').find((c) => c.text() === 'viewer')?.attributes('title')).toBe('via Family, Friends')
+    expect(wrapper.findAll('.acc-row')[0]?.findAll('.chip').find((c) => c.text() === 'viewer')?.attributes('title')).toBe('From Family, Friends. Change it on the Group.')
   })
 
-  it('says when someone has no Group and no app', async () => {
+  it('says when someone has no Group, and offers every app with none held', async () => {
     const { wrapper } = await mountAt(`/admin/people/${ids.noor}`, server().answers)
     expect(wrapper.get('.gchips .soft').text()).toBe('No Group yet')
-    expect(wrapper.get('.acc .empty-state').text()).toBe('No apps yet. Add a Group above.')
+    expect(wrapper.findAll('.acc-row .acc-n b').map((b) => b.text())).toEqual(['Grafana', 'Jellyfin', 'Vault'])
+    expect(wrapper.findAll('.acc-row.held')).toHaveLength(0)
+    expect(wrapper.findAll('.acc-row .acc-n small').map((s) => s.text())).toEqual(['No access', 'No access', 'No access'])
+  })
+
+  it('lists the apps they hold a role on first', async () => {
+    const { o, answers } = server()
+    o.userAssignments.push({ userId: ids.noor, clientId: 'vault', role: 'user' })
+    const { wrapper } = await mountAt(`/admin/people/${ids.noor}`, answers)
+    expect(wrapper.findAll('.acc-row .acc-n b').map((b) => b.text())).toEqual(['Vault', 'Grafana', 'Jellyfin'])
+  })
+
+  it('gives them a role on an app directly', async () => {
+    const { wrapper, requests } = await mountAt(`/admin/people/${ids.noor}`, server().answers)
+    const vault = () => wrapper.findAll('.acc-row').find((r) => r.get('.acc-n b').text() === 'Vault')
+    await vault()?.get('.chip').trigger('click')
+    await settle()
+    expect(requests.some((r) => r.key === `PUT ${userRoleAt(ids.noor, 'vault', 'user')}`)).toBe(true)
+    expect(vault()?.get('.chip').attributes('aria-pressed')).toBe('true')
+    expect(vault()?.get('.acc-n small').text()).toBe('Direct')
+    expect(wrapper.findAll('.pills .pill').map((p) => p.text())).toEqual(['0 Groups', '1 apps'])
+  })
+
+  it('takes a direct role away', async () => {
+    const { o, answers } = server()
+    o.userAssignments.push({ userId: ids.ada, clientId: 'grafana', role: 'editor' })
+    const { wrapper, requests } = await mountAt(`/admin/people/${ids.ada}`, answers)
+    const editor = () => wrapper.findAll('.acc-row')[0]?.findAll('.chip').find((c) => c.text() === 'editor')
+    expect(wrapper.findAll('.acc-row')[0]?.get('.acc-n small').text()).toBe('Direct, also via Family')
+    expect(editor()?.attributes('aria-pressed')).toBe('true')
+    await editor()?.trigger('click')
+    await settle()
+    expect(requests.some((r) => r.key === `DELETE ${userRoleAt(ids.ada, 'grafana', 'editor')}`)).toBe(true)
+    expect(editor()?.attributes('aria-pressed')).toBe('false')
+  })
+
+  it('keeps a role held directly and through a Group toggleable, naming the Group', async () => {
+    const { o, answers } = server()
+    o.userAssignments.push({ userId: ids.ada, clientId: 'grafana', role: 'viewer' })
+    const { wrapper } = await mountAt(`/admin/people/${ids.ada}`, answers)
+    const viewer = wrapper.findAll('.acc-row')[0]?.findAll('.chip').find((c) => c.text() === 'viewer')
+    expect(viewer?.attributes('disabled')).toBeUndefined()
+    expect(viewer?.attributes('aria-pressed')).toBe('true')
+    expect(viewer?.attributes('title')).toBe('Also via Family')
+  })
+
+  it('shows a refused role', async () => {
+    const { wrapper } = await mountAt(`/admin/people/${ids.noor}`, { ...server().answers, [`PUT ${userRoleAt(ids.noor, 'vault', 'user')}`]: () => problem(422, 'That role is no longer on Vault.') })
+    await wrapper.findAll('.acc-row').find((r) => r.get('.acc-n b').text() === 'Vault')?.get('.chip').trigger('click')
+    await settle()
+    expect(wrapper.get('[role="alert"]').text()).toBe('That role is no longer on Vault.')
   })
 
   it('adds them to a Group', async () => {

@@ -17,6 +17,7 @@ type Querier interface {
 	AdminsGroup(ctx context.Context) (AdminsGroupRow, error)
 	AppendAuditEvent(ctx context.Context, arg AppendAuditEventParams) error
 	Assign(ctx context.Context, arg AssignParams) (int64, error)
+	AssignUser(ctx context.Context, arg AssignUserParams) (int64, error)
 	AuthRequestByID(ctx context.Context, id uuid.UUID) (AuthRequest, error)
 	ChallengeCeremony(ctx context.Context, arg ChallengeCeremonyParams) (ChallengeCeremonyRow, error)
 	ClientSecret(ctx context.Context, clientID string) (ClientSecretRow, error)
@@ -29,7 +30,7 @@ type Querier interface {
 	CountPersonalTokensExpiring(ctx context.Context, arg CountPersonalTokensExpiringParams) (int64, error)
 	// Sign-ins to the Identity Provider itself, and failed ones, per hour since a time.
 	CountSignInsByHour(ctx context.Context, at time.Time) ([]CountSignInsByHourRow, error)
-	// Confirmed Users in no Group, the admins Group included (docs/adr/0005).
+	// Confirmed Users who hold no App Role by any route, Admins aside (docs/adr/0005, 0018).
 	CountUnassigned(ctx context.Context) (int64, error)
 	CreateAuthRequest(ctx context.Context, arg CreateAuthRequestParams) error
 	CreateClientSecret(ctx context.Context, arg CreateClientSecretParams) error
@@ -64,7 +65,7 @@ type Querier interface {
 	GateSessionByHash(ctx context.Context, tokenHash []byte) (GateSessionByHashRow, error)
 	GroupByID(ctx context.Context, id uuid.UUID) (GroupByIDRow, error)
 	IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error)
-	ListAssignments(ctx context.Context) ([]Assignment, error)
+	ListAssignments(ctx context.Context) ([]ListAssignmentsRow, error)
 	// Newest first, before a (at, id) cursor; a User filter matches what they did and what was done to them.
 	ListAuditEvents(ctx context.Context, arg ListAuditEventsParams) ([]AuditEvent, error)
 	ListGroups(ctx context.Context) ([]ListGroupsRow, error)
@@ -73,6 +74,7 @@ type Querier interface {
 	ListSigningKeys(ctx context.Context) ([]SigningKey, error)
 	// The Users CountUnassigned counts.
 	ListUnassigned(ctx context.Context) ([]uuid.UUID, error)
+	ListUserAssignments(ctx context.Context) ([]ListUserAssignmentsRow, error)
 	ListUsers(ctx context.Context) ([]User, error)
 	// Held until the transaction ends, so of two replicas seeing a new Client one makes its secret and
 	// the other reads the hash.
@@ -92,9 +94,9 @@ type Querier interface {
 	RenameGroup(ctx context.Context, arg RenameGroupParams) (int64, error)
 	// Revokes a User's token once; a second revocation, or another User's token, changes nothing.
 	RevokePersonalToken(ctx context.Context, arg RevokePersonalTokenParams) (int64, error)
-	// Every App Role a User holds, per Client: the union over their Groups (docs/adr/0004).
+	// Every App Role a User holds, per Client: their own and their Groups', combined (docs/adr/0018).
 	RolesByClient(ctx context.Context, userID uuid.UUID) ([]RolesByClientRow, error)
-	// A User's App Roles on a Client: the union over their Groups (docs/adr/0004).
+	// A User's App Roles on a Client: their own and their Groups', combined (docs/adr/0018).
 	RolesOf(ctx context.Context, arg RolesOfParams) ([]string, error)
 	// The replaced secret stays accepted; if an earlier one still is, the Client has not used the
 	// replaced one yet, so the earlier one is kept instead.
@@ -127,6 +129,7 @@ type Querier interface {
 	TouchPersonalToken(ctx context.Context, arg TouchPersonalTokenParams) error
 	TouchSession(ctx context.Context, arg TouchSessionParams) error
 	Unassign(ctx context.Context, arg UnassignParams) (int64, error)
+	UnassignUser(ctx context.Context, arg UnassignUserParams) (int64, error)
 	UpdateUserName(ctx context.Context, arg UpdateUserNameParams) error
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
 	// A User has one challenge. A new sign-in replaces its token and expiry; its wrong codes still

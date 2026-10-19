@@ -12,9 +12,10 @@ import (
 )
 
 type Assignment struct {
-	GroupID  uuid.UUID
+	GroupID  *uuid.UUID
 	ClientID string
 	Role     string
+	UserID   *uuid.UUID
 }
 
 type AuditEvent struct {

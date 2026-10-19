@@ -9,6 +9,10 @@ type AssignRoleRes interface {
 	assignRoleRes()
 }
 
+type AssignUserRoleRes interface {
+	assignUserRoleRes()
+}
+
 type ChangePasswordRes interface {
 	changePasswordRes()
 }
@@ -135,6 +139,10 @@ type StartTOTPRes interface {
 
 type UnassignRoleRes interface {
 	unassignRoleRes()
+}
+
+type UnassignUserRoleRes interface {
+	unassignUserRoleRes()
 }
 
 type UpdateProfileRes interface {

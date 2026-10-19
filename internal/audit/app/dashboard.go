@@ -16,7 +16,7 @@ const (
 // Dashboard is how things stand: identity's own counts, over the last day where they are events.
 type Dashboard struct {
 	Users, UsersThisWeek int
-	// Unassigned is the Users waiting for a Group, the newest first.
+	// Unassigned is the Users waiting for an App Role, the newest first.
 	Unassigned             []Person
 	SignIns, FailedSignIns int
 	// Hours is the last 24 hours, oldest first, the last the hour now.

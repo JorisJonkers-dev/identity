@@ -21,6 +21,7 @@ type store struct {
 	groups      []domain.Group
 	members     []domain.Membership
 	assignments []domain.Assignment
+	direct      []domain.UserAssignment
 	fail        map[string]error
 }
 
@@ -155,8 +156,37 @@ func (s *store) Unassign(_ context.Context, a domain.Assignment) (bool, error) {
 	return len(s.assignments) < n, nil
 }
 
+func (s *store) UserAssignments(context.Context) ([]domain.UserAssignment, error) {
+	return slices.Clone(s.direct), s.err("UserAssignments")
+}
+
+func (s *store) AssignUser(_ context.Context, a domain.UserAssignment) (bool, error) {
+	if err := s.err("AssignUser"); err != nil {
+		return false, err
+	}
+	if slices.Contains(s.direct, a) {
+		return false, nil
+	}
+	s.direct = append(s.direct, a)
+	return true, nil
+}
+
+func (s *store) UnassignUser(_ context.Context, a domain.UserAssignment) (bool, error) {
+	if err := s.err("UnassignUser"); err != nil {
+		return false, err
+	}
+	n := len(s.direct)
+	s.direct = slices.DeleteFunc(s.direct, func(o domain.UserAssignment) bool { return o == a })
+	return len(s.direct) < n, nil
+}
+
 func (s *store) RolesOf(_ context.Context, userID uuid.UUID, clientID string) ([]string, error) {
 	var roles []string
+	for _, a := range s.direct {
+		if a.UserID == userID && a.ClientID == clientID {
+			roles = append(roles, a.Role)
+		}
+	}
 	for _, m := range s.members {
 		for _, a := range s.assignments {
 			if m.UserID == userID && a.GroupID == m.GroupID && a.ClientID == clientID && !slices.Contains(roles, a.Role) {
@@ -267,6 +297,12 @@ var operations = []struct {
 		return f.svc.Unassign(ctx, u, domain.Assignment{GroupID: family.ID, ClientID: "grafana", Role: "viewer"})
 	}},
 	{"signing a User out", func(f *fixture, u app.Actor) error { return f.svc.SignOutUser(ctx, u, ada) }},
+	{"giving a person an App Role", func(f *fixture, u app.Actor) error {
+		return f.svc.AssignUser(ctx, u, domain.UserAssignment{UserID: ada, ClientID: "grafana", Role: "viewer"})
+	}},
+	{"taking a person's App Role", func(f *fixture, u app.Actor) error {
+		return f.svc.UnassignUser(ctx, u, domain.UserAssignment{UserID: ada, ClientID: "grafana", Role: "viewer"})
+	}},
 }
 
 func TestEveryAccessOperationRefusesAUserWhoIsNotAnAdminAndChangesNothing(t *testing.T) {
@@ -276,7 +312,7 @@ func TestEveryAccessOperationRefusesAUserWhoIsNotAnAdminAndChangesNothing(t *tes
 			if err := op.call(f, asNonAdmin); !errors.Is(err, app.ErrNotAdmin) {
 				t.Fatalf("err = %v, want ErrNotAdmin", err)
 			}
-			if len(f.store.groups) != 3 || len(f.store.members) != 1 || len(f.store.assignments) != 0 || len(f.people.signedOut) != 0 {
+			if len(f.store.groups) != 3 || len(f.store.members) != 1 || len(f.store.assignments) != 0 || len(f.store.direct) != 0 || len(f.people.signedOut) != 0 {
 				t.Fatalf("a refused call changed something: %+v, signed out %v", f.store, f.people.signedOut)
 			}
 		})
@@ -310,17 +346,18 @@ func TestAnAccessOperationFailsWhenTheAdminCheckCannotBeMade(t *testing.T) {
 func TestTheOverviewShowsGroupsMembersAssignmentsClientsAndPeople(t *testing.T) {
 	f := newFixture()
 	f.store.assignments = []domain.Assignment{{GroupID: family.ID, ClientID: "grafana", Role: "viewer"}}
+	f.store.direct = []domain.UserAssignment{{UserID: ada, ClientID: "grafana", Role: "editor"}}
 	got, err := f.svc.Overview(ctx, asAdmin)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got.Groups) != 3 || len(got.Memberships) != 1 || len(got.Assignments) != 1 || len(got.Clients) != 1 || got.People[0].ID != ada {
+	if len(got.Groups) != 3 || len(got.Memberships) != 1 || len(got.Assignments) != 1 || len(got.UserAssignments) != 1 || len(got.Clients) != 1 || got.People[0].ID != ada {
 		t.Fatalf("Overview = %+v", got)
 	}
 }
 
 func TestTheOverviewFailsWhenAnyPartCannotBeRead(t *testing.T) {
-	for _, part := range []string{"Groups", "Memberships", "Assignments", "People"} {
+	for _, part := range []string{"Groups", "Memberships", "Assignments", "UserAssignments", "People"} {
 		t.Run(part, func(t *testing.T) {
 			f := newFixture()
 			if part == "People" {
@@ -502,6 +539,49 @@ func TestAUsersAppRolesOnAClientAreTheUnionOverTheirGroups(t *testing.T) {
 	got, err := f.svc.Roles(ctx, ada, "grafana")
 	if err != nil || !slices.Equal(got, []string{"viewer", "editor"}) {
 		t.Fatalf("Roles = %v, %v", got, err)
+	}
+}
+
+func TestAnAdminGivesAPersonAnAppRoleTheClientDeclares(t *testing.T) {
+	f := newFixture()
+	a := domain.UserAssignment{UserID: ada, ClientID: "grafana", Role: "viewer"}
+	if err := f.svc.AssignUser(ctx, asAdmin, a); err != nil || !slices.Equal(f.store.direct, []domain.UserAssignment{a}) {
+		t.Fatalf("AssignUser = %v, direct %+v", err, f.store.direct)
+	}
+}
+
+func TestAPersonsAppRoleIsRefusedAndNotKept(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		a    domain.UserAssignment
+		fail error
+		want error
+	}{
+		{"for someone who is gone", domain.UserAssignment{UserID: uuid.New(), ClientID: "grafana", Role: "user"}, app.ErrNotFound, app.ErrNotFound},
+		{"on a Client the cluster no longer declares", domain.UserAssignment{UserID: ada, ClientID: "jellyfin", Role: "user"}, nil, app.ErrUnknownClient},
+		{"the Client does not declare", domain.UserAssignment{UserID: ada, ClientID: "grafana", Role: "admin"}, nil, app.ErrUnknownRole},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFixture()
+			if tc.fail != nil {
+				f.store.fail["AssignUser"] = tc.fail
+			}
+			if err := f.svc.AssignUser(ctx, asAdmin, tc.a); !errors.Is(err, tc.want) {
+				t.Fatalf("err = %v, want %v", err, tc.want)
+			}
+			if len(f.store.direct) != 0 {
+				t.Fatalf("a refused Assignment was kept: %+v", f.store.direct)
+			}
+		})
+	}
+}
+
+func TestAnAdminTakesAPersonsAppRoleAway(t *testing.T) {
+	f := newFixture()
+	a := domain.UserAssignment{UserID: ada, ClientID: "grafana", Role: "viewer"}
+	f.store.direct = []domain.UserAssignment{a}
+	if err := f.svc.UnassignUser(ctx, asAdmin, a); err != nil || len(f.store.direct) != 0 {
+		t.Fatalf("UnassignUser = %v, direct %+v", err, f.store.direct)
 	}
 }
 

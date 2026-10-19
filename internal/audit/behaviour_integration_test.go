@@ -148,6 +148,25 @@ func TestAnAssignmentNamesItsClient(t *testing.T) {
 	}
 }
 
+func TestGivingAndTakingADirectAppRoleAreAuditEventsNamingThePerson(t *testing.T) {
+	t.Parallel()
+	for _, action := range []string{"role-assigned", "role-removed"} {
+		t.Run(action, func(t *testing.T) {
+			t.Parallel()
+			env := itest.Start(t, grafana)
+			admin := env.Admin(t, "root@example.org")
+			ada := env.SignedUp(t, "ada@example.org")
+			role := "/api/v1/access/users/" + admin.UserID(t, ada.Email) + "/roles/grafana/viewer"
+			admin.Call(t, http.MethodPut, role, nil, http.StatusNoContent, nil)
+			admin.Call(t, http.MethodDelete, role, nil, http.StatusNoContent, nil)
+			e := only(t, admin, kind("access"), action)
+			if e.Actor == nil || e.Actor.Email != admin.Email || e.User == nil || e.User.Email != ada.Email || e.Client == nil || e.Client.ID != "grafana" || e.Role != "viewer" || e.GroupName != "" {
+				t.Fatalf("event = %+v", e)
+			}
+		})
+	}
+}
+
 func TestASignInIsAnAuditEvent(t *testing.T) {
 	t.Parallel()
 	env := itest.Start(t)

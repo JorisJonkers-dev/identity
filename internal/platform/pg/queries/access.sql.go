@@ -46,7 +46,7 @@ func (q *Queries) AdminsGroup(ctx context.Context) (AdminsGroupRow, error) {
 }
 
 const assign = `-- name: Assign :execrows
-INSERT INTO assignments (group_id, client_id, role) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING
+INSERT INTO assignments (group_id, client_id, role) VALUES ($1::uuid, $2, $3) ON CONFLICT DO NOTHING
 `
 
 type AssignParams struct {
@@ -57,6 +57,24 @@ type AssignParams struct {
 
 func (q *Queries) Assign(ctx context.Context, arg AssignParams) (int64, error) {
 	result, err := q.db.Exec(ctx, assign, arg.GroupID, arg.ClientID, arg.Role)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const assignUser = `-- name: AssignUser :execrows
+INSERT INTO assignments (user_id, client_id, role) VALUES ($1::uuid, $2, $3) ON CONFLICT DO NOTHING
+`
+
+type AssignUserParams struct {
+	UserID   uuid.UUID
+	ClientID string
+	Role     string
+}
+
+func (q *Queries) AssignUser(ctx context.Context, arg AssignUserParams) (int64, error) {
+	result, err := q.db.Exec(ctx, assignUser, arg.UserID, arg.ClientID, arg.Role)
 	if err != nil {
 		return 0, err
 	}
@@ -86,10 +104,13 @@ func (q *Queries) CountMembers(ctx context.Context, groupID uuid.UUID) (int64, e
 }
 
 const countUnassigned = `-- name: CountUnassigned :one
-SELECT count(*) FROM users u WHERE NOT EXISTS (SELECT 1 FROM memberships m WHERE m.user_id = u.id)
+SELECT count(*) FROM users u WHERE NOT EXISTS (
+  SELECT 1 FROM assignments a
+  WHERE a.user_id = u.id OR a.group_id IN (SELECT m.group_id FROM memberships m WHERE m.user_id = u.id)
+) AND NOT EXISTS (SELECT 1 FROM memberships m JOIN groups g ON g.id = m.group_id WHERE g.admins AND m.user_id = u.id)
 `
 
-// Confirmed Users in no Group, the admins Group included (docs/adr/0005).
+// Confirmed Users who hold no App Role by any route, Admins aside (docs/adr/0005, 0018).
 func (q *Queries) CountUnassigned(ctx context.Context) (int64, error) {
 	row := q.db.QueryRow(ctx, countUnassigned)
 	var count int64
@@ -152,18 +173,24 @@ func (q *Queries) IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error) {
 }
 
 const listAssignments = `-- name: ListAssignments :many
-SELECT group_id, client_id, role FROM assignments ORDER BY client_id, role
+SELECT group_id::uuid AS group_id, client_id, role FROM assignments WHERE group_id IS NOT NULL ORDER BY client_id, role
 `
 
-func (q *Queries) ListAssignments(ctx context.Context) ([]Assignment, error) {
+type ListAssignmentsRow struct {
+	GroupID  uuid.UUID
+	ClientID string
+	Role     string
+}
+
+func (q *Queries) ListAssignments(ctx context.Context) ([]ListAssignmentsRow, error) {
 	rows, err := q.db.Query(ctx, listAssignments)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Assignment{}
+	items := []ListAssignmentsRow{}
 	for rows.Next() {
-		var i Assignment
+		var i ListAssignmentsRow
 		if err := rows.Scan(&i.GroupID, &i.ClientID, &i.Role); err != nil {
 			return nil, err
 		}
@@ -230,7 +257,10 @@ func (q *Queries) ListMemberships(ctx context.Context) ([]Membership, error) {
 }
 
 const listUnassigned = `-- name: ListUnassigned :many
-SELECT u.id FROM users u WHERE NOT EXISTS (SELECT 1 FROM memberships m WHERE m.user_id = u.id)
+SELECT u.id FROM users u WHERE NOT EXISTS (
+  SELECT 1 FROM assignments a
+  WHERE a.user_id = u.id OR a.group_id IN (SELECT m.group_id FROM memberships m WHERE m.user_id = u.id)
+) AND NOT EXISTS (SELECT 1 FROM memberships m JOIN groups g ON g.id = m.group_id WHERE g.admins AND m.user_id = u.id)
 `
 
 // The Users CountUnassigned counts.
@@ -247,6 +277,36 @@ func (q *Queries) ListUnassigned(ctx context.Context) ([]uuid.UUID, error) {
 			return nil, err
 		}
 		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUserAssignments = `-- name: ListUserAssignments :many
+SELECT user_id::uuid AS user_id, client_id, role FROM assignments WHERE user_id IS NOT NULL ORDER BY client_id, role
+`
+
+type ListUserAssignmentsRow struct {
+	UserID   uuid.UUID
+	ClientID string
+	Role     string
+}
+
+func (q *Queries) ListUserAssignments(ctx context.Context) ([]ListUserAssignmentsRow, error) {
+	rows, err := q.db.Query(ctx, listUserAssignments)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListUserAssignmentsRow{}
+	for rows.Next() {
+		var i ListUserAssignmentsRow
+		if err := rows.Scan(&i.UserID, &i.ClientID, &i.Role); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -301,8 +361,9 @@ func (q *Queries) RenameGroup(ctx context.Context, arg RenameGroupParams) (int64
 }
 
 const rolesByClient = `-- name: RolesByClient :many
-SELECT DISTINCT a.client_id, a.role FROM assignments a JOIN memberships m ON m.group_id = a.group_id
-WHERE m.user_id = $1 ORDER BY a.client_id, a.role
+SELECT DISTINCT a.client_id, a.role FROM assignments a
+WHERE a.user_id = $1::uuid OR a.group_id IN (SELECT m.group_id FROM memberships m WHERE m.user_id = $1::uuid)
+ORDER BY a.client_id, a.role
 `
 
 type RolesByClientRow struct {
@@ -310,7 +371,7 @@ type RolesByClientRow struct {
 	Role     string
 }
 
-// Every App Role a User holds, per Client: the union over their Groups (docs/adr/0004).
+// Every App Role a User holds, per Client: their own and their Groups', combined (docs/adr/0018).
 func (q *Queries) RolesByClient(ctx context.Context, userID uuid.UUID) ([]RolesByClientRow, error) {
 	rows, err := q.db.Query(ctx, rolesByClient, userID)
 	if err != nil {
@@ -332,18 +393,20 @@ func (q *Queries) RolesByClient(ctx context.Context, userID uuid.UUID) ([]RolesB
 }
 
 const rolesOf = `-- name: RolesOf :many
-SELECT DISTINCT a.role FROM assignments a JOIN memberships m ON m.group_id = a.group_id
-WHERE m.user_id = $1 AND a.client_id = $2 ORDER BY a.role
+SELECT DISTINCT a.role FROM assignments a
+WHERE a.client_id = $1
+  AND (a.user_id = $2::uuid OR a.group_id IN (SELECT m.group_id FROM memberships m WHERE m.user_id = $2::uuid))
+ORDER BY a.role
 `
 
 type RolesOfParams struct {
-	UserID   uuid.UUID
 	ClientID string
+	UserID   uuid.UUID
 }
 
-// A User's App Roles on a Client: the union over their Groups (docs/adr/0004).
+// A User's App Roles on a Client: their own and their Groups', combined (docs/adr/0018).
 func (q *Queries) RolesOf(ctx context.Context, arg RolesOfParams) ([]string, error) {
-	rows, err := q.db.Query(ctx, rolesOf, arg.UserID, arg.ClientID)
+	rows, err := q.db.Query(ctx, rolesOf, arg.ClientID, arg.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -363,7 +426,7 @@ func (q *Queries) RolesOf(ctx context.Context, arg RolesOfParams) ([]string, err
 }
 
 const unassign = `-- name: Unassign :execrows
-DELETE FROM assignments WHERE group_id = $1 AND client_id = $2 AND role = $3
+DELETE FROM assignments WHERE group_id = $1::uuid AND client_id = $2 AND role = $3
 `
 
 type UnassignParams struct {
@@ -374,6 +437,24 @@ type UnassignParams struct {
 
 func (q *Queries) Unassign(ctx context.Context, arg UnassignParams) (int64, error) {
 	result, err := q.db.Exec(ctx, unassign, arg.GroupID, arg.ClientID, arg.Role)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const unassignUser = `-- name: UnassignUser :execrows
+DELETE FROM assignments WHERE user_id = $1::uuid AND client_id = $2 AND role = $3
+`
+
+type UnassignUserParams struct {
+	UserID   uuid.UUID
+	ClientID string
+	Role     string
+}
+
+func (q *Queries) UnassignUser(ctx context.Context, arg UnassignUserParams) (int64, error) {
+	result, err := q.db.Exec(ctx, unassignUser, arg.UserID, arg.ClientID, arg.Role)
 	if err != nil {
 		return 0, err
 	}

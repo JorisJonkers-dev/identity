@@ -25,16 +25,16 @@ tests:
           - exp_labels:
               severity: info
             exp_annotations:
-              summary: "1 new User(s) need a Group"
-              description: "New Users confirmed their email and cannot open any app until they are in a Group. Add them at https://auth.jorisjonkers.dev/access."
+              summary: "1 new User(s) wait for access"
+              description: "New Users have confirmed their email but cannot open any app until an Admin gives them a role, directly or through a Group. Open the Unassigned list: https://auth.jorisjonkers.dev/admin/unassigned."
       - eval_time: 6m
         alertname: IdentityUsersWaitingForAGroup
         exp_alerts:
           - exp_labels:
               severity: info
             exp_annotations:
-              summary: "2 new User(s) need a Group"
-              description: "New Users confirmed their email and cannot open any app until they are in a Group. Add them at https://auth.jorisjonkers.dev/access."
+              summary: "2 new User(s) wait for access"
+              description: "New Users have confirmed their email but cannot open any app until an Admin gives them a role, directly or through a Group. Open the Unassigned list: https://auth.jorisjonkers.dev/admin/unassigned."
       - eval_time: 8m
         alertname: IdentityUsersWaitingForAGroup
         exp_alerts: []

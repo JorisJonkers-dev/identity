@@ -70,6 +70,7 @@ func GetRolesForChallenge(operation string) []string {
 var operationRolesSession = map[string][]string{
 	AddMemberOperation:          []string{},
 	AssignRoleOperation:         []string{},
+	AssignUserRoleOperation:     []string{},
 	ChangePasswordOperation:     []string{},
 	ConfirmPasskeyOperation:     []string{},
 	ConfirmTOTPOperation:        []string{},
@@ -95,6 +96,7 @@ var operationRolesSession = map[string][]string{
 	StartPasskeyOperation:       []string{},
 	StartTOTPOperation:          []string{},
 	UnassignRoleOperation:       []string{},
+	UnassignUserRoleOperation:   []string{},
 	UpdateProfileOperation:      []string{},
 }
 

@@ -9,7 +9,7 @@ import Icon from '../../../shared/Icon'
 import PersonAvatar from '../../../shared/PersonAvatar.vue'
 import RoleChip from '../../../shared/RoleChip.vue'
 import { useAccess } from '../composables/useAccess'
-import { allRoles, appsOf, groupsOf, holds, membersOf } from '../model'
+import { allRoles, appsOf, groupsOf, holds, membersOf, unassigned } from '../model'
 
 /** One Group: the apps it gives roles on, and the people in it. */
 const props = defineProps<{ o: AccessOverview; group: Group }>()
@@ -62,7 +62,7 @@ function undo(change: Change) {
   last.value = null
 }
 
-// Members: the people in the Group, and everyone else to add, those in no Group first.
+// Members: the people in the Group, and everyone else to add, the Unassigned first.
 const members = computed(() => membersOf(props.o, props.group))
 const adding = ref('')
 const addOpen = ref(false)
@@ -70,8 +70,8 @@ const others = computed(() => {
   const q = adding.value.trim().toLowerCase()
   return props.o.users
     .filter((u) => !props.group.members.includes(u.id) && (!q || u.name.toLowerCase().includes(q) || u.email.includes(q)))
-    .map((u) => ({ ...u, unassigned: groupsOf(props.o, u.id).length === 0 }))
-    .sort((a, b) => Number(b.unassigned) - Number(a.unassigned) || a.name.localeCompare(b.name))
+    .map((u) => ({ ...u, waiting: unassigned(props.o, u.id) }))
+    .sort((a, b) => Number(b.waiting) - Number(a.waiting) || a.name.localeCompare(b.name))
 })
 const alsoIn = (userId: string) =>
   groupsOf(props.o, userId)
@@ -143,7 +143,7 @@ function remove() {
             <p class="sugg-h">Click to add · Esc to close</p>
             <button v-for="u in others" :key="u.id" class="sugg" type="button" @click="addMember(group.id, u.id)">
               <PersonAvatar :name="u.name" size="sm" /><span class="grow"><b>{{ u.name }}</b><small>{{ u.email }}</small></span>
-              <span v-if="u.unassigned" class="gtag warn">Unassigned</span><span class="add-k"><Icon name="plus" />Add</span>
+              <span v-if="u.waiting" class="gtag warn">Unassigned</span><span class="add-k"><Icon name="plus" />Add</span>
             </button>
             <p v-if="others.length === 0" class="sugg-h">Everyone is in {{ group.name }}.</p>
           </div>

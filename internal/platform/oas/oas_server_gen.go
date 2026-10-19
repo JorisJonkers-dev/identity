@@ -21,6 +21,13 @@ type Handler interface {
 	//
 	// PUT /api/v1/access/groups/{groupId}/roles/{clientId}/{role}
 	AssignRole(ctx context.Context, params AssignRoleParams) (AssignRoleRes, error)
+	// AssignUserRole implements assignUserRole operation.
+	//
+	// Makes an Assignment held by the User alone, without a Group. The Client must be in the cluster and
+	// declare the App Role. Assigning twice changes nothing. Admins only.
+	//
+	// PUT /api/v1/access/users/{userId}/roles/{clientId}/{role}
+	AssignUserRole(ctx context.Context, params AssignUserRoleParams) (AssignUserRoleRes, error)
 	// ChangePassword implements changePassword operation.
 	//
 	// Replaces the password after checking the current one.
@@ -232,6 +239,13 @@ type Handler interface {
 	//
 	// DELETE /api/v1/access/groups/{groupId}/roles/{clientId}/{role}
 	UnassignRole(ctx context.Context, params UnassignRoleParams) (UnassignRoleRes, error)
+	// UnassignUserRole implements unassignUserRole operation.
+	//
+	// Removes an Assignment the User holds directly, also one on a Removed Client. Roles from the User's
+	// Groups stay. Admins only.
+	//
+	// DELETE /api/v1/access/users/{userId}/roles/{clientId}/{role}
+	UnassignUserRole(ctx context.Context, params UnassignUserRoleParams) (UnassignUserRoleRes, error)
 	// UpdateProfile implements updateProfile operation.
 	//
 	// Changes what the User is called.

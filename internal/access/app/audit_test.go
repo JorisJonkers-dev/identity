@@ -82,6 +82,29 @@ func TestEachAccessChangeRecordsOneEventByTheAdmin(t *testing.T) {
 	}
 }
 
+var adaViews = domain.UserAssignment{UserID: ada, ClientID: "grafana", Role: "viewer"}
+
+func TestGivingAPersonAnAppRoleRecordsOneEventNamingThem(t *testing.T) {
+	f := newFixture()
+	if err := f.svc.AssignUser(context.Background(), asAdmin, adaViews); err != nil {
+		t.Fatal(err)
+	}
+	if e := f.only(t); e != (audit.Event{Action: audit.RoleAssigned, Actor: admin, User: ada, Client: "grafana", Role: "viewer"}) {
+		t.Fatalf("event = %+v", e)
+	}
+}
+
+func TestTakingAPersonsAppRoleRecordsOneEventNamingThem(t *testing.T) {
+	f := newFixture()
+	f.store.direct = []domain.UserAssignment{adaViews}
+	if err := f.svc.UnassignUser(context.Background(), asAdmin, adaViews); err != nil {
+		t.Fatal(err)
+	}
+	if e := f.only(t); e != (audit.Event{Action: audit.RoleRemoved, Actor: admin, User: ada, Client: "grafana", Role: "viewer"}) {
+		t.Fatalf("event = %+v", e)
+	}
+}
+
 func TestAChangeThatChangesNothingRecordsNothing(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
@@ -100,6 +123,13 @@ func TestAChangeThatChangesNothingRecordsNothing(t *testing.T) {
 		}},
 		{"taking away an App Role the Group does not hold", func(f *fixture) error {
 			return f.svc.Unassign(context.Background(), asAdmin, familyViews)
+		}},
+		{"giving a person an App Role twice", func(f *fixture) error {
+			f.store.direct = append(f.store.direct, adaViews)
+			return f.svc.AssignUser(context.Background(), asAdmin, adaViews)
+		}},
+		{"taking away an App Role the person does not hold", func(f *fixture) error {
+			return f.svc.UnassignUser(context.Background(), asAdmin, adaViews)
 		}},
 		{"promoting an Admin again", func(f *fixture) error {
 			return f.svc.Promote(context.Background(), admin, true)
@@ -131,6 +161,11 @@ func TestAChangeTheStoreRefusesRecordsNothing(t *testing.T) {
 		{"DeleteGroup", func(f *fixture) error { return f.svc.DeleteGroup(context.Background(), asAdmin, family.ID) }},
 		{"AddMember", func(f *fixture) error { return f.svc.AddMember(context.Background(), asAdmin, adaInFamily) }},
 		{"Assign", func(f *fixture) error { return f.svc.Assign(context.Background(), asAdmin, familyViews) }},
+		{"AssignUser", func(f *fixture) error { return f.svc.AssignUser(context.Background(), asAdmin, adaViews) }},
+		{"UnassignUser", func(f *fixture) error {
+			f.store.direct = append(f.store.direct, adaViews)
+			return f.svc.UnassignUser(context.Background(), asAdmin, adaViews)
+		}},
 	} {
 		t.Run(tc.method, func(t *testing.T) {
 			f := newFixture()

@@ -8,6 +8,7 @@ type OperationName = string
 const (
 	AddMemberOperation                 OperationName = "AddMember"
 	AssignRoleOperation                OperationName = "AssignRole"
+	AssignUserRoleOperation            OperationName = "AssignUserRole"
 	ChangePasswordOperation            OperationName = "ChangePassword"
 	CompleteSignInOperation            OperationName = "CompleteSignIn"
 	CompleteSignInWithPasskeyOperation OperationName = "CompleteSignInWithPasskey"
@@ -40,5 +41,6 @@ const (
 	StartPasskeyOperation              OperationName = "StartPasskey"
 	StartTOTPOperation                 OperationName = "StartTOTP"
 	UnassignRoleOperation              OperationName = "UnassignRole"
+	UnassignUserRoleOperation          OperationName = "UnassignUserRole"
 	UpdateProfileOperation             OperationName = "UpdateProfile"
 )

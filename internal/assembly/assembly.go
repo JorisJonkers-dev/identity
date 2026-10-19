@@ -97,7 +97,7 @@ type Config struct {
 	Now func() time.Time
 }
 
-// Identity is identity built: its routes, the count of Users waiting for a Group, which /metrics
+// Identity is identity built: its routes, the count of Users waiting for an App Role, which /metrics
 // reports, and three jobs that run on a schedule: Prune, which removes Audit Events older than a
 // year, RefreshKeys, which starts a new signing key on time and retires old ones, and
 // ProvisionSecrets, which gives each new Secret Client its secret.

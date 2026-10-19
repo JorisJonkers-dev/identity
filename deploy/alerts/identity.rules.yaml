@@ -17,5 +17,5 @@ spec:
           labels:
             severity: info
           annotations:
-            summary: "{{ $value }} new User(s) need a Group"
-            description: "New Users confirmed their email and cannot open any app until they are in a Group. Add them at https://auth.jorisjonkers.dev/access."
+            summary: "{{ $value }} new User(s) wait for access"
+            description: "New Users have confirmed their email but cannot open any app until an Admin gives them a role, directly or through a Group. Open the Unassigned list: https://auth.jorisjonkers.dev/admin/unassigned."

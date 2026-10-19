@@ -1,0 +1,26 @@
+# A User holds an Assignment directly as well as through a Group (docs/adr/0018). The holder is
+# whichever of group_id and user_id is set, never both. Group Assignments stay as they were.
+databaseChangeLog:
+  - changeSet:
+      id: 0012-assignments-held-by-users
+      author: identity
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE assignments DROP CONSTRAINT assignments_pkey;
+              ALTER TABLE assignments ALTER COLUMN group_id DROP NOT NULL;
+              ALTER TABLE assignments ADD COLUMN user_id uuid
+                CONSTRAINT assignments_user_fk REFERENCES users(id) ON DELETE CASCADE;
+              ALTER TABLE assignments ADD CONSTRAINT assignments_one_holder CHECK (num_nonnulls(group_id, user_id) = 1);
+              CREATE UNIQUE INDEX assignments_group_key ON assignments (group_id, client_id, role) WHERE group_id IS NOT NULL;
+              CREATE UNIQUE INDEX assignments_user_key ON assignments (user_id, client_id, role) WHERE user_id IS NOT NULL
+      rollback:
+        - sql:
+            sql: >-
+              DELETE FROM assignments WHERE user_id IS NOT NULL;
+              DROP INDEX assignments_user_key;
+              DROP INDEX assignments_group_key;
+              ALTER TABLE assignments DROP CONSTRAINT assignments_one_holder;
+              ALTER TABLE assignments DROP COLUMN user_id;
+              ALTER TABLE assignments ALTER COLUMN group_id SET NOT NULL;
+              ALTER TABLE assignments ADD CONSTRAINT assignments_pkey PRIMARY KEY (group_id, client_id, role)
