@@ -16,5 +16,5 @@ Signing in to such a Client asks for a two-factor method whenever the session's 
 ## Consequences
 
 - identity's database now holds one piece of Client policy. A Removed Client keeps its setting, so it comes back the same.
-- Turning step-up on revokes the Client's existing Personal Tokens and Connected Apps, because they could never satisfy it. The app's page says so before the Admin confirms.
+- Turning step-up on revokes the Client's existing Personal Tokens and Connected Apps, because they could never satisfy it. The app's page says how many before the Admin confirms, and each revocation is an Audit Event.
 - A User with no two-factor cannot open a Step-up Client. They are sent to set two-factor up.
