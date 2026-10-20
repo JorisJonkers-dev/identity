@@ -142,8 +142,12 @@ func allow(w http.ResponseWriter, v app.Verdict) {
 // challenge is the Bearer challenge for a host; an MCP resource's points the tool to its metadata
 // (RFC 9728), where it learns which authorization server issues its tokens.
 func (h *Handler) challenge(r *http.Request, host, errorParam string) string {
+	return h.challengeFor(host, errorParam, h.uc.MCP(r.Context(), host))
+}
+
+func (h *Handler) challengeFor(host, errorParam string, mcp bool) string {
 	c := `Bearer realm="` + host + `"` + errorParam
-	if h.uc.MCP(r.Context(), host) {
+	if mcp {
 		c += `, resource_metadata="` + h.cfg.Issuer + `/.well-known/oauth-protected-resource/` + host + `"`
 	}
 	return c
@@ -182,7 +186,7 @@ func (h *Handler) signInPage(w http.ResponseWriter, r *http.Request, host string
 	start := h.cfg.Issuer + "/gate/start?" + url.Values{"host": {host}, "state": {state}, "rd": {back}}.Encode()
 	http.SetCookie(w, hostCookie(stateCookie, state, stateMaxAge))
 	if h.uc.MCP(r.Context(), host) {
-		w.Header().Set("WWW-Authenticate", h.challenge(r, host, ""))
+		w.Header().Set("WWW-Authenticate", h.challengeFor(host, "", true))
 	}
 	h.page(w, http.StatusUnauthorized, "signin", map[string]string{"App": client.Label, "Start": start})
 }

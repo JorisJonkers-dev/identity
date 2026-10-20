@@ -15,11 +15,13 @@ import (
 )
 
 // ErrInvalidRegistration is a registration whose name or redirect URIs break the rules.
-var ErrInvalidRegistration = errors.New("a registration names itself in 1 to 100 characters and gives 1 to 10 redirect URIs, each loopback http or https")
+var ErrInvalidRegistration = errors.New("a registration names itself in 1 to 100 characters and gives 1 to 10 redirect URIs, each loopback http or https and at most 2000 characters")
 
 const (
 	maxName         = 100
 	maxRedirectURIs = 10
+	// maxRedirectURI bounds what anyone may store by registering.
+	maxRedirectURI = 2000
 	// unnamed is what a registration that gives no name is called.
 	unnamed = "An unnamed app"
 )
@@ -53,6 +55,9 @@ func NewRegistration(clientID, name string, redirectURIs []string, at time.Time)
 }
 
 func allowedRedirect(raw string) bool {
+	if len(raw) > maxRedirectURI {
+		return false
+	}
 	u, err := url.Parse(raw)
 	if err != nil || u.Fragment != "" || u.User != nil || u.Host == "" {
 		return false

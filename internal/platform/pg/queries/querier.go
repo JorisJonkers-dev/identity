@@ -150,6 +150,8 @@ type Querier interface {
 	// A registration nobody consented to gives nothing, so it goes after a day.
 	PruneRegistrations(ctx context.Context, createdAt time.Time) (int64, error)
 	RegistrationByID(ctx context.Context, clientID string) (OauthRegistration, error)
+	// Only while the hash is still the one that was verified, so a password changed meanwhile stays.
+	RehashUserPassword(ctx context.Context, arg RehashUserPasswordParams) error
 	RemoveMember(ctx context.Context, arg RemoveMemberParams) (int64, error)
 	RenameGroup(ctx context.Context, arg RenameGroupParams) (int64, error)
 	// Revokes every live token for a Client at once, as turning step-up on does.

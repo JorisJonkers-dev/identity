@@ -331,9 +331,9 @@ func (s *Service) IssueRefresh(ctx context.Context, appID uuid.UUID) (string, er
 	return secret, s.store.CreateRefresh(ctx, id, appID, hashOf(secret), now, now.Add(RefreshLifetime))
 }
 
-// Refresh spends a refresh token and answers its Connected App, for new tokens. A refresh token
-// spent a second time means it leaked: the Connected App is revoked.
-func (s *Service) Refresh(ctx context.Context, secret string) (RefreshToken, error) {
+// Peek is a live refresh token's Connected App, without spending it, so a request refused before
+// new tokens are made leaves the token to the next try.
+func (s *Service) Peek(ctx context.Context, secret string) (RefreshToken, error) {
 	t, err := s.store.Refresh(ctx, hashOf(secret))
 	if errors.Is(err, ErrNotFound) {
 		return RefreshToken{}, ErrInvalidToken
@@ -343,6 +343,16 @@ func (s *Service) Refresh(ctx context.Context, secret string) (RefreshToken, err
 	}
 	if !s.now().Before(t.ExpiresAt) {
 		return RefreshToken{}, ErrInvalidToken
+	}
+	return t, nil
+}
+
+// Refresh spends a refresh token and answers its Connected App, for new tokens. A refresh token
+// spent a second time means it leaked: the Connected App is revoked.
+func (s *Service) Refresh(ctx context.Context, secret string) (RefreshToken, error) {
+	t, err := s.Peek(ctx, secret)
+	if err != nil {
+		return RefreshToken{}, err
 	}
 	spent, err := s.store.Spend(ctx, t.ID, s.now())
 	if err != nil {
@@ -373,6 +383,10 @@ func (s *Service) Check(ctx context.Context, tokenID uuid.UUID, clientID string)
 	}
 	if err != nil {
 		return AccessToken{}, nil, err
+	}
+	// Step-up revokes a Client's Connected Apps, and this refuses one that slipped past that.
+	if c.StepUp {
+		return AccessToken{}, nil, ErrInvalidToken
 	}
 	roles, err := s.rolesOn(ctx, t.UserID, c)
 	if err != nil {

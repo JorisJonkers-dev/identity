@@ -153,6 +153,19 @@ func (f *fakeApps) IssueRefresh(_ context.Context, appID uuid.UUID) (string, err
 	return secret, nil
 }
 
+func (f *fakeApps) Peek(_ context.Context, secret string) (connectedapp.RefreshToken, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.fail["Peek"]; err != nil {
+		return connectedapp.RefreshToken{}, err
+	}
+	t, ok := f.refresh[secret]
+	if !ok {
+		return connectedapp.RefreshToken{}, connectedapp.ErrInvalidToken
+	}
+	return t.RefreshToken, nil
+}
+
 func (f *fakeApps) Refresh(_ context.Context, secret string) (connectedapp.RefreshToken, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -477,7 +490,7 @@ func TestAnotherToolCannotSpendARefreshToken(t *testing.T) {
 }
 
 func TestAToolGetsNoTokensWhenTheyCannotBeMade(t *testing.T) {
-	for _, method := range []string{"IssueAccess", "IssueRefresh", "Refresh"} {
+	for _, method := range []string{"IssueAccess", "IssueRefresh", "Peek", "Refresh"} {
 		t.Run(method, func(t *testing.T) {
 			e := newEnv(t)
 			reg, first := e.connectedTokens(t)
@@ -508,22 +521,23 @@ func TestAConnectedAppsRefreshNeedsNoNewAccessTokenOnly(t *testing.T) {
 	s, _, _ := newStorage()
 	apps := s.apps.(*fakeApps)
 	appID, _ := apps.Consent(t.Context(), uuid.New(), "mcp_1", "web")
-	id, expires, err := s.CreateAccessToken(t.Context(), newRefreshRequest(connectedapp.RefreshToken{AppID: appID}))
-	if err != nil || !strings.HasPrefix(id, appTokenIDPrefix) || expires.IsZero() || len(apps.refresh) != 0 {
+	secret, _ := apps.IssueRefresh(t.Context(), appID)
+	id, expires, err := s.CreateAccessToken(t.Context(), newRefreshRequest(connectedapp.RefreshToken{AppID: appID}, secret))
+	if err != nil || !strings.HasPrefix(id, appTokenIDPrefix) || expires.IsZero() || len(apps.refresh) != 1 {
 		t.Fatalf("CreateAccessToken = %q, %v, %v", id, expires, err)
 	}
 }
 
 func TestAConnectedAppsRefreshRequestNamesItsToolAndUser(t *testing.T) {
 	user := uuid.New()
-	r := newRefreshRequest(connectedapp.RefreshToken{UserID: user, RegistrationID: "mcp_1"})
+	r := newRefreshRequest(connectedapp.RefreshToken{UserID: user, RegistrationID: "mcp_1"}, "")
 	if r.GetClientID() != "mcp_1" || r.GetSubject() != user.String() || r.GetAudience()[0] != "mcp_1" || r.GetAMR() != nil || !r.GetAuthTime().IsZero() || r.GetScopes()[0] != oidc.ScopeOfflineAccess {
 		t.Fatalf("refresh request = %+v", r)
 	}
 }
 
 func TestARefreshKeepsTheScopesTheToolNarrowedItTo(t *testing.T) {
-	r := newRefreshRequest(connectedapp.RefreshToken{})
+	r := newRefreshRequest(connectedapp.RefreshToken{}, "")
 	r.SetCurrentScopes([]string{})
 	if len(r.GetScopes()) != 0 {
 		t.Fatalf("scopes = %v", r.GetScopes())
@@ -603,5 +617,26 @@ func TestAnAuthorizeRequestThatCannotBeReadIsLeftToTheProvider(t *testing.T) {
 func TestAClientWhoseNameStartsLikeAToolIsStillAClient(t *testing.T) {
 	if isRegistration("mcp-search") || !isRegistration(connectedapp.RegistrationPrefix+"abc") {
 		t.Fatal("a Client's name was taken for a tool's")
+	}
+}
+
+func TestARefreshRefusedForItsScopeLeavesTheTokenToSpend(t *testing.T) {
+	e := newEnv(t)
+	reg, first := e.connectedTokens(t)
+	status, got := e.toolToken(t, url.Values{"grant_type": {"refresh_token"}, "refresh_token": {first.RefreshToken}, "client_id": {reg}, "scope": {"openid offline_access"}})
+	if status != http.StatusBadRequest || got.Error != "invalid_scope" {
+		t.Fatalf("refresh with openid = %d %+v", status, got)
+	}
+	if status, next := e.refreshWith(t, reg, first.RefreshToken); status != http.StatusOK || next.AccessToken == "" {
+		t.Fatalf("refresh after = %d %+v", status, next)
+	}
+}
+
+func TestARefreshByAnotherToolLeavesTheTokenToItsOwn(t *testing.T) {
+	e := newEnv(t)
+	reg, first := e.connectedTokens(t)
+	e.refreshWith(t, e.registered(t), first.RefreshToken)
+	if status, _ := e.refreshWith(t, reg, first.RefreshToken); status != http.StatusOK {
+		t.Fatalf("refresh by its own tool = %d", status)
 	}
 }

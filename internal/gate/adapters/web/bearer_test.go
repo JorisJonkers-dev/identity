@@ -103,6 +103,14 @@ func TestAGatedMCPResourcesSignInPageAlsoPointsAToolToItsMetadata(t *testing.T) 
 	}
 }
 
+func TestAGatedMCPResourcesSignInPageAsksWhetherItIsOneOnce(t *testing.T) {
+	uc := &useCases{checkErr: app.ErrNoSignIn, mcp: true}
+	get(t, serve(t, uc), "http://identity:8080/gate/check", forwarded("/mcp"))
+	if uc.mcpAsked != 1 {
+		t.Fatalf("asked %d times", uc.mcpAsked)
+	}
+}
+
 func TestAGatedHostTakingNoConnectedAppsSendsNoChallengeWithItsSignInPage(t *testing.T) {
 	if rec := get(t, serve(t, &useCases{checkErr: app.ErrNoSignIn}), "http://identity:8080/gate/check", forwarded("/")); rec.Header().Get("WWW-Authenticate") != "" {
 		t.Fatalf("challenge %q", rec.Header().Get("WWW-Authenticate"))
