@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -140,7 +141,7 @@ func (f *fakeApps) IssueAccess(_ context.Context, appID uuid.UUID) (uuid.UUID, t
 	}
 	a := f.apps[appID]
 	id, expires := uuid.New(), time.Now().Add(time.Hour)
-	f.access[id] = connectedapp.AccessToken{ID: id, AppID: appID, UserID: a.user, ClientID: a.client, ExpiresAt: expires}
+	f.access[id] = connectedapp.AccessToken{ID: id, AppID: appID, UserID: a.user, ClientID: a.client, ExpiresAt: expires, RegistrationID: a.reg}
 	return id, expires, nil
 }
 
@@ -473,6 +474,36 @@ func TestAConnectedAppsTokenIsInactiveWhenItsCheckFails(t *testing.T) {
 	e := newEnv(t)
 	_, tok := e.connectedTokens(t)
 	e.apps.fail["Check"] = errBoom
+	if got := e.introspection(t, tok.AccessToken); got["active"] != false {
+		t.Fatalf("introspection = %v", got)
+	}
+}
+
+func TestTheClientReadsTheToolActingForTheUserInAConnectedAppsToken(t *testing.T) {
+	e := newEnv(t)
+	reg, tok := e.connectedTokens(t)
+	got := e.introspection(t, tok.AccessToken)
+	if got["via"] != "tool" || got["kind"] != "user" || got["ver"] != "1.1" ||
+		!reflect.DeepEqual(got["act"], map[string]any{"sub": reg, "name": "Claude Code"}) {
+		t.Fatalf("introspection = %v", got)
+	}
+}
+
+func TestAConnectedAppsTokenIsInactiveOnceItsToolIsNoLongerRegistered(t *testing.T) {
+	e := newEnv(t)
+	reg, tok := e.connectedTokens(t)
+	e.apps.mu.Lock()
+	delete(e.apps.regs, reg)
+	e.apps.mu.Unlock()
+	if got := e.introspection(t, tok.AccessToken); got["active"] != false {
+		t.Fatalf("introspection = %v", got)
+	}
+}
+
+func TestAConnectedAppsTokenIsInactiveWhenItsToolCannotBeRead(t *testing.T) {
+	e := newEnv(t)
+	_, tok := e.connectedTokens(t)
+	e.apps.fail["Registration"] = errBoom
 	if got := e.introspection(t, tok.AccessToken); got["active"] != false {
 		t.Fatalf("introspection = %v", got)
 	}

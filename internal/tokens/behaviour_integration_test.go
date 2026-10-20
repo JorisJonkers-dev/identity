@@ -137,6 +137,19 @@ func TestTheAppTheTokenIsForSeesItsUserAndTheRolesTheyHoldNow(t *testing.T) {
 	}
 }
 
+func TestTheAppTheTokenIsForReadsThePrincipalOfAPersonalToken(t *testing.T) {
+	t.Parallel()
+	w := start(t)
+
+	p := itest.IntrospectedPrincipal(t, w.env.Introspect(t, "grafana", grafanaSecret, w.mint(t).Secret))
+
+	if p["subject"] != w.adaID || p["kind"] != "user" || p["email"] != w.ada.Email || p["name"] != "Grace Hopper" ||
+		p["via"] != "personal-token" || !slices.Equal(p["roles"].([]string), []string{"viewer"}) ||
+		p["twoFactor"] != false || p["sid"] != nil || p["actor"] != nil || p["ver"] != "1.1" {
+		t.Fatalf("principal = %v", p)
+	}
+}
+
 func TestTheAppTheTokenIsForSeesRolesHeldDirectlyAndThroughGroups(t *testing.T) {
 	t.Parallel()
 	w := start(t)

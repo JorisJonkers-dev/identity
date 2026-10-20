@@ -1,0 +1,8 @@
+{
+  "description": "A signed Principal header presented as an access token is refused.",
+  "issuer": "https://auth.example.test",
+  "client": "wiki",
+  "now": "2026-10-20T12:00:30Z",
+  "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6InZlY3Rvci1pc3N1ZXIiLCJ0eXAiOiJpZGVudGl0eS1wcmluY2lwYWwrand0In0.eyJpc3MiOiJodHRwczovL2F1dGguZXhhbXBsZS50ZXN0Iiwic3ViIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMGExIiwiYXVkIjoid2lraSIsImlhdCI6MTc5MjQ5NzYwMCwiZXhwIjoxNzkyNDk3NjYwLCJ2ZXIiOiIxLjEiLCJraW5kIjoidXNlciIsImVtYWlsIjoiYWRhQGV4YW1wbGUub3JnIiwibmFtZSI6IkFkYSBMb3ZlbGFjZSIsInJvbGVzIjpbInVzZXIiLCJlZGl0b3IiXSwidmlhIjoic2Vzc2lvbiIsInR3b19mYWN0b3IiOmZhbHNlLCJzaWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwYzEifQ.OOso7Uz1jDDsQp9FoLzV10nN6cbl7AFDL7vUh13XFdzVYoLNZalOlmaKYVMnY-xxmtdiV4BjukHRB0zlN2JaW--0ZBUuISXu1AsDGcP9DJPALnKzRl81YVWRamZNlQv_hJ1AVAtIj0f7yx3SnUPVrac-uqT6jZEDEorZV0u4DeYDIJ3PSkS62Td9Cj-oHPM4VJn5-4x_oNE7XTjF0XQn2d_jMVPFqTu8ujPH9kp1I9IoOxYqt3fbAzK02H-5_uJHOwLiN5H6f-Yh7W2Uij_kR4ukOdVf5h6k1rMshXVrQKPTtCT4ASPrUYhGun9c2W7t0v5DRAF0BTqaJD8cLl7AbQ",
+  "refusal": "wrong-typ"
+}

@@ -21,7 +21,7 @@ import (
 	"github.com/JorisJonkers-dev/identity/internal/gate/app"
 )
 
-// go test ./internal/gate/adapters/principal -run TestTheCommittedVectorsAreTheOnesTheGateSigns -update
+// go test ./internal/gate/adapters/principal -run TestTheCommittedVectorsAreTheOnesIdentityStates -update
 var update = flag.Bool("update", false, "write the conformance vectors to contract/principal")
 
 const (
@@ -132,11 +132,11 @@ func generated(t *testing.T) map[string]vector {
 	future := struct {
 		claims
 		Future string `json:"future"`
-	}{with(func(c *claims) { c.Version = "1.1" }), "a field a later minor version adds"}
+	}{with(func(c *claims) { c.Version = "1.2" }), "a field a later minor version adds"}
 	minor := vector{
 		Description: "A later minor version's Principal is read, and the field the reader does not know is ignored.",
 		Headers:     answer(adaSays, signedBy(issuer, Type, future)),
-		Principal:   statedFrom(adaSays, "1.1"),
+		Principal:   statedFrom(adaSays, "1.2"),
 	}
 	valid := signedBy(issuer, Type, claimsOf(adaSays, vectorIssuer, vectorClient, signedAt))
 	parts := strings.Split(valid, ".")
@@ -206,10 +206,16 @@ func files(t *testing.T) map[string][]byte {
 	for name, v := range generated(t) {
 		out["vectors/signed-header/"+name+".json"] = encoded(t, v)
 	}
+	for name, v := range accessTokenVectors(t) {
+		out["vectors/access-token/"+name+".json"] = encoded(t, v)
+	}
+	for name, v := range introspectionVectors(t) {
+		out["vectors/introspection/"+name+".json"] = encoded(t, v)
+	}
 	return out
 }
 
-func TestTheCommittedVectorsAreTheOnesTheGateSigns(t *testing.T) {
+func TestTheCommittedVectorsAreTheOnesIdentityStates(t *testing.T) {
 	want := files(t)
 	if *update {
 		_ = os.RemoveAll(filepath.Join(contract, "vectors"))
@@ -326,12 +332,22 @@ func TestEveryVectorsPrincipalValidatesAgainstTheSchema(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	principals := map[string]*stated{}
 	for name, v := range committed(t) {
-		if v.Principal == nil {
+		principals["signed-header/"+name] = v.Principal
+	}
+	for name, v := range committedChannel[tokenVector](t, "access-token") {
+		principals["access-token/"+name] = v.Principal
+	}
+	for name, v := range committedChannel[introspectionVector](t, "introspection") {
+		principals["introspection/"+name] = v.Principal
+	}
+	for name, p := range principals {
+		if p == nil {
 			continue
 		}
 		t.Run(name, func(t *testing.T) {
-			doc, _ := jsonschema.UnmarshalJSON(bytes.NewReader(encoded(t, v.Principal)))
+			doc, _ := jsonschema.UnmarshalJSON(bytes.NewReader(encoded(t, p)))
 			if err := schema.Validate(doc); err != nil {
 				t.Fatal(err)
 			}

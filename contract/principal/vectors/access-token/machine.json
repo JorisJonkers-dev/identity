@@ -1,0 +1,17 @@
+{
+  "description": "A Machine Identity's access token, issued to the Machine Identity for the Client it named.",
+  "issuer": "https://auth.example.test",
+  "client": "wiki",
+  "now": "2026-10-20T12:00:30Z",
+  "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6InZlY3Rvci1pc3N1ZXIiLCJ0eXAiOiJKV1QifQ.eyJhdWQiOlsid2lraSJdLCJjbGllbnRfaWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwYjciLCJleHAiOjE3OTI0OTg1MDAsImlhdCI6MTc5MjQ5NzYwMCwiaXNzIjoiaHR0cHM6Ly9hdXRoLmV4YW1wbGUudGVzdCIsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDBkMSIsImtpbmQiOiJtYWNoaW5lIiwibmJmIjoxNzkyNDk3NjAwLCJyb2xlcyI6WyJiYWNrdXAiXSwic3ViIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMGI3IiwidHdvX2ZhY3RvciI6ZmFsc2UsInZlciI6IjEuMSIsInZpYSI6Im1hY2hpbmUifQ.ZmjW2TV_eko6pe9Iejy3r_iPt6PBuAFTaxndaDtxhg_NRRnAJ--QEvokH3SDK2pRcM-OM5SLEmWFlz3YNEdAa8_PIiYaOXk4EgsBNuZsFS_9kV0B2beDr-vH3DTqMPgIkXEyeB_q9oOrFBmOoTiodPMEEewIIQfcO_8gFiUPhIfjORYedNfUwzZHUEdbdhqog22OLM3nTXtq0Mgce1uz_gij9oSHZgs47BoB2-oUzs2qGhX6imxtXC_JCjtCYWj_cxrgvzJi2ZP2LqvdC3qHhuCKgTe4QpQLxJXpWZJnMim9OcyIhzfyvxCHncq8BM0iW1Ec5VYQ6KzdRwucTH7psQ",
+  "principal": {
+    "subject": "00000000-0000-4000-8000-0000000000b7",
+    "kind": "machine",
+    "roles": [
+      "backup"
+    ],
+    "via": "machine",
+    "twoFactor": false,
+    "ver": "1.1"
+  }
+}

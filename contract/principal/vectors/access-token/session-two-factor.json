@@ -1,0 +1,22 @@
+{
+  "description": "A User's access token whose session proved two-factor fifteen minutes before it was issued.",
+  "issuer": "https://auth.example.test",
+  "client": "wiki",
+  "now": "2026-10-20T12:00:30Z",
+  "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6InZlY3Rvci1pc3N1ZXIiLCJ0eXAiOiJKV1QifQ.eyJhdWQiOlsid2lraSJdLCJjbGllbnRfaWQiOiJ3aWtpIiwiZW1haWwiOiJhZGFAZXhhbXBsZS5vcmciLCJleHAiOjE3OTI0OTg1MDAsImlhdCI6MTc5MjQ5NzYwMCwiaXNzIjoiaHR0cHM6Ly9hdXRoLmV4YW1wbGUudGVzdCIsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDBkMSIsImtpbmQiOiJ1c2VyIiwibmFtZSI6IkFkYSBMb3ZlbGFjZSIsIm5iZiI6MTc5MjQ5NzYwMCwicm9sZXMiOlsidXNlciIsImVkaXRvciJdLCJzaWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwYzEiLCJzdWIiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwYTEiLCJ0d29fZmFjdG9yIjp0cnVlLCJ0d29fZmFjdG9yX2F0IjoxNzkyNDk2NzAwLCJ2ZXIiOiIxLjEiLCJ2aWEiOiJzZXNzaW9uIn0.QhbY4CEJZPjn57wT3exC7pbO2PwKmgbmvRSpbIgMq5VIkddzAs-bOfRzFJbR9Y39ZutojeRKLvFc_b33TXWNgGecHFGvhDdcbA9eiMrGK1W8Z-7d1Qhrmgs_dTLmzx-Os6uMfrWov_8heoSga9xnJWrY_Nakhu4ACy8ZBYzDBjE8IYTR2w7H0vxrd7t0kHt4Z9-Sfx7ftw8rwnI2JIkvd1sEvK8YuTIytl0gs6hVpS5v8BC81sCDYzKv8KienxMhPdR8W-O92BgMQTWVQN3p03eFkiD76Yv2jvspuNbqwLTvQoUbZebeYkFzsycBYv1tObmRWC-V8ZKWaGHJnwyFLw",
+  "principal": {
+    "subject": "00000000-0000-4000-8000-0000000000a1",
+    "kind": "user",
+    "email": "ada@example.org",
+    "name": "Ada Lovelace",
+    "roles": [
+      "user",
+      "editor"
+    ],
+    "via": "session",
+    "twoFactor": true,
+    "twoFactorAt": "2026-10-20T11:45:00Z",
+    "sid": "00000000-0000-4000-8000-0000000000c1",
+    "ver": "1.1"
+  }
+}

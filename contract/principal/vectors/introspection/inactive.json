@@ -1,0 +1,8 @@
+{
+  "description": "A token that is revoked, expired, for another Client or unknown is inactive, and states no one.",
+  "client": "wiki",
+  "answer": {
+    "active": false
+  },
+  "refusal": "inactive"
+}

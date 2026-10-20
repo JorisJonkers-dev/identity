@@ -4,6 +4,7 @@ package persistence
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -42,6 +43,7 @@ func (s *Store) TakeByCodeHash(ctx context.Context, codeHash []byte) (domain.Aut
 func (s *Store) CompleteRequest(ctx context.Context, id uuid.UUID, in domain.SignIn) (bool, error) {
 	n, err := s.q.CompleteAuthRequest(ctx, queries.CompleteAuthRequestParams{
 		ID: id, UserID: &in.UserID, SessionID: &in.SessionID, AuthTime: &in.At, Methods: in.Methods,
+		TwoFactorAt: optionalTime(in.TwoFactorAt),
 	})
 	return n == 1, err
 }
@@ -71,8 +73,19 @@ func toRequest(row queries.AuthRequest, err error) (domain.AuthRequest, error) {
 	// The three are written together by CompleteAuthRequest, so one stands for all.
 	if row.UserID != nil {
 		r.SignIn = &domain.SignIn{UserID: *row.UserID, SessionID: *row.SessionID, At: *row.AuthTime, Methods: row.Methods}
+		if row.TwoFactorAt != nil {
+			r.SignIn.TwoFactorAt = *row.TwoFactorAt
+		}
 	}
 	return r, nil
+}
+
+// optionalTime is t, or nil for the zero time.
+func optionalTime(t time.Time) *time.Time {
+	if t.IsZero() {
+		return nil
+	}
+	return &t
 }
 
 func (s *Store) AddSessionClient(ctx context.Context, sessionID uuid.UUID, clientID string) error {

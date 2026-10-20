@@ -85,7 +85,7 @@ func TestASignedPrincipalIsBoundToItsClientAndLastsSixtySeconds(t *testing.T) {
 	token, _ := New("https://auth.example.test", ring{k}).Sign(adaSays, "wiki", signedAt)
 
 	_, _, c := verified(t, token, k)
-	if c["iss"] != "https://auth.example.test" || c["aud"] != "wiki" || c["iat"] != float64(signedAt.Unix()) || c["exp"] != float64(signedAt.Unix()+60) || c["ver"] != "1.0" {
+	if c["iss"] != "https://auth.example.test" || c["aud"] != "wiki" || c["iat"] != float64(signedAt.Unix()) || c["exp"] != float64(signedAt.Unix()+60) || c["ver"] != "1.1" {
 		t.Fatalf("claims = %v", c)
 	}
 }

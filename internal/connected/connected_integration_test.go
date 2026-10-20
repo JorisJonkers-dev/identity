@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -90,6 +91,29 @@ func TestAToolAdaConnectedReachesKnowledgeAsHerThroughTheGate(t *testing.T) {
 	got := w.env.GateCheck(t, "kb.test", bearer(tokens))
 	if got.StatusCode != http.StatusOK || got.Header.Get("X-Auth-Request-User") != w.admin.UserID(t, w.ada.Email) || got.Header.Get("X-Auth-Request-Roles") != "user" {
 		t.Fatalf("gate = %d %v", got.StatusCode, got.Header)
+	}
+}
+
+func TestAnAppIntrospectingAToolsTokenReadsTheToolAsActingForAda(t *testing.T) {
+	t.Parallel()
+	notes := signindomain.Client{
+		ID: "notes", SignIn: signindomain.Native, Host: "notes.test", Label: "Notes", Roles: []string{"user"},
+		Credential: signindomain.Secret, RedirectURIs: []string{"https://notes.test/callback"}, SecretPath: itest.SecretPath(t),
+	}
+	itest.PutSecret(t, notes.SecretPath, "notes", "notes-secret")
+	env := itest.Start(t, notes)
+	admin := env.Admin(t, "root@example.org")
+	ada := env.SignedUp(t, "ada@example.org")
+	admin.Call(t, http.MethodPut, "/api/v1/access/users/"+admin.UserID(t, ada.Email)+"/roles/notes/user", nil, http.StatusNoContent, nil)
+	admin.Call(t, http.MethodPut, "/api/v1/apps/notes/mcp", map[string]bool{"on": true}, http.StatusNoContent, nil)
+	tool, token := ada.ConnectedApp(t, "Claude Code", "https://notes.test/mcp")
+
+	p := itest.IntrospectedPrincipal(t, env.Introspect(t, "notes", "notes-secret", token))
+
+	if p["subject"] != admin.UserID(t, ada.Email) || p["kind"] != "user" || p["via"] != "tool" ||
+		!reflect.DeepEqual(p["actor"], map[string]any{"id": tool, "name": "Claude Code"}) ||
+		p["twoFactor"] != false || p["sid"] != nil || p["ver"] != "1.1" {
+		t.Fatalf("principal = %v", p)
 	}
 }
 

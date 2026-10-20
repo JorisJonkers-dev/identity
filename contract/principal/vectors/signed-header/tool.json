@@ -11,7 +11,7 @@
     "X-Auth-Request-Roles": "user,editor",
     "X-Auth-Request-User": "00000000-0000-4000-8000-0000000000a1",
     "X-Auth-Request-Via": "tool",
-    "X-Identity-Principal": "eyJhbGciOiJSUzI1NiIsImtpZCI6InZlY3Rvci1pc3N1ZXIiLCJ0eXAiOiJpZGVudGl0eS1wcmluY2lwYWwrand0In0.eyJpc3MiOiJodHRwczovL2F1dGguZXhhbXBsZS50ZXN0Iiwic3ViIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMGExIiwiYXVkIjoid2lraSIsImlhdCI6MTc5MjQ5NzYwMCwiZXhwIjoxNzkyNDk3NjYwLCJ2ZXIiOiIxLjAiLCJraW5kIjoidXNlciIsImVtYWlsIjoiYWRhQGV4YW1wbGUub3JnIiwibmFtZSI6IkFkYSBMb3ZlbGFjZSIsInJvbGVzIjpbInVzZXIiLCJlZGl0b3IiXSwidmlhIjoidG9vbCIsImFjdCI6eyJzdWIiOiJtY3BfNmYxZDBjMmUiLCJuYW1lIjoiQ2xhdWRlIENvZGUifSwidHdvX2ZhY3RvciI6ZmFsc2V9.QExIWEx3rKAoaijJUSObbKLwRO49FaZEphAbI_y0ZSlK39V0IHTnwwkzZSRKYOEiLOatjAxiKEgNuBma_SnCYhUtUQs-8bf53Xu9IltkSOZ6soKt2uK-Rqi4svBL5ood0al8fe2zyzGYvTa171WmyxAsH2ghdDJq_girazBY40Mq6t9tVCGxf-GJXxa_9zyPHtlmI4XYBM3G2aNdLGgAOn0wJfEqeREG0sm-fisEGbsKbBZ-nP3kRLVr5qsF9toZH2ACu4nqNnkfAUok34Z_NTAyUIkscJ9-F2AhdW5TLsQgeyBw1quq_0GbDleaVWFOhQHeQN9lsvqYz0t_m61POQ"
+    "X-Identity-Principal": "eyJhbGciOiJSUzI1NiIsImtpZCI6InZlY3Rvci1pc3N1ZXIiLCJ0eXAiOiJpZGVudGl0eS1wcmluY2lwYWwrand0In0.eyJpc3MiOiJodHRwczovL2F1dGguZXhhbXBsZS50ZXN0Iiwic3ViIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMGExIiwiYXVkIjoid2lraSIsImlhdCI6MTc5MjQ5NzYwMCwiZXhwIjoxNzkyNDk3NjYwLCJ2ZXIiOiIxLjEiLCJraW5kIjoidXNlciIsImVtYWlsIjoiYWRhQGV4YW1wbGUub3JnIiwibmFtZSI6IkFkYSBMb3ZlbGFjZSIsInJvbGVzIjpbInVzZXIiLCJlZGl0b3IiXSwidmlhIjoidG9vbCIsImFjdCI6eyJzdWIiOiJtY3BfNmYxZDBjMmUiLCJuYW1lIjoiQ2xhdWRlIENvZGUifSwidHdvX2ZhY3RvciI6ZmFsc2V9.cpklTo9Qv8D_-DFG6nSpO-_-VzSZVr4qjJXEXYT1H9YIA7iYlHuD5RHfDK5ISbTmfMJ-ZINsyTJs6MBZJotoUQrhQuYsWyUGNNLoaViZXjDoy0nwN7qec-WIbgR69SQHlmHDBIITWmT-AfVxkN4LFesNdeJ1n6H6nU7QSK-Z9KatqGUARIG_vmVRSO3oS6xKTIB-TFT2pbzKmJIRmoVEBn6qS23MuQ2cHZQFeTrgQ7fjxTM8GX5KreTjqEfHXL2eJfd3sT7DNaq9Hgw1gYenCHheUVSbIMcjvQTh40aahNchKZq6B92t0Cb7xTBxeJm4XFEp4-04Spp20byl21ySPQ"
   },
   "principal": {
     "subject": "00000000-0000-4000-8000-0000000000a1",
@@ -28,6 +28,6 @@
       "name": "Claude Code"
     },
     "twoFactor": false,
-    "ver": "1.0"
+    "ver": "1.1"
   }
 }

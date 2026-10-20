@@ -148,8 +148,8 @@ func TestUserinfoFailsAsAServerErrorWhenTheClaimsCannotBeRead(t *testing.T) {
 func TestRolesInTokens(t *testing.T) {
 	ctx := context.Background()
 	s, _, a := newStorage()
-	got, err := s.GetPrivateClaimsFromScopes(ctx, a.ada.String(), "web", nil)
-	if err != nil || !slices.Equal(got["roles"].([]string), []string{"user"}) || len(got) != 1 {
+	got, err := s.GetPrivateClaimsFromRequest(ctx, signedIn(a.ada, "web"), nil)
+	if err != nil || !slices.Equal(got["roles"].([]string), []string{"user"}) {
 		t.Fatalf("access token claims = %v, %v", got, err)
 	}
 	info := new(oidc.UserInfo)
@@ -157,15 +157,50 @@ func TestRolesInTokens(t *testing.T) {
 		!slices.Equal(info.Claims["roles"].([]string), []string{"user"}) {
 		t.Fatalf("ID token claims = %+v, %v", info.Claims, err)
 	}
-	_, err = s.GetPrivateClaimsFromScopes(ctx, "not-a-uuid", "web", nil)
-	wantOIDC(t, err, "invalid_request")
-	_, err = s.GetPrivateClaimsFromScopes(ctx, a.ada.String(), "removed", nil)
+	_, err = s.GetPrivateClaimsFromRequest(ctx, signedIn(a.ada, "removed"), nil)
 	wantOIDC(t, err, "invalid_request")
 	s.svc = app.New(newRequests(), testClients, a, &access{fail: errBoom}, noLogouts{}, discard{}, time.Now, rand.Reader)
 	s.svc.SetClientSecrets(testSecrets)
-	_, err = s.GetPrivateClaimsFromScopes(ctx, a.ada.String(), "web", nil)
+	_, err = s.GetPrivateClaimsFromRequest(ctx, signedIn(a.ada, "web"), nil)
 	wantOIDC(t, err, "server_error")
 	wantOIDC(t, s.SetUserinfoFromRequest(ctx, new(oidc.UserInfo), tokenRequest{a.ada.String()}, nil), "server_error")
+}
+
+// signedIn is a finished sign-in of userID to clientID, as the code exchange hands it over.
+func signedIn(userID uuid.UUID, clientID string) authRequest {
+	return authRequest{domain.AuthRequest{ClientID: clientID, SignIn: &domain.SignIn{UserID: userID, SessionID: uuid.New()}}}
+}
+
+func TestAUsersAccessTokenStatesTheirSession(t *testing.T) {
+	s, _, a := newStorage()
+	r := signedIn(a.ada, "web")
+	r.SignIn.TwoFactorAt = time.Unix(1_792_497_600, 0)
+
+	got, err := s.GetPrivateClaimsFromRequest(context.Background(), r, nil)
+
+	if err != nil || got["kind"] != "user" || got["via"] != "session" || got["sid"] != r.SignIn.SessionID.String() ||
+		got["email"] != "ada@example.org" || got["two_factor"] != true || got["two_factor_at"] != int64(1_792_497_600) || got["ver"] != "1.1" {
+		t.Fatalf("access token claims = %v, %v", got, err)
+	}
+}
+
+func TestAnAccessTokenIsRefusedWhenItsUserCannotBeRead(t *testing.T) {
+	s, _, a := newStorage()
+	a.failClaims = errBoom
+	_, err := s.GetPrivateClaimsFromRequest(context.Background(), signedIn(a.ada, "web"), nil)
+	wantOIDC(t, err, "server_error")
+}
+
+func TestAnAccessTokenIsMadeOnlyFromAFinishedSignIn(t *testing.T) {
+	s, _, _ := newStorage()
+	_, err := s.GetPrivateClaimsFromRequest(context.Background(), authRequest{domain.AuthRequest{ClientID: "web"}}, nil)
+	wantOIDC(t, err, "server_error")
+}
+
+func TestAnAccessTokenIsNeverMadeFromScopesAlone(t *testing.T) {
+	s, _, a := newStorage()
+	_, err := s.GetPrivateClaimsFromScopes(context.Background(), a.ada.String(), "web", nil)
+	wantOIDC(t, err, "server_error")
 }
 
 func TestAWrapperBeforeSignInVouchesForNobody(t *testing.T) {

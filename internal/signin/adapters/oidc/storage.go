@@ -15,6 +15,7 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/op"
 
 	connectedapp "github.com/JorisJonkers-dev/identity/internal/connected/app"
+	principalclaims "github.com/JorisJonkers-dev/identity/internal/platform/claims"
 	"github.com/JorisJonkers-dev/identity/internal/signin/app"
 	"github.com/JorisJonkers-dev/identity/internal/signin/domain"
 )
@@ -219,11 +220,11 @@ func (s *storage) SetUserinfoFromScopes(context.Context, *oidc.UserInfo, string,
 // SetUserinfoFromRequest fills the ID token: email and name as the scopes ask, the User's App Roles
 // on this Client, and the session's sid.
 func (s *storage) SetUserinfoFromRequest(ctx context.Context, info *oidc.UserInfo, req op.IDTokenRequest, scopes []string) error {
-	claims, err := s.claims(ctx, req.GetSubject())
+	id, claims, err := s.user(ctx, req.GetSubject())
 	if err != nil {
 		return err
 	}
-	roles, err := s.roles(ctx, req.GetSubject(), req.GetClientID())
+	roles, err := s.roles(ctx, id, req.GetClientID())
 	if err != nil {
 		return err
 	}
@@ -286,40 +287,57 @@ func (s *storage) introspectPersonalToken(ctx context.Context, resp *oidc.Intros
 	if err != nil {
 		return err
 	}
-	resp.Subject, resp.ClientID, resp.Audience, resp.TokenType = t.UserID.String(), clientID, oidc.Audience{clientID}, "Bearer"
-	resp.IssuedAt, resp.Expiration = oidc.FromTime(t.CreatedAt), oidc.FromTime(t.ExpiresAt)
-	resp.Email, resp.EmailVerified, resp.Name = claims.Email, true, claims.Name
-	resp.Claims = map[string]any{"roles": t.Roles}
+	principalclaims.Introspect(resp, principalclaims.Principal{
+		Subject: t.UserID.String(), Kind: principalclaims.KindUser, Email: claims.Email, Name: claims.Name,
+		Roles: t.Roles, Via: principalclaims.ViaPersonalToken,
+	}, clientID, t.CreatedAt, t.ExpiresAt)
 	return nil
 }
 
 func (s *storage) claims(ctx context.Context, subject string) (app.Claims, error) {
+	_, c, err := s.user(ctx, subject)
+	return c, err
+}
+
+// user is the User subject names, and their email and name.
+func (s *storage) user(ctx context.Context, subject string) (uuid.UUID, app.Claims, error) {
 	id, err := uuid.Parse(subject)
 	if err != nil {
-		return app.Claims{}, s.fail(ctx, app.ErrNotFound)
+		return uuid.Nil, app.Claims{}, s.fail(ctx, app.ErrNotFound)
 	}
 	c, err := s.svc.Claims(ctx, id)
 	if err != nil {
-		return app.Claims{}, s.fail(ctx, err)
+		return uuid.Nil, app.Claims{}, s.fail(ctx, err)
 	}
-	return c, nil
+	return id, c, nil
 }
 
-// GetPrivateClaimsFromScopes puts the User's App Roles on this Client in the access token, and
-// nothing about Groups (docs/adr/0004).
-func (s *storage) GetPrivateClaimsFromScopes(ctx context.Context, subject, clientID string, _ []string) (map[string]any, error) {
-	roles, err := s.roles(ctx, subject, clientID)
+var errNoSignIn = oidc.ErrServerError().WithDescription("An access token states the sign-in it was made from.")
+
+// GetPrivateClaimsFromScopes is never called: zitadel/oidc asks GetPrivateClaimsFromRequest, which
+// knows the sign-in an access token states.
+func (s *storage) GetPrivateClaimsFromScopes(context.Context, string, string, []string) (map[string]any, error) {
+	return nil, errNoSignIn
+}
+
+// sessionClaims is the Principal a User's access token states: who they are, their App Roles on
+// this Client and nothing about Groups (docs/adr/0004), and the session that signed them in.
+func (s *storage) sessionClaims(ctx context.Context, r authRequest) (map[string]any, error) {
+	id, claims, err := s.user(ctx, r.GetSubject())
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"roles": roles}, nil
+	roles, err := s.roles(ctx, id, r.ClientID)
+	if err != nil {
+		return nil, err
+	}
+	return principalclaims.Private(principalclaims.Principal{
+		Subject: r.GetSubject(), Kind: principalclaims.KindUser, Email: claims.Email, Name: claims.Name, Roles: roles,
+		Via: principalclaims.ViaSession, SessionID: r.SignIn.SessionID.String(), TwoFactorAt: r.SignIn.TwoFactorAt,
+	}), nil
 }
 
-func (s *storage) roles(ctx context.Context, subject, clientID string) ([]string, error) {
-	id, err := uuid.Parse(subject)
-	if err != nil {
-		return nil, s.fail(ctx, app.ErrNotFound)
-	}
+func (s *storage) roles(ctx context.Context, id uuid.UUID, clientID string) ([]string, error) {
 	roles, err := s.svc.Roles(ctx, id, clientID)
 	if err != nil {
 		return nil, s.fail(ctx, err)

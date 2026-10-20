@@ -241,6 +241,20 @@ func TestAMachineIdentityOutsideTheClusterSignsInWithTheSecretAnAdminGaveIt(t *t
 	}
 }
 
+func TestAMachineIdentitysAccessTokenStatesAMachineWithNoEmailOrName(t *testing.T) {
+	env := itest.Start(t, grafana)
+	admin := env.Admin(t, "admin@example.org")
+	m := addMachine(t, admin, "Backup", "backup")
+	_, body := credentials(t, env, m.ID, rotate(t, admin, m.ID))
+
+	p := env.AccessPrincipal(t, body["access_token"].(string), "grafana")
+
+	if p["subject"] != m.ID || p["kind"] != "machine" || p["via"] != "machine" || p["email"] != nil || p["name"] != nil ||
+		!slices.Equal(p["roles"].([]string), []string{"viewer"}) || p["twoFactor"] != false || p["sid"] != nil || p["ver"] != "1.1" {
+		t.Fatalf("principal = %v", p)
+	}
+}
+
 func TestARotatedMachineSecretStopsOnceTheNewOneIsUsed(t *testing.T) {
 	env := itest.Start(t, grafana)
 	admin := env.Admin(t, "admin@example.org")

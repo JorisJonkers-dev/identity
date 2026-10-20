@@ -1,0 +1,27 @@
+{
+  "description": "An answer stated in a major version the reader does not know is refused.",
+  "client": "wiki",
+  "answer": {
+    "active": true,
+    "aud": [
+      "wiki"
+    ],
+    "client_id": "wiki",
+    "email": "ada@example.org",
+    "email_verified": true,
+    "exp": 1800273600,
+    "iat": 1792497600,
+    "kind": "user",
+    "name": "Ada Lovelace",
+    "roles": [
+      "user",
+      "editor"
+    ],
+    "sub": "00000000-0000-4000-8000-0000000000a1",
+    "token_type": "Bearer",
+    "two_factor": false,
+    "ver": "2.0",
+    "via": "personal-token"
+  },
+  "refusal": "unknown-major"
+}

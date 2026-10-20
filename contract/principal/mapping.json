@@ -1,5 +1,6 @@
 {
-  "version": "1.0",
+  "version": "1.1",
+  "channels": "Every channel states the Principal with the claims under fields: the Gate's signed header, a JWT access token and an introspection answer. A reader of any channel takes the same claim names.",
   "signedHeader": {
     "header": "X-Identity-Principal",
     "typ": "identity-principal+jwt",
@@ -59,5 +60,33 @@
     "unknown-key": "No key in the Issuer's JWKS has the JWT's kid.",
     "bad-signature": "The signature does not verify with the key the kid names.",
     "unknown-major": "ver names a major version the reader does not know."
+  },
+  "accessToken": {
+    "typ": "JWT",
+    "alg": ["RS256"],
+    "rule": "A User's access token from the code flow states the session that signed them in. A Machine Identity's states kind machine and via machine, and carries no email or name. Verify it against the Issuer's JWKS.",
+    "claims": {
+      "iss": "the Issuer",
+      "aud": "includes the Client the token is for",
+      "exp": "when the token expires",
+      "client_id": "the Client, or the Machine Identity, the token was issued to"
+    },
+    "refusals": {
+      "wrong-typ": "The JWT's typ is not JWT, as a signed Principal header's is not.",
+      "wrong-issuer": "iss is not the Issuer.",
+      "wrong-audience": "aud does not include the reader's own Client.",
+      "expired": "The reader's clock is at or past exp.",
+      "unknown-key": "No key in the Issuer's JWKS has the JWT's kid.",
+      "bad-signature": "The signature does not verify with the key the kid names.",
+      "unknown-major": "ver names a major version the reader does not know."
+    }
+  },
+  "introspection": {
+    "path": "/oidc/introspect",
+    "rule": "A Client checks a Personal Token or a Connected App's opaque token by posting it to this path with its own credentials (RFC 7662). An active answer carries the Principal's claims beside RFC 7662's: via personal-token for a Personal Token, via tool with act naming the tool for a Connected App. A reader caches an answer for at most 30 seconds.",
+    "refusals": {
+      "inactive": "active is false: the token is revoked, expired, for another Client or unknown.",
+      "unknown-major": "ver names a major version the reader does not know."
+    }
   }
 }
