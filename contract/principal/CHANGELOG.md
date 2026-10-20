@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/JorisJonkers-dev/identity/compare/contract/principal/v1.1.0...contract/principal/v1.1.1) (2026-10-20)
+
+
+### Bug Fixes
+
+* **contract:** the Principal module asks for Go 1.24, not the newest Go ([#133](https://github.com/JorisJonkers-dev/identity/issues/133)) ([a60a50b](https://github.com/JorisJonkers-dev/identity/commit/a60a50b8b144d073b022c2c6b92ec68d1b92be21))
+
 ## [1.1.0](https://github.com/JorisJonkers-dev/identity/compare/contract/principal/v1.0.0...contract/principal/v1.1.0) (2026-10-20)
 
 
