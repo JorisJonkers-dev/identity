@@ -81,6 +81,8 @@ type Store interface {
 	Users(ctx context.Context) ([]domain.User, error)
 	UpdateName(ctx context.Context, id uuid.UUID, n domain.Name) error
 	UpdatePasswordHash(ctx context.Context, id uuid.UUID, hash string) error
+	// RehashPassword replaces the hash only while it is still old.
+	RehashPassword(ctx context.Context, id uuid.UUID, old, hash string) error
 	CreateSignup(ctx context.Context, s Signup) error
 	SignupByHash(ctx context.Context, tokenHash []byte) (Signup, error)
 	DeleteSignup(ctx context.Context, tokenHash []byte) error
@@ -401,7 +403,7 @@ func (s *Service) rehash(ctx context.Context, u domain.User, password string) {
 		return
 	}
 	if hash, err := s.hasher.Hash(domain.ProvenPassword(password)); err == nil {
-		_ = s.store.UpdatePasswordHash(ctx, u.ID, hash)
+		_ = s.store.RehashPassword(ctx, u.ID, u.PasswordHash, hash)
 	}
 }
 

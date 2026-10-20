@@ -783,3 +783,18 @@ func TestDeletingAUserWhoIsGoneIsNotFound(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestARehashReplacesOnlyTheHashItVerified(t *testing.T) {
+	ctx := context.Background()
+	s, _, u := stored(t)
+	if err := s.RehashPassword(ctx, u.ID, "a stale hash", "new"); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := s.UserByID(ctx, u.ID); got.PasswordHash != u.PasswordHash {
+		t.Fatalf("a stale rehash wrote %q", got.PasswordHash)
+	}
+	_ = s.RehashPassword(ctx, u.ID, u.PasswordHash, "new")
+	if got, _ := s.UserByID(ctx, u.ID); got.PasswordHash != "new" {
+		t.Fatalf("the rehash kept %q", got.PasswordHash)
+	}
+}

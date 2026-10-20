@@ -569,6 +569,22 @@ func (q *Queries) ProvePasswordReset(ctx context.Context, arg ProvePasswordReset
 	return err
 }
 
+const rehashUserPassword = `-- name: RehashUserPassword :exec
+UPDATE users SET password_hash = $3 WHERE id = $1 AND password_hash = $2
+`
+
+type RehashUserPasswordParams struct {
+	ID             uuid.UUID
+	PasswordHash   string
+	PasswordHash_2 string
+}
+
+// Only while the hash is still the one that was verified, so a password changed meanwhile stays.
+func (q *Queries) RehashUserPassword(ctx context.Context, arg RehashUserPasswordParams) error {
+	_, err := q.db.Exec(ctx, rehashUserPassword, arg.ID, arg.PasswordHash, arg.PasswordHash_2)
+	return err
+}
+
 const saveEmailChange = `-- name: SaveEmailChange :exec
 INSERT INTO email_changes (user_id, email, token_hash, expires_at) VALUES ($1, $2, $3, $4)
 ON CONFLICT (user_id) DO UPDATE SET email = EXCLUDED.email, token_hash = EXCLUDED.token_hash, expires_at = EXCLUDED.expires_at

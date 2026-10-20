@@ -13,6 +13,10 @@ UPDATE users SET name = $2 WHERE id = $1;
 -- name: UpdateUserPassword :exec
 UPDATE users SET password_hash = $2 WHERE id = $1;
 
+-- name: RehashUserPassword :exec
+-- Only while the hash is still the one that was verified, so a password changed meanwhile stays.
+UPDATE users SET password_hash = $3 WHERE id = $1 AND password_hash = $2;
+
 -- name: CreateSignup :exec
 INSERT INTO signups (token_hash, email, name, password_hash, expires_at) VALUES ($1, $2, $3, $4, $5);
 

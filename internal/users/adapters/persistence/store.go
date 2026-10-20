@@ -125,6 +125,10 @@ func (s *Store) UpdatePasswordHash(ctx context.Context, id uuid.UUID, hash strin
 	return s.q.UpdateUserPassword(ctx, queries.UpdateUserPasswordParams{ID: id, PasswordHash: hash})
 }
 
+func (s *Store) RehashPassword(ctx context.Context, id uuid.UUID, old, hash string) error {
+	return s.q.RehashUserPassword(ctx, queries.RehashUserPasswordParams{ID: id, PasswordHash: old, PasswordHash_2: hash})
+}
+
 func (s *Store) CreateSignup(ctx context.Context, su app.Signup) error {
 	return s.q.CreateSignup(ctx, queries.CreateSignupParams{
 		TokenHash: su.TokenHash, Email: su.Email.String(), Name: su.Name.String(), PasswordHash: su.PasswordHash, ExpiresAt: su.ExpiresAt,

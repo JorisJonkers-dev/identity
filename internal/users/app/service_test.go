@@ -435,6 +435,17 @@ func (s *store) UpdatePasswordHash(_ context.Context, id uuid.UUID, hash string)
 	return nil
 }
 
+func (s *store) RehashPassword(_ context.Context, id uuid.UUID, old, hash string) error {
+	if err := s.fail["RehashPassword"]; err != nil {
+		return err
+	}
+	if u := s.users[id]; u.PasswordHash == old {
+		u.PasswordHash = hash
+		s.users[id] = u
+	}
+	return nil
+}
+
 func (s *store) CreateSignup(_ context.Context, su app.Signup) error {
 	if err := s.fail["CreateSignup"]; err != nil {
 		return err
@@ -633,10 +644,15 @@ type hasher struct {
 	failHash error
 	verified int
 	hashed   int
+	// during runs while a hash is being made, as another request would.
+	during func()
 }
 
 func (h *hasher) Hash(p domain.Password) (string, error) {
 	h.hashed++
+	if h.during != nil {
+		h.during()
+	}
 	if h.failHash != nil {
 		return "", h.failHash
 	}
@@ -1044,6 +1060,22 @@ func TestSignInHashesAnImportedPasswordAgain(t *testing.T) {
 	}
 }
 
+func TestSignInNeverUndoesAPasswordChangedWhileItHashedTheImportedOne(t *testing.T) {
+	f := newFixture()
+	id := f.imported(t, "ada@example.org")
+	f.hasher.during = func() {
+		u := f.store.users[id]
+		u.PasswordHash = "hash:reset"
+		f.store.users[id] = u
+	}
+	if _, err := f.SignIn(context.Background(), "ada@example.org", pw); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.store.users[id].PasswordHash; got != "hash:reset" {
+		t.Fatalf("the hash is %q, want the reset one kept", got)
+	}
+}
+
 func TestSignInStillSignsInWhenAnImportedPasswordCannotBeHashedAgain(t *testing.T) {
 	boom := errors.New("boom")
 	for _, c := range []struct {
@@ -1051,7 +1083,7 @@ func TestSignInStillSignsInWhenAnImportedPasswordCannotBeHashedAgain(t *testing.
 		spoil func(*fixture)
 	}{
 		{"hashing fails", func(f *fixture) { f.hasher.failHash = boom }},
-		{"saving fails", func(f *fixture) { f.store.fail["UpdatePasswordHash"] = boom }},
+		{"saving fails", func(f *fixture) { f.store.fail["RehashPassword"] = boom }},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			f := newFixture()
