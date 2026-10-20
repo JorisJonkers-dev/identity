@@ -130,17 +130,17 @@ func (s *storage) CreateAccessAndRefreshTokens(ctx context.Context, req op.Token
 	return "", "", time.Time{}, errNoRefreshTokens
 }
 
-// TokenRequestByRefreshToken spends a Connected App's refresh token; spending one twice revokes the
-// Connected App.
+// TokenRequestByRefreshToken finds a Connected App's refresh token without spending it: zitadel/oidc
+// still checks the client and scopes, and the token is spent only as new tokens are made.
 func (s *storage) TokenRequestByRefreshToken(ctx context.Context, token string) (op.RefreshTokenRequest, error) {
-	t, err := s.apps.Refresh(ctx, token)
+	t, err := s.apps.Peek(ctx, token)
 	if errors.Is(err, connectedapp.ErrInvalidToken) {
 		return nil, op.ErrInvalidRefreshToken
 	}
 	if err != nil {
 		return nil, s.fail(ctx, err)
 	}
-	return newRefreshRequest(t), nil
+	return newRefreshRequest(t, token), nil
 }
 
 func (s *storage) GetRefreshTokenInfo(context.Context, string, string) (string, string, error) {

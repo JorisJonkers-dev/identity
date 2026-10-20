@@ -29,6 +29,7 @@ type ConnectedApps interface {
 	Consented(ctx context.Context, userID uuid.UUID, registrationID, clientID string) (uuid.UUID, error)
 	IssueAccess(ctx context.Context, appID uuid.UUID) (uuid.UUID, time.Time, error)
 	IssueRefresh(ctx context.Context, appID uuid.UUID) (string, error)
+	Peek(ctx context.Context, secret string) (connectedapp.RefreshToken, error)
 	Refresh(ctx context.Context, secret string) (connectedapp.RefreshToken, error)
 	Check(ctx context.Context, tokenID uuid.UUID, clientID string) (connectedapp.AccessToken, []string, error)
 }
@@ -177,7 +178,7 @@ var errConsentGone = oidc.ErrInvalidGrant().WithDescription("The app was disconn
 
 func (s *storage) appOf(ctx context.Context, req op.TokenRequest) (uuid.UUID, error) {
 	if r, ok := req.(*refreshRequest); ok {
-		return r.AppID, nil
+		return s.spend(ctx, r)
 	}
 	r, _ := req.(authRequest)
 	appID, err := s.apps.Consented(ctx, uuid.MustParse(r.GetSubject()), r.ClientID, r.Resource)
@@ -186,6 +187,19 @@ func (s *storage) appOf(ctx context.Context, req op.TokenRequest) (uuid.UUID, er
 		return uuid.Nil, errConsentGone
 	}
 	return appID, nil
+}
+
+// spend spends a refresh token once zitadel/oidc accepted the request it came with; spending it twice
+// disconnects its Connected App.
+func (s *storage) spend(ctx context.Context, r *refreshRequest) (uuid.UUID, error) {
+	t, err := s.apps.Refresh(ctx, r.secret)
+	if errors.Is(err, connectedapp.ErrInvalidToken) {
+		return uuid.Nil, oidc.ErrInvalidGrant()
+	}
+	if err != nil {
+		return uuid.Nil, s.fail(ctx, err)
+	}
+	return t.AppID, nil
 }
 
 // connected reports whether a token request is a Connected App's.
@@ -203,13 +217,14 @@ func connected(req op.TokenRequest) bool {
 // tokens.
 type refreshRequest struct {
 	connectedapp.RefreshToken
+	secret string
 	scopes []string
 }
 
 var _ op.RefreshTokenRequest = (*refreshRequest)(nil)
 
-func newRefreshRequest(t connectedapp.RefreshToken) *refreshRequest {
-	return &refreshRequest{RefreshToken: t, scopes: []string{oidc.ScopeOfflineAccess}}
+func newRefreshRequest(t connectedapp.RefreshToken, secret string) *refreshRequest {
+	return &refreshRequest{RefreshToken: t, secret: secret, scopes: []string{oidc.ScopeOfflineAccess}}
 }
 
 func (*refreshRequest) GetAMR() []string                   { return nil }

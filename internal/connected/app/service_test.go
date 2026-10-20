@@ -596,6 +596,16 @@ func TestAnAccessTokenStopsWorkingOnceItsUserHoldsNoAppRoleThere(t *testing.T) {
 	}
 }
 
+func TestAnAccessTokenStopsWorkingOnceItsClientAsksForStepUp(t *testing.T) {
+	f := newFixture()
+	_, appID := f.connected(t)
+	id, _, _ := f.IssueAccess(ctx, appID)
+	f.Service = app.New(f.store, clients{"kb": {ID: "kb", Roles: []string{"user"}, StepUp: true}}, roles{}, admins{}, f.events, func() time.Time { return t0 }, &counter{})
+	if _, _, err := f.Check(ctx, id, "kb"); !errors.Is(err, app.ErrInvalidToken) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
 func TestAnAccessTokenForAClientThatLeftTheClusterIsRefused(t *testing.T) {
 	f := newFixture()
 	_, appID := f.connected(t)
@@ -662,6 +672,18 @@ func TestARefreshTokenIsSpentOnceForItsConnectedApp(t *testing.T) {
 
 	if err != nil || got.AppID != appID || got.UserID != ada || got.ClientID != "kb" || !strings.HasPrefix(got.RegistrationID, app.RegistrationPrefix) {
 		t.Fatalf("Refresh = %+v, %v", got, err)
+	}
+}
+
+func TestPeekingAtARefreshTokenLeavesItToSpend(t *testing.T) {
+	f := newFixture()
+	_, appID := f.connected(t)
+	secret, _ := f.IssueRefresh(ctx, appID)
+	if got, err := f.Peek(ctx, secret); err != nil || got.AppID != appID {
+		t.Fatalf("Peek = %+v, %v", got, err)
+	}
+	if _, err := f.Refresh(ctx, secret); err != nil {
+		t.Fatalf("Refresh after a peek = %v", err)
 	}
 }
 
