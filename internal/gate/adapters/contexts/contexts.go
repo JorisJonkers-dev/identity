@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	connectedapp "github.com/JorisJonkers-dev/identity/internal/connected/app"
+	connecteddomain "github.com/JorisJonkers-dev/identity/internal/connected/domain"
 	"github.com/JorisJonkers-dev/identity/internal/gate/app"
 	signinapp "github.com/JorisJonkers-dev/identity/internal/signin/app"
 	signindomain "github.com/JorisJonkers-dev/identity/internal/signin/domain"
@@ -39,9 +40,10 @@ type StepUps interface {
 	StepUp(ctx context.Context, clientID string) (int, error)
 }
 
-// MCPResources tells which Clients take Connected Apps (identity#23).
-type MCPResources interface {
+// ConnectedApps tells which Clients take Connected Apps (identity#23), and which tool a registration is.
+type ConnectedApps interface {
 	IsMCPResource(ctx context.Context, clientID string) (bool, error)
+	Registration(ctx context.Context, clientID string) (connecteddomain.Registration, error)
 }
 
 // AppTokens checks a Connected App's access token for a Client; connectedapp.ErrInvalidToken for
@@ -58,13 +60,13 @@ type Contexts struct {
 	signIn    SignIn
 	users     Users
 	stepUps   StepUps
-	mcp       MCPResources
+	mcp       ConnectedApps
 	appTokens AppTokens
 }
 
 // SetConnectedApps lets MCP resources' hosts take Connected Apps' tokens; until it is called, none
 // does. It is set once, before the Gate serves.
-func (c *Contexts) SetConnectedApps(mcp MCPResources, tokens AppTokens) {
+func (c *Contexts) SetConnectedApps(mcp ConnectedApps, tokens AppTokens) {
 	c.mcp, c.appTokens = mcp, tokens
 }
 
@@ -120,7 +122,7 @@ func (c *Contexts) Bearer(ctx context.Context, secret, clientID string) (app.Per
 	if err != nil {
 		return app.Person{}, nil, err
 	}
-	return app.Person{UserID: u.ID, Email: u.Email.String(), Name: u.Name.String(), SessionID: t.ID}, t.Roles, nil
+	return app.Person{UserID: u.ID, Email: u.Email.String(), Name: u.Name.String(), SessionID: t.ID, Via: app.ViaPersonalToken}, t.Roles, nil
 }
 
 // GatedClient is the Client a host belongs to when the Gate signs in for it; a host with none, or
@@ -166,7 +168,7 @@ func person(u usersdomain.User, s usersapp.Session, err error) (app.Person, erro
 	if err != nil {
 		return app.Person{}, err
 	}
-	p := app.Person{UserID: u.ID, Email: u.Email.String(), Name: u.Name.String(), SessionID: s.ID}
+	p := app.Person{UserID: u.ID, Email: u.Email.String(), Name: u.Name.String(), SessionID: s.ID, Via: app.ViaSession}
 	if s.TwoFactorAt != nil {
 		p.TwoFactorAt = *s.TwoFactorAt
 	}
@@ -190,5 +192,10 @@ func (c *Contexts) appBearer(ctx context.Context, token, clientID string) (app.P
 	if err != nil {
 		return app.Person{}, nil, err
 	}
-	return app.Person{UserID: u.ID, Email: u.Email.String(), Name: u.Name.String(), SessionID: t.ID}, roles, nil
+	tool, err := c.mcp.Registration(ctx, t.RegistrationID)
+	if err != nil {
+		return app.Person{}, nil, err
+	}
+	actor := app.Actor{ID: tool.ClientID, Name: tool.Name}
+	return app.Person{UserID: u.ID, Email: u.Email.String(), Name: u.Name.String(), SessionID: t.ID, Via: app.ViaTool, Actor: actor}, roles, nil
 }

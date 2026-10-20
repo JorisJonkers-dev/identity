@@ -12,7 +12,8 @@ import (
 	"github.com/JorisJonkers-dev/identity/internal/gate/app"
 )
 
-// tokens knows one live Personal Token, "idpat_ada", for Ada on any Client, and counts its checks.
+// tokens knows one live Personal Token, "idpat_ada", and one Connected App's token, "idapp_claude",
+// both for Ada on any Client, and counts its checks.
 type tokens struct {
 	asked []string
 	err   error
@@ -23,11 +24,20 @@ func (t *tokens) Bearer(_ context.Context, secret, clientID string) (app.Person,
 	if t.err != nil {
 		return app.Person{}, nil, t.err
 	}
-	if secret != "idpat_ada" {
+	p := ada
+	switch secret {
+	case "idpat_ada":
+		p.Via = app.ViaPersonalToken
+	case "idapp_claude":
+		p.Via, p.Actor = app.ViaTool, claude
+	default:
 		return app.Person{}, nil, app.ErrNoSignIn
 	}
-	return ada, []string{"user"}, nil
+	return p, []string{"user"}, nil
 }
+
+// claude is the tool behind "idapp_claude".
+var claude = app.Actor{ID: "mcp_1", Name: "Claude Code"}
 
 func withTokens(f *fixture) *tokens {
 	t := &tokens{}

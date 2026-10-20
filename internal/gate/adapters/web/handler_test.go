@@ -38,7 +38,7 @@ func (u *useCases) Client(_ context.Context, host string) (app.Client, error) {
 
 func (u *useCases) Check(_ context.Context, host, cookie string) (app.Verdict, error) {
 	u.asked = append(u.asked, host, cookie)
-	return app.Verdict{UserID: uuid.MustParse("00000000-0000-4000-8000-0000000000a1"), Email: "ada@example.org", Roles: []string{"user", "viewer"}}, u.checkErr
+	return app.Verdict{UserID: uuid.MustParse("00000000-0000-4000-8000-0000000000a1"), Email: "ada@example.org", Roles: []string{"user", "viewer"}, Kind: app.KindUser, Via: app.ViaSession, Signed: "signed-principal"}, u.checkErr
 }
 
 func (u *useCases) CheckBearer(_ context.Context, host, secret string) (app.Verdict, error) {
@@ -231,5 +231,26 @@ func TestStartSendsAUserWithNoTwoFactorToSetItUp(t *testing.T) {
 	rec := get(t, serve(t, &useCases{startErr: app.ErrTwoFactorNeeded}), "https://auth.test/gate/start?host=tribelt.jorisjonkers.dev&state=s", nil)
 	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/security/two-factor?for=step-up" {
 		t.Fatalf("start = %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+}
+
+func TestAnAllowedCheckSendsTheSignedPrincipal(t *testing.T) {
+	rec := get(t, serve(t, &useCases{}), "http://identity:8080/gate/check", forwarded("/stats"), &http.Cookie{Name: "__Host-identity_gate", Value: "c"}) //nolint:gosec // a request's cookie carries no attributes
+
+	if got := rec.Header().Get("X-Identity-Principal"); got != "signed-principal" {
+		t.Fatalf("X-Identity-Principal = %q", got)
+	}
+}
+
+func TestAnAllowedCheckSetsEveryPlainHeaderEvenWhenItIsEmpty(t *testing.T) {
+	rec := get(t, serve(t, &useCases{}), "http://identity:8080/gate/check", forwarded("/stats"), &http.Cookie{Name: "__Host-identity_gate", Value: "c"}) //nolint:gosec // a request's cookie carries no attributes
+
+	for _, name := range []string{"X-Auth-Request-User", "X-Auth-Request-Email", "X-Auth-Request-Name", "X-Auth-Request-Roles", "X-Auth-Request-Kind", "X-Auth-Request-Via", "X-Auth-Request-Actor"} {
+		if _, ok := rec.Header()[name]; !ok {
+			t.Errorf("%s is not set", name)
+		}
+	}
+	if rec.Header().Get("X-Auth-Request-Via") != "session" || rec.Header().Get("X-Auth-Request-Name") != "" {
+		t.Fatalf("headers = %v", rec.Header())
 	}
 }

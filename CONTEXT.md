@@ -95,6 +95,12 @@ The part of the Identity Provider that signs Users in for a Client whose app
 cannot speak OIDC, and keeps a separate sign-in per host.
 _Avoid_: Forward-auth, proxy, middleware
 
+**Principal**:
+Who is calling an application, as identity states it on every channel: the
+User or Machine Identity, its App Roles on that Client, how it signed in, the
+tool acting for it, and whether its session proved two-factor.
+_Avoid_: Identity, user context, claims
+
 ### Access
 
 **App Role**:

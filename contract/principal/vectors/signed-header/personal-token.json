@@ -1,0 +1,29 @@
+{
+  "description": "A User calling with a Personal Token: no session, and no two-factor.",
+  "issuer": "https://auth.example.test",
+  "client": "wiki",
+  "now": "2026-10-20T12:00:30Z",
+  "headers": {
+    "X-Auth-Request-Actor": "",
+    "X-Auth-Request-Email": "ada@example.org",
+    "X-Auth-Request-Kind": "user",
+    "X-Auth-Request-Name": "Ada Lovelace",
+    "X-Auth-Request-Roles": "user,editor",
+    "X-Auth-Request-User": "00000000-0000-4000-8000-0000000000a1",
+    "X-Auth-Request-Via": "personal-token",
+    "X-Identity-Principal": "eyJhbGciOiJSUzI1NiIsImtpZCI6InZlY3Rvci1pc3N1ZXIiLCJ0eXAiOiJpZGVudGl0eS1wcmluY2lwYWwrand0In0.eyJpc3MiOiJodHRwczovL2F1dGguZXhhbXBsZS50ZXN0Iiwic3ViIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMGExIiwiYXVkIjoid2lraSIsImlhdCI6MTc5MjQ5NzYwMCwiZXhwIjoxNzkyNDk3NjYwLCJ2ZXIiOiIxLjAiLCJraW5kIjoidXNlciIsImVtYWlsIjoiYWRhQGV4YW1wbGUub3JnIiwibmFtZSI6IkFkYSBMb3ZlbGFjZSIsInJvbGVzIjpbInVzZXIiLCJlZGl0b3IiXSwidmlhIjoicGVyc29uYWwtdG9rZW4iLCJ0d29fZmFjdG9yIjpmYWxzZX0.UczCaedxATZiV_F0rqcMwaS78bxLMH12DaP1NUSIe3OViG1Rmhi7Ym7HDX22ICPW03AzjfjUbAEu9ot4SJfZDbY_D1XDRK9vtyrfdFqog_m_kXV8pki6UpXgm1vjgf9yJwkAlFUxDnJwsQfGC62JB7YQD0nmFBCGx2bnC7dsprXGY_Zuah4j0e0gY5cisNuQt7hRvJBit6P2crnAyWo2cb7CKIsoxKzUHyVjiCIhluMNy7huG9Eokovt2PTmAuV3gTZSHTQgxIQcHUFJ0M1bsZwh_mlB1swZaMu1y1vkVA4XSXS94ICS8nzmo5sPKE6ViBawFiiZZrkdHkXmJYCrNg"
+  },
+  "principal": {
+    "subject": "00000000-0000-4000-8000-0000000000a1",
+    "kind": "user",
+    "email": "ada@example.org",
+    "name": "Ada Lovelace",
+    "roles": [
+      "user",
+      "editor"
+    ],
+    "via": "personal-token",
+    "twoFactor": false,
+    "ver": "1.0"
+  }
+}

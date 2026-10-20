@@ -43,6 +43,18 @@ const (
 	maxCached = 50_000
 )
 
+// The kind of caller and the way in a Verdict states (contract/principal). The Gate sees only Users.
+const (
+	KindUser         = "user"
+	ViaSession       = "session"
+	ViaPersonalToken = "personal-token"
+	ViaTool          = "tool"
+)
+
+// PrincipalLifetime is how long a signed Principal lasts. A check keeps one for at most half of it,
+// so an app always receives one with at least that long left.
+const PrincipalLifetime = 60 * time.Second
+
 // Client is a gated Client as the Gate needs it.
 type Client struct {
 	ID    string
@@ -66,14 +78,52 @@ type Person struct {
 	TwoFactorAt time.Time
 	// TwoFactor is whether the User added an authenticator app or a passkey.
 	TwoFactor bool
+	// Via is how the request came: a session, a Personal Token or a tool; Actor names the tool.
+	Via   string
+	Actor Actor
 }
 
-// Verdict is what the Gate tells the app about the User of a request.
+// Actor is a tool acting for a User: its registration's client id and the name it registered with.
+type Actor struct {
+	ID   string
+	Name string
+}
+
+// Verdict is what the Gate tells the app about the User of a request: the Principal contract's
+// facts, and the same signed for the request's Client.
 type Verdict struct {
 	UserID uuid.UUID
 	Email  string
 	Name   string
 	Roles  []string
+	Kind   string
+	Via    string
+	Actor  Actor
+	// SessionID is the Single sign-on session, for a Verdict that came by one; uuid.Nil otherwise.
+	SessionID uuid.UUID
+	// TwoFactorAt is when the session last proved two-factor; zero when it never did.
+	TwoFactorAt time.Time
+	// Signed is the Verdict as the Principal the Gate sends, signed when the check ran.
+	Signed string
+}
+
+// Headers is v as the plain headers a third-party gated app reads (contract/principal): every one,
+// empty when v has no value, so the edge never passes on a caller's copy of a header left out.
+func (v Verdict) Headers() map[string]string {
+	return map[string]string{
+		"X-Auth-Request-User":  v.UserID.String(),
+		"X-Auth-Request-Email": v.Email,
+		"X-Auth-Request-Name":  v.Name,
+		"X-Auth-Request-Roles": strings.Join(v.Roles, ","),
+		"X-Auth-Request-Kind":  v.Kind,
+		"X-Auth-Request-Via":   v.Via,
+		"X-Auth-Request-Actor": v.Actor.Name,
+	}
+}
+
+// Principals signs a Verdict as the Principal for a Client, valid for PrincipalLifetime from at.
+type Principals interface {
+	Sign(v Verdict, clientID string, at time.Time) (string, error)
 }
 
 // Code is a sign-in on its way from the Identity Provider to a host.
@@ -137,15 +187,16 @@ type cached struct {
 
 // Service is the Gate's use cases.
 type Service struct {
-	store    Store
-	clients  Clients
-	roles    Roles
-	accounts Accounts
-	tokens   Tokens
-	audit    Audit
-	now      func() time.Time
-	random   io.Reader
-	ttl      time.Duration
+	store      Store
+	clients    Clients
+	roles      Roles
+	accounts   Accounts
+	tokens     Tokens
+	principals Principals
+	audit      Audit
+	now        func() time.Time
+	random     io.Reader
+	ttl        time.Duration
 
 	mu    sync.RWMutex
 	cache map[string]cached
@@ -161,6 +212,10 @@ type Audit interface {
 func New(store Store, clients Clients, roles Roles, accounts Accounts, audit Audit, now func() time.Time, random io.Reader, ttl time.Duration) *Service {
 	return &Service{store: store, clients: clients, roles: roles, accounts: accounts, audit: audit, now: now, random: random, ttl: ttl, cache: map[string]cached{}}
 }
+
+// SetPrincipals has every allowed check carry its Verdict signed; until it is called, none does. It
+// is set once, before the Gate serves.
+func (s *Service) SetPrincipals(p Principals) { s.principals = p }
 
 // SetTokens lets gated and token hosts take Personal Tokens; until it is called, none does. It is
 // set once, before the Gate serves.
@@ -182,7 +237,8 @@ func (s *Service) CheckBearer(ctx context.Context, host, secret string) (Verdict
 		if err != nil {
 			return Verdict{}, uuid.Nil, time.Time{}, err
 		}
-		return Verdict{UserID: p.UserID, Email: p.Email, Name: p.Name, Roles: roles}, p.SessionID, time.Time{}, nil
+		v, err := s.signed(verdictOf(p, roles), client.ID)
+		return v, p.SessionID, time.Time{}, err
 	})
 }
 
@@ -232,6 +288,9 @@ func (s *Service) cached(key string, check func() (Verdict, uuid.UUID, time.Time
 	v, session, ends, err := check()
 	if err == nil || errors.Is(err, ErrNoAccess) || errors.Is(err, ErrNoSignIn) {
 		until := now.Add(s.ttl)
+		if v.Signed != "" && now.Add(PrincipalLifetime/2).Before(until) {
+			until = now.Add(PrincipalLifetime / 2)
+		}
 		if !ends.IsZero() && ends.Before(until) {
 			until = ends
 		}
@@ -271,6 +330,10 @@ func (s *Service) check(ctx context.Context, host string, hash []byte) (Verdict,
 		return Verdict{}, gs.SessionID, ends, err
 	}
 	v, err := s.verdict(ctx, client, p)
+	if err != nil {
+		return Verdict{}, gs.SessionID, ends, err
+	}
+	v, err = s.signed(v, client.ID)
 	return v, gs.SessionID, ends, err
 }
 
@@ -295,7 +358,31 @@ func (s *Service) verdict(ctx context.Context, client Client, p Person) (Verdict
 	if len(roles) == 0 {
 		return Verdict{}, ErrNoAccess
 	}
-	return Verdict{UserID: p.UserID, Email: p.Email, Name: p.Name, Roles: roles}, nil
+	return verdictOf(p, roles), nil
+}
+
+func verdictOf(p Person, roles []string) Verdict {
+	v := Verdict{
+		UserID: p.UserID, Email: p.Email, Name: p.Name, Roles: roles,
+		Kind: KindUser, Via: p.Via, Actor: p.Actor, TwoFactorAt: p.TwoFactorAt,
+	}
+	if p.Via == ViaSession {
+		v.SessionID = p.SessionID
+	}
+	return v
+}
+
+// signed is v with its Principal signed for a Client now, when the Gate has Principals.
+func (s *Service) signed(v Verdict, clientID string) (Verdict, error) {
+	if s.principals == nil {
+		return v, nil
+	}
+	signed, err := s.principals.Sign(v, clientID, s.now())
+	if err != nil {
+		return Verdict{}, err
+	}
+	v.Signed = signed
+	return v, nil
 }
 
 // Start runs on the Identity Provider's host, where the Single sign-on session is: it checks the

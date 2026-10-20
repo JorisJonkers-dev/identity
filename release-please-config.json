@@ -8,7 +8,19 @@
       "bump-minor-pre-major": true,
       "draft": false,
       "prerelease": false,
-      "initial-version": "0.1.0"
+      "initial-version": "0.1.0",
+      "exclude-paths": [
+        "contract/principal"
+      ]
+    },
+    "contract/principal": {
+      "component": "contract/principal",
+      "include-component-in-tag": true,
+      "tag-separator": "/",
+      "changelog-path": "CHANGELOG.md",
+      "initial-version": "1.0.0",
+      "draft": false,
+      "prerelease": false
     }
   }
 }

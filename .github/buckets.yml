@@ -13,6 +13,7 @@ buckets:
     - 'scripts/coverage.sh'
     - 'deploy/crd/**' # the integration tests apply it to a real API server
     - 'deploy/alerts/**' # the integration tests run promtool on it
+    - 'contract/principal/**' # the Principal contract, which the Go tests hold the Gate to
   # The schema and what migrates it.
   db:
     - 'db/**'
@@ -52,6 +53,8 @@ fixtures:
   cmd/identity/main.go: [go]
   internal/server/server_test.go: [go]
   web/embed.go: [go]
+  contract/principal/mapping.json: [go]
+  contract/principal/go.mod: [go]
   go.mod: [go]
   go.sum: [go]
   .golangci.yml: [go]

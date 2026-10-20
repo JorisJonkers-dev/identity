@@ -30,6 +30,7 @@ import (
 	connectedapp "github.com/JorisJonkers-dev/identity/internal/connected/app"
 	gatecontexts "github.com/JorisJonkers-dev/identity/internal/gate/adapters/contexts"
 	gatepersistence "github.com/JorisJonkers-dev/identity/internal/gate/adapters/persistence"
+	gateprincipal "github.com/JorisJonkers-dev/identity/internal/gate/adapters/principal"
 	gateweb "github.com/JorisJonkers-dev/identity/internal/gate/adapters/web"
 	gateapp "github.com/JorisJonkers-dev/identity/internal/gate/app"
 	launchercontexts "github.com/JorisJonkers-dev/identity/internal/launcher/adapters/contexts"
@@ -211,6 +212,7 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 	gate := gateapp.New(gatepersistence.New(q), others, others, others, recorder, now, rand.Reader, gateCacheTTL)
 	tokensDeleted = gate.Forget
 	gate.SetTokens(others)
+	gate.SetPrincipals(gateprincipal.New(cfg.PublicURL, ring))
 	tokens.OnRevoked(func(_ context.Context, tokenID uuid.UUID) { gate.Forget([]uuid.UUID{tokenID}) })
 	apps.OnForget(gate.Forget)
 	signedOut = endSessions(gate, signIn, cfg.Logger)

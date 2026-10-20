@@ -18,7 +18,7 @@ import (
 var (
 	errBoom = errors.New("boom")
 	t0      = time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)
-	ada     = app.Person{UserID: uuid.MustParse("00000000-0000-4000-8000-0000000000a1"), Email: "ada@example.org", Name: "Ada", SessionID: uuid.MustParse("00000000-0000-4000-8000-0000000000c1")}
+	ada     = app.Person{UserID: uuid.MustParse("00000000-0000-4000-8000-0000000000a1"), Email: "ada@example.org", Name: "Ada", SessionID: uuid.MustParse("00000000-0000-4000-8000-0000000000c1"), Via: app.ViaSession}
 	stats   = app.Client{ID: "tribelt-stats", Label: "Tribelt stats", Host: "tribelt.jorisjonkers.dev"}
 )
 
@@ -114,6 +114,8 @@ type accounts struct {
 	// proof is Ada's session's last two-factor proof and whether she has two-factor at all.
 	proof     time.Time
 	twoFactor bool
+	// vouchedProof is the two-factor proof Vouch reports for her session.
+	vouchedProof time.Time
 }
 
 func (a *accounts) SignedIn(_ context.Context, token string) (app.Person, error) {
@@ -129,7 +131,9 @@ func (a *accounts) Vouch(_ context.Context, id uuid.UUID) (app.Person, error) {
 	if id != ada.SessionID || a.signedOut {
 		return app.Person{}, app.ErrNoSignIn
 	}
-	return ada, a.err
+	p := ada
+	p.TwoFactorAt = a.vouchedProof
+	return p, a.err
 }
 
 type counter struct{ n byte }

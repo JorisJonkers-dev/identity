@@ -228,15 +228,30 @@ type GateAnswer struct {
 // authorization as its Authorization header when it is not empty.
 func (e *Env) GateCheck(t *testing.T, host, authorization string) GateAnswer {
 	t.Helper()
+	return e.gateCheck(t, host, func(req *http.Request) {
+		if authorization != "" {
+			req.Header.Set("Authorization", authorization)
+		}
+	})
+}
+
+// GateCheckCookie is Traefik's forwardAuth call for a request to host carrying the host's cookie.
+func (e *Env) GateCheckCookie(t *testing.T, host, cookie string) GateAnswer {
+	t.Helper()
+	return e.gateCheck(t, host, func(req *http.Request) {
+		req.AddCookie(&http.Cookie{Name: "__Host-identity_gate", Value: cookie}) //nolint:gosec // a request's cookie carries no attributes
+	})
+}
+
+func (e *Env) gateCheck(t *testing.T, host string, set func(*http.Request)) GateAnswer {
+	t.Helper()
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://"+Host+"/gate/check", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	req.Header.Set("X-Forwarded-Host", host)
 	req.Header.Set("X-Forwarded-Uri", "/")
-	if authorization != "" {
-		req.Header.Set("Authorization", authorization)
-	}
+	set(req)
 	res, err := e.Browser().client.Do(req)
 	if err != nil {
 		t.Fatal(err)
