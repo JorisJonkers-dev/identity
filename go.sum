@@ -4,10 +4,10 @@ github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6 h1:He8af
 github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6/go.mod h1:8o94RPi1/7XTJvwPpRSzSUedZrtlirdB3r9Z20bi2f8=
 github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c h1:udKWzYgxTojEKWjV8V+WSxDXJ4NFATAsZjh8iIbsQIg=
 github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c/go.mod h1:xomTg63KZ2rFqZQzSB4Vz2SUXa1BpHTVz9L5PTmPC4E=
-github.com/JorisJonkers-dev/go-commons v0.2.3-0.20261020192436-f0e5176e6d17 h1:lGglKoRHFp/2MiMbL3+l7qay0hMNWZfkDG3E0ajB/V8=
-github.com/JorisJonkers-dev/go-commons v0.2.3-0.20261020192436-f0e5176e6d17/go.mod h1:UkT0JgDOvoejeozufjV9NaB4k2VWwaZJDoKEBDl4MV8=
-github.com/JorisJonkers-dev/identity/contract/principal v0.0.0-20261020190440-117db4adf4e4 h1:iY9qAUl2ry1i8eogNGVtWBT3xOT2TvWmKrF46A3IWzo=
-github.com/JorisJonkers-dev/identity/contract/principal v0.0.0-20261020190440-117db4adf4e4/go.mod h1:0SHKF5qroPPzolx/PtbnY+/Ywwwmi7rmxZKcWTzg5w0=
+github.com/JorisJonkers-dev/go-commons v0.3.0 h1:V5qj69TQAN777w799wndKRuvXt1Kr/3Q1BO/vxjU3jA=
+github.com/JorisJonkers-dev/go-commons v0.3.0/go.mod h1:W2n1Q9z9IotsZdsDAtPmpdrxDrpPXoufW7AES7D2Kwg=
+github.com/JorisJonkers-dev/identity/contract/principal v1.1.0 h1:WImBKi5pNWe7tjF9oRE+cG0a1hq6EJNUwLexqYL8JbA=
+github.com/JorisJonkers-dev/identity/contract/principal v1.1.0/go.mod h1:9BzevImetOmvIzA6qWZCQe2SY/8Mp4qIdg5lu91oM4g=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
