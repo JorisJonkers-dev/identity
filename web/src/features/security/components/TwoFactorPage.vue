@@ -2,7 +2,7 @@
 import { adminMail } from '../../../shared/contact'
 import { computed, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import type { SecondFactor } from '../../../infrastructure/api/types.gen'
+import type { TwoFactorMethod } from '../../../infrastructure/api/types.gen'
 import AppShell from '../../../shared/AppShell.vue'
 import BackLink from '../../../shared/BackLink.vue'
 import Icon from '../../../shared/Icon'
@@ -13,7 +13,7 @@ const route = useRoute()
 const forAdmin = computed(() => route.query.for === 'admin')
 const forApp = computed(() => route.query.for === 'step-up')
 const { factors, loadError, passkeysSupported, addPasskey, remove } = useSecurity()
-const removing = ref<SecondFactor | null>(null)
+const removing = ref<TwoFactorMethod | null>(null)
 const adding = ref(false)
 const password = ref('')
 const label = ref('')
@@ -28,7 +28,7 @@ function close() {
   password.value = ''
   label.value = ''
 }
-function confirmRemove(factor: SecondFactor) {
+function confirmRemove(factor: TwoFactorMethod) {
   remove.run(factor.id, password.value)
   close()
 }

@@ -19,7 +19,7 @@ type Users interface {
 	SignedIn(ctx context.Context, token string) (usersdomain.User, usersapp.Session, error)
 	User(ctx context.Context, id uuid.UUID) (usersdomain.User, error)
 	SignOutEverywhere(ctx context.Context, actor, id uuid.UUID) error
-	HasSecondFactor(ctx context.Context, userID uuid.UUID) (bool, error)
+	HasTwoFactor(ctx context.Context, userID uuid.UUID) (bool, error)
 }
 
 // Accounts is the app.Accounts.
@@ -46,7 +46,7 @@ func (a *Accounts) SignedIn(ctx context.Context, token string) (domain.SignIn, e
 }
 
 func (a *Accounts) HasTwoFactor(ctx context.Context, id uuid.UUID) (bool, error) {
-	return a.users.HasSecondFactor(ctx, id)
+	return a.users.HasTwoFactor(ctx, id)
 }
 
 func (a *Accounts) Claims(ctx context.Context, id uuid.UUID) (app.Claims, error) {

@@ -26,7 +26,7 @@ type Dashboard struct {
 }
 
 // Dashboard counts Users, the Unassigned queue, sign-ins and live sessions, for an Admin whose
-// session proved a Second Factor.
+// session proved two-factor.
 func (s *Service) Dashboard(ctx context.Context, actor Actor) (Dashboard, error) {
 	if err := s.admin(ctx, actor); err != nil {
 		return Dashboard{}, err

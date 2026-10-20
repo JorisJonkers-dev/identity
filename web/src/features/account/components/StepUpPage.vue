@@ -7,7 +7,7 @@ import {
   stepUpWithCodeMutation,
   stepUpWithPasskeyMutation,
 } from '../../../infrastructure/api/@tanstack/vue-query.gen'
-import type { SecondFactorKind } from '../../../infrastructure/api/types.gen'
+import type { TwoFactorMethodKind } from '../../../infrastructure/api/types.gen'
 import { navigation } from '../../../infrastructure/navigation'
 import { passkeys } from '../../../infrastructure/passkeys'
 import { useAction } from '../../../infrastructure/useAction'
@@ -22,7 +22,7 @@ const authRequestID = typeof route.query.authRequestID === 'string' ? route.quer
 // A page of ours that sent the person here, to go back to; anything else goes to the apps.
 const next = typeof route.query.next === 'string' && /^\/[^/\\]/.test(route.query.next) ? route.query.next : '/'
 const code = ref('')
-const methods = ref<SecondFactorKind[]>([])
+const methods = ref<TwoFactorMethodKind[]>([])
 const start = useAction(startStepUpMutation())
 const complete = useAction(stepUpWithCodeMutation())
 const keyOptions = useAction(stepUpPasskeyOptionsMutation())

@@ -23,7 +23,7 @@ var (
 	ada     = uuid.MustParse("00000000-0000-4000-8000-0000000000a2")
 	gone    = uuid.MustParse("00000000-0000-4000-8000-0000000000a3")
 	bob     = uuid.MustParse("00000000-0000-4000-8000-0000000000a4")
-	asAdmin = app.Actor{ID: admin, SecondFactor: true}
+	asAdmin = app.Actor{ID: admin, TwoFactor: true}
 )
 
 // store keeps events in memory, newest last; fail makes the named method return its error.
@@ -260,14 +260,14 @@ func TestTheLastPageHasNoNext(t *testing.T) {
 
 func TestOnlyAnAdminListsEvents(t *testing.T) {
 	t.Parallel()
-	if _, err := newFixture(counting()).List(context.Background(), app.Actor{ID: ada, SecondFactor: true}, domain.Filter{}); !errors.Is(err, app.ErrNotAdmin) {
+	if _, err := newFixture(counting()).List(context.Background(), app.Actor{ID: ada, TwoFactor: true}, domain.Filter{}); !errors.Is(err, app.ErrNotAdmin) {
 		t.Fatalf("List = %v", err)
 	}
 }
 
-func TestAnAdminListsEventsOnlyFromASessionProvedWithASecondFactor(t *testing.T) {
+func TestAnAdminListsEventsOnlyFromASessionProvedWithTwoFactor(t *testing.T) {
 	t.Parallel()
-	if _, err := newFixture(counting()).List(context.Background(), app.Actor{ID: admin}, domain.Filter{}); !errors.Is(err, app.ErrSecondFactorNeeded) {
+	if _, err := newFixture(counting()).List(context.Background(), app.Actor{ID: admin}, domain.Filter{}); !errors.Is(err, app.ErrTwoFactorProofNeeded) {
 		t.Fatalf("List = %v", err)
 	}
 }

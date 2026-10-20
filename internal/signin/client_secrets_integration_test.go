@@ -87,7 +87,7 @@ func TestAnAdminRotatesASecretAndTheOldOneStopsOnceTheNewOneIsUsed(t *testing.T)
 	}
 }
 
-func TestOnlyAnAdminWithASecondFactorRotatesASecret(t *testing.T) {
+func TestOnlyAnAdminWithTwoFactorRotatesASecret(t *testing.T) {
 	t.Parallel()
 	c := grafana(t)
 	env := itest.Start(t, c)

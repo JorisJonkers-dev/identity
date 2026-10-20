@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddMemberData, AddMemberErrors, AddMemberResponses, AskEmailChangeData, AskEmailChangeErrors, AskEmailChangeResponses, AskPasswordResetData, AskPasswordResetErrors, AskPasswordResetResponses, AskUserEmailChangeData, AskUserEmailChangeErrors, AskUserEmailChangeResponses, AssignMachineRoleData, AssignMachineRoleErrors, AssignMachineRoleResponses, AssignRoleData, AssignRoleErrors, AssignRoleResponses, AssignUserRoleData, AssignUserRoleErrors, AssignUserRoleResponses, CancelEmailChangeData, CancelEmailChangeErrors, CancelEmailChangeResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, CheckPasswordResetData, CheckPasswordResetErrors, CheckPasswordResetResponses, CompletePasswordResetData, CompletePasswordResetErrors, CompletePasswordResetResponses, CompleteSignInData, CompleteSignInErrors, CompleteSignInResponses, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyErrors, CompleteSignInWithPasskeyResponses, ConfirmEmailChangeData, ConfirmEmailChangeErrors, ConfirmEmailChangeResponses, ConfirmEmailData, ConfirmEmailErrors, ConfirmEmailResponses, ConfirmPasskeyData, ConfirmPasskeyErrors, ConfirmPasskeyResponses, ConfirmTotpData, ConfirmTotpErrors, ConfirmTotpResponses, CreateGroupData, CreateGroupErrors, CreateGroupResponses, CreateMachineData, CreateMachineErrors, CreateMachineResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteGroupData, DeleteGroupErrors, DeleteGroupResponses, DeleteMachineData, DeleteMachineErrors, DeleteMachineResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, GetAccessData, GetAccessErrors, GetAccessResponses, GetDashboardData, GetDashboardErrors, GetDashboardResponses, GetLauncherData, GetLauncherErrors, GetLauncherResponses, GetMcpResourceData, GetMcpResourceErrors, GetMcpResourceResponses, GetProfileData, GetProfileErrors, GetProfileResponses, GetStepUpData, GetStepUpErrors, GetStepUpResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListAuditEventsData, ListAuditEventsErrors, ListAuditEventsResponses, ListDevicesData, ListDevicesErrors, ListDevicesResponses, ListMachinesData, ListMachinesErrors, ListMachinesResponses, ListMyConnectedAppsData, ListMyConnectedAppsErrors, ListMyConnectedAppsResponses, ListMyTokensData, ListMyTokensErrors, ListMyTokensResponses, ListSecondFactorsData, ListSecondFactorsErrors, ListSecondFactorsResponses, ListUserTokensData, ListUserTokensErrors, ListUserTokensResponses, MintTokenData, MintTokenErrors, MintTokenResponses, PasskeyOptionsData, PasskeyOptionsErrors, PasskeyOptionsResponses, RemoveMemberData, RemoveMemberErrors, RemoveMemberResponses, RemoveSecondFactorData, RemoveSecondFactorErrors, RemoveSecondFactorResponses, RenameGroupData, RenameGroupErrors, RenameGroupResponses, RenameUserData, RenameUserErrors, RenameUserResponses, ResetPasskeyOptionsData, ResetPasskeyOptionsErrors, ResetPasskeyOptionsResponses, ResetWithCodeData, ResetWithCodeErrors, ResetWithCodeResponses, ResetWithPasskeyData, ResetWithPasskeyErrors, ResetWithPasskeyResponses, RevokeMyConnectedAppData, RevokeMyConnectedAppErrors, RevokeMyConnectedAppResponses, RevokeMyTokenData, RevokeMyTokenErrors, RevokeMyTokenResponses, RevokeUserTokenData, RevokeUserTokenErrors, RevokeUserTokenResponses, RotateClientSecretData, RotateClientSecretErrors, RotateClientSecretResponses, RotateMachineSecretData, RotateMachineSecretErrors, RotateMachineSecretResponses, SetGroupTwoFactorData, SetGroupTwoFactorErrors, SetGroupTwoFactorResponses, SetMcpResourceData, SetMcpResourceErrors, SetMcpResourceResponses, SetStepUpData, SetStepUpErrors, SetStepUpResponses, SignInData, SignInErrors, SignInResponses, SignOutData, SignOutDeviceData, SignOutDeviceErrors, SignOutDeviceResponses, SignOutErrors, SignOutOtherDevicesData, SignOutOtherDevicesErrors, SignOutOtherDevicesResponses, SignOutResponses, SignOutUserData, SignOutUserErrors, SignOutUserResponses, SignUpData, SignUpErrors, SignUpResponses, StartPasskeyData, StartPasskeyErrors, StartPasskeyResponses, StartStepUpData, StartStepUpErrors, StartStepUpResponses, StartTotpData, StartTotpErrors, StartTotpResponses, StepUpPasskeyOptionsData, StepUpPasskeyOptionsErrors, StepUpPasskeyOptionsResponses, StepUpWithCodeData, StepUpWithCodeErrors, StepUpWithCodeResponses, StepUpWithPasskeyData, StepUpWithPasskeyErrors, StepUpWithPasskeyResponses, UnassignMachineRoleData, UnassignMachineRoleErrors, UnassignMachineRoleResponses, UnassignRoleData, UnassignRoleErrors, UnassignRoleResponses, UnassignUserRoleData, UnassignUserRoleErrors, UnassignUserRoleResponses, UpdateProfileData, UpdateProfileErrors, UpdateProfileResponses } from './types.gen';
-import { zAddMemberPath, zAddMemberResponse, zAskEmailChangeBody, zAskPasswordResetBody, zAskUserEmailChangeBody, zAskUserEmailChangePath, zAssignMachineRolePath, zAssignMachineRoleResponse, zAssignRolePath, zAssignRoleResponse, zAssignUserRolePath, zAssignUserRoleResponse, zCancelEmailChangeResponse, zChangePasswordBody, zChangePasswordResponse, zCheckPasswordResetBody, zCheckPasswordResetResponse, zCompletePasswordResetBody, zCompletePasswordResetResponse, zCompleteSignInBody, zCompleteSignInResponse, zCompleteSignInWithPasskeyBody, zCompleteSignInWithPasskeyResponse, zConfirmEmailBody, zConfirmEmailChangeBody, zConfirmEmailChangeResponse, zConfirmEmailResponse, zConfirmPasskeyBody, zConfirmPasskeyResponse, zConfirmTotpBody, zConfirmTotpResponse, zCreateGroupBody, zCreateGroupResponse, zCreateMachineBody, zCreateMachineResponse, zDeleteAccountBody, zDeleteAccountResponse, zDeleteGroupPath, zDeleteGroupResponse, zDeleteMachinePath, zDeleteMachineResponse, zDeleteUserPath, zDeleteUserResponse, zGetAccessResponse, zGetDashboardResponse, zGetLauncherResponse, zGetMcpResourcePath, zGetMcpResourceResponse, zGetProfileResponse, zGetStepUpPath, zGetStepUpResponse, zGetVersionResponse, zListAuditEventsQuery, zListAuditEventsResponse, zListDevicesResponse, zListMachinesResponse, zListMyConnectedAppsResponse, zListMyTokensResponse, zListSecondFactorsResponse, zListUserTokensPath, zListUserTokensResponse, zMintTokenBody, zMintTokenResponse, zPasskeyOptionsResponse, zRemoveMemberPath, zRemoveMemberResponse, zRemoveSecondFactorBody, zRemoveSecondFactorPath, zRemoveSecondFactorResponse, zRenameGroupBody, zRenameGroupPath, zRenameGroupResponse, zRenameUserBody, zRenameUserPath, zRenameUserResponse, zResetPasskeyOptionsBody, zResetPasskeyOptionsResponse, zResetWithCodeBody, zResetWithCodeResponse, zResetWithPasskeyBody, zResetWithPasskeyResponse, zRevokeMyConnectedAppPath, zRevokeMyConnectedAppResponse, zRevokeMyTokenPath, zRevokeMyTokenResponse, zRevokeUserTokenPath, zRevokeUserTokenResponse, zRotateClientSecretPath, zRotateClientSecretResponse, zRotateMachineSecretPath, zRotateMachineSecretResponse, zSetGroupTwoFactorBody, zSetGroupTwoFactorPath, zSetGroupTwoFactorResponse, zSetMcpResourceBody, zSetMcpResourcePath, zSetMcpResourceResponse, zSetStepUpBody, zSetStepUpPath, zSetStepUpResponse, zSignInBody, zSignInResponse, zSignOutDevicePath, zSignOutDeviceResponse, zSignOutOtherDevicesResponse, zSignOutResponse, zSignOutUserPath, zSignOutUserResponse, zSignUpBody, zStartPasskeyResponse, zStartStepUpResponse, zStartTotpResponse, zStepUpPasskeyOptionsResponse, zStepUpWithCodeBody, zStepUpWithCodeResponse, zStepUpWithPasskeyBody, zStepUpWithPasskeyResponse, zUnassignMachineRolePath, zUnassignMachineRoleResponse, zUnassignRolePath, zUnassignRoleResponse, zUnassignUserRolePath, zUnassignUserRoleResponse, zUpdateProfileBody, zUpdateProfileResponse } from './zod.gen';
+import type { AddMemberData, AddMemberErrors, AddMemberResponses, AskEmailChangeData, AskEmailChangeErrors, AskEmailChangeResponses, AskPasswordResetData, AskPasswordResetErrors, AskPasswordResetResponses, AskUserEmailChangeData, AskUserEmailChangeErrors, AskUserEmailChangeResponses, AssignMachineRoleData, AssignMachineRoleErrors, AssignMachineRoleResponses, AssignRoleData, AssignRoleErrors, AssignRoleResponses, AssignUserRoleData, AssignUserRoleErrors, AssignUserRoleResponses, CancelEmailChangeData, CancelEmailChangeErrors, CancelEmailChangeResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, CheckPasswordResetData, CheckPasswordResetErrors, CheckPasswordResetResponses, CompletePasswordResetData, CompletePasswordResetErrors, CompletePasswordResetResponses, CompleteSignInData, CompleteSignInErrors, CompleteSignInResponses, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyErrors, CompleteSignInWithPasskeyResponses, ConfirmEmailChangeData, ConfirmEmailChangeErrors, ConfirmEmailChangeResponses, ConfirmEmailData, ConfirmEmailErrors, ConfirmEmailResponses, ConfirmPasskeyData, ConfirmPasskeyErrors, ConfirmPasskeyResponses, ConfirmTotpData, ConfirmTotpErrors, ConfirmTotpResponses, CreateGroupData, CreateGroupErrors, CreateGroupResponses, CreateMachineData, CreateMachineErrors, CreateMachineResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteGroupData, DeleteGroupErrors, DeleteGroupResponses, DeleteMachineData, DeleteMachineErrors, DeleteMachineResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, GetAccessData, GetAccessErrors, GetAccessResponses, GetDashboardData, GetDashboardErrors, GetDashboardResponses, GetLauncherData, GetLauncherErrors, GetLauncherResponses, GetMcpResourceData, GetMcpResourceErrors, GetMcpResourceResponses, GetProfileData, GetProfileErrors, GetProfileResponses, GetStepUpData, GetStepUpErrors, GetStepUpResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListAuditEventsData, ListAuditEventsErrors, ListAuditEventsResponses, ListDevicesData, ListDevicesErrors, ListDevicesResponses, ListMachinesData, ListMachinesErrors, ListMachinesResponses, ListMyConnectedAppsData, ListMyConnectedAppsErrors, ListMyConnectedAppsResponses, ListMyTokensData, ListMyTokensErrors, ListMyTokensResponses, ListTwoFactorMethodsData, ListTwoFactorMethodsErrors, ListTwoFactorMethodsResponses, ListUserTokensData, ListUserTokensErrors, ListUserTokensResponses, MintTokenData, MintTokenErrors, MintTokenResponses, PasskeyOptionsData, PasskeyOptionsErrors, PasskeyOptionsResponses, RemoveMemberData, RemoveMemberErrors, RemoveMemberResponses, RemoveTwoFactorMethodData, RemoveTwoFactorMethodErrors, RemoveTwoFactorMethodResponses, RenameGroupData, RenameGroupErrors, RenameGroupResponses, RenameUserData, RenameUserErrors, RenameUserResponses, ResetPasskeyOptionsData, ResetPasskeyOptionsErrors, ResetPasskeyOptionsResponses, ResetWithCodeData, ResetWithCodeErrors, ResetWithCodeResponses, ResetWithPasskeyData, ResetWithPasskeyErrors, ResetWithPasskeyResponses, RevokeMyConnectedAppData, RevokeMyConnectedAppErrors, RevokeMyConnectedAppResponses, RevokeMyTokenData, RevokeMyTokenErrors, RevokeMyTokenResponses, RevokeUserTokenData, RevokeUserTokenErrors, RevokeUserTokenResponses, RotateClientSecretData, RotateClientSecretErrors, RotateClientSecretResponses, RotateMachineSecretData, RotateMachineSecretErrors, RotateMachineSecretResponses, SetGroupTwoFactorData, SetGroupTwoFactorErrors, SetGroupTwoFactorResponses, SetMcpResourceData, SetMcpResourceErrors, SetMcpResourceResponses, SetStepUpData, SetStepUpErrors, SetStepUpResponses, SignInData, SignInErrors, SignInResponses, SignOutData, SignOutDeviceData, SignOutDeviceErrors, SignOutDeviceResponses, SignOutErrors, SignOutOtherDevicesData, SignOutOtherDevicesErrors, SignOutOtherDevicesResponses, SignOutResponses, SignOutUserData, SignOutUserErrors, SignOutUserResponses, SignUpData, SignUpErrors, SignUpResponses, StartPasskeyData, StartPasskeyErrors, StartPasskeyResponses, StartStepUpData, StartStepUpErrors, StartStepUpResponses, StartTotpData, StartTotpErrors, StartTotpResponses, StepUpPasskeyOptionsData, StepUpPasskeyOptionsErrors, StepUpPasskeyOptionsResponses, StepUpWithCodeData, StepUpWithCodeErrors, StepUpWithCodeResponses, StepUpWithPasskeyData, StepUpWithPasskeyErrors, StepUpWithPasskeyResponses, UnassignMachineRoleData, UnassignMachineRoleErrors, UnassignMachineRoleResponses, UnassignRoleData, UnassignRoleErrors, UnassignRoleResponses, UnassignUserRoleData, UnassignUserRoleErrors, UnassignUserRoleResponses, UpdateProfileData, UpdateProfileErrors, UpdateProfileResponses } from './types.gen';
+import { zAddMemberPath, zAddMemberResponse, zAskEmailChangeBody, zAskPasswordResetBody, zAskUserEmailChangeBody, zAskUserEmailChangePath, zAssignMachineRolePath, zAssignMachineRoleResponse, zAssignRolePath, zAssignRoleResponse, zAssignUserRolePath, zAssignUserRoleResponse, zCancelEmailChangeResponse, zChangePasswordBody, zChangePasswordResponse, zCheckPasswordResetBody, zCheckPasswordResetResponse, zCompletePasswordResetBody, zCompletePasswordResetResponse, zCompleteSignInBody, zCompleteSignInResponse, zCompleteSignInWithPasskeyBody, zCompleteSignInWithPasskeyResponse, zConfirmEmailBody, zConfirmEmailChangeBody, zConfirmEmailChangeResponse, zConfirmEmailResponse, zConfirmPasskeyBody, zConfirmPasskeyResponse, zConfirmTotpBody, zConfirmTotpResponse, zCreateGroupBody, zCreateGroupResponse, zCreateMachineBody, zCreateMachineResponse, zDeleteAccountBody, zDeleteAccountResponse, zDeleteGroupPath, zDeleteGroupResponse, zDeleteMachinePath, zDeleteMachineResponse, zDeleteUserPath, zDeleteUserResponse, zGetAccessResponse, zGetDashboardResponse, zGetLauncherResponse, zGetMcpResourcePath, zGetMcpResourceResponse, zGetProfileResponse, zGetStepUpPath, zGetStepUpResponse, zGetVersionResponse, zListAuditEventsQuery, zListAuditEventsResponse, zListDevicesResponse, zListMachinesResponse, zListMyConnectedAppsResponse, zListMyTokensResponse, zListTwoFactorMethodsResponse, zListUserTokensPath, zListUserTokensResponse, zMintTokenBody, zMintTokenResponse, zPasskeyOptionsResponse, zRemoveMemberPath, zRemoveMemberResponse, zRemoveTwoFactorMethodBody, zRemoveTwoFactorMethodPath, zRemoveTwoFactorMethodResponse, zRenameGroupBody, zRenameGroupPath, zRenameGroupResponse, zRenameUserBody, zRenameUserPath, zRenameUserResponse, zResetPasskeyOptionsBody, zResetPasskeyOptionsResponse, zResetWithCodeBody, zResetWithCodeResponse, zResetWithPasskeyBody, zResetWithPasskeyResponse, zRevokeMyConnectedAppPath, zRevokeMyConnectedAppResponse, zRevokeMyTokenPath, zRevokeMyTokenResponse, zRevokeUserTokenPath, zRevokeUserTokenResponse, zRotateClientSecretPath, zRotateClientSecretResponse, zRotateMachineSecretPath, zRotateMachineSecretResponse, zSetGroupTwoFactorBody, zSetGroupTwoFactorPath, zSetGroupTwoFactorResponse, zSetMcpResourceBody, zSetMcpResourcePath, zSetMcpResourceResponse, zSetStepUpBody, zSetStepUpPath, zSetStepUpResponse, zSignInBody, zSignInResponse, zSignOutDevicePath, zSignOutDeviceResponse, zSignOutOtherDevicesResponse, zSignOutResponse, zSignOutUserPath, zSignOutUserResponse, zSignUpBody, zStartPasskeyResponse, zStartStepUpResponse, zStartTotpResponse, zStepUpPasskeyOptionsResponse, zStepUpWithCodeBody, zStepUpWithCodeResponse, zStepUpWithPasskeyBody, zStepUpWithPasskeyResponse, zUnassignMachineRolePath, zUnassignMachineRoleResponse, zUnassignRolePath, zUnassignRoleResponse, zUnassignUserRolePath, zUnassignUserRoleResponse, zUpdateProfileBody, zUpdateProfileResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -118,7 +118,7 @@ export const askPasswordReset = <ThrowOnError extends boolean = false>(options: 
 /**
  * Check a password reset link
  *
- * Says which kinds of two-factor the reset must be proved with first; none when the User has none or proved it already.
+ * Says which kinds of two-factor method the reset must be proved with first; none when the User has none or proved it already.
  */
 export const checkPasswordReset = <ThrowOnError extends boolean = false>(options: Options<CheckPasswordResetData, ThrowOnError>): RequestResult<CheckPasswordResetResponses, CheckPasswordResetErrors, ThrowOnError> => (options.client ?? client).post<CheckPasswordResetResponses, CheckPasswordResetErrors, ThrowOnError>({
     requestValidator: async (data) => await z.object({
@@ -419,7 +419,7 @@ export const changePassword = <ThrowOnError extends boolean = false>(options: Op
 });
 
 /**
- * Finish signing in with a Second Factor
+ * Finish signing in with a two-factor method
  *
  * Takes a code from the User's authenticator app for the sign-in the challenge cookie names, and starts a session proved by both. A challenge takes five codes; a code works once.
  */
@@ -435,7 +435,7 @@ export const completeSignIn = <ThrowOnError extends boolean = false>(options: Op
             name: '__Host-identity_challenge',
             type: 'apiKey'
         }],
-    url: '/api/v1/session/second-factor',
+    url: '/api/v1/session/two-factor',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -444,23 +444,23 @@ export const completeSignIn = <ThrowOnError extends boolean = false>(options: Op
 });
 
 /**
- * The signed-in User's Second Factors
+ * The signed-in User's two-factor methods
  *
  * Every authenticator app and passkey the User added.
  */
-export const listSecondFactors = <ThrowOnError extends boolean = false>(options?: Options<ListSecondFactorsData, ThrowOnError>): RequestResult<ListSecondFactorsResponses, ListSecondFactorsErrors, ThrowOnError> => (options?.client ?? client).get<ListSecondFactorsResponses, ListSecondFactorsErrors, ThrowOnError>({
+export const listTwoFactorMethods = <ThrowOnError extends boolean = false>(options?: Options<ListTwoFactorMethodsData, ThrowOnError>): RequestResult<ListTwoFactorMethodsResponses, ListTwoFactorMethodsErrors, ThrowOnError> => (options?.client ?? client).get<ListTwoFactorMethodsResponses, ListTwoFactorMethodsErrors, ThrowOnError>({
     requestValidator: async (data) => await z.object({
         body: z.never().optional(),
         path: z.never().optional(),
         query: z.never().optional()
     }).parseAsync(data),
-    responseValidator: async (data) => await zListSecondFactorsResponse.parseAsync(data),
+    responseValidator: async (data) => await zListTwoFactorMethodsResponse.parseAsync(data),
     security: [{
             in: 'cookie',
             name: '__Host-identity_session',
             type: 'apiKey'
         }],
-    url: '/api/v1/profile/second-factors',
+    url: '/api/v1/profile/two-factor-methods',
     ...options
 });
 
@@ -481,7 +481,7 @@ export const startTotp = <ThrowOnError extends boolean = false>(options?: Option
             name: '__Host-identity_session',
             type: 'apiKey'
         }],
-    url: '/api/v1/profile/second-factors/totp',
+    url: '/api/v1/profile/two-factor-methods/totp',
     ...options
 });
 
@@ -502,7 +502,7 @@ export const confirmTotp = <ThrowOnError extends boolean = false>(options: Optio
             name: '__Host-identity_session',
             type: 'apiKey'
         }],
-    url: '/api/v1/profile/second-factors/totp/confirmation',
+    url: '/api/v1/profile/two-factor-methods/totp/confirmation',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -559,7 +559,7 @@ export const completeSignInWithPasskey = <ThrowOnError extends boolean = false>(
 /**
  * Start proving two-factor again
  *
- * For an app that wants a fresh proof (step-up), starts proving the signed-in session again and says which kinds of Second Factor can prove it. A User with none is told to add one.
+ * For an app that wants a fresh proof (step-up), starts proving the signed-in session again and says which kinds of two-factor method can prove it. A User with none is told to add one.
  */
 export const startStepUp = <ThrowOnError extends boolean = false>(options?: Options<StartStepUpData, ThrowOnError>): RequestResult<StartStepUpResponses, StartStepUpErrors, ThrowOnError> => (options?.client ?? client).post<StartStepUpResponses, StartStepUpErrors, ThrowOnError>({
     requestValidator: async (data) => await z.object({
@@ -728,14 +728,14 @@ export const startPasskey = <ThrowOnError extends boolean = false>(options?: Opt
             name: '__Host-identity_session',
             type: 'apiKey'
         }],
-    url: '/api/v1/profile/second-factors/passkey',
+    url: '/api/v1/profile/two-factor-methods/passkey',
     ...options
 });
 
 /**
  * Finish adding a passkey
  *
- * Keeps the passkey the browser made, given the User's password. A User who already has a Second Factor must be in a session that proved one. Every other session of the User's ends.
+ * Keeps the passkey the browser made, given the User's password. A User who already has two-factor must be in a session that proved it. Every other session of the User's ends.
  */
 export const confirmPasskey = <ThrowOnError extends boolean = false>(options: Options<ConfirmPasskeyData, ThrowOnError>): RequestResult<ConfirmPasskeyResponses, ConfirmPasskeyErrors, ThrowOnError> => (options.client ?? client).post<ConfirmPasskeyResponses, ConfirmPasskeyErrors, ThrowOnError>({
     requestValidator: async (data) => await z.object({
@@ -749,7 +749,7 @@ export const confirmPasskey = <ThrowOnError extends boolean = false>(options: Op
             name: '__Host-identity_session',
             type: 'apiKey'
         }],
-    url: '/api/v1/profile/second-factors/passkey/confirmation',
+    url: '/api/v1/profile/two-factor-methods/passkey/confirmation',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -758,23 +758,23 @@ export const confirmPasskey = <ThrowOnError extends boolean = false>(options: Op
 });
 
 /**
- * Remove a Second Factor
+ * Remove a two-factor method
  *
- * Removes one of the User's authenticator apps or passkeys once they give their password, from a session that proved a Second Factor.
+ * Removes one of the User's authenticator apps or passkeys once they give their password, from a session that proved two-factor.
  */
-export const removeSecondFactor = <ThrowOnError extends boolean = false>(options: Options<RemoveSecondFactorData, ThrowOnError>): RequestResult<RemoveSecondFactorResponses, RemoveSecondFactorErrors, ThrowOnError> => (options.client ?? client).post<RemoveSecondFactorResponses, RemoveSecondFactorErrors, ThrowOnError>({
+export const removeTwoFactorMethod = <ThrowOnError extends boolean = false>(options: Options<RemoveTwoFactorMethodData, ThrowOnError>): RequestResult<RemoveTwoFactorMethodResponses, RemoveTwoFactorMethodErrors, ThrowOnError> => (options.client ?? client).post<RemoveTwoFactorMethodResponses, RemoveTwoFactorMethodErrors, ThrowOnError>({
     requestValidator: async (data) => await z.object({
-        body: zRemoveSecondFactorBody,
-        path: zRemoveSecondFactorPath,
+        body: zRemoveTwoFactorMethodBody,
+        path: zRemoveTwoFactorMethodPath,
         query: z.never().optional()
     }).parseAsync(data),
-    responseValidator: async (data) => await zRemoveSecondFactorResponse.parseAsync(data),
+    responseValidator: async (data) => await zRemoveTwoFactorMethodResponse.parseAsync(data),
     security: [{
             in: 'cookie',
             name: '__Host-identity_session',
             type: 'apiKey'
         }],
-    url: '/api/v1/profile/second-factors/{factorId}/removal',
+    url: '/api/v1/profile/two-factor-methods/{factorId}/removal',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -1228,7 +1228,7 @@ export const assignMachineRole = <ThrowOnError extends boolean = false>(options:
 /**
  * Give a Machine Identity a new client secret
  *
- * For a workload outside the cluster, which signs in with the client credentials grant. The secret is answered once, here, and kept only as a hash. The previous secret keeps working until the new one is first used. Admins only, from a session that proved a Second Factor.
+ * For a workload outside the cluster, which signs in with the client credentials grant. The secret is answered once, here, and kept only as a hash. The previous secret keeps working until the new one is first used. Admins only, from a session that proved two-factor.
  */
 export const rotateMachineSecret = <ThrowOnError extends boolean = false>(options: Options<RotateMachineSecretData, ThrowOnError>): RequestResult<RotateMachineSecretResponses, RotateMachineSecretErrors, ThrowOnError> => (options.client ?? client).post<RotateMachineSecretResponses, RotateMachineSecretErrors, ThrowOnError>({
     requestValidator: async (data) => await z.object({
@@ -1249,7 +1249,7 @@ export const rotateMachineSecret = <ThrowOnError extends boolean = false>(option
 /**
  * Audit Events, newest first
  *
- * One page of Audit Events, newest first, narrowed by any of the filters. Pass a page's next as before to read the page after it. Admins only, from a session that proved a Second Factor.
+ * One page of Audit Events, newest first, narrowed by any of the filters. Pass a page's next as before to read the page after it. Admins only, from a session that proved two-factor.
  */
 export const listAuditEvents = <ThrowOnError extends boolean = false>(options?: Options<ListAuditEventsData, ThrowOnError>): RequestResult<ListAuditEventsResponses, ListAuditEventsErrors, ThrowOnError> => (options?.client ?? client).get<ListAuditEventsResponses, ListAuditEventsErrors, ThrowOnError>({
     requestValidator: async (data) => await z.object({
@@ -1270,7 +1270,7 @@ export const listAuditEvents = <ThrowOnError extends boolean = false>(options?: 
 /**
  * How things stand
  *
- * Users, the Unassigned queue, sign-ins and failed sign-ins over the last 24 hours, and live sessions. Admins only, from a session that proved a Second Factor.
+ * Users, the Unassigned queue, sign-ins and failed sign-ins over the last 24 hours, and live sessions. Admins only, from a session that proved two-factor.
  */
 export const getDashboard = <ThrowOnError extends boolean = false>(options?: Options<GetDashboardData, ThrowOnError>): RequestResult<GetDashboardResponses, GetDashboardErrors, ThrowOnError> => (options?.client ?? client).get<GetDashboardResponses, GetDashboardErrors, ThrowOnError>({
     requestValidator: async (data) => await z.object({
@@ -1358,7 +1358,7 @@ export const revokeMyToken = <ThrowOnError extends boolean = false>(options: Opt
 /**
  * A User's Personal Tokens
  *
- * Admins only, from a session that proved a Second Factor.
+ * Admins only, from a session that proved two-factor.
  */
 export const listUserTokens = <ThrowOnError extends boolean = false>(options: Options<ListUserTokensData, ThrowOnError>): RequestResult<ListUserTokensResponses, ListUserTokensErrors, ThrowOnError> => (options.client ?? client).get<ListUserTokensResponses, ListUserTokensErrors, ThrowOnError>({
     requestValidator: async (data) => await z.object({
@@ -1379,7 +1379,7 @@ export const listUserTokens = <ThrowOnError extends boolean = false>(options: Op
 /**
  * Revoke a User's Personal Token
  *
- * Admins only, from a session that proved a Second Factor. Revoking it twice changes nothing.
+ * Admins only, from a session that proved two-factor. Revoking it twice changes nothing.
  */
 export const revokeUserToken = <ThrowOnError extends boolean = false>(options: Options<RevokeUserTokenData, ThrowOnError>): RequestResult<RevokeUserTokenResponses, RevokeUserTokenErrors, ThrowOnError> => (options.client ?? client).delete<RevokeUserTokenResponses, RevokeUserTokenErrors, ThrowOnError>({
     requestValidator: async (data) => await z.object({
@@ -1400,7 +1400,7 @@ export const revokeUserToken = <ThrowOnError extends boolean = false>(options: O
 /**
  * Give a Client a new secret
  *
- * Admins only, from a session that proved a Second Factor, for a Client that signs in with a secret. The new secret is written where the Client's Application reads it, never answered here. The old one keeps working until the Application first uses the new one.
+ * Admins only, from a session that proved two-factor, for a Client that signs in with a secret. The new secret is written where the Client's Application reads it, never answered here. The old one keeps working until the Application first uses the new one.
  */
 export const rotateClientSecret = <ThrowOnError extends boolean = false>(options: Options<RotateClientSecretData, ThrowOnError>): RequestResult<RotateClientSecretResponses, RotateClientSecretErrors, ThrowOnError> => (options.client ?? client).post<RotateClientSecretResponses, RotateClientSecretErrors, ThrowOnError>({
     requestValidator: async (data) => await z.object({
@@ -1421,7 +1421,7 @@ export const rotateClientSecret = <ThrowOnError extends boolean = false>(options
 /**
  * How fresh a Client wants two-factor
  *
- * The Client's step-up window, 0 when it is off. Admins only, from a session that proved a Second Factor.
+ * The Client's step-up window, 0 when it is off. Admins only, from a session that proved two-factor.
  */
 export const getStepUp = <ThrowOnError extends boolean = false>(options: Options<GetStepUpData, ThrowOnError>): RequestResult<GetStepUpResponses, GetStepUpErrors, ThrowOnError> => (options.client ?? client).get<GetStepUpResponses, GetStepUpErrors, ThrowOnError>({
     requestValidator: async (data) => await z.object({
@@ -1442,7 +1442,7 @@ export const getStepUp = <ThrowOnError extends boolean = false>(options: Options
 /**
  * Set how fresh a Client wants two-factor
  *
- * Signing in to the Client then finishes only when the session proved two-factor within the window; 0 turns step-up off. Admins only, from a session that proved a Second Factor.
+ * Signing in to the Client then finishes only when the session proved two-factor within the window; 0 turns step-up off. Admins only, from a session that proved two-factor.
  */
 export const setStepUp = <ThrowOnError extends boolean = false>(options: Options<SetStepUpData, ThrowOnError>): RequestResult<SetStepUpResponses, SetStepUpErrors, ThrowOnError> => (options.client ?? client).put<SetStepUpResponses, SetStepUpErrors, ThrowOnError>({
     requestValidator: async (data) => await z.object({
@@ -1509,7 +1509,7 @@ export const revokeMyConnectedApp = <ThrowOnError extends boolean = false>(optio
 /**
  * Whether a Client takes Connected Apps
  *
- * Admins only, from a session that proved a Second Factor.
+ * Admins only, from a session that proved two-factor.
  */
 export const getMcpResource = <ThrowOnError extends boolean = false>(options: Options<GetMcpResourceData, ThrowOnError>): RequestResult<GetMcpResourceResponses, GetMcpResourceErrors, ThrowOnError> => (options.client ?? client).get<GetMcpResourceResponses, GetMcpResourceErrors, ThrowOnError>({
     requestValidator: async (data) => await z.object({
@@ -1530,7 +1530,7 @@ export const getMcpResource = <ThrowOnError extends boolean = false>(options: Op
 /**
  * Let a Client take Connected Apps, or stop it
  *
- * Admins only, from a session that proved a Second Factor. A Client that can check no Connected App's token is refused with 409. Stopping keeps the Connected Apps the Client has; turning step-up on disconnects them.
+ * Admins only, from a session that proved two-factor. A Client that can check no Connected App's token is refused with 409. Stopping keeps the Connected Apps the Client has; turning step-up on disconnects them.
  */
 export const setMcpResource = <ThrowOnError extends boolean = false>(options: Options<SetMcpResourceData, ThrowOnError>): RequestResult<SetMcpResourceResponses, SetMcpResourceErrors, ThrowOnError> => (options.client ?? client).put<SetMcpResourceResponses, SetMcpResourceErrors, ThrowOnError>({
     requestValidator: async (data) => await z.object({

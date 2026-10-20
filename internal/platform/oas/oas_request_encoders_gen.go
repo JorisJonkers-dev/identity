@@ -95,7 +95,7 @@ func encodeCompletePasswordResetRequest(
 }
 
 func encodeCompleteSignInRequest(
-	req *SecondFactorCode,
+	req *TwoFactorCode,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
@@ -234,7 +234,7 @@ func encodeMintTokenRequest(
 	return nil
 }
 
-func encodeRemoveSecondFactorRequest(
+func encodeRemoveTwoFactorMethodRequest(
 	req *PasswordCheck,
 	r *http.Request,
 ) error {
@@ -389,7 +389,7 @@ func encodeSignUpRequest(
 }
 
 func encodeStepUpWithCodeRequest(
-	req *SecondFactorCode,
+	req *TwoFactorCode,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"

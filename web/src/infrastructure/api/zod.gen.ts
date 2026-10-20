@@ -22,8 +22,8 @@ export const zAuditAction = z.enum([
     'user-created',
     'user-renamed',
     'password-changed',
-    'second-factor-added',
-    'second-factor-removed',
+    'two-factor-method-added',
+    'two-factor-method-removed',
     'admin-promoted',
     'group-created',
     'group-renamed',
@@ -174,7 +174,7 @@ export const zSignIn = z.object({
  * The signed-in User.
  */
 export const zProfile = z.object({
-    secondFactor: z.boolean(),
+    twoFactor: z.boolean(),
     admin: z.boolean(),
     email: zEmail,
     pendingEmail: zEmail.optional(),
@@ -335,7 +335,7 @@ export const zAuditEvent = z.object({
     email: z.string().max(320).optional(),
     reason: z.enum([
         'password',
-        'second-factor',
+        'two-factor',
         'no-access',
         'token-reused',
         'by-tool'
@@ -584,20 +584,20 @@ export const zDevices = z.object({
 /**
  * An authenticator app or a passkey.
  */
-export const zSecondFactorKind = z.enum(['totp', 'passkey']);
+export const zTwoFactorMethodKind = z.enum(['totp', 'passkey']);
 
 /**
  * What a password reset must be proved with first.
  */
 export const zResetCheck = z.object({
-    methods: z.array(zSecondFactorKind).max(2)
+    methods: z.array(zTwoFactorMethodKind).max(2)
 });
 
 /**
- * The sign-in waits for a Second Factor.
+ * The sign-in waits for two-factor.
  */
-export const zSecondFactorNeeded = z.object({
-    methods: z.array(zSecondFactorKind).min(1).max(2)
+export const zTwoFactorNeeded = z.object({
+    methods: z.array(zTwoFactorMethodKind).min(1).max(2)
 });
 
 /**
@@ -626,26 +626,26 @@ export const zPasskeyConfirmation = z.object({
 /**
  * A code from an authenticator app.
  */
-export const zSecondFactorCode = z.object({
+export const zTwoFactorCode = z.object({
     code: z.string().min(1).max(16)
 });
 
 /**
- * One of a User's Second Factors.
+ * One of a User's two-factor methods.
  */
-export const zSecondFactor = z.object({
+export const zTwoFactorMethod = z.object({
     id: zId,
-    kind: zSecondFactorKind,
+    kind: zTwoFactorMethodKind,
     label: z.string().max(256),
     createdAt: z.iso.datetime({ offset: true }).max(64),
     lastUsedAt: z.iso.datetime({ offset: true }).max(64).optional()
 });
 
 /**
- * A User's Second Factors.
+ * A User's two-factor methods.
  */
-export const zSecondFactors = z.object({
-    factors: z.array(zSecondFactor).max(64)
+export const zTwoFactorMethods = z.object({
+    factors: z.array(zTwoFactorMethod).max(64)
 });
 
 /**
@@ -795,7 +795,7 @@ export const zSignOutResponse = z.void();
 export const zSignInBody = zSignIn;
 
 export const zSignInResponse = z.union([
-    zSecondFactorNeeded,
+    zTwoFactorNeeded,
     z.void()
 ]);
 
@@ -837,7 +837,7 @@ export const zChangePasswordBody = zPasswordChange;
  */
 export const zChangePasswordResponse = z.void();
 
-export const zCompleteSignInBody = zSecondFactorCode;
+export const zCompleteSignInBody = zTwoFactorCode;
 
 /**
  * Signed in.
@@ -845,9 +845,9 @@ export const zCompleteSignInBody = zSecondFactorCode;
 export const zCompleteSignInResponse = z.void();
 
 /**
- * The Second Factors.
+ * The two-factor methods.
  */
-export const zListSecondFactorsResponse = zSecondFactors;
+export const zListTwoFactorMethodsResponse = zTwoFactorMethods;
 
 /**
  * What to put into the authenticator app.
@@ -857,7 +857,7 @@ export const zStartTotpResponse = zTotpSetup;
 export const zConfirmTotpBody = zTotpConfirmation;
 
 /**
- * The authenticator app is a Second Factor of the User's.
+ * The authenticator app is a two-factor method of the User's.
  */
 export const zConfirmTotpResponse = z.void();
 
@@ -874,11 +874,11 @@ export const zCompleteSignInWithPasskeyBody = zPasskeyAssertion;
 export const zCompleteSignInWithPasskeyResponse = z.void();
 
 /**
- * The kinds of Second Factor the User has.
+ * The kinds of two-factor method the User has.
  */
-export const zStartStepUpResponse = zSecondFactorNeeded;
+export const zStartStepUpResponse = zTwoFactorNeeded;
 
-export const zStepUpWithCodeBody = zSecondFactorCode;
+export const zStepUpWithCodeBody = zTwoFactorCode;
 
 /**
  * The session proved two-factor now.
@@ -924,20 +924,20 @@ export const zStartPasskeyResponse = zPasskeyOptions;
 export const zConfirmPasskeyBody = zPasskeyConfirmation;
 
 /**
- * The passkey is a Second Factor of the User's.
+ * The passkey is a two-factor method of the User's.
  */
 export const zConfirmPasskeyResponse = z.void();
 
-export const zRemoveSecondFactorBody = zPasswordCheck;
+export const zRemoveTwoFactorMethodBody = zPasswordCheck;
 
-export const zRemoveSecondFactorPath = z.object({
+export const zRemoveTwoFactorMethodPath = z.object({
     factorId: zId
 });
 
 /**
  * Removed.
  */
-export const zRemoveSecondFactorResponse = z.void();
+export const zRemoveTwoFactorMethodResponse = z.void();
 
 /**
  * The access overview.

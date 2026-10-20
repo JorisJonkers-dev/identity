@@ -14,10 +14,10 @@ export const ids = {
 const day = 24 * 3600 * 1000
 
 export function profile(over: Partial<Profile> = {}): Profile {
-  return { email: 'ada@example.org', name: 'Ada Lovelace', createdAt: '2026-10-01T09:00:00Z', admin: false, secondFactor: false, ...over }
+  return { email: 'ada@example.org', name: 'Ada Lovelace', createdAt: '2026-10-01T09:00:00Z', admin: false, twoFactor: false, ...over }
 }
 
-export const admin = () => profile({ email: 'joris@example.org', name: 'Joris Jonkers', admin: true, secondFactor: true })
+export const admin = () => profile({ email: 'joris@example.org', name: 'Joris Jonkers', admin: true, twoFactor: true })
 
 export function dashboard(over: Partial<Dashboard> = {}): Dashboard {
   const start = Date.UTC(2026, 9, 15, 22)

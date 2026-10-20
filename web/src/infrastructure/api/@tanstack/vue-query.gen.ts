@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/vue-query';
 
 import { client } from '../client.gen';
-import { addMember, askEmailChange, askPasswordReset, askUserEmailChange, assignMachineRole, assignRole, assignUserRole, cancelEmailChange, changePassword, checkPasswordReset, completePasswordReset, completeSignIn, completeSignInWithPasskey, confirmEmail, confirmEmailChange, confirmPasskey, confirmTotp, createGroup, createMachine, deleteAccount, deleteGroup, deleteMachine, deleteUser, getAccess, getDashboard, getLauncher, getMcpResource, getProfile, getStepUp, getVersion, listAuditEvents, listDevices, listMachines, listMyConnectedApps, listMyTokens, listSecondFactors, listUserTokens, mintToken, type Options, passkeyOptions, removeMember, removeSecondFactor, renameGroup, renameUser, resetPasskeyOptions, resetWithCode, resetWithPasskey, revokeMyConnectedApp, revokeMyToken, revokeUserToken, rotateClientSecret, rotateMachineSecret, setGroupTwoFactor, setMcpResource, setStepUp, signIn, signOut, signOutDevice, signOutOtherDevices, signOutUser, signUp, startPasskey, startStepUp, startTotp, stepUpPasskeyOptions, stepUpWithCode, stepUpWithPasskey, unassignMachineRole, unassignRole, unassignUserRole, updateProfile } from '../sdk.gen';
-import type { AddMemberData, AddMemberError, AddMemberResponse, AskEmailChangeData, AskEmailChangeError, AskPasswordResetData, AskPasswordResetError, AskUserEmailChangeData, AskUserEmailChangeError, AssignMachineRoleData, AssignMachineRoleError, AssignMachineRoleResponse, AssignRoleData, AssignRoleError, AssignRoleResponse, AssignUserRoleData, AssignUserRoleError, AssignUserRoleResponse, AuditCursor, CancelEmailChangeData, CancelEmailChangeError, CancelEmailChangeResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CheckPasswordResetData, CheckPasswordResetError, CheckPasswordResetResponse, CompletePasswordResetData, CompletePasswordResetError, CompletePasswordResetResponse, CompleteSignInData, CompleteSignInError, CompleteSignInResponse, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyError, CompleteSignInWithPasskeyResponse, ConfirmEmailChangeData, ConfirmEmailChangeError, ConfirmEmailChangeResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, ConfirmPasskeyData, ConfirmPasskeyError, ConfirmPasskeyResponse, ConfirmTotpData, ConfirmTotpError, ConfirmTotpResponse, CreateGroupData, CreateGroupError, CreateGroupResponse, CreateMachineData, CreateMachineError, CreateMachineResponse, DeleteAccountData, DeleteAccountError, DeleteAccountResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, DeleteMachineData, DeleteMachineError, DeleteMachineResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, GetAccessData, GetAccessError, GetAccessResponse, GetDashboardData, GetDashboardError, GetDashboardResponse, GetLauncherData, GetLauncherError, GetLauncherResponse, GetMcpResourceData, GetMcpResourceError, GetMcpResourceResponse, GetProfileData, GetProfileError, GetProfileResponse, GetStepUpData, GetStepUpError, GetStepUpResponse, GetVersionData, GetVersionError, GetVersionResponse, ListAuditEventsData, ListAuditEventsError, ListAuditEventsResponse, ListDevicesData, ListDevicesError, ListDevicesResponse, ListMachinesData, ListMachinesError, ListMachinesResponse, ListMyConnectedAppsData, ListMyConnectedAppsError, ListMyConnectedAppsResponse, ListMyTokensData, ListMyTokensError, ListMyTokensResponse, ListSecondFactorsData, ListSecondFactorsError, ListSecondFactorsResponse, ListUserTokensData, ListUserTokensError, ListUserTokensResponse, MintTokenData, MintTokenError, MintTokenResponse, PasskeyOptionsData, PasskeyOptionsError, PasskeyOptionsResponse, RemoveMemberData, RemoveMemberError, RemoveMemberResponse, RemoveSecondFactorData, RemoveSecondFactorError, RemoveSecondFactorResponse, RenameGroupData, RenameGroupError, RenameGroupResponse, RenameUserData, RenameUserError, RenameUserResponse, ResetPasskeyOptionsData, ResetPasskeyOptionsError, ResetPasskeyOptionsResponse, ResetWithCodeData, ResetWithCodeError, ResetWithCodeResponse, ResetWithPasskeyData, ResetWithPasskeyError, ResetWithPasskeyResponse, RevokeMyConnectedAppData, RevokeMyConnectedAppError, RevokeMyConnectedAppResponse, RevokeMyTokenData, RevokeMyTokenError, RevokeMyTokenResponse, RevokeUserTokenData, RevokeUserTokenError, RevokeUserTokenResponse, RotateClientSecretData, RotateClientSecretError, RotateClientSecretResponse, RotateMachineSecretData, RotateMachineSecretError, RotateMachineSecretResponse, SetGroupTwoFactorData, SetGroupTwoFactorError, SetGroupTwoFactorResponse, SetMcpResourceData, SetMcpResourceError, SetMcpResourceResponse, SetStepUpData, SetStepUpError, SetStepUpResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutDeviceData, SignOutDeviceError, SignOutDeviceResponse, SignOutError, SignOutOtherDevicesData, SignOutOtherDevicesError, SignOutOtherDevicesResponse, SignOutResponse, SignOutUserData, SignOutUserError, SignOutUserResponse, SignUpData, SignUpError, StartPasskeyData, StartPasskeyError, StartPasskeyResponse, StartStepUpData, StartStepUpError, StartStepUpResponse, StartTotpData, StartTotpError, StartTotpResponse, StepUpPasskeyOptionsData, StepUpPasskeyOptionsError, StepUpPasskeyOptionsResponse, StepUpWithCodeData, StepUpWithCodeError, StepUpWithCodeResponse, StepUpWithPasskeyData, StepUpWithPasskeyError, StepUpWithPasskeyResponse, UnassignMachineRoleData, UnassignMachineRoleError, UnassignMachineRoleResponse, UnassignRoleData, UnassignRoleError, UnassignRoleResponse, UnassignUserRoleData, UnassignUserRoleError, UnassignUserRoleResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
+import { addMember, askEmailChange, askPasswordReset, askUserEmailChange, assignMachineRole, assignRole, assignUserRole, cancelEmailChange, changePassword, checkPasswordReset, completePasswordReset, completeSignIn, completeSignInWithPasskey, confirmEmail, confirmEmailChange, confirmPasskey, confirmTotp, createGroup, createMachine, deleteAccount, deleteGroup, deleteMachine, deleteUser, getAccess, getDashboard, getLauncher, getMcpResource, getProfile, getStepUp, getVersion, listAuditEvents, listDevices, listMachines, listMyConnectedApps, listMyTokens, listTwoFactorMethods, listUserTokens, mintToken, type Options, passkeyOptions, removeMember, removeTwoFactorMethod, renameGroup, renameUser, resetPasskeyOptions, resetWithCode, resetWithPasskey, revokeMyConnectedApp, revokeMyToken, revokeUserToken, rotateClientSecret, rotateMachineSecret, setGroupTwoFactor, setMcpResource, setStepUp, signIn, signOut, signOutDevice, signOutOtherDevices, signOutUser, signUp, startPasskey, startStepUp, startTotp, stepUpPasskeyOptions, stepUpWithCode, stepUpWithPasskey, unassignMachineRole, unassignRole, unassignUserRole, updateProfile } from '../sdk.gen';
+import type { AddMemberData, AddMemberError, AddMemberResponse, AskEmailChangeData, AskEmailChangeError, AskPasswordResetData, AskPasswordResetError, AskUserEmailChangeData, AskUserEmailChangeError, AssignMachineRoleData, AssignMachineRoleError, AssignMachineRoleResponse, AssignRoleData, AssignRoleError, AssignRoleResponse, AssignUserRoleData, AssignUserRoleError, AssignUserRoleResponse, AuditCursor, CancelEmailChangeData, CancelEmailChangeError, CancelEmailChangeResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CheckPasswordResetData, CheckPasswordResetError, CheckPasswordResetResponse, CompletePasswordResetData, CompletePasswordResetError, CompletePasswordResetResponse, CompleteSignInData, CompleteSignInError, CompleteSignInResponse, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyError, CompleteSignInWithPasskeyResponse, ConfirmEmailChangeData, ConfirmEmailChangeError, ConfirmEmailChangeResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, ConfirmPasskeyData, ConfirmPasskeyError, ConfirmPasskeyResponse, ConfirmTotpData, ConfirmTotpError, ConfirmTotpResponse, CreateGroupData, CreateGroupError, CreateGroupResponse, CreateMachineData, CreateMachineError, CreateMachineResponse, DeleteAccountData, DeleteAccountError, DeleteAccountResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, DeleteMachineData, DeleteMachineError, DeleteMachineResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, GetAccessData, GetAccessError, GetAccessResponse, GetDashboardData, GetDashboardError, GetDashboardResponse, GetLauncherData, GetLauncherError, GetLauncherResponse, GetMcpResourceData, GetMcpResourceError, GetMcpResourceResponse, GetProfileData, GetProfileError, GetProfileResponse, GetStepUpData, GetStepUpError, GetStepUpResponse, GetVersionData, GetVersionError, GetVersionResponse, ListAuditEventsData, ListAuditEventsError, ListAuditEventsResponse, ListDevicesData, ListDevicesError, ListDevicesResponse, ListMachinesData, ListMachinesError, ListMachinesResponse, ListMyConnectedAppsData, ListMyConnectedAppsError, ListMyConnectedAppsResponse, ListMyTokensData, ListMyTokensError, ListMyTokensResponse, ListTwoFactorMethodsData, ListTwoFactorMethodsError, ListTwoFactorMethodsResponse, ListUserTokensData, ListUserTokensError, ListUserTokensResponse, MintTokenData, MintTokenError, MintTokenResponse, PasskeyOptionsData, PasskeyOptionsError, PasskeyOptionsResponse, RemoveMemberData, RemoveMemberError, RemoveMemberResponse, RemoveTwoFactorMethodData, RemoveTwoFactorMethodError, RemoveTwoFactorMethodResponse, RenameGroupData, RenameGroupError, RenameGroupResponse, RenameUserData, RenameUserError, RenameUserResponse, ResetPasskeyOptionsData, ResetPasskeyOptionsError, ResetPasskeyOptionsResponse, ResetWithCodeData, ResetWithCodeError, ResetWithCodeResponse, ResetWithPasskeyData, ResetWithPasskeyError, ResetWithPasskeyResponse, RevokeMyConnectedAppData, RevokeMyConnectedAppError, RevokeMyConnectedAppResponse, RevokeMyTokenData, RevokeMyTokenError, RevokeMyTokenResponse, RevokeUserTokenData, RevokeUserTokenError, RevokeUserTokenResponse, RotateClientSecretData, RotateClientSecretError, RotateClientSecretResponse, RotateMachineSecretData, RotateMachineSecretError, RotateMachineSecretResponse, SetGroupTwoFactorData, SetGroupTwoFactorError, SetGroupTwoFactorResponse, SetMcpResourceData, SetMcpResourceError, SetMcpResourceResponse, SetStepUpData, SetStepUpError, SetStepUpResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutDeviceData, SignOutDeviceError, SignOutDeviceResponse, SignOutError, SignOutOtherDevicesData, SignOutOtherDevicesError, SignOutOtherDevicesResponse, SignOutResponse, SignOutUserData, SignOutUserError, SignOutUserResponse, SignUpData, SignUpError, StartPasskeyData, StartPasskeyError, StartPasskeyResponse, StartStepUpData, StartStepUpError, StartStepUpResponse, StartTotpData, StartTotpError, StartTotpResponse, StepUpPasskeyOptionsData, StepUpPasskeyOptionsError, StepUpPasskeyOptionsResponse, StepUpWithCodeData, StepUpWithCodeError, StepUpWithCodeResponse, StepUpWithPasskeyData, StepUpWithPasskeyError, StepUpWithPasskeyResponse, UnassignMachineRoleData, UnassignMachineRoleError, UnassignMachineRoleResponse, UnassignRoleData, UnassignRoleError, UnassignRoleResponse, UnassignUserRoleData, UnassignUserRoleError, UnassignUserRoleResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -138,7 +138,7 @@ export const askPasswordResetMutation = (options?: Partial<Options<AskPasswordRe
 /**
  * Check a password reset link
  *
- * Says which kinds of two-factor the reset must be proved with first; none when the User has none or proved it already.
+ * Says which kinds of two-factor method the reset must be proved with first; none when the User has none or proved it already.
  */
 export const checkPasswordResetMutation = (options?: Partial<Options<CheckPasswordResetData>>): UseMutationOptions<CheckPasswordResetResponse, CheckPasswordResetError, Options<CheckPasswordResetData>> => {
     const mutationOptions: UseMutationOptions<CheckPasswordResetResponse, CheckPasswordResetError, Options<CheckPasswordResetData>> = {
@@ -404,7 +404,7 @@ export const changePasswordMutation = (options?: Partial<Options<ChangePasswordD
 };
 
 /**
- * Finish signing in with a Second Factor
+ * Finish signing in with a two-factor method
  *
  * Takes a code from the User's authenticator app for the sign-in the challenge cookie names, and starts a session proved by both. A challenge takes five codes; a code works once.
  */
@@ -422,16 +422,16 @@ export const completeSignInMutation = (options?: Partial<Options<CompleteSignInD
     return mutationOptions;
 };
 
-export const listSecondFactorsQueryKey = (options?: Options<ListSecondFactorsData>) => createQueryKey('listSecondFactors', options);
+export const listTwoFactorMethodsQueryKey = (options?: Options<ListTwoFactorMethodsData>) => createQueryKey('listTwoFactorMethods', options);
 
 /**
- * The signed-in User's Second Factors
+ * The signed-in User's two-factor methods
  *
  * Every authenticator app and passkey the User added.
  */
-export const listSecondFactorsOptions = (options?: Options<ListSecondFactorsData>) => queryOptions<ListSecondFactorsResponse, ListSecondFactorsError, ListSecondFactorsResponse, ReturnType<typeof listSecondFactorsQueryKey>>({
+export const listTwoFactorMethodsOptions = (options?: Options<ListTwoFactorMethodsData>) => queryOptions<ListTwoFactorMethodsResponse, ListTwoFactorMethodsError, ListTwoFactorMethodsResponse, ReturnType<typeof listTwoFactorMethodsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
-        const { data } = await listSecondFactors({
+        const { data } = await listTwoFactorMethods({
             ...options,
             ...queryKey[0],
             signal,
@@ -439,7 +439,7 @@ export const listSecondFactorsOptions = (options?: Options<ListSecondFactorsData
         });
         return data;
     },
-    queryKey: listSecondFactorsQueryKey(options)
+    queryKey: listTwoFactorMethodsQueryKey(options)
 });
 
 /**
@@ -521,7 +521,7 @@ export const completeSignInWithPasskeyMutation = (options?: Partial<Options<Comp
 /**
  * Start proving two-factor again
  *
- * For an app that wants a fresh proof (step-up), starts proving the signed-in session again and says which kinds of Second Factor can prove it. A User with none is told to add one.
+ * For an app that wants a fresh proof (step-up), starts proving the signed-in session again and says which kinds of two-factor method can prove it. A User with none is told to add one.
  */
 export const startStepUpMutation = (options?: Partial<Options<StartStepUpData>>): UseMutationOptions<StartStepUpResponse, StartStepUpError, Options<StartStepUpData>> => {
     const mutationOptions: UseMutationOptions<StartStepUpResponse, StartStepUpError, Options<StartStepUpData>> = {
@@ -674,7 +674,7 @@ export const startPasskeyMutation = (options?: Partial<Options<StartPasskeyData>
 /**
  * Finish adding a passkey
  *
- * Keeps the passkey the browser made, given the User's password. A User who already has a Second Factor must be in a session that proved one. Every other session of the User's ends.
+ * Keeps the passkey the browser made, given the User's password. A User who already has two-factor must be in a session that proved it. Every other session of the User's ends.
  */
 export const confirmPasskeyMutation = (options?: Partial<Options<ConfirmPasskeyData>>): UseMutationOptions<ConfirmPasskeyResponse, ConfirmPasskeyError, Options<ConfirmPasskeyData>> => {
     const mutationOptions: UseMutationOptions<ConfirmPasskeyResponse, ConfirmPasskeyError, Options<ConfirmPasskeyData>> = {
@@ -691,14 +691,14 @@ export const confirmPasskeyMutation = (options?: Partial<Options<ConfirmPasskeyD
 };
 
 /**
- * Remove a Second Factor
+ * Remove a two-factor method
  *
- * Removes one of the User's authenticator apps or passkeys once they give their password, from a session that proved a Second Factor.
+ * Removes one of the User's authenticator apps or passkeys once they give their password, from a session that proved two-factor.
  */
-export const removeSecondFactorMutation = (options?: Partial<Options<RemoveSecondFactorData>>): UseMutationOptions<RemoveSecondFactorResponse, RemoveSecondFactorError, Options<RemoveSecondFactorData>> => {
-    const mutationOptions: UseMutationOptions<RemoveSecondFactorResponse, RemoveSecondFactorError, Options<RemoveSecondFactorData>> = {
+export const removeTwoFactorMethodMutation = (options?: Partial<Options<RemoveTwoFactorMethodData>>): UseMutationOptions<RemoveTwoFactorMethodResponse, RemoveTwoFactorMethodError, Options<RemoveTwoFactorMethodData>> => {
+    const mutationOptions: UseMutationOptions<RemoveTwoFactorMethodResponse, RemoveTwoFactorMethodError, Options<RemoveTwoFactorMethodData>> = {
         mutationFn: async (fnOptions) => {
-            const { data } = await removeSecondFactor({
+            const { data } = await removeTwoFactorMethod({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -1094,7 +1094,7 @@ export const assignMachineRoleMutation = (options?: Partial<Options<AssignMachin
 /**
  * Give a Machine Identity a new client secret
  *
- * For a workload outside the cluster, which signs in with the client credentials grant. The secret is answered once, here, and kept only as a hash. The previous secret keeps working until the new one is first used. Admins only, from a session that proved a Second Factor.
+ * For a workload outside the cluster, which signs in with the client credentials grant. The secret is answered once, here, and kept only as a hash. The previous secret keeps working until the new one is first used. Admins only, from a session that proved two-factor.
  */
 export const rotateMachineSecretMutation = (options?: Partial<Options<RotateMachineSecretData>>): UseMutationOptions<RotateMachineSecretResponse, RotateMachineSecretError, Options<RotateMachineSecretData>> => {
     const mutationOptions: UseMutationOptions<RotateMachineSecretResponse, RotateMachineSecretError, Options<RotateMachineSecretData>> = {
@@ -1115,7 +1115,7 @@ export const listAuditEventsQueryKey = (options?: Options<ListAuditEventsData>) 
 /**
  * Audit Events, newest first
  *
- * One page of Audit Events, newest first, narrowed by any of the filters. Pass a page's next as before to read the page after it. Admins only, from a session that proved a Second Factor.
+ * One page of Audit Events, newest first, narrowed by any of the filters. Pass a page's next as before to read the page after it. Admins only, from a session that proved two-factor.
  */
 export const listAuditEventsOptions = (options?: Options<ListAuditEventsData>) => queryOptions<ListAuditEventsResponse, ListAuditEventsError, ListAuditEventsResponse, ReturnType<typeof listAuditEventsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -1164,7 +1164,7 @@ export const listAuditEventsInfiniteQueryKey = (options?: Options<ListAuditEvent
 /**
  * Audit Events, newest first
  *
- * One page of Audit Events, newest first, narrowed by any of the filters. Pass a page's next as before to read the page after it. Admins only, from a session that proved a Second Factor.
+ * One page of Audit Events, newest first, narrowed by any of the filters. Pass a page's next as before to read the page after it. Admins only, from a session that proved two-factor.
  */
 export const listAuditEventsInfiniteOptions = (options?: Options<ListAuditEventsData>) => {
     const opts = infiniteQueryOptions<ListAuditEventsResponse, ListAuditEventsError, InfiniteData<ListAuditEventsResponse>, QueryKey<Options<ListAuditEventsData>>, AuditCursor | Pick<QueryKey<Options<ListAuditEventsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
@@ -1196,7 +1196,7 @@ export const getDashboardQueryKey = (options?: Options<GetDashboardData>) => cre
 /**
  * How things stand
  *
- * Users, the Unassigned queue, sign-ins and failed sign-ins over the last 24 hours, and live sessions. Admins only, from a session that proved a Second Factor.
+ * Users, the Unassigned queue, sign-ins and failed sign-ins over the last 24 hours, and live sessions. Admins only, from a session that proved two-factor.
  */
 export const getDashboardOptions = (options?: Options<GetDashboardData>) => queryOptions<GetDashboardResponse, GetDashboardError, GetDashboardResponse, ReturnType<typeof getDashboardQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -1274,7 +1274,7 @@ export const listUserTokensQueryKey = (options: Options<ListUserTokensData>) => 
 /**
  * A User's Personal Tokens
  *
- * Admins only, from a session that proved a Second Factor.
+ * Admins only, from a session that proved two-factor.
  */
 export const listUserTokensOptions = (options: Options<ListUserTokensData>) => queryOptions<ListUserTokensResponse, ListUserTokensError, ListUserTokensResponse, ReturnType<typeof listUserTokensQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -1292,7 +1292,7 @@ export const listUserTokensOptions = (options: Options<ListUserTokensData>) => q
 /**
  * Revoke a User's Personal Token
  *
- * Admins only, from a session that proved a Second Factor. Revoking it twice changes nothing.
+ * Admins only, from a session that proved two-factor. Revoking it twice changes nothing.
  */
 export const revokeUserTokenMutation = (options?: Partial<Options<RevokeUserTokenData>>): UseMutationOptions<RevokeUserTokenResponse, RevokeUserTokenError, Options<RevokeUserTokenData>> => {
     const mutationOptions: UseMutationOptions<RevokeUserTokenResponse, RevokeUserTokenError, Options<RevokeUserTokenData>> = {
@@ -1311,7 +1311,7 @@ export const revokeUserTokenMutation = (options?: Partial<Options<RevokeUserToke
 /**
  * Give a Client a new secret
  *
- * Admins only, from a session that proved a Second Factor, for a Client that signs in with a secret. The new secret is written where the Client's Application reads it, never answered here. The old one keeps working until the Application first uses the new one.
+ * Admins only, from a session that proved two-factor, for a Client that signs in with a secret. The new secret is written where the Client's Application reads it, never answered here. The old one keeps working until the Application first uses the new one.
  */
 export const rotateClientSecretMutation = (options?: Partial<Options<RotateClientSecretData>>): UseMutationOptions<RotateClientSecretResponse, RotateClientSecretError, Options<RotateClientSecretData>> => {
     const mutationOptions: UseMutationOptions<RotateClientSecretResponse, RotateClientSecretError, Options<RotateClientSecretData>> = {
@@ -1332,7 +1332,7 @@ export const getStepUpQueryKey = (options: Options<GetStepUpData>) => createQuer
 /**
  * How fresh a Client wants two-factor
  *
- * The Client's step-up window, 0 when it is off. Admins only, from a session that proved a Second Factor.
+ * The Client's step-up window, 0 when it is off. Admins only, from a session that proved two-factor.
  */
 export const getStepUpOptions = (options: Options<GetStepUpData>) => queryOptions<GetStepUpResponse, GetStepUpError, GetStepUpResponse, ReturnType<typeof getStepUpQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -1350,7 +1350,7 @@ export const getStepUpOptions = (options: Options<GetStepUpData>) => queryOption
 /**
  * Set how fresh a Client wants two-factor
  *
- * Signing in to the Client then finishes only when the session proved two-factor within the window; 0 turns step-up off. Admins only, from a session that proved a Second Factor.
+ * Signing in to the Client then finishes only when the session proved two-factor within the window; 0 turns step-up off. Admins only, from a session that proved two-factor.
  */
 export const setStepUpMutation = (options?: Partial<Options<SetStepUpData>>): UseMutationOptions<SetStepUpResponse, SetStepUpError, Options<SetStepUpData>> => {
     const mutationOptions: UseMutationOptions<SetStepUpResponse, SetStepUpError, Options<SetStepUpData>> = {
@@ -1410,7 +1410,7 @@ export const getMcpResourceQueryKey = (options: Options<GetMcpResourceData>) => 
 /**
  * Whether a Client takes Connected Apps
  *
- * Admins only, from a session that proved a Second Factor.
+ * Admins only, from a session that proved two-factor.
  */
 export const getMcpResourceOptions = (options: Options<GetMcpResourceData>) => queryOptions<GetMcpResourceResponse, GetMcpResourceError, GetMcpResourceResponse, ReturnType<typeof getMcpResourceQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -1428,7 +1428,7 @@ export const getMcpResourceOptions = (options: Options<GetMcpResourceData>) => q
 /**
  * Let a Client take Connected Apps, or stop it
  *
- * Admins only, from a session that proved a Second Factor. A Client that can check no Connected App's token is refused with 409. Stopping keeps the Connected Apps the Client has; turning step-up on disconnects them.
+ * Admins only, from a session that proved two-factor. A Client that can check no Connected App's token is refused with 409. Stopping keeps the Connected Apps the Client has; turning step-up on disconnects them.
  */
 export const setMcpResourceMutation = (options?: Partial<Options<SetMcpResourceData>>): UseMutationOptions<SetMcpResourceResponse, SetMcpResourceError, Options<SetMcpResourceData>> => {
     const mutationOptions: UseMutationOptions<SetMcpResourceResponse, SetMcpResourceError, Options<SetMcpResourceData>> = {

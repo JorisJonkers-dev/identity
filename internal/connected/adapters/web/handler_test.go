@@ -49,7 +49,7 @@ func (u *useCases) SetMCPResource(_ context.Context, actor app.Actor, _ string, 
 func (u *useCases) Label(_ context.Context, clientID string) string { return "Label of " + clientID }
 
 func signedIn() context.Context {
-	return principal.With(context.Background(), principal.Principal{UserID: ada, SecondFactor: true})
+	return principal.With(context.Background(), principal.Principal{UserID: ada, TwoFactor: true})
 }
 
 func status(t *testing.T, res any) int {
@@ -103,7 +103,7 @@ func TestDisconnectingFailsWhenTheUseCaseDoes(t *testing.T) {
 func TestAnAdminReadsWhetherAClientTakesConnectedApps(t *testing.T) {
 	uc := &useCases{}
 	res, err := web.New(uc).GetMCPResource(signedIn(), oas.GetMCPResourceParams{ClientId: "kb"})
-	if m, ok := res.(*oas.MCPResource); err != nil || !ok || !m.On || m.ConnectedApps != 2 || m.TokenCheck != oas.MCPResourceTokenCheckIntrospection || uc.actor != (app.Actor{ID: ada, SecondFactor: true}) {
+	if m, ok := res.(*oas.MCPResource); err != nil || !ok || !m.On || m.ConnectedApps != 2 || m.TokenCheck != oas.MCPResourceTokenCheckIntrospection || uc.actor != (app.Actor{ID: ada, TwoFactor: true}) {
 		t.Fatalf("get = %+v, %v", res, err)
 	}
 }
@@ -123,7 +123,7 @@ func TestTheMCPSettingIsRefusedByWhatTheCallerBroke(t *testing.T) {
 		status int
 	}{
 		{"not an Admin", app.ErrNotAdmin, http.StatusForbidden},
-		{"no second factor", app.ErrSecondFactorNeeded, http.StatusForbidden},
+		{"no two-factor", app.ErrTwoFactorProofNeeded, http.StatusForbidden},
 		{"a Client that is gone", app.ErrNotFound, http.StatusNotFound},
 		{"a Client that can check no tool's token", app.ErrUnchecked, http.StatusConflict},
 	} {

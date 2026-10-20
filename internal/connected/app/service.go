@@ -34,8 +34,8 @@ var (
 	ErrNotAdmin     = errors.New("only Admins can do this")
 	// ErrUnchecked is a Client that can check no tool's token, so it cannot take Connected Apps.
 	ErrUnchecked = errors.New("the Client can check no Connected App's token")
-	// ErrSecondFactorNeeded is an Admin whose session did not prove a Second Factor.
-	ErrSecondFactorNeeded = errors.New("a session that proved a Second Factor is needed")
+	// ErrTwoFactorProofNeeded is an Admin whose session did not prove two-factor.
+	ErrTwoFactorProofNeeded = errors.New("a session that proved two-factor is needed")
 )
 
 const (
@@ -171,10 +171,10 @@ type Audit interface {
 	Record(ctx context.Context, e audit.Event)
 }
 
-// Actor is who asks: a User, and whether their session proved a Second Factor.
+// Actor is who asks: a User, and whether their session proved two-factor.
 type Actor struct {
-	ID           uuid.UUID
-	SecondFactor bool
+	ID        uuid.UUID
+	TwoFactor bool
 }
 
 // Service is the connected use cases.
@@ -604,7 +604,7 @@ func (s *Service) MCPState(ctx context.Context, actor Actor, clientID string) (M
 	return MCPState{On: on, ConnectedApps: n, TokenCheck: c.TokenCheck}, err
 }
 
-// admin is nil for an Admin whose session proved a Second Factor.
+// admin is nil for an Admin whose session proved two-factor.
 func (s *Service) admin(ctx context.Context, actor Actor) error {
 	yes, err := s.admins.IsAdmin(ctx, actor.ID)
 	if err != nil {
@@ -613,8 +613,8 @@ func (s *Service) admin(ctx context.Context, actor Actor) error {
 	if !yes {
 		return ErrNotAdmin
 	}
-	if !actor.SecondFactor {
-		return ErrSecondFactorNeeded
+	if !actor.TwoFactor {
+		return ErrTwoFactorProofNeeded
 	}
 	return nil
 }

@@ -45,7 +45,7 @@ func (u *useCases) List(_ context.Context, actor app.Actor, f domain.Filter) (ap
 }
 
 func asAdmin() context.Context {
-	return principal.With(context.Background(), principal.Principal{UserID: admin, SecondFactor: true})
+	return principal.With(context.Background(), principal.Principal{UserID: admin, TwoFactor: true})
 }
 
 func list(t *testing.T, uc *useCases, params oas.ListAuditEventsParams) oas.ListAuditEventsRes {
@@ -61,7 +61,7 @@ func TestTheListingAsksAsTheSignedInUser(t *testing.T) {
 	t.Parallel()
 	uc := &useCases{}
 	list(t, uc, oas.ListAuditEventsParams{})
-	if uc.actor != (app.Actor{ID: admin, SecondFactor: true}) || uc.filter != (domain.Filter{}) {
+	if uc.actor != (app.Actor{ID: admin, TwoFactor: true}) || uc.filter != (domain.Filter{}) {
 		t.Fatalf("asked as %+v with %+v", uc.actor, uc.filter)
 	}
 }
@@ -184,7 +184,7 @@ func TestARefusedListingSaysWhy(t *testing.T) {
 		detail string
 	}{
 		{"not an Admin", app.ErrNotAdmin, "Only Admins can see this page."},
-		{"no Second Factor", app.ErrSecondFactorNeeded, "This page needs a Second Factor. If you have a passkey or authenticator app, sign out and sign in again with it. If you have neither, add a Second Factor on the Security page first, then sign out and sign in again."},
+		{"no two-factor", app.ErrTwoFactorProofNeeded, "This page needs two-factor. If you have a passkey or authenticator app, sign out and sign in again with it. If you have neither, add a two-factor method on the Security page first, then sign out and sign in again."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -232,7 +232,7 @@ func TestTheDashboardCarriesItsCounts(t *testing.T) {
 	if len(d.Hours) != 24 || d.Hours[23] != (oas.SignInHour{At: t0.Add(23 * time.Hour), SignIns: 23, Failed: 1}) {
 		t.Fatalf("hours = %+v", d.Hours)
 	}
-	if d.GrafanaUrl.Set || uc.actor != (app.Actor{ID: admin, SecondFactor: true}) {
+	if d.GrafanaUrl.Set || uc.actor != (app.Actor{ID: admin, TwoFactor: true}) {
 		t.Fatalf("grafana %+v, asked as %+v", d.GrafanaUrl, uc.actor)
 	}
 }

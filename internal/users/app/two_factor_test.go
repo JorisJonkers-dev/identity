@@ -78,7 +78,7 @@ func TestEnrollingAnAuthenticatorKeepsItsSecretSealed(t *testing.T) {
 	if err := f.ConfirmTOTP(ctx, id, session, " Phone ", code(t, setup.Secret, f.now), pw); err != nil {
 		t.Fatal(err)
 	}
-	factors, _ := f.SecondFactors(ctx, id)
+	factors, _ := f.TwoFactorMethods(ctx, id)
 	if len(factors) != 1 || factors[0].Label.String() != "Phone" || factors[0].Kind != app.KindTOTP ||
 		f.store.factors[0].SealedSecret != e.SealedSecret || f.store.factors[0].LastStep != t0.Unix()/30 {
 		t.Fatalf("factors = %+v, stored %+v", factors, f.store.factors)
@@ -86,7 +86,7 @@ func TestEnrollingAnAuthenticatorKeepsItsSecretSealed(t *testing.T) {
 	if _, ok := f.store.enrolments[id]; ok {
 		t.Fatal("the enrolment is still waiting")
 	}
-	if s := f.store.sessions[sum(session)]; !app.ProvedSecondFactor(s.Methods) {
+	if s := f.store.sessions[sum(session)]; !app.ProvedTwoFactor(s.Methods) {
 		t.Fatalf("the session it was confirmed in has methods %v", s.Methods)
 	}
 	if err := f.ConfirmTOTP(ctx, id, session, "Phone", code(t, setup.Secret, f.now), pw); !errors.Is(err, app.ErrInvalidToken) {
@@ -112,7 +112,7 @@ func TestSignInAsksForTheCodeAndTakesItOnce(t *testing.T) {
 	f.now = t0.Add(time.Hour)
 
 	challenge, err := f.SignIn(ctx, "ada@example.org", pw)
-	if !errors.Is(err, app.ErrSecondFactorNeeded) || challenge == "" {
+	if !errors.Is(err, app.ErrTwoFactorProofNeeded) || challenge == "" {
 		t.Fatalf("SignIn with an authenticator = %q, %v", challenge, err)
 	}
 	c, ok := f.store.challenges[sum(challenge)]
@@ -164,7 +164,7 @@ func TestWrongCodesCountAcrossSignIns(t *testing.T) {
 	f.now = t0.Add(time.Hour)
 	for i := range 5 {
 		challenge, err := f.SignIn(ctx, "ada@example.org", pw)
-		if !errors.Is(err, app.ErrSecondFactorNeeded) {
+		if !errors.Is(err, app.ErrTwoFactorProofNeeded) {
 			t.Fatalf("sign-in %d = %v", i, err)
 		}
 		_, _ = f.CompleteSignIn(ctx, challenge, "000000")
@@ -184,7 +184,7 @@ func TestWrongCodesCountAcrossSignIns(t *testing.T) {
 	}
 }
 
-// A session someone took, without the password, must not make itself a Second Factor session by
+// A session someone took, without the password, must not make itself a two-factor session by
 // adding its own authenticator.
 func TestATakenSessionCannotProveItselfByEnrolling(t *testing.T) {
 	f := newFixture()
@@ -195,7 +195,7 @@ func TestATakenSessionCannotProveItselfByEnrolling(t *testing.T) {
 	if err := f.ConfirmTOTP(ctx, id, taken, "Mine", code(t, setup.Secret, f.now), "a guess at it"); !errors.Is(err, app.ErrInvalidCredentials) {
 		t.Fatalf("enrolling without the password = %v", err)
 	}
-	if s := f.store.sessions[sum(taken)]; app.ProvedSecondFactor(s.Methods) || len(f.store.factors) != 0 {
+	if s := f.store.sessions[sum(taken)]; app.ProvedTwoFactor(s.Methods) || len(f.store.factors) != 0 {
 		t.Fatalf("a refused enrolment left methods %v and %d factors", s.Methods, len(f.store.factors))
 	}
 
@@ -206,7 +206,7 @@ func TestATakenSessionCannotProveItselfByEnrolling(t *testing.T) {
 	f.store.sessions[sum("old")] = app.Session{TokenHash: []byte(sum("old")), UserID: bob.ID, ExpiresAt: f.now.Add(time.Hour), Methods: []string{"pwd"}}
 	more, _ := f.StartTOTP(ctx, bob.ID)
 	f.now = f.now.Add(time.Minute)
-	if err := f.ConfirmTOTP(ctx, bob.ID, "old", "Tablet", code(t, more.Secret, f.now), pw); !errors.Is(err, app.ErrSecondFactorNeeded) {
+	if err := f.ConfirmTOTP(ctx, bob.ID, "old", "Tablet", code(t, more.Secret, f.now), pw); !errors.Is(err, app.ErrTwoFactorProofNeeded) {
 		t.Fatalf("adding a second authenticator from a password-only session = %v", err)
 	}
 }
@@ -237,7 +237,7 @@ func TestRemovingAnAuthenticatorNeedsThePasswordAndAProvedSession(t *testing.T) 
 
 	// A session from before the User enrolled, with the password, must not take the factor away.
 	f.store.sessions[sum("old")] = app.Session{TokenHash: []byte(sum("old")), UserID: id, ExpiresAt: f.now.Add(time.Hour), Methods: []string{"pwd"}}
-	if err := f.RemoveFactor(ctx, id, factorID, "old", pw); !errors.Is(err, app.ErrSecondFactorNeeded) || len(f.store.factors) != 1 {
+	if err := f.RemoveFactor(ctx, id, factorID, "old", pw); !errors.Is(err, app.ErrTwoFactorProofNeeded) || len(f.store.factors) != 1 {
 		t.Fatalf("removing from a password-only session = %v, %d left", err, len(f.store.factors))
 	}
 
@@ -320,7 +320,7 @@ func TestWithoutVaultAuthenticatorAppsAreUnavailable(t *testing.T) {
 	}
 }
 
-func TestSigningInWithASecondFactorFailsWhenTheStoreDoes(t *testing.T) {
+func TestSigningInWithTwoFactorFailsWhenTheStoreDoes(t *testing.T) {
 	for _, method := range []string{"TOTPFactors", "SaveChallenge"} {
 		t.Run(method, func(t *testing.T) {
 			f := newFixture()
@@ -473,12 +473,12 @@ func TestASessionCannotBeTrustedWhenTheAdminCheckCannotBeMade(t *testing.T) {
 	}
 }
 
-func TestWithoutRandomnessNothingSecondFactorIsMade(t *testing.T) {
+func TestWithoutRandomnessNothingTwoFactorIsMade(t *testing.T) {
 	ctx := context.Background()
 	f := newFixture()
 	id, _, session := f.enrolled(t, "ada@example.org")
 	f.dry = true
-	if _, err := f.SignIn(ctx, "ada@example.org", pw); err == nil || errors.Is(err, app.ErrSecondFactorNeeded) {
+	if _, err := f.SignIn(ctx, "ada@example.org", pw); err == nil || errors.Is(err, app.ErrTwoFactorProofNeeded) {
 		t.Errorf("a challenge without randomness = %v", err)
 	}
 	if _, err := f.StartTOTP(ctx, id); err == nil {
@@ -520,7 +520,7 @@ func TestAuthenticatorCodesAreCheckedByTheMatchGiven(t *testing.T) {
 		t.Fatalf("confirming with the code the match takes = %v", err)
 	}
 	challenge, err := f.SignIn(ctx, "ada@example.org", pw)
-	if !errors.Is(err, app.ErrSecondFactorNeeded) {
+	if !errors.Is(err, app.ErrTwoFactorProofNeeded) {
 		t.Fatal(err)
 	}
 	if _, err := f.CompleteSignIn(ctx, challenge, "424242"); err != nil {

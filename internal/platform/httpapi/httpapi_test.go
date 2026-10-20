@@ -44,7 +44,7 @@ func (users) SignedIn(_ context.Context, token string) (domain.User, app.Session
 	return domain.User{ID: uuid.New(), Email: e, Name: n, CreatedAt: time.Unix(0, 0).UTC()}, app.Session{Methods: []string{"pwd"}}, nil
 }
 func (users) CompleteSignIn(context.Context, string, string) (string, error) { return "good", nil }
-func (users) SecondFactors(context.Context, uuid.UUID) ([]app.Factor, error) {
+func (users) TwoFactorMethods(context.Context, uuid.UUID) ([]app.Factor, error) {
 	return nil, nil
 }
 func (users) ChallengeKinds(context.Context, string) ([]string, error) { return nil, nil }

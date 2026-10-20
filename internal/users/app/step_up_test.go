@@ -25,7 +25,7 @@ func steppingUp(t *testing.T) (*fixture, string, string) {
 	return f, secret, session
 }
 
-func TestStartingStepUpSaysWhichKindsOfSecondFactorTheUserHas(t *testing.T) {
+func TestStartingStepUpSaysWhichKindsOfTwoFactorMethodTheUserHas(t *testing.T) {
 	f := newFixture()
 	_, _, session := f.enrolled(t, "ada@example.org")
 	if kinds, err := f.StartStepUp(context.Background(), session); err != nil || !slices.Equal(kinds, []string{app.KindTOTP}) {
@@ -33,11 +33,11 @@ func TestStartingStepUpSaysWhichKindsOfSecondFactorTheUserHas(t *testing.T) {
 	}
 }
 
-func TestStartingStepUpWithNoSecondFactorIsRefused(t *testing.T) {
+func TestStartingStepUpWithNoTwoFactorIsRefused(t *testing.T) {
 	f := newFixture()
 	f.signedUp(t, "ada@example.org")
 	session, _ := f.SignIn(context.Background(), "ada@example.org", pw)
-	if _, err := f.StartStepUp(context.Background(), session); !errors.Is(err, app.ErrNoSecondFactor) {
+	if _, err := f.StartStepUp(context.Background(), session); !errors.Is(err, app.ErrNoTwoFactor) {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -140,7 +140,7 @@ func TestAStepUpPasskeyWithoutStartingStepUpIsRefused(t *testing.T) {
 	}
 }
 
-func TestASessionStartedWithASecondFactorSaysWhenItProvedIt(t *testing.T) {
+func TestASessionStartedWithTwoFactorSaysWhenItProvedIt(t *testing.T) {
 	f, challenge, c := codeStep(t)
 	session, err := f.CompleteSignIn(context.Background(), challenge, c)
 	if err != nil {
@@ -151,7 +151,7 @@ func TestASessionStartedWithASecondFactorSaysWhenItProvedIt(t *testing.T) {
 	}
 }
 
-func TestAPasswordSessionNeverProvedASecondFactor(t *testing.T) {
+func TestAPasswordSessionNeverProvedTwoFactor(t *testing.T) {
 	f := newFixture()
 	f.signedUp(t, "ada@example.org")
 	session, _ := f.SignIn(context.Background(), "ada@example.org", pw)
@@ -168,14 +168,14 @@ func TestEnrollingProvesTheSessionNow(t *testing.T) {
 	}
 }
 
-func TestAUserHasASecondFactorOnceTheyAddOne(t *testing.T) {
+func TestAUserHasTwoFactorOnceTheyAddOne(t *testing.T) {
 	f := newFixture()
 	none := f.signedUp(t, "bob@example.org")
 	id, _, _ := f.enrolled(t, "ada@example.org")
-	if has, err := f.HasSecondFactor(context.Background(), none); has || err != nil {
+	if has, err := f.HasTwoFactor(context.Background(), none); has || err != nil {
 		t.Fatalf("without one = %v, %v", has, err)
 	}
-	if has, err := f.HasSecondFactor(context.Background(), id); !has || err != nil {
+	if has, err := f.HasTwoFactor(context.Background(), id); !has || err != nil {
 		t.Fatalf("with one = %v, %v", has, err)
 	}
 }

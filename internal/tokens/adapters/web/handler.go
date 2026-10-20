@@ -135,7 +135,7 @@ func (h *Tokens) token(ctx context.Context, t domain.Token) (oas.PersonalToken, 
 
 func actor(ctx context.Context) app.Actor {
 	p := principal.From(ctx)
-	return app.Actor{ID: p.UserID, SecondFactor: p.SecondFactor}
+	return app.Actor{ID: p.UserID, TwoFactor: p.TwoFactor}
 }
 
 // refusal answers a rule the caller broke with a problem saying which, and passes anything else on.
@@ -153,8 +153,8 @@ func refusal(err error) (*oas.ProblemStatusCode, error) {
 		return problem(http.StatusNotFound, "That token no longer exists. Reload the page."), nil
 	case errors.Is(err, app.ErrNotAdmin):
 		return problem(http.StatusForbidden, "Only Admins manage other people's tokens."), nil
-	case errors.Is(err, app.ErrSecondFactorNeeded):
-		return problem(http.StatusForbidden, "This page needs a Second Factor. If you have a passkey or authenticator app, sign out and sign in again with it. If you have neither, add a Second Factor on the Security page first, then sign out and sign in again."), nil
+	case errors.Is(err, app.ErrTwoFactorProofNeeded):
+		return problem(http.StatusForbidden, "This page needs two-factor. If you have a passkey or authenticator app, sign out and sign in again with it. If you have neither, add a two-factor method on the Security page first, then sign out and sign in again."), nil
 	default:
 		return nil, err
 	}

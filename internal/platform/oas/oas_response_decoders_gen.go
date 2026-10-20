@@ -4817,7 +4817,7 @@ func decodeListMyTokensResponse(resp *http.Response) (res ListMyTokensRes, _ err
 	return res, errors.Wrap(defRes, "error")
 }
 
-func decodeListSecondFactorsResponse(resp *http.Response) (res ListSecondFactorsRes, _ error) {
+func decodeListTwoFactorMethodsResponse(resp *http.Response) (res ListTwoFactorMethodsRes, _ error) {
 	switch resp.StatusCode {
 	case 200:
 		// Code 200.
@@ -4833,7 +4833,7 @@ func decodeListSecondFactorsResponse(resp *http.Response) (res ListSecondFactors
 			}
 			d := jx.DecodeBytes(buf)
 
-			var response SecondFactors
+			var response TwoFactorMethods
 			if err := func() error {
 				if err := response.Decode(d); err != nil {
 					return err
@@ -4867,7 +4867,7 @@ func decodeListSecondFactorsResponse(resp *http.Response) (res ListSecondFactors
 	switch resp.StatusCode / 100 {
 	case 4:
 		// Pattern 4XX.
-		res, err := func() (res ListSecondFactorsRes, err error) {
+		res, err := func() (res ListTwoFactorMethodsRes, err error) {
 			ct, _, err := mime.ParseMediaType(resp.Header.Get("Content-Type"))
 			if err != nil {
 				return res, errors.Wrap(err, "parse media type")
@@ -5556,16 +5556,16 @@ func decodeRemoveMemberResponse(resp *http.Response) (res RemoveMemberRes, _ err
 	return res, errors.Wrap(defRes, "error")
 }
 
-func decodeRemoveSecondFactorResponse(resp *http.Response) (res RemoveSecondFactorRes, _ error) {
+func decodeRemoveTwoFactorMethodResponse(resp *http.Response) (res RemoveTwoFactorMethodRes, _ error) {
 	switch resp.StatusCode {
 	case 204:
 		// Code 204.
-		return &RemoveSecondFactorNoContent{}, nil
+		return &RemoveTwoFactorMethodNoContent{}, nil
 	}
 	switch resp.StatusCode / 100 {
 	case 4:
 		// Pattern 4XX.
-		res, err := func() (res RemoveSecondFactorRes, err error) {
+		res, err := func() (res RemoveTwoFactorMethodRes, err error) {
 			ct, _, err := mime.ParseMediaType(resp.Header.Get("Content-Type"))
 			if err != nil {
 				return res, errors.Wrap(err, "parse media type")
@@ -7264,7 +7264,7 @@ func decodeSignInResponse(resp *http.Response) (res SignInRes, _ error) {
 			}
 			d := jx.DecodeBytes(buf)
 
-			var response SecondFactorNeeded
+			var response TwoFactorNeeded
 			if err := func() error {
 				if err := response.Decode(d); err != nil {
 					return err
@@ -7290,7 +7290,7 @@ func decodeSignInResponse(resp *http.Response) (res SignInRes, _ error) {
 			}(); err != nil {
 				return res, errors.Wrap(err, "validate")
 			}
-			var wrapper SecondFactorNeededHeaders
+			var wrapper TwoFactorNeededHeaders
 			wrapper.Response = response
 			h := uri.NewHeaderDecoder(resp.Header)
 			// Parse "Set-Cookie" header.
@@ -8317,7 +8317,7 @@ func decodeStartStepUpResponse(resp *http.Response) (res StartStepUpRes, _ error
 			}
 			d := jx.DecodeBytes(buf)
 
-			var response SecondFactorNeeded
+			var response TwoFactorNeeded
 			if err := func() error {
 				if err := response.Decode(d); err != nil {
 					return err

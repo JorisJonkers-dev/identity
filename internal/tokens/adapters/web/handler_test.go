@@ -76,7 +76,7 @@ func (u *useCases) RolesOf(context.Context, domain.Token) ([]string, error) {
 }
 
 func as(id uuid.UUID) context.Context {
-	return principal.With(context.Background(), principal.Principal{UserID: id, SecondFactor: true})
+	return principal.With(context.Background(), principal.Principal{UserID: id, TwoFactor: true})
 }
 
 var wantToken = oas.PersonalToken{
@@ -152,7 +152,7 @@ func TestAnAdminListsAndRevokesAUsersTokensAsThemself(t *testing.T) {
 	uc := &useCases{}
 	h := web.New(uc)
 	list, err := h.ListUserTokens(as(root), oas.ListUserTokensParams{UserId: oas.ID(ada)})
-	if l, ok := list.(*oas.TokenList); err != nil || !ok || len(l.Tokens) != 1 || uc.actor != (app.Actor{ID: root, SecondFactor: true}) {
+	if l, ok := list.(*oas.TokenList); err != nil || !ok || len(l.Tokens) != 1 || uc.actor != (app.Actor{ID: root, TwoFactor: true}) {
 		t.Fatalf("ListUserTokens = %+v, %v", list, err)
 	}
 	res, err := h.RevokeUserToken(as(root), oas.RevokeUserTokenParams{UserId: oas.ID(ada), PatId: oas.ID(tokenID)})
@@ -174,7 +174,7 @@ func TestARefusalSaysWhy(t *testing.T) {
 		{app.ErrNoAccess, 422, "You have no role in that app, so a token for it could open nothing."},
 		{app.ErrNotFound, 404, "That token no longer exists. Reload the page."},
 		{app.ErrNotAdmin, 403, "Only Admins manage other people's tokens."},
-		{app.ErrSecondFactorNeeded, 403, "This page needs a Second Factor. If you have a passkey or authenticator app, sign out and sign in again with it. If you have neither, add a Second Factor on the Security page first, then sign out and sign in again."},
+		{app.ErrTwoFactorProofNeeded, 403, "This page needs two-factor. If you have a passkey or authenticator app, sign out and sign in again with it. If you have neither, add a two-factor method on the Security page first, then sign out and sign in again."},
 	} {
 		for name, call := range map[string]func(h *web.Tokens) (any, error){
 			"minting":            func(h *web.Tokens) (any, error) { return h.MintToken(as(ada), &oas.TokenDraft{}) },

@@ -59,7 +59,7 @@ func (u *useCases) CompleteSignIn(_ context.Context, challenge, code string) (st
 	return u.token, u.err
 }
 
-func (u *useCases) SecondFactors(context.Context, uuid.UUID) ([]app.Factor, error) {
+func (u *useCases) TwoFactorMethods(context.Context, uuid.UUID) ([]app.Factor, error) {
 	return u.factors, u.err
 }
 
@@ -359,11 +359,11 @@ func TestTheProfileShowsTheSignedInUser(t *testing.T) {
 	}
 }
 
-func TestTheSessionCheckSetsThePrincipalWithoutASecondFactor(t *testing.T) {
+func TestTheSessionCheckSetsThePrincipalWithoutTwoFactor(t *testing.T) {
 	u := ada(t)
 	h := web.New(&useCases{user: u}, admins{})
-	if p := principal.From(signedIn(t, h)); p.UserID != u.ID || p.SecondFactor {
-		t.Fatalf("principal = %+v, want %v without a Second Factor", p, u.ID)
+	if p := principal.From(signedIn(t, h)); p.UserID != u.ID || p.TwoFactor {
+		t.Fatalf("principal = %+v, want %v without a two-factor method", p, u.ID)
 	}
 }
 
@@ -455,15 +455,15 @@ func TestABusyServerSaysToTryAgain(t *testing.T) {
 	wantProblem(t, res, err, http.StatusServiceUnavailable, "Too many people are signing in right now. Try again in a moment.")
 }
 
-func TestSignInWithASecondFactorSetsAChallengeCookie(t *testing.T) {
-	h := web.New(&useCases{token: "chal", err: app.ErrSecondFactorNeeded, kinds: []string{"totp", "passkey"}}, admins{})
+func TestSignInWithTwoFactorSetsAChallengeCookie(t *testing.T) {
+	h := web.New(&useCases{token: "chal", err: app.ErrTwoFactorProofNeeded, kinds: []string{"totp", "passkey"}}, admins{})
 	res, err := h.SignIn(context.Background(), &oas.SignIn{Email: "a@b.c", Password: "pw"})
-	got, ok := res.(*oas.SecondFactorNeededHeaders)
-	if err != nil || !ok || len(got.Response.Methods) != 2 || got.Response.Methods[1] != oas.SecondFactorKindPasskey {
+	got, ok := res.(*oas.TwoFactorNeededHeaders)
+	if err != nil || !ok || len(got.Response.Methods) != 2 || got.Response.Methods[1] != oas.TwoFactorMethodKindPasskey {
 		t.Fatalf("SignIn = %#v, %v", res, err)
 	}
 	boom := errors.New("boom")
-	if _, err := web.New(&useCases{token: "chal", err: app.ErrSecondFactorNeeded, kindsErr: boom}, admins{}).SignIn(context.Background(), &oas.SignIn{}); !errors.Is(err, boom) {
+	if _, err := web.New(&useCases{token: "chal", err: app.ErrTwoFactorProofNeeded, kindsErr: boom}, admins{}).SignIn(context.Background(), &oas.SignIn{}); !errors.Is(err, boom) {
 		t.Fatalf("SignIn when the kinds cannot be read = %v", err)
 	}
 	for _, part := range []string{"__Host-identity_challenge=chal", "Max-Age=300", "HttpOnly", "Secure", "SameSite=Lax"} {
@@ -477,7 +477,7 @@ func TestCompleteSignInTakesTheChallengeFromItsCookie(t *testing.T) {
 	uc := &useCases{token: "sess"}
 	h := web.New(uc, admins{})
 	ctx, _ := h.HandleChallenge(context.Background(), oas.CompleteSignInOperation, oas.Challenge{APIKey: "chal"})
-	res, err := h.CompleteSignIn(ctx, &oas.SecondFactorCode{Code: "123456"})
+	res, err := h.CompleteSignIn(ctx, &oas.TwoFactorCode{Code: "123456"})
 	if err != nil || !strings.HasPrefix(res.(*oas.CompleteSignInNoContent).SetCookie, "__Host-identity_session=sess;") ||
 		uc.asked[0] != "chal" || uc.asked[1] != "123456" {
 		t.Fatalf("CompleteSignIn = %#v, %v, asked %v", res, err, uc.asked)
@@ -490,12 +490,12 @@ func TestCompleteSignInTakesTheChallengeFromItsCookie(t *testing.T) {
 		{app.ErrInvalidToken, http.StatusUnauthorized, "This sign-in has expired, or too many wrong codes were entered. Sign in again, and after five wrong codes wait 15 minutes first."},
 		{app.ErrInvalidCode, http.StatusUnprocessableEntity, "That code is wrong or was already used. Enter the code your authenticator app shows now."},
 	} {
-		res, err := web.New(&useCases{err: tc.err}, admins{}).CompleteSignIn(ctx, &oas.SecondFactorCode{})
+		res, err := web.New(&useCases{err: tc.err}, admins{}).CompleteSignIn(ctx, &oas.TwoFactorCode{})
 		wantProblem(t, res, err, tc.status, tc.detail)
 	}
 }
 
-func TestSecondFactorsInTheProfile(t *testing.T) {
+func TestTwoFactorsInTheProfile(t *testing.T) {
 	used := time.Date(2026, 10, 16, 18, 0, 0, 0, time.UTC)
 	label, _ := domain.NewFactorLabel("Phone")
 	id := uuid.New()
@@ -505,19 +505,19 @@ func TestSecondFactorsInTheProfile(t *testing.T) {
 	}}
 	h := web.New(uc, admins{})
 	ctx := signedIn(t, h)
-	if p := principal.From(ctx); !p.SecondFactor {
+	if p := principal.From(ctx); !p.TwoFactor {
 		t.Fatal("a session proved by otp is not marked so")
 	}
-	if res, _ := h.GetProfile(ctx); !res.(*oas.Profile).SecondFactor {
-		t.Fatal("the Profile does not say the session proved a Second Factor")
+	if res, _ := h.GetProfile(ctx); !res.(*oas.Profile).TwoFactor {
+		t.Fatal("the Profile does not say the session proved two-factor")
 	}
 
-	res, err := h.ListSecondFactors(ctx)
-	list, ok := res.(*oas.SecondFactors)
+	res, err := h.ListTwoFactorMethods(ctx)
+	list, ok := res.(*oas.TwoFactorMethods)
 	if err != nil || !ok || len(list.Factors) != 2 || uuid.UUID(list.Factors[0].ID) != id || list.Factors[0].Label != "Phone" ||
-		list.Factors[0].Kind != oas.SecondFactorKindTotp || !list.Factors[0].LastUsedAt.Value.Equal(used) || list.Factors[1].LastUsedAt.Set ||
-		list.Factors[1].Kind != oas.SecondFactorKindPasskey {
-		t.Fatalf("ListSecondFactors = %#v, %v", res, err)
+		list.Factors[0].Kind != oas.TwoFactorMethodKindTotp || !list.Factors[0].LastUsedAt.Value.Equal(used) || list.Factors[1].LastUsedAt.Set ||
+		list.Factors[1].Kind != oas.TwoFactorMethodKindPasskey {
+		t.Fatalf("ListTwoFactorMethods = %#v, %v", res, err)
 	}
 	if res, err := h.StartTOTP(ctx); err != nil || res.(*oas.TOTPSetup).Secret != "SECRET" {
 		t.Fatalf("StartTOTP = %#v, %v", res, err)
@@ -527,14 +527,14 @@ func TestSecondFactorsInTheProfile(t *testing.T) {
 	} else if _, ok := res.(*oas.ConfirmTOTPNoContent); !ok || uc.asked[0] != "tok" || uc.asked[1] != "Phone" || uc.asked[3] != "pw" {
 		t.Fatalf("ConfirmTOTP = %#v, asked %v", res, uc.asked)
 	}
-	if res, err := h.RemoveSecondFactor(ctx, &oas.PasswordCheck{Password: "pw"}, oas.RemoveSecondFactorParams{FactorId: oas.ID(id)}); err != nil {
+	if res, err := h.RemoveTwoFactorMethod(ctx, &oas.PasswordCheck{Password: "pw"}, oas.RemoveTwoFactorMethodParams{FactorId: oas.ID(id)}); err != nil {
 		t.Fatal(err)
-	} else if _, ok := res.(*oas.RemoveSecondFactorNoContent); !ok || uc.asked[4] != id.String() || uc.asked[5] != "tok" || uc.asked[6] != "pw" {
-		t.Fatalf("RemoveSecondFactor = %#v, asked %v", res, uc.asked)
+	} else if _, ok := res.(*oas.RemoveTwoFactorMethodNoContent); !ok || uc.asked[4] != id.String() || uc.asked[5] != "tok" || uc.asked[6] != "pw" {
+		t.Fatalf("RemoveTwoFactorMethod = %#v, asked %v", res, uc.asked)
 	}
 }
 
-func TestSecondFactorRefusals(t *testing.T) {
+func TestTwoFactorRefusals(t *testing.T) {
 	boom := errors.New("boom")
 	ctx := func(h *web.Handler) context.Context { return signedIn(t, h) }
 	for _, tc := range []struct {
@@ -544,7 +544,7 @@ func TestSecondFactorRefusals(t *testing.T) {
 	}{
 		{app.ErrInvalidToken, http.StatusUnprocessableEntity, "This setup has expired. Start adding it again."},
 		{app.ErrInvalidCredentials, http.StatusUnprocessableEntity, "Your password is wrong. Enter it again."},
-		{app.ErrSecondFactorNeeded, http.StatusForbidden, "Sign out, then sign in again with a passkey or authenticator app to add another."},
+		{app.ErrTwoFactorProofNeeded, http.StatusForbidden, "Sign out, then sign in again with a passkey or authenticator app to add another."},
 		{domain.ErrInvalidLabel, http.StatusUnprocessableEntity, "Enter a name of 1 to 64 characters for this authenticator app."},
 		{app.ErrInvalidCode, http.StatusUnprocessableEntity, "That code is wrong or was already used. Enter the code your authenticator app shows now."},
 	} {
@@ -561,18 +561,18 @@ func TestSecondFactorRefusals(t *testing.T) {
 	}{
 		{app.ErrInvalidCredentials, http.StatusUnprocessableEntity, "Your password is wrong. Enter it again."},
 		{app.ErrNotFound, http.StatusNotFound, "That passkey or authenticator app is no longer on your account. Reload the page."},
-		{app.ErrSecondFactorNeeded, http.StatusForbidden, "Sign out, then sign in again with a passkey or authenticator app to remove one."},
+		{app.ErrTwoFactorProofNeeded, http.StatusForbidden, "Sign out, then sign in again with a passkey or authenticator app to remove one."},
 	} {
 		h := web.New(&useCases{user: ada(t)}, admins{})
 		c := ctx(h)
-		res, err := web.New(&useCases{err: tc.err}, admins{}).RemoveSecondFactor(c, &oas.PasswordCheck{}, oas.RemoveSecondFactorParams{})
+		res, err := web.New(&useCases{err: tc.err}, admins{}).RemoveTwoFactorMethod(c, &oas.PasswordCheck{}, oas.RemoveTwoFactorMethodParams{})
 		wantProblem(t, res, err, tc.status, tc.detail)
 	}
 	h := web.New(&useCases{user: ada(t)}, admins{})
 	c := ctx(h)
 	failing := web.New(&useCases{err: boom}, admins{})
-	if _, err := failing.ListSecondFactors(c); !errors.Is(err, boom) {
-		t.Errorf("ListSecondFactors = %v", err)
+	if _, err := failing.ListTwoFactorMethods(c); !errors.Is(err, boom) {
+		t.Errorf("ListTwoFactorMethods = %v", err)
 	}
 	if _, err := failing.StartTOTP(c); !errors.Is(err, boom) {
 		t.Errorf("StartTOTP = %v", err)
@@ -582,10 +582,10 @@ func TestSecondFactorRefusals(t *testing.T) {
 	if _, err := failing.ConfirmTOTP(c, &oas.TOTPConfirmation{}); !errors.Is(err, boom) {
 		t.Errorf("ConfirmTOTP = %v", err)
 	}
-	if _, err := failing.RemoveSecondFactor(c, &oas.PasswordCheck{}, oas.RemoveSecondFactorParams{}); !errors.Is(err, boom) {
-		t.Errorf("RemoveSecondFactor = %v", err)
+	if _, err := failing.RemoveTwoFactorMethod(c, &oas.PasswordCheck{}, oas.RemoveTwoFactorMethodParams{}); !errors.Is(err, boom) {
+		t.Errorf("RemoveTwoFactorMethod = %v", err)
 	}
-	if _, err := failing.CompleteSignIn(c, &oas.SecondFactorCode{}); !errors.Is(err, boom) {
+	if _, err := failing.CompleteSignIn(c, &oas.TwoFactorCode{}); !errors.Is(err, boom) {
 		t.Errorf("CompleteSignIn = %v", err)
 	}
 }
@@ -655,7 +655,7 @@ func TestStartingStepUpSendsTheSessionAndAnswersTheKinds(t *testing.T) {
 	uc := &useCases{kinds: []string{"totp", "passkey"}}
 	h := web.New(uc, admins{})
 	res, err := h.StartStepUp(signedIn(t, h))
-	got, ok := res.(*oas.SecondFactorNeeded)
+	got, ok := res.(*oas.TwoFactorNeeded)
 	if err != nil || !ok || len(got.Methods) != 2 || got.Methods[1] != "passkey" || !slices.Equal(uc.asked, []string{"tok"}) {
 		t.Fatalf("StartStepUp = %#v, %v, asked %v", res, err, uc.asked)
 	}
@@ -664,7 +664,7 @@ func TestStartingStepUpSendsTheSessionAndAnswersTheKinds(t *testing.T) {
 func TestStepUpWithACodeSendsTheSessionAndTheCode(t *testing.T) {
 	uc := &useCases{}
 	h := web.New(uc, admins{})
-	res, err := h.StepUpWithCode(signedIn(t, h), &oas.SecondFactorCode{Code: "123456"})
+	res, err := h.StepUpWithCode(signedIn(t, h), &oas.TwoFactorCode{Code: "123456"})
 	if _, ok := res.(*oas.StepUpWithCodeNoContent); err != nil || !ok || !slices.Equal(uc.asked, []string{"tok", "123456"}) {
 		t.Fatalf("StepUpWithCode = %#v, %v, asked %v", res, err, uc.asked)
 	}
@@ -694,12 +694,12 @@ func TestEachStepUpRefusalSaysWhatToDo(t *testing.T) {
 		status int
 		detail string
 	}{
-		{app.ErrNoSecondFactor, http.StatusConflict, "Add a passkey or an authenticator app on the Security page first."},
+		{app.ErrNoTwoFactor, http.StatusConflict, "Add a passkey or an authenticator app on the Security page first."},
 		{app.ErrInvalidToken, http.StatusUnauthorized, "This check expired, or you entered too many wrong codes. Start again from the app. After five wrong codes, wait 15 minutes before you try again."},
 		{app.ErrInvalidCode, http.StatusUnprocessableEntity, "That code is wrong or was already used. Enter the code your authenticator app shows now."},
 	} {
 		t.Run(tc.err.Error(), func(t *testing.T) {
-			res, err := web.New(&useCases{err: tc.err}, admins{}).StepUpWithCode(context.Background(), &oas.SecondFactorCode{})
+			res, err := web.New(&useCases{err: tc.err}, admins{}).StepUpWithCode(context.Background(), &oas.TwoFactorCode{})
 			p, ok := res.(*oas.ProblemStatusCode)
 			if err != nil || !ok || p.StatusCode != tc.status || p.Response.Detail.Value != tc.detail {
 				t.Fatalf("StepUpWithCode = %#v, %v", res, err)
@@ -715,7 +715,7 @@ func TestEveryStepUpOperationAnswersARefusalAsAProblem(t *testing.T) {
 	}{
 		{"starting", func(h *web.Handler) (any, error) { return h.StartStepUp(context.Background()) }},
 		{"a code", func(h *web.Handler) (any, error) {
-			return h.StepUpWithCode(context.Background(), &oas.SecondFactorCode{})
+			return h.StepUpWithCode(context.Background(), &oas.TwoFactorCode{})
 		}},
 		{"passkey options", func(h *web.Handler) (any, error) { return h.StepUpPasskeyOptions(context.Background()) }},
 		{"a passkey", func(h *web.Handler) (any, error) {
@@ -1026,7 +1026,7 @@ var (
 )
 
 func asRoot() context.Context {
-	return principal.With(context.Background(), principal.Principal{UserID: root, SecondFactor: true})
+	return principal.With(context.Background(), principal.Principal{UserID: root, TwoFactor: true})
 }
 
 func TestAnAdminsRenameSendsTheAdminThePersonAndTheName(t *testing.T) {
@@ -1060,7 +1060,7 @@ func TestEachRefusedAdminActionSaysWhatToDo(t *testing.T) {
 		detail string
 	}{
 		{app.ErrNotAdmin, http.StatusForbidden, "Only Admins manage people."},
-		{app.ErrAdminSecondFactorNeeded, http.StatusForbidden, "Sign in again with a passkey or authenticator app to manage people."},
+		{app.ErrAdminTwoFactorProofNeeded, http.StatusForbidden, "Sign in again with a passkey or authenticator app to manage people."},
 		{app.ErrNotFound, http.StatusNotFound, "That person no longer exists. Reload the page."},
 		{app.ErrLastAdmin, http.StatusUnprocessableEntity, "That is the last Admin. Make someone else an Admin first."},
 		{domain.ErrInvalidName, http.StatusUnprocessableEntity, "Enter a name of 1 to 100 characters."},

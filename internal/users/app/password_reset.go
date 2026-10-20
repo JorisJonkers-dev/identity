@@ -103,7 +103,7 @@ func (s *Service) AskPasswordReset(ctx context.Context, rawEmail string) error {
 	})
 }
 
-// CheckPasswordReset says which kinds of two-factor the reset must be proved with, none when the
+// CheckPasswordReset says which kinds of two-factor method the reset must be proved with, none when the
 // User has none or proved it already. ErrInvalidToken when the link is spent or expired.
 func (s *Service) CheckPasswordReset(ctx context.Context, token string) ([]string, error) {
 	r, err := s.liveReset(ctx, token)
@@ -113,7 +113,7 @@ func (s *Service) CheckPasswordReset(ctx context.Context, token string) ([]strin
 	if r.ProvedAt != nil {
 		return nil, nil
 	}
-	kinds, err := s.SecondFactorKinds(ctx, r.UserID)
+	kinds, err := s.TwoFactorMethodKinds(ctx, r.UserID)
 	if err != nil || len(kinds) == 0 {
 		return nil, err
 	}
@@ -163,7 +163,7 @@ func (s *Service) CompletePasswordReset(ctx context.Context, token, rawPassword 
 	if err != nil {
 		return err
 	}
-	has, err := s.hasSecondFactor(ctx, r.UserID)
+	has, err := s.hasTwoFactor(ctx, r.UserID)
 	if err != nil {
 		return err
 	}

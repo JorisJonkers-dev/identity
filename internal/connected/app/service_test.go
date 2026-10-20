@@ -1042,7 +1042,7 @@ func TestRevokingAClientsConnectedAppsFailsWhenTheStoreDoes(t *testing.T) {
 
 func TestAnAdminMarksAClientAsAnMCPResourceAsAnAuditEvent(t *testing.T) {
 	f := newFixture()
-	if err := f.SetMCPResource(ctx, app.Actor{ID: root, SecondFactor: true}, "wiki", true); err != nil {
+	if err := f.SetMCPResource(ctx, app.Actor{ID: root, TwoFactor: true}, "wiki", true); err != nil {
 		t.Fatal(err)
 	}
 	if on, _ := f.IsMCPResource(ctx, "wiki"); !on {
@@ -1058,7 +1058,7 @@ func TestAnAdminMarksAClientAsAnMCPResourceAsAnAuditEvent(t *testing.T) {
 
 func TestAnAdminUnmarksAClientAsAnAuditEvent(t *testing.T) {
 	f := newFixture()
-	_ = f.SetMCPResource(ctx, app.Actor{ID: root, SecondFactor: true}, "kb", false)
+	_ = f.SetMCPResource(ctx, app.Actor{ID: root, TwoFactor: true}, "kb", false)
 	if on, _ := f.IsMCPResource(ctx, "kb"); on || (*f.events)[0].Action != audit.MCPResourceUnmarked {
 		t.Fatalf("still marked, events %+v", *f.events)
 	}
@@ -1071,9 +1071,9 @@ func TestMarkingAnMCPResourceIsRefused(t *testing.T) {
 		client string
 		want   error
 	}{
-		{"for someone who is no Admin", app.Actor{ID: ada, SecondFactor: true}, "wiki", app.ErrNotAdmin},
-		{"from a session with no second factor", app.Actor{ID: root}, "wiki", app.ErrSecondFactorNeeded},
-		{"for a Client not in the cluster", app.Actor{ID: root, SecondFactor: true}, "gone", app.ErrNotFound},
+		{"for someone who is no Admin", app.Actor{ID: ada, TwoFactor: true}, "wiki", app.ErrNotAdmin},
+		{"from a session with no two-factor", app.Actor{ID: root}, "wiki", app.ErrTwoFactorProofNeeded},
+		{"for a Client not in the cluster", app.Actor{ID: root, TwoFactor: true}, "gone", app.ErrNotFound},
 		{"when the Admin check fails", app.Actor{}, "wiki", errBoom},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -1088,14 +1088,14 @@ func TestMarkingAnMCPResourceIsRefused(t *testing.T) {
 func TestAClientThatCanCheckNoToolsTokenIsNotMarkedAsAnMCPResource(t *testing.T) {
 	f := newFixture()
 	f.store.mcp["desk"] = false
-	if err := f.SetMCPResource(ctx, app.Actor{ID: root, SecondFactor: true}, "desk", true); !errors.Is(err, app.ErrUnchecked) || f.store.mcp["desk"] || len(*f.events) != 0 {
+	if err := f.SetMCPResource(ctx, app.Actor{ID: root, TwoFactor: true}, "desk", true); !errors.Is(err, app.ErrUnchecked) || f.store.mcp["desk"] || len(*f.events) != 0 {
 		t.Fatalf("err = %v", err)
 	}
 }
 
 func TestAnAdminUnmarksAClientThatCanCheckNoToolsToken(t *testing.T) {
 	f := newFixture()
-	if err := f.SetMCPResource(ctx, app.Actor{ID: root, SecondFactor: true}, "desk", false); err != nil || f.store.mcp["desk"] {
+	if err := f.SetMCPResource(ctx, app.Actor{ID: root, TwoFactor: true}, "desk", false); err != nil || f.store.mcp["desk"] {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -1103,7 +1103,7 @@ func TestAnAdminUnmarksAClientThatCanCheckNoToolsToken(t *testing.T) {
 func TestMarkingAnMCPResourceFailsWhenTheStoreDoes(t *testing.T) {
 	f := newFixture()
 	f.store.fail["SetMCPResource"] = errBoom
-	if err := f.SetMCPResource(ctx, app.Actor{ID: root, SecondFactor: true}, "wiki", true); !errors.Is(err, errBoom) || len(*f.events) != 0 {
+	if err := f.SetMCPResource(ctx, app.Actor{ID: root, TwoFactor: true}, "wiki", true); !errors.Is(err, errBoom) || len(*f.events) != 0 {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -1211,14 +1211,14 @@ func TestPruningFailsWhenTheStoreDoes(t *testing.T) {
 func TestAnAdminSeesWhetherAClientTakesConnectedAppsAndHowMany(t *testing.T) {
 	f := newFixture()
 	f.connected(t)
-	got, err := f.MCPState(ctx, app.Actor{ID: root, SecondFactor: true}, "kb")
+	got, err := f.MCPState(ctx, app.Actor{ID: root, TwoFactor: true}, "kb")
 	if err != nil || got != (app.MCPState{On: true, ConnectedApps: 1}) {
 		t.Fatalf("MCPState = %+v, %v", got, err)
 	}
 }
 
 func TestAnAdminSeesHowAClientChecksAToolsToken(t *testing.T) {
-	got, err := newFixture().MCPState(ctx, app.Actor{ID: root, SecondFactor: true}, "desk")
+	got, err := newFixture().MCPState(ctx, app.Actor{ID: root, TwoFactor: true}, "desk")
 	if err != nil || got.TokenCheck != app.Unchecked {
 		t.Fatalf("MCPState = %+v, %v", got, err)
 	}
@@ -1230,8 +1230,8 @@ func TestOnlyAnAdminSeesWhetherAClientTakesConnectedApps(t *testing.T) {
 		actor app.Actor
 		want  error
 	}{
-		{"not an Admin", app.Actor{ID: ada, SecondFactor: true}, app.ErrNotAdmin},
-		{"no second factor", app.Actor{ID: root}, app.ErrSecondFactorNeeded},
+		{"not an Admin", app.Actor{ID: ada, TwoFactor: true}, app.ErrNotAdmin},
+		{"no two-factor", app.Actor{ID: root}, app.ErrTwoFactorProofNeeded},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			if _, err := newFixture().MCPState(ctx, c.actor, "kb"); !errors.Is(err, c.want) {
@@ -1255,7 +1255,7 @@ func TestSeeingWhetherAClientTakesConnectedAppsFails(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			f := newFixture()
 			c.spoil(f)
-			if _, err := f.MCPState(ctx, app.Actor{ID: root, SecondFactor: true}, c.client); !errors.Is(err, c.want) {
+			if _, err := f.MCPState(ctx, app.Actor{ID: root, TwoFactor: true}, c.client); !errors.Is(err, c.want) {
 				t.Fatalf("err = %v", err)
 			}
 		})

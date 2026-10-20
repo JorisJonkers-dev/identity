@@ -21,9 +21,9 @@ var (
 	// ErrNoSecretPath is a Secret Client whose object names nowhere to keep its secret.
 	ErrNoSecretPath = errors.New("a Secret Client with no secretPath")
 	// ErrNoSecret is a Client that signs in without a secret, so it has none to rotate.
-	ErrNoSecret           = errors.New("the Client has no secret")
-	ErrNotAdmin           = errors.New("only Admins can do this")
-	ErrSecondFactorNeeded = errors.New("a session that proved a Second Factor is needed")
+	ErrNoSecret             = errors.New("the Client has no secret")
+	ErrNotAdmin             = errors.New("only Admins can do this")
+	ErrTwoFactorProofNeeded = errors.New("a session that proved two-factor is needed")
 )
 
 // SecretHashes keeps the hashes of Secret Clients' secrets, shared by every replica.
@@ -63,10 +63,10 @@ type Admins interface {
 	IsAdmin(ctx context.Context, id uuid.UUID) (bool, error)
 }
 
-// Actor is who asks: a User, and whether their session proved a Second Factor.
+// Actor is who asks: a User, and whether their session proved two-factor.
 type Actor struct {
-	ID           uuid.UUID
-	SecondFactor bool
+	ID        uuid.UUID
+	TwoFactor bool
 }
 
 // ClientSecrets gives each Secret Client a secret in its Application's Secret Store path, checks it
@@ -184,7 +184,7 @@ func (s *ClientSecrets) admin(ctx context.Context, actor Actor) error {
 	return admin(ctx, s.admins, actor)
 }
 
-// admin lets an Admin through, and only from a session that proved a Second Factor.
+// admin lets an Admin through, and only from a session that proved two-factor.
 func admin(ctx context.Context, admins Admins, actor Actor) error {
 	yes, err := admins.IsAdmin(ctx, actor.ID)
 	if err != nil {
@@ -193,8 +193,8 @@ func admin(ctx context.Context, admins Admins, actor Actor) error {
 	if !yes {
 		return ErrNotAdmin
 	}
-	if !actor.SecondFactor {
-		return ErrSecondFactorNeeded
+	if !actor.TwoFactor {
+		return ErrTwoFactorProofNeeded
 	}
 	return nil
 }

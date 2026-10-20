@@ -184,7 +184,7 @@ func clients(cs []domain.Client) []oas.AccessClient {
 
 func actor(ctx context.Context) app.Actor {
 	p := principal.From(ctx)
-	return app.Actor{ID: p.UserID, SecondFactor: p.SecondFactor}
+	return app.Actor{ID: p.UserID, TwoFactor: p.TwoFactor}
 }
 
 func group(g domain.Group, members []oas.ID) oas.Group {
@@ -200,7 +200,7 @@ func refusal(err error) (*oas.ProblemStatusCode, error) {
 	switch {
 	case errors.Is(err, app.ErrNotAdmin):
 		return problem(http.StatusForbidden, "Only Admins manage access."), nil
-	case errors.Is(err, app.ErrSecondFactorNeeded):
+	case errors.Is(err, app.ErrTwoFactorProofNeeded):
 		return problem(http.StatusForbidden, "Sign out, then sign in again with a passkey or authenticator app to manage access. If you have neither, add one on the Security page first."), nil
 	case errors.Is(err, app.ErrNotFound):
 		return problem(http.StatusNotFound, "That Group or person no longer exists. Reload the page."), nil

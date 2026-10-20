@@ -141,7 +141,7 @@ describe('the Connected apps page', () => {
   })
 
   it('is linked from the Security page', async () => {
-    const { wrapper } = await mountAt('/security', { 'GET /api/v1/profile': () => Response.json(profile()), 'GET /api/v1/profile/second-factors': () => Response.json({ factors: [] }) })
+    const { wrapper } = await mountAt('/security', { 'GET /api/v1/profile': () => Response.json(profile()), 'GET /api/v1/profile/two-factor-methods': () => Response.json({ factors: [] }) })
     expect(wrapper.get('a[href="/security/connected-apps"] b').text()).toBe('Connected apps')
   })
 })

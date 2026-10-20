@@ -3,13 +3,13 @@ import { computed, ref } from 'vue'
 import {
   confirmPasskeyMutation,
   confirmTotpMutation,
-  listSecondFactorsOptions,
-  listSecondFactorsQueryKey,
-  removeSecondFactorMutation,
+  listTwoFactorMethodsOptions,
+  listTwoFactorMethodsQueryKey,
+  removeTwoFactorMethodMutation,
   startPasskeyMutation,
   startTotpMutation,
 } from '../../../infrastructure/api/@tanstack/vue-query.gen'
-import type { SecondFactor, TotpSetup } from '../../../infrastructure/api/types.gen'
+import type { TwoFactorMethod, TotpSetup } from '../../../infrastructure/api/types.gen'
 import { passkeys } from '../../../infrastructure/passkeys'
 import { describeError } from '../../../infrastructure/problem'
 import { useAction } from '../../../infrastructure/useAction'
@@ -17,18 +17,18 @@ import { useAction } from '../../../infrastructure/useAction'
 /** The signed-in User's authenticator apps and passkeys, and adding and removing them. */
 export function useSecurity() {
   const queryClient = useQueryClient()
-  const query = useQuery({ ...listSecondFactorsOptions(), retry: false })
-  const refresh = () => void queryClient.invalidateQueries({ queryKey: listSecondFactorsQueryKey() })
+  const query = useQuery({ ...listTwoFactorMethodsOptions(), retry: false })
+  const refresh = () => void queryClient.invalidateQueries({ queryKey: listTwoFactorMethodsQueryKey() })
   const setup = ref<TotpSetup | null>(null)
   const start = useAction(startTotpMutation())
   const confirm = useAction(confirmTotpMutation())
-  const remove = useAction(removeSecondFactorMutation())
+  const remove = useAction(removeTwoFactorMethodMutation())
   const startKey = useAction(startPasskeyMutation())
   const confirmKey = useAction(confirmPasskeyMutation())
   const browserRefused = ref<string | null>(null)
 
   return {
-    factors: computed<SecondFactor[]>(() => query.data.value?.factors ?? []),
+    factors: computed<TwoFactorMethod[]>(() => query.data.value?.factors ?? []),
     loadError: computed(() => (query.error.value ? describeError(query.error.value) : null)),
     setup,
     start: {

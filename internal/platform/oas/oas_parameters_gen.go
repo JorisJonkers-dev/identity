@@ -1730,13 +1730,13 @@ func decodeRemoveMemberParams(args [2]string, argsEscaped bool, r *http.Request)
 	return params, nil
 }
 
-// RemoveSecondFactorParams is parameters of removeSecondFactor operation.
-type RemoveSecondFactorParams struct {
-	// The Second Factor.
+// RemoveTwoFactorMethodParams is parameters of removeTwoFactorMethod operation.
+type RemoveTwoFactorMethodParams struct {
+	// The two-factor.
 	FactorId ID
 }
 
-func unpackRemoveSecondFactorParams(packed middleware.Parameters) (params RemoveSecondFactorParams) {
+func unpackRemoveTwoFactorMethodParams(packed middleware.Parameters) (params RemoveTwoFactorMethodParams) {
 	{
 		key := middleware.ParameterKey{
 			Name: "factorId",
@@ -1747,7 +1747,7 @@ func unpackRemoveSecondFactorParams(packed middleware.Parameters) (params Remove
 	return params
 }
 
-func decodeRemoveSecondFactorParams(args [1]string, argsEscaped bool, r *http.Request) (params RemoveSecondFactorParams, _ error) {
+func decodeRemoveTwoFactorMethodParams(args [1]string, argsEscaped bool, r *http.Request) (params RemoveTwoFactorMethodParams, _ error) {
 	// Decode path: factorId.
 	if err := func() error {
 		param := args[0]

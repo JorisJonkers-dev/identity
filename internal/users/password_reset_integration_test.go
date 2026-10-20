@@ -152,12 +152,12 @@ func TestAPasskeyProvesAReset(t *testing.T) {
 	credential := itest.PasskeyCredential(t)
 	authenticator.AddCredential(credential)
 	var made struct{ Options string }
-	ada.Call(t, http.MethodPost, "/api/v1/profile/second-factors/passkey", nil, http.StatusOK, &made)
+	ada.Call(t, http.MethodPost, "/api/v1/profile/two-factor-methods/passkey", nil, http.StatusOK, &made)
 	attestation, err := virtualwebauthn.ParseAttestationOptions(publicKey(t, made.Options))
 	if err != nil {
 		t.Fatal(err)
 	}
-	ada.Call(t, http.MethodPost, "/api/v1/profile/second-factors/passkey/confirmation", map[string]string{
+	ada.Call(t, http.MethodPost, "/api/v1/profile/two-factor-methods/passkey/confirmation", map[string]string{
 		"label": "MacBook", "password": itest.Password,
 		"response": virtualwebauthn.CreateAttestationResponse(relyingParty, authenticator, credential, *attestation),
 	}, http.StatusNoContent, nil)

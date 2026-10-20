@@ -27,13 +27,13 @@ watch(
   { immediate: true },
 )
 
-// The admin pages are for Admins whose session proved a Second Factor (docs/adr/0005).
+// The admin pages are for Admins whose session proved two-factor (docs/adr/0005).
 watch(
   me,
   (p) => {
     if (!props.admin || !p) return
     if (!p.admin) void router.replace('/')
-    else if (!p.secondFactor) void router.replace({ path: '/security/two-factor', query: { for: 'admin' } })
+    else if (!p.twoFactor) void router.replace({ path: '/security/two-factor', query: { for: 'admin' } })
   },
   { immediate: true },
 )

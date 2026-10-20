@@ -1,4 +1,4 @@
-// Package devcode is the fixed Second Factor code of a local run. Only a dev build wires it in
+// Package devcode is the fixed two-factor code of a local run. Only a dev build wires it in
 // (cmd/identity/totp_dev.go); a release build checks every code by RFC 6238 alone.
 package devcode
 

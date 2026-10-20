@@ -273,7 +273,7 @@ var (
 	admins  = domain.Group{ID: uuid.MustParse("00000000-0000-4000-8000-0000000000b1"), Name: "admins", Admins: true}
 	family  = domain.Group{ID: uuid.MustParse("00000000-0000-4000-8000-0000000000b2"), Name: "Family"}
 	friends = domain.Group{ID: uuid.MustParse("00000000-0000-4000-8000-0000000000b3"), Name: "Friends"}
-	asAdmin = app.Actor{ID: admin, SecondFactor: true}
+	asAdmin = app.Actor{ID: admin, TwoFactor: true}
 	grafana = domain.Client{ID: "grafana", Label: "Grafana", Roles: []string{"user", "viewer", "editor"}}
 )
 
@@ -297,8 +297,8 @@ func newFixture() *fixture {
 
 var ctx = context.Background()
 
-// asNonAdmin is a signed-in User who proved a Second Factor but is in no admins Group.
-var asNonAdmin = app.Actor{ID: ada, SecondFactor: true}
+// asNonAdmin is a signed-in User who proved two-factor but is in no admins Group.
+var asNonAdmin = app.Actor{ID: ada, TwoFactor: true}
 
 // operation is one access use case, called as actor against a fixture.
 type operation func(f *fixture, actor app.Actor) error
@@ -350,16 +350,16 @@ func TestEveryAccessOperationRefusesAUserWhoIsNotAnAdminAndChangesNothing(t *tes
 func TestEveryAccessOperationLetsAnAdminThrough(t *testing.T) {
 	for _, op := range operations {
 		t.Run(op.name, func(t *testing.T) {
-			if err := op.call(newFixture(), asAdmin); errors.Is(err, app.ErrNotAdmin) || errors.Is(err, app.ErrSecondFactorNeeded) {
+			if err := op.call(newFixture(), asAdmin); errors.Is(err, app.ErrNotAdmin) || errors.Is(err, app.ErrTwoFactorProofNeeded) {
 				t.Fatalf("err = %v, want the Admin let through", err)
 			}
 		})
 	}
 }
 
-func TestAnAdminWhoseSessionProvedNoSecondFactorIsSentToAddOne(t *testing.T) {
-	if _, err := newFixture().svc.Overview(ctx, app.Actor{ID: admin}); !errors.Is(err, app.ErrSecondFactorNeeded) {
-		t.Fatalf("err = %v, want ErrSecondFactorNeeded", err)
+func TestAnAdminWhoseSessionProvedNoTwoFactorIsSentToAddOne(t *testing.T) {
+	if _, err := newFixture().svc.Overview(ctx, app.Actor{ID: admin}); !errors.Is(err, app.ErrTwoFactorProofNeeded) {
+		t.Fatalf("err = %v, want ErrTwoFactorProofNeeded", err)
 	}
 }
 

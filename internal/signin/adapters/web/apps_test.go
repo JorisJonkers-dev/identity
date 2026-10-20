@@ -50,7 +50,7 @@ func (s *stepUps) Set(_ context.Context, actor app.Actor, clientID string, minut
 }
 
 func asRoot() context.Context {
-	return principal.With(context.Background(), principal.Principal{UserID: root, SecondFactor: true})
+	return principal.With(context.Background(), principal.Principal{UserID: root, TwoFactor: true})
 }
 
 func TestAnAdminGivesAClientANewSecret(t *testing.T) {
@@ -60,7 +60,7 @@ func TestAnAdminGivesAClientANewSecret(t *testing.T) {
 	if _, ok := res.(*oas.RotateClientSecretNoContent); err != nil || !ok {
 		t.Fatalf("RotateClientSecret = %+v, %v", res, err)
 	}
-	if s.actor != (app.Actor{ID: root, SecondFactor: true}) || s.client != "grafana" {
+	if s.actor != (app.Actor{ID: root, TwoFactor: true}) || s.client != "grafana" {
 		t.Fatalf("asked %+v for %q", s.actor, s.client)
 	}
 }
@@ -74,7 +74,7 @@ func TestARefusedRotationSaysWhy(t *testing.T) {
 		detail string
 	}{
 		{"not an Admin", app.ErrNotAdmin, 403, "Only Admins give apps new secrets."},
-		{"no Second Factor", app.ErrSecondFactorNeeded, 403, "This page needs a Second Factor. If you have a passkey or authenticator app, sign out and sign in again with it. If you have neither, add a Second Factor on the Security page first, then sign out and sign in again."},
+		{"no two-factor", app.ErrTwoFactorProofNeeded, 403, "This page needs two-factor. If you have a passkey or authenticator app, sign out and sign in again with it. If you have neither, add a two-factor method on the Security page first, then sign out and sign in again."},
 		{"an app that is gone", app.ErrNotFound, 404, "That app is not registered any more. Reload the page."},
 		{"an app without a secret", app.ErrNoSecret, 422, "That app signs in without a secret, so it has none to replace."},
 	} {
@@ -111,7 +111,7 @@ func TestAnAdminReadsAClientsStepUp(t *testing.T) {
 	t.Parallel()
 	s := &stepUps{minutes: 15}
 	res, err := web.New(nil, s, nil).GetStepUp(asRoot(), oas.GetStepUpParams{ClientId: "grafana"})
-	if got, ok := res.(*oas.StepUpState); err != nil || !ok || got.Minutes != 15 || got.Tokens != 3 || got.ConnectedApps != 4 || s.client != "grafana" || s.actor != (app.Actor{ID: root, SecondFactor: true}) {
+	if got, ok := res.(*oas.StepUpState); err != nil || !ok || got.Minutes != 15 || got.Tokens != 3 || got.ConnectedApps != 4 || s.client != "grafana" || s.actor != (app.Actor{ID: root, TwoFactor: true}) {
 		t.Fatalf("GetStepUp = %+v, %v", res, err)
 	}
 }
@@ -120,7 +120,7 @@ func TestAnAdminSetsAClientsStepUp(t *testing.T) {
 	t.Parallel()
 	s := &stepUps{}
 	res, err := web.New(nil, s, nil).SetStepUp(asRoot(), &oas.StepUp{Minutes: 60}, oas.SetStepUpParams{ClientId: "grafana"})
-	if _, ok := res.(*oas.SetStepUpNoContent); err != nil || !ok || s.set != 60 || s.client != "grafana" || s.actor != (app.Actor{ID: root, SecondFactor: true}) {
+	if _, ok := res.(*oas.SetStepUpNoContent); err != nil || !ok || s.set != 60 || s.client != "grafana" || s.actor != (app.Actor{ID: root, TwoFactor: true}) {
 		t.Fatalf("SetStepUp = %+v, %v", res, err)
 	}
 }

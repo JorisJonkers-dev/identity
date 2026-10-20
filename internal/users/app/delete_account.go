@@ -42,7 +42,7 @@ func (s *Service) DeleteAccount(ctx context.Context, userID uuid.UUID, sessionTo
 	if err := s.checkPassword(ctx, userID, password); err != nil {
 		return err
 	}
-	has, err := s.hasSecondFactor(ctx, userID)
+	has, err := s.hasTwoFactor(ctx, userID)
 	if err != nil {
 		return err
 	}

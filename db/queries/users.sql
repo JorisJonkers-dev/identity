@@ -52,7 +52,7 @@ DELETE FROM sessions WHERE user_id = $1 AND token_hash IS DISTINCT FROM sqlc.nar
 SELECT id, email, name, password_hash, created_at FROM users ORDER BY lower(name), email;
 
 -- name: SetSessionMethods :exec
--- A session that has just proved a Second Factor says so from then on, and when.
+-- A session that has just proved two-factor says so from then on, and when.
 UPDATE sessions SET methods = $2, two_factor_at = $3 WHERE token_hash = $1;
 
 -- name: UpsertChallenge :exec

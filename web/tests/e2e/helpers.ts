@@ -88,7 +88,7 @@ export async function signedUp(page: Page, prefix: string): Promise<string> {
   return email
 }
 
-/** Signs in with the password every test User has; a second factor, if any, is left to the test. */
+/** Signs in with the password every test User has; a two-factor method, if any, is left to the test. */
 export async function signIn(page: Page, email: string) {
   await page.goto('/signin')
   await page.getByLabel('Email', { exact: true }).fill(email)

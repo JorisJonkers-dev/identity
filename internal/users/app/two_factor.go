@@ -20,7 +20,7 @@ const (
 )
 
 const (
-	// A sign-in waits this long for its Second Factor. A User gets this many codes per window, over
+	// A sign-in waits this long for two-factor. A User gets this many codes per window, over
 	// however many sign-ins, so knowing the password does not buy unlimited guesses.
 	challengeLifetime = 5 * time.Minute
 	challengeAttempts = 5
@@ -29,7 +29,7 @@ const (
 	enrolmentLifetime = 10 * time.Minute
 )
 
-// Challenge is a sign-in whose password was right, waiting for its Second Factor, or a session
+// Challenge is a sign-in whose password was right, waiting for two-factor, or a session
 // proving one again for step-up (docs/adr/0019).
 type Challenge struct {
 	TokenHash       []byte
@@ -64,12 +64,12 @@ type TOTPSetup struct {
 	URI    string
 }
 
-// ProvedSecondFactor reports whether a session's methods include a Second Factor.
-func ProvedSecondFactor(methods []string) bool {
+// ProvedTwoFactor reports whether a session's methods include a two-factor method.
+func ProvedTwoFactor(methods []string) bool {
 	return slices.Contains(methods, methodOTP) || slices.Contains(methods, methodPasskey)
 }
 
-// Factor is a Second Factor of either kind, as a User sees it.
+// Factor is a two-factor method of either kind, as a User sees it.
 type Factor struct {
 	ID         uuid.UUID
 	Kind       string
@@ -78,15 +78,15 @@ type Factor struct {
 	LastUsedAt *time.Time
 }
 
-// The kinds of Second Factor.
+// The kinds of two-factor method.
 const (
 	KindTOTP    = "totp"
 	KindPasskey = "passkey"
 )
 
-// SecondFactorKinds is which kinds of Second Factor a User has, authenticator apps first.
-func (s *Service) SecondFactorKinds(ctx context.Context, userID uuid.UUID) ([]string, error) {
-	factors, err := s.SecondFactors(ctx, userID)
+// TwoFactorMethodKinds is which kinds of two-factor method a User has, authenticator apps first.
+func (s *Service) TwoFactorMethodKinds(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	factors, err := s.TwoFactorMethods(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -100,8 +100,8 @@ func (s *Service) SecondFactorKinds(ctx context.Context, userID uuid.UUID) ([]st
 	return kinds, nil
 }
 
-func (s *Service) hasSecondFactor(ctx context.Context, userID uuid.UUID) (bool, error) {
-	factors, err := s.SecondFactors(ctx, userID)
+func (s *Service) hasTwoFactor(ctx context.Context, userID uuid.UUID) (bool, error) {
+	factors, err := s.TwoFactorMethods(ctx, userID)
 	return len(factors) > 0, err
 }
 
@@ -165,15 +165,15 @@ func (s *Service) answerWithCode(ctx context.Context, hash []byte, code string) 
 			return uuid.Nil, err
 		}
 		if !used {
-			return uuid.Nil, s.failed(ctx, audit.Event{User: userID, Reason: audit.ReasonSecondFactor}, ErrInvalidCode)
+			return uuid.Nil, s.failed(ctx, audit.Event{User: userID, Reason: audit.ReasonTwoFactor}, ErrInvalidCode)
 		}
 		return userID, s.store.DeleteChallenge(ctx, hash)
 	}
-	return uuid.Nil, s.failed(ctx, audit.Event{User: userID, Reason: audit.ReasonSecondFactor}, ErrInvalidCode)
+	return uuid.Nil, s.failed(ctx, audit.Event{User: userID, Reason: audit.ReasonTwoFactor}, ErrInvalidCode)
 }
 
-// SecondFactors lists a User's authenticator apps and passkeys, oldest first.
-func (s *Service) SecondFactors(ctx context.Context, userID uuid.UUID) ([]Factor, error) {
+// TwoFactorMethods lists a User's authenticator apps and passkeys, oldest first.
+func (s *Service) TwoFactorMethods(ctx context.Context, userID uuid.UUID) ([]Factor, error) {
 	apps, err := s.store.TOTPFactors(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -219,7 +219,7 @@ func (s *Service) StartTOTP(ctx context.Context, userID uuid.UUID) (TOTPSetup, e
 }
 
 // ConfirmTOTP keeps the authenticator StartTOTP set up once it gives a right code, the session it
-// was confirmed in counts as proved by a Second Factor from then on, and every other session ends. So that a session someone
+// was confirmed in counts as proved with two-factor from then on, and every other session ends. So that a session someone
 // took cannot buy itself that, it needs the User's password, and a User who already has an
 // authenticator must be in a session that proved one.
 func (s *Service) ConfirmTOTP(ctx context.Context, userID uuid.UUID, sessionToken, rawLabel, code, password string) error {
@@ -261,12 +261,12 @@ func (s *Service) ConfirmTOTP(ctx context.Context, userID uuid.UUID, sessionToke
 	if err := s.store.DeleteTOTPEnrolment(ctx, userID); err != nil {
 		return err
 	}
-	s.record(ctx, audit.Event{Action: audit.SecondFactorAdded, User: userID})
+	s.record(ctx, audit.Event{Action: audit.TwoFactorMethodAdded, User: userID})
 	return s.proved(ctx, userID, sessionToken, methodOTP)
 }
 
 // proved marks the session as proved by method, and ends every other session: sessions made with
-// the password alone would outlive the new Second Factor, as they do not a password change.
+// the password alone would outlive the new two-factor method, as they do not a password change.
 func (s *Service) proved(ctx context.Context, userID uuid.UUID, sessionToken, method string) error {
 	hash := hashOf(sessionToken)
 	if err := s.store.SetSessionMethods(ctx, hash, []string{methodPassword, method}, s.now()); err != nil {
@@ -282,33 +282,33 @@ func (s *Service) mayEnrol(ctx context.Context, userID uuid.UUID, sessionToken, 
 	if err := s.checkPassword(ctx, userID, password); err != nil {
 		return err
 	}
-	has, err := s.hasSecondFactor(ctx, userID)
+	has, err := s.hasTwoFactor(ctx, userID)
 	if err != nil || !has {
 		return err
 	}
-	return s.provedSecondFactor(ctx, sessionToken)
+	return s.provedTwoFactor(ctx, sessionToken)
 }
 
-// provedSecondFactor is ErrSecondFactorNeeded unless the session was proved with a Second Factor.
-func (s *Service) provedSecondFactor(ctx context.Context, sessionToken string) error {
+// provedTwoFactor is ErrTwoFactorProofNeeded unless the session proved two-factor.
+func (s *Service) provedTwoFactor(ctx context.Context, sessionToken string) error {
 	sess, err := s.store.SessionByHash(ctx, hashOf(sessionToken))
 	if err != nil {
 		return err
 	}
-	if !ProvedSecondFactor(sess.Methods) {
-		return ErrSecondFactorNeeded
+	if !ProvedTwoFactor(sess.Methods) {
+		return ErrTwoFactorProofNeeded
 	}
 	return nil
 }
 
 // RemoveFactor deletes one of a User's authenticator apps or passkeys. It needs the password and a session that
-// proved a Second Factor, so neither a session left open from before the User enrolled nor a
-// known password alone can take the Second Factor away.
+// proved two-factor, so neither a session left open from before the User enrolled nor a
+// known password alone can take the two-factor method away.
 func (s *Service) RemoveFactor(ctx context.Context, userID, factorID uuid.UUID, sessionToken, password string) error {
 	if err := s.checkPassword(ctx, userID, password); err != nil {
 		return err
 	}
-	if err := s.provedSecondFactor(ctx, sessionToken); err != nil {
+	if err := s.provedTwoFactor(ctx, sessionToken); err != nil {
 		return err
 	}
 	had, err := s.store.DeleteTOTPFactor(ctx, factorID, userID)
@@ -324,7 +324,7 @@ func (s *Service) RemoveFactor(ctx context.Context, userID, factorID uuid.UUID, 
 	if !had {
 		return ErrNotFound
 	}
-	s.record(ctx, audit.Event{Action: audit.SecondFactorRemoved, User: userID})
+	s.record(ctx, audit.Event{Action: audit.TwoFactorMethodRemoved, User: userID})
 	return nil
 }
 

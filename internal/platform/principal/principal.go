@@ -8,10 +8,10 @@ import (
 	"github.com/google/uuid"
 )
 
-// Principal is the signed-in User, and whether their session proved a Second Factor.
+// Principal is the signed-in User, and whether their session proved two-factor.
 type Principal struct {
-	UserID       uuid.UUID
-	SecondFactor bool
+	UserID    uuid.UUID
+	TwoFactor bool
 }
 
 type key struct{}

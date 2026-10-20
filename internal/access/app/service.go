@@ -25,14 +25,14 @@ var (
 	ErrAdminExists   = errors.New("an Admin exists already")
 	// ErrAdminsNeedTwoFactor is turning off the admins Group's two-factor requirement.
 	ErrAdminsNeedTwoFactor = errors.New("the admins Group always requires two-factor")
-	// ErrSecondFactorNeeded is an Admin whose session did not prove a Second Factor.
-	ErrSecondFactorNeeded = errors.New("access is managed only from a session proved with a Second Factor")
+	// ErrTwoFactorProofNeeded is an Admin whose session did not prove two-factor.
+	ErrTwoFactorProofNeeded = errors.New("access is managed only from a session that proved two-factor")
 )
 
-// Actor is who asks to manage access, and whether their session proved a Second Factor.
+// Actor is who asks to manage access, and whether their session proved two-factor.
 type Actor struct {
-	ID           uuid.UUID
-	SecondFactor bool
+	ID        uuid.UUID
+	TwoFactor bool
 }
 
 // Store keeps Groups, memberships and Assignments.
@@ -183,7 +183,7 @@ func (s *Service) RolesByClient(ctx context.Context, userID uuid.UUID) (map[stri
 	return s.store.RolesByClient(ctx, userID)
 }
 
-// admin lets an Admin through, and only from a session that proved a Second Factor (docs/adr/0005).
+// admin lets an Admin through, and only from a session that proved two-factor (docs/adr/0005).
 func (s *Service) admin(ctx context.Context, actor Actor) error {
 	yes, err := s.store.IsAdmin(ctx, actor.ID)
 	if err != nil {
@@ -192,8 +192,8 @@ func (s *Service) admin(ctx context.Context, actor Actor) error {
 	if !yes {
 		return ErrNotAdmin
 	}
-	if !actor.SecondFactor {
-		return ErrSecondFactorNeeded
+	if !actor.TwoFactor {
+		return ErrTwoFactorProofNeeded
 	}
 	return nil
 }

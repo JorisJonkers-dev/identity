@@ -145,7 +145,7 @@ func newStepUps() *stepUpsFixture {
 	return &stepUpsFixture{StepUps: app.NewStepUps(s, cs, admins{root: true}, events, tk), settings: s, events: events, tokens: tk}
 }
 
-var asRoot = app.Actor{ID: root, SecondFactor: true}
+var asRoot = app.Actor{ID: root, TwoFactor: true}
 
 func TestAnAdminSetsAClientsStepUpAndReadsItBack(t *testing.T) {
 	f := newStepUps()
@@ -195,14 +195,14 @@ func TestStepUpOnAClientThatIsNotRegisteredIsNotFound(t *testing.T) {
 	}
 }
 
-func TestOnlyAnAdminWhoProvedASecondFactorReadsOrSetsStepUp(t *testing.T) {
+func TestOnlyAnAdminWhoProvedTwoFactorReadsOrSetsStepUp(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
 		actor app.Actor
 		want  error
 	}{
-		{"someone who is not an Admin", app.Actor{ID: uuid.New(), SecondFactor: true}, app.ErrNotAdmin},
-		{"an Admin without a Second Factor", app.Actor{ID: root}, app.ErrSecondFactorNeeded},
+		{"someone who is not an Admin", app.Actor{ID: uuid.New(), TwoFactor: true}, app.ErrNotAdmin},
+		{"an Admin without a two-factor method", app.Actor{ID: root}, app.ErrTwoFactorProofNeeded},
 		{"an Admin check that fails", app.Actor{}, errBoom},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

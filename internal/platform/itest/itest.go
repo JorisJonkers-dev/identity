@@ -312,7 +312,7 @@ func (e *Env) SignedUp(t *testing.T, email string) *Browser {
 	return b
 }
 
-// Admin is a Browser of an Admin whose session proved a Second Factor: a User signed up as email,
+// Admin is a Browser of an Admin whose session proved two-factor: a User signed up as email,
 // put in the admins Group, who added an authenticator app and signed in again with its code.
 func (e *Env) Admin(t *testing.T, email string) *Browser {
 	t.Helper()
@@ -327,7 +327,7 @@ func (e *Env) Admin(t *testing.T, email string) *Browser {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b.Call(t, http.MethodPost, "/api/v1/session/second-factor", map[string]string{"code": next}, http.StatusNoContent, nil)
+	b.Call(t, http.MethodPost, "/api/v1/session/two-factor", map[string]string{"code": next}, http.StatusNoContent, nil)
 	return b
 }
 
@@ -336,18 +336,18 @@ func (e *Env) Admin(t *testing.T, email string) *Browser {
 func (b *Browser) AddAuthenticator(t *testing.T) string {
 	t.Helper()
 	var setup struct{ Secret string }
-	b.Call(t, http.MethodPost, "/api/v1/profile/second-factors/totp", nil, http.StatusOK, &setup)
+	b.Call(t, http.MethodPost, "/api/v1/profile/two-factor-methods/totp", nil, http.StatusOK, &setup)
 	code, err := totp.GenerateCode(setup.Secret, b.env.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
-	b.Call(t, http.MethodPost, "/api/v1/profile/second-factors/totp/confirmation",
+	b.Call(t, http.MethodPost, "/api/v1/profile/two-factor-methods/totp/confirmation",
 		map[string]string{"label": "Phone", "code": code, "password": Password}, http.StatusNoContent, nil)
 	return setup.Secret
 }
 
 // Promote puts the User signed up as email in the admins Group, as `identity admin promote` does.
-// Their session proves no Second Factor until they add one and sign in again (Admin does both).
+// Their session proves no two-factor until they add one and sign in again (Admin does both).
 func (e *Env) Promote(t *testing.T, email string) {
 	t.Helper()
 	q := e.db.Queries()

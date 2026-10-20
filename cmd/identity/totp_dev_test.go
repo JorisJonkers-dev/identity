@@ -4,7 +4,7 @@ package main
 
 import "testing"
 
-func TestADevBuildTakesTheFixedSecondFactorCode(t *testing.T) {
+func TestADevBuildTakesTheFixedTwoFactorCode(t *testing.T) {
 	if totpMatch() == nil {
 		t.Fatal("a dev build checks authenticator codes as a release build does")
 	}

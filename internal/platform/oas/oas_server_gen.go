@@ -70,8 +70,8 @@ type Handler interface {
 	ChangePassword(ctx context.Context, req *PasswordChange) (ChangePasswordRes, error)
 	// CheckPasswordReset implements checkPasswordReset operation.
 	//
-	// Says which kinds of two-factor the reset must be proved with first; none when the User has none or
-	// proved it already.
+	// Says which kinds of two-factor method the reset must be proved with first; none when the User has
+	// none or proved it already.
 	//
 	// POST /api/v1/password-resets/check
 	CheckPasswordReset(ctx context.Context, req *LinkToken) (CheckPasswordResetRes, error)
@@ -87,8 +87,8 @@ type Handler interface {
 	// Takes a code from the User's authenticator app for the sign-in the challenge cookie names, and
 	// starts a session proved by both. A challenge takes five codes; a code works once.
 	//
-	// POST /api/v1/session/second-factor
-	CompleteSignIn(ctx context.Context, req *SecondFactorCode) (CompleteSignInRes, error)
+	// POST /api/v1/session/two-factor
+	CompleteSignIn(ctx context.Context, req *TwoFactorCode) (CompleteSignInRes, error)
 	// CompleteSignInWithPasskey implements completeSignInWithPasskey operation.
 	//
 	// Checks the browser's passkey answer for the sign-in the challenge cookie names, and starts a session
@@ -113,10 +113,10 @@ type Handler interface {
 	ConfirmEmailChange(ctx context.Context, req *LinkToken) (ConfirmEmailChangeRes, error)
 	// ConfirmPasskey implements confirmPasskey operation.
 	//
-	// Keeps the passkey the browser made, given the User's password. A User who already has a Second
-	// Factor must be in a session that proved one. Every other session of the User's ends.
+	// Keeps the passkey the browser made, given the User's password. A User who already has two-factor
+	// must be in a session that proved it. Every other session of the User's ends.
 	//
-	// POST /api/v1/profile/second-factors/passkey/confirmation
+	// POST /api/v1/profile/two-factor-methods/passkey/confirmation
 	ConfirmPasskey(ctx context.Context, req *PasskeyConfirmation) (ConfirmPasskeyRes, error)
 	// ConfirmTOTP implements confirmTOTP operation.
 	//
@@ -124,7 +124,7 @@ type Handler interface {
 	// right. A User who already has one must be in a session that proved it. Every other session of the
 	// User's ends.
 	//
-	// POST /api/v1/profile/second-factors/totp/confirmation
+	// POST /api/v1/profile/two-factor-methods/totp/confirmation
 	ConfirmTOTP(ctx context.Context, req *TOTPConfirmation) (ConfirmTOTPRes, error)
 	// CreateGroup implements createGroup operation.
 	//
@@ -179,7 +179,7 @@ type Handler interface {
 	// GetDashboard implements getDashboard operation.
 	//
 	// Users, the Unassigned queue, sign-ins and failed sign-ins over the last 24 hours, and live sessions.
-	// Admins only, from a session that proved a Second Factor.
+	// Admins only, from a session that proved two-factor.
 	//
 	// GET /api/v1/dashboard
 	GetDashboard(ctx context.Context) (GetDashboardRes, error)
@@ -192,7 +192,7 @@ type Handler interface {
 	GetLauncher(ctx context.Context) (GetLauncherRes, error)
 	// GetMCPResource implements getMCPResource operation.
 	//
-	// Admins only, from a session that proved a Second Factor.
+	// Admins only, from a session that proved two-factor.
 	//
 	// GET /api/v1/apps/{clientId}/mcp
 	GetMCPResource(ctx context.Context, params GetMCPResourceParams) (GetMCPResourceRes, error)
@@ -204,8 +204,7 @@ type Handler interface {
 	GetProfile(ctx context.Context) (GetProfileRes, error)
 	// GetStepUp implements getStepUp operation.
 	//
-	// The Client's step-up window, 0 when it is off. Admins only, from a session that proved a Second
-	// Factor.
+	// The Client's step-up window, 0 when it is off. Admins only, from a session that proved two-factor.
 	//
 	// GET /api/v1/apps/{clientId}/step-up
 	GetStepUp(ctx context.Context, params GetStepUpParams) (GetStepUpRes, error)
@@ -219,7 +218,7 @@ type Handler interface {
 	// ListAuditEvents implements listAuditEvents operation.
 	//
 	// One page of Audit Events, newest first, narrowed by any of the filters. Pass a page's next as before
-	// to read the page after it. Admins only, from a session that proved a Second Factor.
+	// to read the page after it. Admins only, from a session that proved two-factor.
 	//
 	// GET /api/v1/audit
 	ListAuditEvents(ctx context.Context, params ListAuditEventsParams) (ListAuditEventsRes, error)
@@ -248,15 +247,15 @@ type Handler interface {
 	//
 	// GET /api/v1/profile/tokens
 	ListMyTokens(ctx context.Context) (ListMyTokensRes, error)
-	// ListSecondFactors implements listSecondFactors operation.
+	// ListTwoFactorMethods implements listTwoFactorMethods operation.
 	//
 	// Every authenticator app and passkey the User added.
 	//
-	// GET /api/v1/profile/second-factors
-	ListSecondFactors(ctx context.Context) (ListSecondFactorsRes, error)
+	// GET /api/v1/profile/two-factor-methods
+	ListTwoFactorMethods(ctx context.Context) (ListTwoFactorMethodsRes, error)
 	// ListUserTokens implements listUserTokens operation.
 	//
-	// Admins only, from a session that proved a Second Factor.
+	// Admins only, from a session that proved two-factor.
 	//
 	// GET /api/v1/access/users/{userId}/tokens
 	ListUserTokens(ctx context.Context, params ListUserTokensParams) (ListUserTokensRes, error)
@@ -279,13 +278,13 @@ type Handler interface {
 	//
 	// DELETE /api/v1/access/groups/{groupId}/members/{userId}
 	RemoveMember(ctx context.Context, params RemoveMemberParams) (RemoveMemberRes, error)
-	// RemoveSecondFactor implements removeSecondFactor operation.
+	// RemoveTwoFactorMethod implements removeTwoFactorMethod operation.
 	//
 	// Removes one of the User's authenticator apps or passkeys once they give their password, from a
-	// session that proved a Second Factor.
+	// session that proved two-factor.
 	//
-	// POST /api/v1/profile/second-factors/{factorId}/removal
-	RemoveSecondFactor(ctx context.Context, req *PasswordCheck, params RemoveSecondFactorParams) (RemoveSecondFactorRes, error)
+	// POST /api/v1/profile/two-factor-methods/{factorId}/removal
+	RemoveTwoFactorMethod(ctx context.Context, req *PasswordCheck, params RemoveTwoFactorMethodParams) (RemoveTwoFactorMethodRes, error)
 	// RenameGroup implements renameGroup operation.
 	//
 	// No token carries a Group's name, so renaming one changes nothing for any app. Admins only.
@@ -330,14 +329,14 @@ type Handler interface {
 	RevokeMyToken(ctx context.Context, params RevokeMyTokenParams) (RevokeMyTokenRes, error)
 	// RevokeUserToken implements revokeUserToken operation.
 	//
-	// Admins only, from a session that proved a Second Factor. Revoking it twice changes nothing.
+	// Admins only, from a session that proved two-factor. Revoking it twice changes nothing.
 	//
 	// DELETE /api/v1/access/users/{userId}/tokens/{patId}
 	RevokeUserToken(ctx context.Context, params RevokeUserTokenParams) (RevokeUserTokenRes, error)
 	// RotateClientSecret implements rotateClientSecret operation.
 	//
-	// Admins only, from a session that proved a Second Factor, for a Client that signs in with a secret.
-	// The new secret is written where the Client's Application reads it, never answered here. The old one
+	// Admins only, from a session that proved two-factor, for a Client that signs in with a secret. The
+	// new secret is written where the Client's Application reads it, never answered here. The old one
 	// keeps working until the Application first uses the new one.
 	//
 	// POST /api/v1/apps/{clientId}/secret
@@ -346,7 +345,7 @@ type Handler interface {
 	//
 	// For a workload outside the cluster, which signs in with the client credentials grant. The secret is
 	// answered once, here, and kept only as a hash. The previous secret keeps working until the new one is
-	// first used. Admins only, from a session that proved a Second Factor.
+	// first used. Admins only, from a session that proved two-factor.
 	//
 	// POST /api/v1/access/machines/{machineId}/secret
 	RotateMachineSecret(ctx context.Context, params RotateMachineSecretParams) (RotateMachineSecretRes, error)
@@ -359,8 +358,8 @@ type Handler interface {
 	SetGroupTwoFactor(ctx context.Context, req *TwoFactorRequirement, params SetGroupTwoFactorParams) (SetGroupTwoFactorRes, error)
 	// SetMCPResource implements setMCPResource operation.
 	//
-	// Admins only, from a session that proved a Second Factor. A Client that can check no Connected App's
-	// token is refused with 409. Stopping keeps the Connected Apps the Client has; turning step-up on
+	// Admins only, from a session that proved two-factor. A Client that can check no Connected App's token
+	// is refused with 409. Stopping keeps the Connected Apps the Client has; turning step-up on
 	// disconnects them.
 	//
 	// PUT /api/v1/apps/{clientId}/mcp
@@ -368,7 +367,7 @@ type Handler interface {
 	// SetStepUp implements setStepUp operation.
 	//
 	// Signing in to the Client then finishes only when the session proved two-factor within the window; 0
-	// turns step-up off. Admins only, from a session that proved a Second Factor.
+	// turns step-up off. Admins only, from a session that proved two-factor.
 	//
 	// PUT /api/v1/apps/{clientId}/step-up
 	SetStepUp(ctx context.Context, req *StepUp, params SetStepUpParams) (SetStepUpRes, error)
@@ -416,12 +415,12 @@ type Handler interface {
 	//
 	// Returns the WebAuthn options to make a passkey, kept for ten minutes.
 	//
-	// POST /api/v1/profile/second-factors/passkey
+	// POST /api/v1/profile/two-factor-methods/passkey
 	StartPasskey(ctx context.Context) (StartPasskeyRes, error)
 	// StartStepUp implements startStepUp operation.
 	//
 	// For an app that wants a fresh proof (step-up), starts proving the signed-in session again and says
-	// which kinds of Second Factor can prove it. A User with none is told to add one.
+	// which kinds of two-factor method can prove it. A User with none is told to add one.
 	//
 	// POST /api/v1/session/step-up
 	StartStepUp(ctx context.Context) (StartStepUpRes, error)
@@ -430,7 +429,7 @@ type Handler interface {
 	// Makes a secret for a new authenticator app. It is kept, sealed by Vault, for ten minutes, until
 	// confirmTOTP gets a right code from the app.
 	//
-	// POST /api/v1/profile/second-factors/totp
+	// POST /api/v1/profile/two-factor-methods/totp
 	StartTOTP(ctx context.Context) (StartTOTPRes, error)
 	// StepUpPasskeyOptions implements stepUpPasskeyOptions operation.
 	//
@@ -444,7 +443,7 @@ type Handler interface {
 	// session proved now. Five codes in fifteen minutes, as at sign-in; a code works once.
 	//
 	// POST /api/v1/session/step-up/code
-	StepUpWithCode(ctx context.Context, req *SecondFactorCode) (StepUpWithCodeRes, error)
+	StepUpWithCode(ctx context.Context, req *TwoFactorCode) (StepUpWithCodeRes, error)
 	// StepUpWithPasskey implements stepUpWithPasskey operation.
 	//
 	// Checks the browser's passkey answer for the step-up startStepUp began, and marks the session proved

@@ -92,8 +92,8 @@ type Invoker interface {
 	ChangePassword(ctx context.Context, request *PasswordChange) (ChangePasswordRes, error)
 	// CheckPasswordReset invokes checkPasswordReset operation.
 	//
-	// Says which kinds of two-factor the reset must be proved with first; none when the User has none or
-	// proved it already.
+	// Says which kinds of two-factor method the reset must be proved with first; none when the User has
+	// none or proved it already.
 	//
 	// POST /api/v1/password-resets/check
 	CheckPasswordReset(ctx context.Context, request *LinkToken) (CheckPasswordResetRes, error)
@@ -109,8 +109,8 @@ type Invoker interface {
 	// Takes a code from the User's authenticator app for the sign-in the challenge cookie names, and
 	// starts a session proved by both. A challenge takes five codes; a code works once.
 	//
-	// POST /api/v1/session/second-factor
-	CompleteSignIn(ctx context.Context, request *SecondFactorCode) (CompleteSignInRes, error)
+	// POST /api/v1/session/two-factor
+	CompleteSignIn(ctx context.Context, request *TwoFactorCode) (CompleteSignInRes, error)
 	// CompleteSignInWithPasskey invokes completeSignInWithPasskey operation.
 	//
 	// Checks the browser's passkey answer for the sign-in the challenge cookie names, and starts a session
@@ -135,10 +135,10 @@ type Invoker interface {
 	ConfirmEmailChange(ctx context.Context, request *LinkToken) (ConfirmEmailChangeRes, error)
 	// ConfirmPasskey invokes confirmPasskey operation.
 	//
-	// Keeps the passkey the browser made, given the User's password. A User who already has a Second
-	// Factor must be in a session that proved one. Every other session of the User's ends.
+	// Keeps the passkey the browser made, given the User's password. A User who already has two-factor
+	// must be in a session that proved it. Every other session of the User's ends.
 	//
-	// POST /api/v1/profile/second-factors/passkey/confirmation
+	// POST /api/v1/profile/two-factor-methods/passkey/confirmation
 	ConfirmPasskey(ctx context.Context, request *PasskeyConfirmation) (ConfirmPasskeyRes, error)
 	// ConfirmTOTP invokes confirmTOTP operation.
 	//
@@ -146,7 +146,7 @@ type Invoker interface {
 	// right. A User who already has one must be in a session that proved it. Every other session of the
 	// User's ends.
 	//
-	// POST /api/v1/profile/second-factors/totp/confirmation
+	// POST /api/v1/profile/two-factor-methods/totp/confirmation
 	ConfirmTOTP(ctx context.Context, request *TOTPConfirmation) (ConfirmTOTPRes, error)
 	// CreateGroup invokes createGroup operation.
 	//
@@ -201,7 +201,7 @@ type Invoker interface {
 	// GetDashboard invokes getDashboard operation.
 	//
 	// Users, the Unassigned queue, sign-ins and failed sign-ins over the last 24 hours, and live sessions.
-	// Admins only, from a session that proved a Second Factor.
+	// Admins only, from a session that proved two-factor.
 	//
 	// GET /api/v1/dashboard
 	GetDashboard(ctx context.Context) (GetDashboardRes, error)
@@ -214,7 +214,7 @@ type Invoker interface {
 	GetLauncher(ctx context.Context) (GetLauncherRes, error)
 	// GetMCPResource invokes getMCPResource operation.
 	//
-	// Admins only, from a session that proved a Second Factor.
+	// Admins only, from a session that proved two-factor.
 	//
 	// GET /api/v1/apps/{clientId}/mcp
 	GetMCPResource(ctx context.Context, params GetMCPResourceParams) (GetMCPResourceRes, error)
@@ -226,8 +226,7 @@ type Invoker interface {
 	GetProfile(ctx context.Context) (GetProfileRes, error)
 	// GetStepUp invokes getStepUp operation.
 	//
-	// The Client's step-up window, 0 when it is off. Admins only, from a session that proved a Second
-	// Factor.
+	// The Client's step-up window, 0 when it is off. Admins only, from a session that proved two-factor.
 	//
 	// GET /api/v1/apps/{clientId}/step-up
 	GetStepUp(ctx context.Context, params GetStepUpParams) (GetStepUpRes, error)
@@ -241,7 +240,7 @@ type Invoker interface {
 	// ListAuditEvents invokes listAuditEvents operation.
 	//
 	// One page of Audit Events, newest first, narrowed by any of the filters. Pass a page's next as before
-	// to read the page after it. Admins only, from a session that proved a Second Factor.
+	// to read the page after it. Admins only, from a session that proved two-factor.
 	//
 	// GET /api/v1/audit
 	ListAuditEvents(ctx context.Context, params ListAuditEventsParams) (ListAuditEventsRes, error)
@@ -270,15 +269,15 @@ type Invoker interface {
 	//
 	// GET /api/v1/profile/tokens
 	ListMyTokens(ctx context.Context) (ListMyTokensRes, error)
-	// ListSecondFactors invokes listSecondFactors operation.
+	// ListTwoFactorMethods invokes listTwoFactorMethods operation.
 	//
 	// Every authenticator app and passkey the User added.
 	//
-	// GET /api/v1/profile/second-factors
-	ListSecondFactors(ctx context.Context) (ListSecondFactorsRes, error)
+	// GET /api/v1/profile/two-factor-methods
+	ListTwoFactorMethods(ctx context.Context) (ListTwoFactorMethodsRes, error)
 	// ListUserTokens invokes listUserTokens operation.
 	//
-	// Admins only, from a session that proved a Second Factor.
+	// Admins only, from a session that proved two-factor.
 	//
 	// GET /api/v1/access/users/{userId}/tokens
 	ListUserTokens(ctx context.Context, params ListUserTokensParams) (ListUserTokensRes, error)
@@ -301,13 +300,13 @@ type Invoker interface {
 	//
 	// DELETE /api/v1/access/groups/{groupId}/members/{userId}
 	RemoveMember(ctx context.Context, params RemoveMemberParams) (RemoveMemberRes, error)
-	// RemoveSecondFactor invokes removeSecondFactor operation.
+	// RemoveTwoFactorMethod invokes removeTwoFactorMethod operation.
 	//
 	// Removes one of the User's authenticator apps or passkeys once they give their password, from a
-	// session that proved a Second Factor.
+	// session that proved two-factor.
 	//
-	// POST /api/v1/profile/second-factors/{factorId}/removal
-	RemoveSecondFactor(ctx context.Context, request *PasswordCheck, params RemoveSecondFactorParams) (RemoveSecondFactorRes, error)
+	// POST /api/v1/profile/two-factor-methods/{factorId}/removal
+	RemoveTwoFactorMethod(ctx context.Context, request *PasswordCheck, params RemoveTwoFactorMethodParams) (RemoveTwoFactorMethodRes, error)
 	// RenameGroup invokes renameGroup operation.
 	//
 	// No token carries a Group's name, so renaming one changes nothing for any app. Admins only.
@@ -352,14 +351,14 @@ type Invoker interface {
 	RevokeMyToken(ctx context.Context, params RevokeMyTokenParams) (RevokeMyTokenRes, error)
 	// RevokeUserToken invokes revokeUserToken operation.
 	//
-	// Admins only, from a session that proved a Second Factor. Revoking it twice changes nothing.
+	// Admins only, from a session that proved two-factor. Revoking it twice changes nothing.
 	//
 	// DELETE /api/v1/access/users/{userId}/tokens/{patId}
 	RevokeUserToken(ctx context.Context, params RevokeUserTokenParams) (RevokeUserTokenRes, error)
 	// RotateClientSecret invokes rotateClientSecret operation.
 	//
-	// Admins only, from a session that proved a Second Factor, for a Client that signs in with a secret.
-	// The new secret is written where the Client's Application reads it, never answered here. The old one
+	// Admins only, from a session that proved two-factor, for a Client that signs in with a secret. The
+	// new secret is written where the Client's Application reads it, never answered here. The old one
 	// keeps working until the Application first uses the new one.
 	//
 	// POST /api/v1/apps/{clientId}/secret
@@ -368,7 +367,7 @@ type Invoker interface {
 	//
 	// For a workload outside the cluster, which signs in with the client credentials grant. The secret is
 	// answered once, here, and kept only as a hash. The previous secret keeps working until the new one is
-	// first used. Admins only, from a session that proved a Second Factor.
+	// first used. Admins only, from a session that proved two-factor.
 	//
 	// POST /api/v1/access/machines/{machineId}/secret
 	RotateMachineSecret(ctx context.Context, params RotateMachineSecretParams) (RotateMachineSecretRes, error)
@@ -381,8 +380,8 @@ type Invoker interface {
 	SetGroupTwoFactor(ctx context.Context, request *TwoFactorRequirement, params SetGroupTwoFactorParams) (SetGroupTwoFactorRes, error)
 	// SetMCPResource invokes setMCPResource operation.
 	//
-	// Admins only, from a session that proved a Second Factor. A Client that can check no Connected App's
-	// token is refused with 409. Stopping keeps the Connected Apps the Client has; turning step-up on
+	// Admins only, from a session that proved two-factor. A Client that can check no Connected App's token
+	// is refused with 409. Stopping keeps the Connected Apps the Client has; turning step-up on
 	// disconnects them.
 	//
 	// PUT /api/v1/apps/{clientId}/mcp
@@ -390,7 +389,7 @@ type Invoker interface {
 	// SetStepUp invokes setStepUp operation.
 	//
 	// Signing in to the Client then finishes only when the session proved two-factor within the window; 0
-	// turns step-up off. Admins only, from a session that proved a Second Factor.
+	// turns step-up off. Admins only, from a session that proved two-factor.
 	//
 	// PUT /api/v1/apps/{clientId}/step-up
 	SetStepUp(ctx context.Context, request *StepUp, params SetStepUpParams) (SetStepUpRes, error)
@@ -438,12 +437,12 @@ type Invoker interface {
 	//
 	// Returns the WebAuthn options to make a passkey, kept for ten minutes.
 	//
-	// POST /api/v1/profile/second-factors/passkey
+	// POST /api/v1/profile/two-factor-methods/passkey
 	StartPasskey(ctx context.Context) (StartPasskeyRes, error)
 	// StartStepUp invokes startStepUp operation.
 	//
 	// For an app that wants a fresh proof (step-up), starts proving the signed-in session again and says
-	// which kinds of Second Factor can prove it. A User with none is told to add one.
+	// which kinds of two-factor method can prove it. A User with none is told to add one.
 	//
 	// POST /api/v1/session/step-up
 	StartStepUp(ctx context.Context) (StartStepUpRes, error)
@@ -452,7 +451,7 @@ type Invoker interface {
 	// Makes a secret for a new authenticator app. It is kept, sealed by Vault, for ten minutes, until
 	// confirmTOTP gets a right code from the app.
 	//
-	// POST /api/v1/profile/second-factors/totp
+	// POST /api/v1/profile/two-factor-methods/totp
 	StartTOTP(ctx context.Context) (StartTOTPRes, error)
 	// StepUpPasskeyOptions invokes stepUpPasskeyOptions operation.
 	//
@@ -466,7 +465,7 @@ type Invoker interface {
 	// session proved now. Five codes in fifteen minutes, as at sign-in; a code works once.
 	//
 	// POST /api/v1/session/step-up/code
-	StepUpWithCode(ctx context.Context, request *SecondFactorCode) (StepUpWithCodeRes, error)
+	StepUpWithCode(ctx context.Context, request *TwoFactorCode) (StepUpWithCodeRes, error)
 	// StepUpWithPasskey invokes stepUpWithPasskey operation.
 	//
 	// Checks the browser's passkey answer for the step-up startStepUp began, and marks the session proved
@@ -1806,8 +1805,8 @@ func (c *Client) sendChangePassword(ctx context.Context, request *PasswordChange
 
 // CheckPasswordReset invokes checkPasswordReset operation.
 //
-// Says which kinds of two-factor the reset must be proved with first; none when the User has none or
-// proved it already.
+// Says which kinds of two-factor method the reset must be proved with first; none when the User has
+// none or proved it already.
 //
 // POST /api/v1/password-resets/check
 func (c *Client) CheckPasswordReset(ctx context.Context, request *LinkToken) (CheckPasswordResetRes, error) {
@@ -1977,17 +1976,17 @@ func (c *Client) sendCompletePasswordReset(ctx context.Context, request *ResetCo
 // Takes a code from the User's authenticator app for the sign-in the challenge cookie names, and
 // starts a session proved by both. A challenge takes five codes; a code works once.
 //
-// POST /api/v1/session/second-factor
-func (c *Client) CompleteSignIn(ctx context.Context, request *SecondFactorCode) (CompleteSignInRes, error) {
+// POST /api/v1/session/two-factor
+func (c *Client) CompleteSignIn(ctx context.Context, request *TwoFactorCode) (CompleteSignInRes, error) {
 	res, err := c.sendCompleteSignIn(ctx, request)
 	return res, err
 }
 
-func (c *Client) sendCompleteSignIn(ctx context.Context, request *SecondFactorCode) (res CompleteSignInRes, err error) {
+func (c *Client) sendCompleteSignIn(ctx context.Context, request *TwoFactorCode) (res CompleteSignInRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("completeSignIn"),
 		semconv.HTTPRequestMethodKey.String("POST"),
-		semconv.URLTemplateKey.String("/api/v1/session/second-factor"),
+		semconv.URLTemplateKey.String("/api/v1/session/two-factor"),
 	}
 	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
 
@@ -2021,7 +2020,7 @@ func (c *Client) sendCompleteSignIn(ctx context.Context, request *SecondFactorCo
 	stage = "BuildURL"
 	u := uri.Clone(c.requestURL(ctx))
 	var pathParts [1]string
-	pathParts[0] = "/api/v1/session/second-factor"
+	pathParts[0] = "/api/v1/session/two-factor"
 	uri.AddPathParts(u, pathParts[:]...)
 
 	stage = "EncodeRequest"
@@ -2377,10 +2376,10 @@ func (c *Client) sendConfirmEmailChange(ctx context.Context, request *LinkToken)
 
 // ConfirmPasskey invokes confirmPasskey operation.
 //
-// Keeps the passkey the browser made, given the User's password. A User who already has a Second
-// Factor must be in a session that proved one. Every other session of the User's ends.
+// Keeps the passkey the browser made, given the User's password. A User who already has two-factor
+// must be in a session that proved it. Every other session of the User's ends.
 //
-// POST /api/v1/profile/second-factors/passkey/confirmation
+// POST /api/v1/profile/two-factor-methods/passkey/confirmation
 func (c *Client) ConfirmPasskey(ctx context.Context, request *PasskeyConfirmation) (ConfirmPasskeyRes, error) {
 	res, err := c.sendConfirmPasskey(ctx, request)
 	return res, err
@@ -2390,7 +2389,7 @@ func (c *Client) sendConfirmPasskey(ctx context.Context, request *PasskeyConfirm
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("confirmPasskey"),
 		semconv.HTTPRequestMethodKey.String("POST"),
-		semconv.URLTemplateKey.String("/api/v1/profile/second-factors/passkey/confirmation"),
+		semconv.URLTemplateKey.String("/api/v1/profile/two-factor-methods/passkey/confirmation"),
 	}
 	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
 
@@ -2424,7 +2423,7 @@ func (c *Client) sendConfirmPasskey(ctx context.Context, request *PasskeyConfirm
 	stage = "BuildURL"
 	u := uri.Clone(c.requestURL(ctx))
 	var pathParts [1]string
-	pathParts[0] = "/api/v1/profile/second-factors/passkey/confirmation"
+	pathParts[0] = "/api/v1/profile/two-factor-methods/passkey/confirmation"
 	uri.AddPathParts(u, pathParts[:]...)
 
 	stage = "EncodeRequest"
@@ -2498,7 +2497,7 @@ func (c *Client) sendConfirmPasskey(ctx context.Context, request *PasskeyConfirm
 // right. A User who already has one must be in a session that proved it. Every other session of the
 // User's ends.
 //
-// POST /api/v1/profile/second-factors/totp/confirmation
+// POST /api/v1/profile/two-factor-methods/totp/confirmation
 func (c *Client) ConfirmTOTP(ctx context.Context, request *TOTPConfirmation) (ConfirmTOTPRes, error) {
 	res, err := c.sendConfirmTOTP(ctx, request)
 	return res, err
@@ -2508,7 +2507,7 @@ func (c *Client) sendConfirmTOTP(ctx context.Context, request *TOTPConfirmation)
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("confirmTOTP"),
 		semconv.HTTPRequestMethodKey.String("POST"),
-		semconv.URLTemplateKey.String("/api/v1/profile/second-factors/totp/confirmation"),
+		semconv.URLTemplateKey.String("/api/v1/profile/two-factor-methods/totp/confirmation"),
 	}
 	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
 
@@ -2542,7 +2541,7 @@ func (c *Client) sendConfirmTOTP(ctx context.Context, request *TOTPConfirmation)
 	stage = "BuildURL"
 	u := uri.Clone(c.requestURL(ctx))
 	var pathParts [1]string
-	pathParts[0] = "/api/v1/profile/second-factors/totp/confirmation"
+	pathParts[0] = "/api/v1/profile/two-factor-methods/totp/confirmation"
 	uri.AddPathParts(u, pathParts[:]...)
 
 	stage = "EncodeRequest"
@@ -3484,7 +3483,7 @@ func (c *Client) sendGetAccess(ctx context.Context) (res GetAccessRes, err error
 // GetDashboard invokes getDashboard operation.
 //
 // Users, the Unassigned queue, sign-ins and failed sign-ins over the last 24 hours, and live sessions.
-// Admins only, from a session that proved a Second Factor.
+// Admins only, from a session that proved two-factor.
 //
 // GET /api/v1/dashboard
 func (c *Client) GetDashboard(ctx context.Context) (GetDashboardRes, error) {
@@ -3711,7 +3710,7 @@ func (c *Client) sendGetLauncher(ctx context.Context) (res GetLauncherRes, err e
 
 // GetMCPResource invokes getMCPResource operation.
 //
-// Admins only, from a session that proved a Second Factor.
+// Admins only, from a session that proved two-factor.
 //
 // GET /api/v1/apps/{clientId}/mcp
 func (c *Client) GetMCPResource(ctx context.Context, params GetMCPResourceParams) (GetMCPResourceRes, error) {
@@ -3959,8 +3958,7 @@ func (c *Client) sendGetProfile(ctx context.Context) (res GetProfileRes, err err
 
 // GetStepUp invokes getStepUp operation.
 //
-// The Client's step-up window, 0 when it is off. Admins only, from a session that proved a Second
-// Factor.
+// The Client's step-up window, 0 when it is off. Admins only, from a session that proved two-factor.
 //
 // GET /api/v1/apps/{clientId}/step-up
 func (c *Client) GetStepUp(ctx context.Context, params GetStepUpParams) (GetStepUpRes, error) {
@@ -4177,7 +4175,7 @@ func (c *Client) sendGetVersion(ctx context.Context) (res GetVersionRes, err err
 // ListAuditEvents invokes listAuditEvents operation.
 //
 // One page of Audit Events, newest first, narrowed by any of the filters. Pass a page's next as before
-// to read the page after it. Admins only, from a session that proved a Second Factor.
+// to read the page after it. Admins only, from a session that proved two-factor.
 //
 // GET /api/v1/audit
 func (c *Client) ListAuditEvents(ctx context.Context, params ListAuditEventsParams) (ListAuditEventsRes, error) {
@@ -4822,21 +4820,21 @@ func (c *Client) sendListMyTokens(ctx context.Context) (res ListMyTokensRes, err
 	return result, nil
 }
 
-// ListSecondFactors invokes listSecondFactors operation.
+// ListTwoFactorMethods invokes listTwoFactorMethods operation.
 //
 // Every authenticator app and passkey the User added.
 //
-// GET /api/v1/profile/second-factors
-func (c *Client) ListSecondFactors(ctx context.Context) (ListSecondFactorsRes, error) {
-	res, err := c.sendListSecondFactors(ctx)
+// GET /api/v1/profile/two-factor-methods
+func (c *Client) ListTwoFactorMethods(ctx context.Context) (ListTwoFactorMethodsRes, error) {
+	res, err := c.sendListTwoFactorMethods(ctx)
 	return res, err
 }
 
-func (c *Client) sendListSecondFactors(ctx context.Context) (res ListSecondFactorsRes, err error) {
+func (c *Client) sendListTwoFactorMethods(ctx context.Context) (res ListTwoFactorMethodsRes, err error) {
 	otelAttrs := []attribute.KeyValue{
-		otelogen.OperationID("listSecondFactors"),
+		otelogen.OperationID("listTwoFactorMethods"),
 		semconv.HTTPRequestMethodKey.String("GET"),
-		semconv.URLTemplateKey.String("/api/v1/profile/second-factors"),
+		semconv.URLTemplateKey.String("/api/v1/profile/two-factor-methods"),
 	}
 	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
 
@@ -4852,7 +4850,7 @@ func (c *Client) sendListSecondFactors(ctx context.Context) (res ListSecondFacto
 	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
 
 	// Start a span for this request.
-	ctx, span := c.cfg.Tracer.Start(ctx, ListSecondFactorsOperation,
+	ctx, span := c.cfg.Tracer.Start(ctx, ListTwoFactorMethodsOperation,
 		trace.WithAttributes(otelAttrs...),
 		clientSpanKind,
 	)
@@ -4870,7 +4868,7 @@ func (c *Client) sendListSecondFactors(ctx context.Context) (res ListSecondFacto
 	stage = "BuildURL"
 	u := uri.Clone(c.requestURL(ctx))
 	var pathParts [1]string
-	pathParts[0] = "/api/v1/profile/second-factors"
+	pathParts[0] = "/api/v1/profile/two-factor-methods"
 	uri.AddPathParts(u, pathParts[:]...)
 
 	stage = "EncodeRequest"
@@ -4884,7 +4882,7 @@ func (c *Client) sendListSecondFactors(ctx context.Context) (res ListSecondFacto
 		var satisfied bitset
 		{
 			stage = "Security:Session"
-			switch err := c.securitySession(ctx, ListSecondFactorsOperation, r); {
+			switch err := c.securitySession(ctx, ListTwoFactorMethodsOperation, r); {
 			case err == nil: // if NO error
 				satisfied[0] |= 1 << 0
 			case errors.Is(err, ogenerrors.ErrSkipClientSecurity):
@@ -4927,7 +4925,7 @@ func (c *Client) sendListSecondFactors(ctx context.Context) (res ListSecondFacto
 	}()
 
 	stage = "DecodeResponse"
-	result, err := decodeListSecondFactorsResponse(resp)
+	result, err := decodeListTwoFactorMethodsResponse(resp)
 	if err != nil {
 		return res, errors.Wrap(err, "decode response")
 	}
@@ -4937,7 +4935,7 @@ func (c *Client) sendListSecondFactors(ctx context.Context) (res ListSecondFacto
 
 // ListUserTokens invokes listUserTokens operation.
 //
-// Admins only, from a session that proved a Second Factor.
+// Admins only, from a session that proved two-factor.
 //
 // GET /api/v1/access/users/{userId}/tokens
 func (c *Client) ListUserTokens(ctx context.Context, params ListUserTokensParams) (ListUserTokensRes, error) {
@@ -5456,22 +5454,22 @@ func (c *Client) sendRemoveMember(ctx context.Context, params RemoveMemberParams
 	return result, nil
 }
 
-// RemoveSecondFactor invokes removeSecondFactor operation.
+// RemoveTwoFactorMethod invokes removeTwoFactorMethod operation.
 //
 // Removes one of the User's authenticator apps or passkeys once they give their password, from a
-// session that proved a Second Factor.
+// session that proved two-factor.
 //
-// POST /api/v1/profile/second-factors/{factorId}/removal
-func (c *Client) RemoveSecondFactor(ctx context.Context, request *PasswordCheck, params RemoveSecondFactorParams) (RemoveSecondFactorRes, error) {
-	res, err := c.sendRemoveSecondFactor(ctx, request, params)
+// POST /api/v1/profile/two-factor-methods/{factorId}/removal
+func (c *Client) RemoveTwoFactorMethod(ctx context.Context, request *PasswordCheck, params RemoveTwoFactorMethodParams) (RemoveTwoFactorMethodRes, error) {
+	res, err := c.sendRemoveTwoFactorMethod(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendRemoveSecondFactor(ctx context.Context, request *PasswordCheck, params RemoveSecondFactorParams) (res RemoveSecondFactorRes, err error) {
+func (c *Client) sendRemoveTwoFactorMethod(ctx context.Context, request *PasswordCheck, params RemoveTwoFactorMethodParams) (res RemoveTwoFactorMethodRes, err error) {
 	otelAttrs := []attribute.KeyValue{
-		otelogen.OperationID("removeSecondFactor"),
+		otelogen.OperationID("removeTwoFactorMethod"),
 		semconv.HTTPRequestMethodKey.String("POST"),
-		semconv.URLTemplateKey.String("/api/v1/profile/second-factors/{factorId}/removal"),
+		semconv.URLTemplateKey.String("/api/v1/profile/two-factor-methods/{factorId}/removal"),
 	}
 	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
 
@@ -5487,7 +5485,7 @@ func (c *Client) sendRemoveSecondFactor(ctx context.Context, request *PasswordCh
 	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
 
 	// Start a span for this request.
-	ctx, span := c.cfg.Tracer.Start(ctx, RemoveSecondFactorOperation,
+	ctx, span := c.cfg.Tracer.Start(ctx, RemoveTwoFactorMethodOperation,
 		trace.WithAttributes(otelAttrs...),
 		clientSpanKind,
 	)
@@ -5505,7 +5503,7 @@ func (c *Client) sendRemoveSecondFactor(ctx context.Context, request *PasswordCh
 	stage = "BuildURL"
 	u := uri.Clone(c.requestURL(ctx))
 	var pathParts [3]string
-	pathParts[0] = "/api/v1/profile/second-factors/"
+	pathParts[0] = "/api/v1/profile/two-factor-methods/"
 	{
 		// Encode "factorId" parameter.
 		e := uri.NewPathEncoder(uri.PathEncoderConfig{
@@ -5535,7 +5533,7 @@ func (c *Client) sendRemoveSecondFactor(ctx context.Context, request *PasswordCh
 	if err != nil {
 		return res, errors.Wrap(err, "create request")
 	}
-	if err := encodeRemoveSecondFactorRequest(request, r); err != nil {
+	if err := encodeRemoveTwoFactorMethodRequest(request, r); err != nil {
 		return res, errors.Wrap(err, "encode request")
 	}
 
@@ -5544,7 +5542,7 @@ func (c *Client) sendRemoveSecondFactor(ctx context.Context, request *PasswordCh
 		var satisfied bitset
 		{
 			stage = "Security:Session"
-			switch err := c.securitySession(ctx, RemoveSecondFactorOperation, r); {
+			switch err := c.securitySession(ctx, RemoveTwoFactorMethodOperation, r); {
 			case err == nil: // if NO error
 				satisfied[0] |= 1 << 0
 			case errors.Is(err, ogenerrors.ErrSkipClientSecurity):
@@ -5587,7 +5585,7 @@ func (c *Client) sendRemoveSecondFactor(ctx context.Context, request *PasswordCh
 	}()
 
 	stage = "DecodeResponse"
-	result, err := decodeRemoveSecondFactorResponse(resp)
+	result, err := decodeRemoveTwoFactorMethodResponse(resp)
 	if err != nil {
 		return res, errors.Wrap(err, "decode response")
 	}
@@ -6388,7 +6386,7 @@ func (c *Client) sendRevokeMyToken(ctx context.Context, params RevokeMyTokenPara
 
 // RevokeUserToken invokes revokeUserToken operation.
 //
-// Admins only, from a session that proved a Second Factor. Revoking it twice changes nothing.
+// Admins only, from a session that proved two-factor. Revoking it twice changes nothing.
 //
 // DELETE /api/v1/access/users/{userId}/tokens/{patId}
 func (c *Client) RevokeUserToken(ctx context.Context, params RevokeUserTokenParams) (RevokeUserTokenRes, error) {
@@ -6544,8 +6542,8 @@ func (c *Client) sendRevokeUserToken(ctx context.Context, params RevokeUserToken
 
 // RotateClientSecret invokes rotateClientSecret operation.
 //
-// Admins only, from a session that proved a Second Factor, for a Client that signs in with a secret.
-// The new secret is written where the Client's Application reads it, never answered here. The old one
+// Admins only, from a session that proved two-factor, for a Client that signs in with a secret. The
+// new secret is written where the Client's Application reads it, never answered here. The old one
 // keeps working until the Application first uses the new one.
 //
 // POST /api/v1/apps/{clientId}/secret
@@ -6683,7 +6681,7 @@ func (c *Client) sendRotateClientSecret(ctx context.Context, params RotateClient
 //
 // For a workload outside the cluster, which signs in with the client credentials grant. The secret is
 // answered once, here, and kept only as a hash. The previous secret keeps working until the new one is
-// first used. Admins only, from a session that proved a Second Factor.
+// first used. Admins only, from a session that proved two-factor.
 //
 // POST /api/v1/access/machines/{machineId}/secret
 func (c *Client) RotateMachineSecret(ctx context.Context, params RotateMachineSecretParams) (RotateMachineSecretRes, error) {
@@ -6957,8 +6955,8 @@ func (c *Client) sendSetGroupTwoFactor(ctx context.Context, request *TwoFactorRe
 
 // SetMCPResource invokes setMCPResource operation.
 //
-// Admins only, from a session that proved a Second Factor. A Client that can check no Connected App's
-// token is refused with 409. Stopping keeps the Connected Apps the Client has; turning step-up on
+// Admins only, from a session that proved two-factor. A Client that can check no Connected App's token
+// is refused with 409. Stopping keeps the Connected Apps the Client has; turning step-up on
 // disconnects them.
 //
 // PUT /api/v1/apps/{clientId}/mcp
@@ -7098,7 +7096,7 @@ func (c *Client) sendSetMCPResource(ctx context.Context, request *MCPResourceSet
 // SetStepUp invokes setStepUp operation.
 //
 // Signing in to the Client then finishes only when the session proved two-factor within the window; 0
-// turns step-up off. Admins only, from a session that proved a Second Factor.
+// turns step-up off. Admins only, from a session that proved two-factor.
 //
 // PUT /api/v1/apps/{clientId}/step-up
 func (c *Client) SetStepUp(ctx context.Context, request *StepUp, params SetStepUpParams) (SetStepUpRes, error) {
@@ -7903,7 +7901,7 @@ func (c *Client) sendSignUp(ctx context.Context, request *SignUp) (res SignUpRes
 //
 // Returns the WebAuthn options to make a passkey, kept for ten minutes.
 //
-// POST /api/v1/profile/second-factors/passkey
+// POST /api/v1/profile/two-factor-methods/passkey
 func (c *Client) StartPasskey(ctx context.Context) (StartPasskeyRes, error) {
 	res, err := c.sendStartPasskey(ctx)
 	return res, err
@@ -7913,7 +7911,7 @@ func (c *Client) sendStartPasskey(ctx context.Context) (res StartPasskeyRes, err
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("startPasskey"),
 		semconv.HTTPRequestMethodKey.String("POST"),
-		semconv.URLTemplateKey.String("/api/v1/profile/second-factors/passkey"),
+		semconv.URLTemplateKey.String("/api/v1/profile/two-factor-methods/passkey"),
 	}
 	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
 
@@ -7947,7 +7945,7 @@ func (c *Client) sendStartPasskey(ctx context.Context) (res StartPasskeyRes, err
 	stage = "BuildURL"
 	u := uri.Clone(c.requestURL(ctx))
 	var pathParts [1]string
-	pathParts[0] = "/api/v1/profile/second-factors/passkey"
+	pathParts[0] = "/api/v1/profile/two-factor-methods/passkey"
 	uri.AddPathParts(u, pathParts[:]...)
 
 	stage = "EncodeRequest"
@@ -8015,7 +8013,7 @@ func (c *Client) sendStartPasskey(ctx context.Context) (res StartPasskeyRes, err
 // StartStepUp invokes startStepUp operation.
 //
 // For an app that wants a fresh proof (step-up), starts proving the signed-in session again and says
-// which kinds of Second Factor can prove it. A User with none is told to add one.
+// which kinds of two-factor method can prove it. A User with none is told to add one.
 //
 // POST /api/v1/session/step-up
 func (c *Client) StartStepUp(ctx context.Context) (StartStepUpRes, error) {
@@ -8131,7 +8129,7 @@ func (c *Client) sendStartStepUp(ctx context.Context) (res StartStepUpRes, err e
 // Makes a secret for a new authenticator app. It is kept, sealed by Vault, for ten minutes, until
 // confirmTOTP gets a right code from the app.
 //
-// POST /api/v1/profile/second-factors/totp
+// POST /api/v1/profile/two-factor-methods/totp
 func (c *Client) StartTOTP(ctx context.Context) (StartTOTPRes, error) {
 	res, err := c.sendStartTOTP(ctx)
 	return res, err
@@ -8141,7 +8139,7 @@ func (c *Client) sendStartTOTP(ctx context.Context) (res StartTOTPRes, err error
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("startTOTP"),
 		semconv.HTTPRequestMethodKey.String("POST"),
-		semconv.URLTemplateKey.String("/api/v1/profile/second-factors/totp"),
+		semconv.URLTemplateKey.String("/api/v1/profile/two-factor-methods/totp"),
 	}
 	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
 
@@ -8175,7 +8173,7 @@ func (c *Client) sendStartTOTP(ctx context.Context) (res StartTOTPRes, err error
 	stage = "BuildURL"
 	u := uri.Clone(c.requestURL(ctx))
 	var pathParts [1]string
-	pathParts[0] = "/api/v1/profile/second-factors/totp"
+	pathParts[0] = "/api/v1/profile/two-factor-methods/totp"
 	uri.AddPathParts(u, pathParts[:]...)
 
 	stage = "EncodeRequest"
@@ -8359,12 +8357,12 @@ func (c *Client) sendStepUpPasskeyOptions(ctx context.Context) (res StepUpPasske
 // session proved now. Five codes in fifteen minutes, as at sign-in; a code works once.
 //
 // POST /api/v1/session/step-up/code
-func (c *Client) StepUpWithCode(ctx context.Context, request *SecondFactorCode) (StepUpWithCodeRes, error) {
+func (c *Client) StepUpWithCode(ctx context.Context, request *TwoFactorCode) (StepUpWithCodeRes, error) {
 	res, err := c.sendStepUpWithCode(ctx, request)
 	return res, err
 }
 
-func (c *Client) sendStepUpWithCode(ctx context.Context, request *SecondFactorCode) (res StepUpWithCodeRes, err error) {
+func (c *Client) sendStepUpWithCode(ctx context.Context, request *TwoFactorCode) (res StepUpWithCodeRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("stepUpWithCode"),
 		semconv.HTTPRequestMethodKey.String("POST"),

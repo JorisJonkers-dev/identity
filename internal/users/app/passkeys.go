@@ -116,7 +116,7 @@ func (s *Service) StartPasskey(ctx context.Context, userID uuid.UUID) ([]byte, e
 
 // ConfirmPasskey keeps the passkey the browser made for StartPasskey's options. It follows the
 // rules ConfirmTOTP does (docs/adr/0015): the password, a proved session for a User who already
-// has a Second Factor, and every other session ended.
+// has two-factor, and every other session ended.
 func (s *Service) ConfirmPasskey(ctx context.Context, userID uuid.UUID, sessionToken, rawLabel string, response []byte, password string) error {
 	label, err := domain.NewFactorLabel(rawLabel)
 	if err != nil {
@@ -156,7 +156,7 @@ func (s *Service) ConfirmPasskey(ctx context.Context, userID uuid.UUID, sessionT
 	if err := s.store.DeletePasskeyEnrolment(ctx, userID); err != nil {
 		return err
 	}
-	s.record(ctx, audit.Event{Action: audit.SecondFactorAdded, User: userID})
+	s.record(ctx, audit.Event{Action: audit.TwoFactorMethodAdded, User: userID})
 	return s.proved(ctx, userID, sessionToken, methodPasskey)
 }
 
@@ -224,7 +224,7 @@ func (s *Service) answerWithPasskey(ctx context.Context, hash, response []byte) 
 	if err != nil {
 		return uuid.Nil, err
 	}
-	refused := audit.Event{User: userID, Reason: audit.ReasonSecondFactor}
+	refused := audit.Event{User: userID, Reason: audit.ReasonTwoFactor}
 	// The ceremony is taken, not read: of two requests with one assertion, one gets it.
 	_, ceremony, err := s.store.TakeChallengeCeremony(ctx, hash, now)
 	if errors.Is(err, ErrNotFound) {
@@ -257,11 +257,11 @@ func (s *Service) answerWithPasskey(ctx context.Context, hash, response []byte) 
 	return userID, s.store.DeleteChallenge(ctx, hash)
 }
 
-// ChallengeKinds is which kinds of Second Factor the User of a sign-in challenge has.
+// ChallengeKinds is which kinds of two-factor method the User of a sign-in challenge has.
 func (s *Service) ChallengeKinds(ctx context.Context, challenge string) ([]string, error) {
 	userID, _, err := s.store.ChallengeCeremony(ctx, hashOf(challenge), s.now())
 	if err != nil {
 		return nil, err
 	}
-	return s.SecondFactorKinds(ctx, userID)
+	return s.TwoFactorMethodKinds(ctx, userID)
 }

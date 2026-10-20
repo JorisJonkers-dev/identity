@@ -16,8 +16,8 @@ import (
 
 var (
 	ErrNotAdmin = errors.New("only Admins read the audit log and the dashboard")
-	// ErrSecondFactorNeeded is an Admin whose session did not prove a Second Factor.
-	ErrSecondFactorNeeded = errors.New("the audit log and the dashboard are read only from a session proved with a Second Factor")
+	// ErrTwoFactorProofNeeded is an Admin whose session did not prove two-factor.
+	ErrTwoFactorProofNeeded = errors.New("the audit log and the dashboard are read only from a session that proved two-factor")
 )
 
 const (
@@ -69,10 +69,10 @@ type Directory interface {
 	ClientLabel(ctx context.Context, id string) string
 }
 
-// Actor is who asks to read the audit log, and whether their session proved a Second Factor.
+// Actor is who asks to read the audit log, and whether their session proved two-factor.
 type Actor struct {
-	ID           uuid.UUID
-	SecondFactor bool
+	ID        uuid.UUID
+	TwoFactor bool
 }
 
 // Entry is an event with the names it refers to; a Person is nil when the event names none, and
@@ -154,7 +154,7 @@ func attrs(e domain.Event) []slog.Attr {
 	return a
 }
 
-// admin lets an Admin through, and only from a session that proved a Second Factor.
+// admin lets an Admin through, and only from a session that proved two-factor.
 func (s *Service) admin(ctx context.Context, actor Actor) error {
 	admin, err := s.admins.IsAdmin(ctx, actor.ID)
 	if err != nil {
@@ -163,14 +163,14 @@ func (s *Service) admin(ctx context.Context, actor Actor) error {
 	if !admin {
 		return ErrNotAdmin
 	}
-	if !actor.SecondFactor {
-		return ErrSecondFactorNeeded
+	if !actor.TwoFactor {
+		return ErrTwoFactorProofNeeded
 	}
 	return nil
 }
 
-// List returns a page of events matching f, newest first, to an Admin whose session proved a
-// Second Factor.
+// List returns a page of events matching f, newest first, to an Admin whose session proved
+// two-factor.
 func (s *Service) List(ctx context.Context, actor Actor, f domain.Filter) (Page, error) {
 	if err := s.admin(ctx, actor); err != nil {
 		return Page{}, err

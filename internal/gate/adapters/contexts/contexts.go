@@ -31,7 +31,7 @@ type Users interface {
 	SignedIn(ctx context.Context, token string) (usersdomain.User, usersapp.Session, error)
 	Vouch(ctx context.Context, sessionID uuid.UUID) (usersdomain.User, usersapp.Session, error)
 	User(ctx context.Context, id uuid.UUID) (usersdomain.User, error)
-	HasSecondFactor(ctx context.Context, userID uuid.UUID) (bool, error)
+	HasTwoFactor(ctx context.Context, userID uuid.UUID) (bool, error)
 }
 
 // StepUps is each Client's step-up window in minutes, 0 when it is off.
@@ -151,7 +151,7 @@ func (c *Contexts) SignedIn(ctx context.Context, token string) (app.Person, erro
 	if err != nil {
 		return app.Person{}, err
 	}
-	p.TwoFactor, err = c.users.HasSecondFactor(ctx, p.UserID)
+	p.TwoFactor, err = c.users.HasTwoFactor(ctx, p.UserID)
 	return p, err
 }
 

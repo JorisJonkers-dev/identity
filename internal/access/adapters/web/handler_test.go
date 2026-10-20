@@ -95,7 +95,7 @@ var (
 )
 
 func signedIn() context.Context {
-	return principal.With(context.Background(), principal.Principal{UserID: admin, SecondFactor: true})
+	return principal.With(context.Background(), principal.Principal{UserID: admin, TwoFactor: true})
 }
 
 func wantProblem(t *testing.T, res any, err error, status int, detail string) {
@@ -106,7 +106,7 @@ func wantProblem(t *testing.T, res any, err error, status int, detail string) {
 	}
 }
 
-var asAdmin = app.Actor{ID: admin, SecondFactor: true}
+var asAdmin = app.Actor{ID: admin, TwoFactor: true}
 
 func TestTheOverviewCarriesGroupsWithTheirMembersPeopleClientsAndAssignments(t *testing.T) {
 	uc := &useCases{overview: app.Overview{
@@ -239,7 +239,7 @@ func TestEachRefusalBecomesAProblemSayingWhatToDo(t *testing.T) {
 		detail string
 	}{
 		{app.ErrNotAdmin, http.StatusForbidden, "Only Admins manage access."},
-		{app.ErrSecondFactorNeeded, http.StatusForbidden, "Sign out, then sign in again with a passkey or authenticator app to manage access. If you have neither, add one on the Security page first."},
+		{app.ErrTwoFactorProofNeeded, http.StatusForbidden, "Sign out, then sign in again with a passkey or authenticator app to manage access. If you have neither, add one on the Security page first."},
 		{app.ErrNotFound, http.StatusNotFound, "That Group or person no longer exists. Reload the page."},
 		{app.ErrNameTaken, http.StatusConflict, "A Group with that name already exists. Choose another name."},
 		{domain.ErrInvalidGroupName, http.StatusUnprocessableEntity, "Enter a Group name of 1 to 64 characters."},

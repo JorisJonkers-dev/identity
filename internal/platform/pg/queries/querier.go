@@ -184,7 +184,7 @@ type Querier interface {
 	SetChallengeCeremony(ctx context.Context, arg SetChallengeCeremonyParams) (int64, error)
 	// The admins Group always requires two-factor; the table refuses otherwise.
 	SetGroupTwoFactor(ctx context.Context, arg SetGroupTwoFactorParams) (int64, error)
-	// A session that has just proved a Second Factor says so from then on, and when.
+	// A session that has just proved two-factor says so from then on, and when.
 	SetSessionMethods(ctx context.Context, arg SetSessionMethodsParams) error
 	SetStepUp(ctx context.Context, arg SetStepUpParams) error
 	SignupByHash(ctx context.Context, tokenHash []byte) (SignupByHashRow, error)
