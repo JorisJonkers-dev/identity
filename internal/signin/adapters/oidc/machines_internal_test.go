@@ -94,7 +94,7 @@ func serveMachines(t *testing.T, m machines) string {
 	svc.SetClientSecrets(testSecrets)
 	signIn := app.NewMachineSignIn(m, clusterTokens{}, machineHashes{}, testClients, nil, discard{}, rand.Reader)
 	var err error
-	h, err = New(Config{Issuer: srv.URL, Insecure: true, SessionCookie: cookieName}, svc, signIn, NewRing(testKey()), slog.New(slog.DiscardHandler), time.Now)
+	h, err = New(Config{Issuer: srv.URL, Insecure: true, SessionCookie: cookieName}, svc, signIn, newApps(), NewRing(testKey()), slog.New(slog.DiscardHandler), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

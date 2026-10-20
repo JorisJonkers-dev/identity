@@ -724,6 +724,26 @@ func TestDeletingAUserTakesTheirSessionsAndSaysWhich(t *testing.T) {
 	}
 }
 
+func TestDeletingAUserSaysWhichConnectedAppTokensWentWithThem(t *testing.T) {
+	ctx := context.Background()
+	s, pool, u := stored(t)
+	q := queries.New(pool)
+	_ = q.CreateRegistration(ctx, queries.CreateRegistrationParams{ClientID: "mcp_" + u.ID.String(), Name: "Claude Code", RedirectUris: []string{"http://localhost/cb"}, CreatedAt: time.Now()})
+	appID, err := q.ConsentToConnectedApp(ctx, queries.ConsentToConnectedAppParams{ID: uuid.New(), RegistrationID: "mcp_" + u.ID.String(), UserID: u.ID, ClientID: "kb", CreatedAt: time.Now()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	access := uuid.New()
+	_ = q.CreateConnectedAppToken(ctx, queries.CreateConnectedAppTokenParams{ID: access, ConnectedAppID: appID, Kind: "access", CreatedAt: time.Now(), ExpiresAt: time.Now().Add(time.Hour)})
+	_ = q.CreateConnectedAppToken(ctx, queries.CreateConnectedAppTokenParams{ID: uuid.New(), ConnectedAppID: appID, Kind: "refresh", Hash: []byte(u.ID.String()), CreatedAt: time.Now(), ExpiresAt: time.Now().Add(time.Hour)})
+
+	d, err := s.DeleteUser(ctx, u.ID)
+
+	if err != nil || len(d.Tokens) != 1 || d.Tokens[0] != access {
+		t.Fatalf("DeleteUser = %+v, %v", d, err)
+	}
+}
+
 func TestTheOnlyAdminIsNotDeleted(t *testing.T) {
 	ctx := context.Background()
 	s, pool, u := stored(t)

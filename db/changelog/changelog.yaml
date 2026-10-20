@@ -56,3 +56,6 @@ databaseChangeLog:
   - include:
       file: 0018-machine-identities.yaml
       relativeToChangelogFile: true
+  - include:
+      file: 0019-connected-apps.yaml
+      relativeToChangelogFile: true

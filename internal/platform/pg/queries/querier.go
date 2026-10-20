@@ -12,6 +12,7 @@ import (
 )
 
 type Querier interface {
+	AccessTokensOfApp(ctx context.Context, connectedAppID uuid.UUID) ([]uuid.UUID, error)
 	AddMember(ctx context.Context, arg AddMemberParams) (int64, error)
 	AddSessionClient(ctx context.Context, arg AddSessionClientParams) error
 	AdminsGroup(ctx context.Context) (AdminsGroupRow, error)
@@ -25,8 +26,21 @@ type Querier interface {
 	ClientSecret(ctx context.Context, clientID string) (ClientSecretRow, error)
 	// Records who signed in, once: a request already completed keeps its first User.
 	CompleteAuthRequest(ctx context.Context, arg CompleteAuthRequestParams) (int64, error)
+	// A live access token, found by the id its sealed form carries.
+	ConnectedAppAccess(ctx context.Context, id uuid.UUID) (ConnectedAppAccessRow, error)
+	// Their Connected Apps go with the User by cascade; these are the access tokens the Gate may cache.
+	ConnectedAppAccessTokensOfUser(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
+	ConnectedAppByID(ctx context.Context, id uuid.UUID) (ConnectedAppByIDRow, error)
+	ConnectedAppFor(ctx context.Context, arg ConnectedAppForParams) (uuid.UUID, error)
+	ConnectedAppRefresh(ctx context.Context, hash []byte) (ConnectedAppRefreshRow, error)
+	// Every Connected App of a Client, locked, as turning step-up on removes them in one transaction.
+	ConnectedAppsForClient(ctx context.Context, clientID string) ([]ConnectedAppsForClientRow, error)
+	ConnectedAppsOfUser(ctx context.Context, userID uuid.UUID) ([]ConnectedAppsOfUserRow, error)
+	// The Connected App for a consent, the one already there when the User consented before.
+	ConsentToConnectedApp(ctx context.Context, arg ConsentToConnectedAppParams) (uuid.UUID, error)
 	CountActiveSessions(ctx context.Context, expiresAt time.Time) (CountActiveSessionsRow, error)
 	CountAdmins(ctx context.Context) (int64, error)
+	CountConnectedAppsForClient(ctx context.Context, clientID string) (int64, error)
 	CountLiveClientTokens(ctx context.Context, arg CountLiveClientTokensParams) (int64, error)
 	CountMembers(ctx context.Context, groupID uuid.UUID) (int64, error)
 	// Live tokens that expire after now and before a time.
@@ -37,12 +51,14 @@ type Querier interface {
 	CountUnassigned(ctx context.Context) (int64, error)
 	CreateAuthRequest(ctx context.Context, arg CreateAuthRequestParams) error
 	CreateClientSecret(ctx context.Context, arg CreateClientSecretParams) error
+	CreateConnectedAppToken(ctx context.Context, arg CreateConnectedAppTokenParams) error
 	CreateGateCode(ctx context.Context, arg CreateGateCodeParams) error
 	CreateGateSession(ctx context.Context, arg CreateGateSessionParams) error
 	CreateGroup(ctx context.Context, arg CreateGroupParams) error
 	CreateMachine(ctx context.Context, arg CreateMachineParams) error
 	CreatePasskey(ctx context.Context, arg CreatePasskeyParams) error
 	CreatePersonalToken(ctx context.Context, arg CreatePersonalTokenParams) error
+	CreateRegistration(ctx context.Context, arg CreateRegistrationParams) error
 	CreateSealedSecret(ctx context.Context, arg CreateSealedSecretParams) error
 	CreateSession(ctx context.Context, arg CreateSessionParams) error
 	CreateSigningKey(ctx context.Context, arg CreateSigningKeyParams) error
@@ -53,6 +69,8 @@ type Querier interface {
 	DeleteAuthRequest(ctx context.Context, id uuid.UUID) error
 	DeleteChallenge(ctx context.Context, tokenHash []byte) error
 	DeleteClientSecret(ctx context.Context, clientID string) error
+	DeleteConnectedApp(ctx context.Context, id uuid.UUID) (int64, error)
+	DeleteConnectedAppsForClient(ctx context.Context, clientID string) error
 	DeleteEmailChange(ctx context.Context, userID uuid.UUID) error
 	// The admins Group stays, whatever the caller checked.
 	DeleteGroup(ctx context.Context, id uuid.UUID) error
@@ -83,6 +101,7 @@ type Querier interface {
 	HeldBackClients(ctx context.Context, userID uuid.UUID) ([]string, error)
 	ImportUser(ctx context.Context, arg ImportUserParams) (int64, error)
 	IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error)
+	IsMCPResource(ctx context.Context, clientID string) (bool, error)
 	IsOnlyAdmin(ctx context.Context, arg IsOnlyAdminParams) (bool, error)
 	// Whether a Legacy Auth account (docs/adr/0006) is already here under its own id, and whether its email is taken.
 	LegacyState(ctx context.Context, arg LegacyStateParams) (LegacyStateRow, error)
@@ -111,12 +130,14 @@ type Querier interface {
 	// Held until the transaction ends, so of two replicas starting together one makes the key and the
 	// other reads it.
 	LockKeys(ctx context.Context) error
+	MCPResources(ctx context.Context) ([]string, error)
 	MachineAssignments(ctx context.Context) ([]MachineAssignmentsRow, error)
 	// The Machine Identity a ServiceAccount signs in as.
 	MachineByBinding(ctx context.Context, arg MachineByBindingParams) (MachineIdentity, error)
 	MachineByID(ctx context.Context, id uuid.UUID) (MachineIdentity, error)
 	// A Machine Identity's App Roles on a Client: only its own, as it is never in a Group.
 	MachineRolesOf(ctx context.Context, arg MachineRolesOfParams) ([]string, error)
+	MarkMCPResource(ctx context.Context, arg MarkMCPResourceParams) error
 	PasskeyEnrolment(ctx context.Context, userID uuid.UUID) (PasskeyEnrolmentRow, error)
 	PasskeysOfUser(ctx context.Context, userID uuid.UUID) ([]Passkey, error)
 	PasswordResetByHash(ctx context.Context, tokenHash []byte) (PasswordReset, error)
@@ -125,6 +146,10 @@ type Querier interface {
 	// Readiness: the database answers a query, not only a connection.
 	Ping(ctx context.Context) (int32, error)
 	ProvePasswordReset(ctx context.Context, arg ProvePasswordResetParams) error
+	PruneConnectedAppTokens(ctx context.Context, expiresAt time.Time) (int64, error)
+	// A registration nobody consented to gives nothing, so it goes after a day.
+	PruneRegistrations(ctx context.Context, createdAt time.Time) (int64, error)
+	RegistrationByID(ctx context.Context, clientID string) (OauthRegistration, error)
 	RemoveMember(ctx context.Context, arg RemoveMemberParams) (int64, error)
 	RenameGroup(ctx context.Context, arg RenameGroupParams) (int64, error)
 	// Revokes every live token for a Client at once, as turning step-up on does.
@@ -160,6 +185,8 @@ type Querier interface {
 	SignupByHash(ctx context.Context, tokenHash []byte) (SignupByHashRow, error)
 	// Counts one code against a sign-in; past the last attempt nothing comes back.
 	SpendChallengeAttempt(ctx context.Context, arg SpendChallengeAttemptParams) (uuid.UUID, error)
+	// A refresh token is spent once; a second spend finds it used and changes nothing.
+	SpendRefresh(ctx context.Context, arg SpendRefreshParams) (int64, error)
 	// The step-up challenge that proves this session again, if it has one.
 	StepUpChallenge(ctx context.Context, sessionHash []byte) ([]byte, error)
 	StepUpMinutes(ctx context.Context, clientID string) (int32, error)
@@ -179,12 +206,14 @@ type Querier interface {
 	TakePasswordReset(ctx context.Context, tokenHash []byte) (int64, error)
 	// The Clients the ended sessions signed into, removed as they are read.
 	TakeSessionClients(ctx context.Context, sessionIds []uuid.UUID) ([]SessionClient, error)
+	TouchConnectedApp(ctx context.Context, arg TouchConnectedAppParams) error
 	// A token's last use is written at most once a minute, not on every check.
 	TouchPersonalToken(ctx context.Context, arg TouchPersonalTokenParams) error
 	TouchSession(ctx context.Context, arg TouchSessionParams) error
 	Unassign(ctx context.Context, arg UnassignParams) (int64, error)
 	UnassignMachine(ctx context.Context, arg UnassignMachineParams) (int64, error)
 	UnassignUser(ctx context.Context, arg UnassignUserParams) (int64, error)
+	UnmarkMCPResource(ctx context.Context, clientID string) error
 	UpdateEmail(ctx context.Context, arg UpdateEmailParams) error
 	UpdateUserName(ctx context.Context, arg UpdateUserNameParams) error
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error

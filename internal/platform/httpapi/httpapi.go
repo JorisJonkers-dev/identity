@@ -11,6 +11,7 @@ import (
 
 	accessweb "github.com/JorisJonkers-dev/identity/internal/access/adapters/web"
 	auditweb "github.com/JorisJonkers-dev/identity/internal/audit/adapters/web"
+	connectedweb "github.com/JorisJonkers-dev/identity/internal/connected/adapters/web"
 	launcherweb "github.com/JorisJonkers-dev/identity/internal/launcher/adapters/web"
 	"github.com/JorisJonkers-dev/identity/internal/platform/device"
 	"github.com/JorisJonkers-dev/identity/internal/platform/httpx"
@@ -29,6 +30,7 @@ type api struct {
 	*launcherweb.Launcher
 	*tokensweb.Tokens
 	*signinweb.Apps
+	*connectedweb.Connected
 	logger  *slog.Logger
 	version string
 }
@@ -61,10 +63,10 @@ type Access interface {
 
 // New returns the API's http.Handler, serving every path the contract declares under /api.
 // The users adapter is also the session security handler.
-func New(logger *slog.Logger, version string, users usersweb.UseCases, access Access, audit *auditweb.Audit, launcher launcherweb.UseCases, tokens *tokensweb.Tokens, apps *signinweb.Apps) (http.Handler, error) {
+func New(logger *slog.Logger, version string, users usersweb.UseCases, access Access, audit *auditweb.Audit, launcher launcherweb.UseCases, tokens *tokensweb.Tokens, apps *signinweb.Apps, connected *connectedweb.Connected) (http.Handler, error) {
 	h := usersweb.New(users, access)
 	srv, err := oas.NewServer(
-		&api{Handler: h, Access: accessweb.New(access), Audit: audit, Launcher: launcherweb.NewLauncher(launcher), Tokens: tokens, Apps: apps, logger: logger, version: version},
+		&api{Handler: h, Access: accessweb.New(access), Audit: audit, Launcher: launcherweb.NewLauncher(launcher), Tokens: tokens, Apps: apps, Connected: connected, logger: logger, version: version},
 		h,
 		oas.WithErrorHandler(writeError),
 		oas.WithNotFound(func(w http.ResponseWriter, _ *http.Request) {

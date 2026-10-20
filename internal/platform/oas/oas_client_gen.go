@@ -212,6 +212,12 @@ type Invoker interface {
 	//
 	// GET /api/v1/launcher
 	GetLauncher(ctx context.Context) (GetLauncherRes, error)
+	// GetMCPResource invokes getMCPResource operation.
+	//
+	// Admins only, from a session that proved a Second Factor.
+	//
+	// GET /api/v1/apps/{clientId}/mcp
+	GetMCPResource(ctx context.Context, params GetMCPResourceParams) (GetMCPResourceRes, error)
 	// GetProfile invokes getProfile operation.
 	//
 	// Who is signed in.
@@ -252,6 +258,12 @@ type Invoker interface {
 	//
 	// GET /api/v1/access/machines
 	ListMachines(ctx context.Context) (ListMachinesRes, error)
+	// ListMyConnectedApps invokes listMyConnectedApps operation.
+	//
+	// The tools acting for the signed-in User, oldest first.
+	//
+	// GET /api/v1/profile/connected-apps
+	ListMyConnectedApps(ctx context.Context) (ListMyConnectedAppsRes, error)
 	// ListMyTokens invokes listMyTokens operation.
 	//
 	// The signed-in User's tokens, newest first, and the Clients they may mint one for.
@@ -326,6 +338,12 @@ type Invoker interface {
 	//
 	// POST /api/v1/password-resets/passkey/assertion
 	ResetWithPasskey(ctx context.Context, request *ResetPasskey) (ResetWithPasskeyRes, error)
+	// RevokeMyConnectedApp invokes revokeMyConnectedApp operation.
+	//
+	// Its tokens stop working at once; the tool must ask for consent again.
+	//
+	// DELETE /api/v1/profile/connected-apps/{connectedAppId}
+	RevokeMyConnectedApp(ctx context.Context, params RevokeMyConnectedAppParams) (RevokeMyConnectedAppRes, error)
 	// RevokeMyToken invokes revokeMyToken operation.
 	//
 	// The token is refused from now on. Revoking it twice changes nothing.
@@ -361,6 +379,13 @@ type Invoker interface {
 	//
 	// PUT /api/v1/access/groups/{groupId}/two-factor
 	SetGroupTwoFactor(ctx context.Context, request *TwoFactorRequirement, params SetGroupTwoFactorParams) (SetGroupTwoFactorRes, error)
+	// SetMCPResource invokes setMCPResource operation.
+	//
+	// Admins only, from a session that proved a Second Factor. Stopping keeps the Connected Apps the
+	// Client has; turning step-up on disconnects them.
+	//
+	// PUT /api/v1/apps/{clientId}/mcp
+	SetMCPResource(ctx context.Context, request *MCPResourceSetting, params SetMCPResourceParams) (SetMCPResourceRes, error)
 	// SetStepUp invokes setStepUp operation.
 	//
 	// Signing in to the Client then finishes only when the session proved two-factor within the window; 0
@@ -3683,6 +3708,141 @@ func (c *Client) sendGetLauncher(ctx context.Context) (res GetLauncherRes, err e
 	return result, nil
 }
 
+// GetMCPResource invokes getMCPResource operation.
+//
+// Admins only, from a session that proved a Second Factor.
+//
+// GET /api/v1/apps/{clientId}/mcp
+func (c *Client) GetMCPResource(ctx context.Context, params GetMCPResourceParams) (GetMCPResourceRes, error) {
+	res, err := c.sendGetMCPResource(ctx, params)
+	return res, err
+}
+
+func (c *Client) sendGetMCPResource(ctx context.Context, params GetMCPResourceParams) (res GetMCPResourceRes, err error) {
+	otelAttrs := []attribute.KeyValue{
+		otelogen.OperationID("getMCPResource"),
+		semconv.HTTPRequestMethodKey.String("GET"),
+		semconv.URLTemplateKey.String("/api/v1/apps/{clientId}/mcp"),
+	}
+	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
+
+	// Run stopwatch.
+	startTime := time.Now()
+	defer func() {
+		// Use floating point division here for higher precision (instead of Millisecond method).
+		elapsedDuration := time.Since(startTime)
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
+	}()
+
+	// Increment request counter.
+	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+
+	// Start a span for this request.
+	ctx, span := c.cfg.Tracer.Start(ctx, GetMCPResourceOperation,
+		trace.WithAttributes(otelAttrs...),
+		clientSpanKind,
+	)
+	// Track stage for error reporting.
+	var stage string
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, stage)
+			c.errors.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+		}
+		span.End()
+	}()
+
+	stage = "BuildURL"
+	u := uri.Clone(c.requestURL(ctx))
+	var pathParts [3]string
+	pathParts[0] = "/api/v1/apps/"
+	{
+		// Encode "clientId" parameter.
+		e := uri.NewPathEncoder(uri.PathEncoderConfig{
+			Param:   "clientId",
+			Style:   uri.PathStyleSimple,
+			Explode: false,
+		})
+		if err := func() error {
+			if unwrapped := string(params.ClientId); true {
+				return e.EncodeValue(conv.StringToString(unwrapped))
+			}
+			return nil
+		}(); err != nil {
+			return res, errors.Wrap(err, "encode path")
+		}
+		encoded, err := e.Result()
+		if err != nil {
+			return res, errors.Wrap(err, "encode path")
+		}
+		pathParts[1] = encoded
+	}
+	pathParts[2] = "/mcp"
+	uri.AddPathParts(u, pathParts[:]...)
+
+	stage = "EncodeRequest"
+	r, err := ht.NewRequest(ctx, "GET", u)
+	if err != nil {
+		return res, errors.Wrap(err, "create request")
+	}
+
+	{
+		type bitset = [1]uint8
+		var satisfied bitset
+		{
+			stage = "Security:Session"
+			switch err := c.securitySession(ctx, GetMCPResourceOperation, r); {
+			case err == nil: // if NO error
+				satisfied[0] |= 1 << 0
+			case errors.Is(err, ogenerrors.ErrSkipClientSecurity):
+				// Skip this security.
+			default:
+				return res, errors.Wrap(err, "security \"Session\"")
+			}
+		}
+
+		if ok := func() bool {
+		nextRequirement:
+			for _, requirement := range []bitset{
+				{0b00000001},
+			} {
+				for i, mask := range requirement {
+					if satisfied[i]&mask != mask {
+						continue nextRequirement
+					}
+				}
+				return true
+			}
+			return false
+		}(); !ok {
+			return res, ogenerrors.ErrSecurityRequirementIsNotSatisfied
+		}
+	}
+
+	stage = "SendRequest"
+	resp, err := c.cfg.Client.Do(r)
+	if err != nil {
+		return res, errors.Wrap(err, "do request")
+	}
+	body := resp.Body
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
+
+	stage = "DecodeResponse"
+	result, err := decodeGetMCPResourceResponse(resp)
+	if err != nil {
+		return res, errors.Wrap(err, "decode response")
+	}
+
+	return result, nil
+}
+
 // GetProfile invokes getProfile operation.
 //
 // Who is signed in.
@@ -4428,6 +4588,119 @@ func (c *Client) sendListMachines(ctx context.Context) (res ListMachinesRes, err
 
 	stage = "DecodeResponse"
 	result, err := decodeListMachinesResponse(resp)
+	if err != nil {
+		return res, errors.Wrap(err, "decode response")
+	}
+
+	return result, nil
+}
+
+// ListMyConnectedApps invokes listMyConnectedApps operation.
+//
+// The tools acting for the signed-in User, oldest first.
+//
+// GET /api/v1/profile/connected-apps
+func (c *Client) ListMyConnectedApps(ctx context.Context) (ListMyConnectedAppsRes, error) {
+	res, err := c.sendListMyConnectedApps(ctx)
+	return res, err
+}
+
+func (c *Client) sendListMyConnectedApps(ctx context.Context) (res ListMyConnectedAppsRes, err error) {
+	otelAttrs := []attribute.KeyValue{
+		otelogen.OperationID("listMyConnectedApps"),
+		semconv.HTTPRequestMethodKey.String("GET"),
+		semconv.URLTemplateKey.String("/api/v1/profile/connected-apps"),
+	}
+	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
+
+	// Run stopwatch.
+	startTime := time.Now()
+	defer func() {
+		// Use floating point division here for higher precision (instead of Millisecond method).
+		elapsedDuration := time.Since(startTime)
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
+	}()
+
+	// Increment request counter.
+	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+
+	// Start a span for this request.
+	ctx, span := c.cfg.Tracer.Start(ctx, ListMyConnectedAppsOperation,
+		trace.WithAttributes(otelAttrs...),
+		clientSpanKind,
+	)
+	// Track stage for error reporting.
+	var stage string
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, stage)
+			c.errors.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+		}
+		span.End()
+	}()
+
+	stage = "BuildURL"
+	u := uri.Clone(c.requestURL(ctx))
+	var pathParts [1]string
+	pathParts[0] = "/api/v1/profile/connected-apps"
+	uri.AddPathParts(u, pathParts[:]...)
+
+	stage = "EncodeRequest"
+	r, err := ht.NewRequest(ctx, "GET", u)
+	if err != nil {
+		return res, errors.Wrap(err, "create request")
+	}
+
+	{
+		type bitset = [1]uint8
+		var satisfied bitset
+		{
+			stage = "Security:Session"
+			switch err := c.securitySession(ctx, ListMyConnectedAppsOperation, r); {
+			case err == nil: // if NO error
+				satisfied[0] |= 1 << 0
+			case errors.Is(err, ogenerrors.ErrSkipClientSecurity):
+				// Skip this security.
+			default:
+				return res, errors.Wrap(err, "security \"Session\"")
+			}
+		}
+
+		if ok := func() bool {
+		nextRequirement:
+			for _, requirement := range []bitset{
+				{0b00000001},
+			} {
+				for i, mask := range requirement {
+					if satisfied[i]&mask != mask {
+						continue nextRequirement
+					}
+				}
+				return true
+			}
+			return false
+		}(); !ok {
+			return res, ogenerrors.ErrSecurityRequirementIsNotSatisfied
+		}
+	}
+
+	stage = "SendRequest"
+	resp, err := c.cfg.Client.Do(r)
+	if err != nil {
+		return res, errors.Wrap(err, "do request")
+	}
+	body := resp.Body
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
+
+	stage = "DecodeResponse"
+	result, err := decodeListMyConnectedAppsResponse(resp)
 	if err != nil {
 		return res, errors.Wrap(err, "decode response")
 	}
@@ -5844,6 +6117,140 @@ func (c *Client) sendResetWithPasskey(ctx context.Context, request *ResetPasskey
 	return result, nil
 }
 
+// RevokeMyConnectedApp invokes revokeMyConnectedApp operation.
+//
+// Its tokens stop working at once; the tool must ask for consent again.
+//
+// DELETE /api/v1/profile/connected-apps/{connectedAppId}
+func (c *Client) RevokeMyConnectedApp(ctx context.Context, params RevokeMyConnectedAppParams) (RevokeMyConnectedAppRes, error) {
+	res, err := c.sendRevokeMyConnectedApp(ctx, params)
+	return res, err
+}
+
+func (c *Client) sendRevokeMyConnectedApp(ctx context.Context, params RevokeMyConnectedAppParams) (res RevokeMyConnectedAppRes, err error) {
+	otelAttrs := []attribute.KeyValue{
+		otelogen.OperationID("revokeMyConnectedApp"),
+		semconv.HTTPRequestMethodKey.String("DELETE"),
+		semconv.URLTemplateKey.String("/api/v1/profile/connected-apps/{connectedAppId}"),
+	}
+	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
+
+	// Run stopwatch.
+	startTime := time.Now()
+	defer func() {
+		// Use floating point division here for higher precision (instead of Millisecond method).
+		elapsedDuration := time.Since(startTime)
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
+	}()
+
+	// Increment request counter.
+	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+
+	// Start a span for this request.
+	ctx, span := c.cfg.Tracer.Start(ctx, RevokeMyConnectedAppOperation,
+		trace.WithAttributes(otelAttrs...),
+		clientSpanKind,
+	)
+	// Track stage for error reporting.
+	var stage string
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, stage)
+			c.errors.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+		}
+		span.End()
+	}()
+
+	stage = "BuildURL"
+	u := uri.Clone(c.requestURL(ctx))
+	var pathParts [2]string
+	pathParts[0] = "/api/v1/profile/connected-apps/"
+	{
+		// Encode "connectedAppId" parameter.
+		e := uri.NewPathEncoder(uri.PathEncoderConfig{
+			Param:   "connectedAppId",
+			Style:   uri.PathStyleSimple,
+			Explode: false,
+		})
+		if err := func() error {
+			if unwrapped := uuid.UUID(params.ConnectedAppId); true {
+				return e.EncodeValue(conv.UUIDToString(unwrapped))
+			}
+			return nil
+		}(); err != nil {
+			return res, errors.Wrap(err, "encode path")
+		}
+		encoded, err := e.Result()
+		if err != nil {
+			return res, errors.Wrap(err, "encode path")
+		}
+		pathParts[1] = encoded
+	}
+	uri.AddPathParts(u, pathParts[:]...)
+
+	stage = "EncodeRequest"
+	r, err := ht.NewRequest(ctx, "DELETE", u)
+	if err != nil {
+		return res, errors.Wrap(err, "create request")
+	}
+
+	{
+		type bitset = [1]uint8
+		var satisfied bitset
+		{
+			stage = "Security:Session"
+			switch err := c.securitySession(ctx, RevokeMyConnectedAppOperation, r); {
+			case err == nil: // if NO error
+				satisfied[0] |= 1 << 0
+			case errors.Is(err, ogenerrors.ErrSkipClientSecurity):
+				// Skip this security.
+			default:
+				return res, errors.Wrap(err, "security \"Session\"")
+			}
+		}
+
+		if ok := func() bool {
+		nextRequirement:
+			for _, requirement := range []bitset{
+				{0b00000001},
+			} {
+				for i, mask := range requirement {
+					if satisfied[i]&mask != mask {
+						continue nextRequirement
+					}
+				}
+				return true
+			}
+			return false
+		}(); !ok {
+			return res, ogenerrors.ErrSecurityRequirementIsNotSatisfied
+		}
+	}
+
+	stage = "SendRequest"
+	resp, err := c.cfg.Client.Do(r)
+	if err != nil {
+		return res, errors.Wrap(err, "do request")
+	}
+	body := resp.Body
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
+
+	stage = "DecodeResponse"
+	result, err := decodeRevokeMyConnectedAppResponse(resp)
+	if err != nil {
+		return res, errors.Wrap(err, "decode response")
+	}
+
+	return result, nil
+}
+
 // RevokeMyToken invokes revokeMyToken operation.
 //
 // The token is refused from now on. Revoking it twice changes nothing.
@@ -6540,6 +6947,145 @@ func (c *Client) sendSetGroupTwoFactor(ctx context.Context, request *TwoFactorRe
 
 	stage = "DecodeResponse"
 	result, err := decodeSetGroupTwoFactorResponse(resp)
+	if err != nil {
+		return res, errors.Wrap(err, "decode response")
+	}
+
+	return result, nil
+}
+
+// SetMCPResource invokes setMCPResource operation.
+//
+// Admins only, from a session that proved a Second Factor. Stopping keeps the Connected Apps the
+// Client has; turning step-up on disconnects them.
+//
+// PUT /api/v1/apps/{clientId}/mcp
+func (c *Client) SetMCPResource(ctx context.Context, request *MCPResourceSetting, params SetMCPResourceParams) (SetMCPResourceRes, error) {
+	res, err := c.sendSetMCPResource(ctx, request, params)
+	return res, err
+}
+
+func (c *Client) sendSetMCPResource(ctx context.Context, request *MCPResourceSetting, params SetMCPResourceParams) (res SetMCPResourceRes, err error) {
+	otelAttrs := []attribute.KeyValue{
+		otelogen.OperationID("setMCPResource"),
+		semconv.HTTPRequestMethodKey.String("PUT"),
+		semconv.URLTemplateKey.String("/api/v1/apps/{clientId}/mcp"),
+	}
+	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
+
+	// Run stopwatch.
+	startTime := time.Now()
+	defer func() {
+		// Use floating point division here for higher precision (instead of Millisecond method).
+		elapsedDuration := time.Since(startTime)
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
+	}()
+
+	// Increment request counter.
+	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+
+	// Start a span for this request.
+	ctx, span := c.cfg.Tracer.Start(ctx, SetMCPResourceOperation,
+		trace.WithAttributes(otelAttrs...),
+		clientSpanKind,
+	)
+	// Track stage for error reporting.
+	var stage string
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, stage)
+			c.errors.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
+		}
+		span.End()
+	}()
+
+	stage = "BuildURL"
+	u := uri.Clone(c.requestURL(ctx))
+	var pathParts [3]string
+	pathParts[0] = "/api/v1/apps/"
+	{
+		// Encode "clientId" parameter.
+		e := uri.NewPathEncoder(uri.PathEncoderConfig{
+			Param:   "clientId",
+			Style:   uri.PathStyleSimple,
+			Explode: false,
+		})
+		if err := func() error {
+			if unwrapped := string(params.ClientId); true {
+				return e.EncodeValue(conv.StringToString(unwrapped))
+			}
+			return nil
+		}(); err != nil {
+			return res, errors.Wrap(err, "encode path")
+		}
+		encoded, err := e.Result()
+		if err != nil {
+			return res, errors.Wrap(err, "encode path")
+		}
+		pathParts[1] = encoded
+	}
+	pathParts[2] = "/mcp"
+	uri.AddPathParts(u, pathParts[:]...)
+
+	stage = "EncodeRequest"
+	r, err := ht.NewRequest(ctx, "PUT", u)
+	if err != nil {
+		return res, errors.Wrap(err, "create request")
+	}
+	if err := encodeSetMCPResourceRequest(request, r); err != nil {
+		return res, errors.Wrap(err, "encode request")
+	}
+
+	{
+		type bitset = [1]uint8
+		var satisfied bitset
+		{
+			stage = "Security:Session"
+			switch err := c.securitySession(ctx, SetMCPResourceOperation, r); {
+			case err == nil: // if NO error
+				satisfied[0] |= 1 << 0
+			case errors.Is(err, ogenerrors.ErrSkipClientSecurity):
+				// Skip this security.
+			default:
+				return res, errors.Wrap(err, "security \"Session\"")
+			}
+		}
+
+		if ok := func() bool {
+		nextRequirement:
+			for _, requirement := range []bitset{
+				{0b00000001},
+			} {
+				for i, mask := range requirement {
+					if satisfied[i]&mask != mask {
+						continue nextRequirement
+					}
+				}
+				return true
+			}
+			return false
+		}(); !ok {
+			return res, ogenerrors.ErrSecurityRequirementIsNotSatisfied
+		}
+	}
+
+	stage = "SendRequest"
+	resp, err := c.cfg.Client.Do(r)
+	if err != nil {
+		return res, errors.Wrap(err, "do request")
+	}
+	body := resp.Body
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
+
+	stage = "DecodeResponse"
+	result, err := decodeSetMCPResourceResponse(resp)
 	if err != nil {
 		return res, errors.Wrap(err, "decode response")
 	}

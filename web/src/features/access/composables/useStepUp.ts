@@ -14,6 +14,8 @@ export function useStepUp(clientId: Ref<string>) {
     minutes: computed(() => query.data.value?.minutes),
     // The live tokens turning step-up on would revoke.
     tokens: computed(() => query.data.value?.tokens),
+    // The connected apps turning step-up on would disconnect.
+    connectedApps: computed(() => query.data.value?.connectedApps),
     error: set.error,
     set: (minutes: StepUp['minutes']) => {
       set.run({ path: { clientId: clientId.value }, body: { minutes } }, () => void queryClient.invalidateQueries({ queryKey: getStepUpQueryKey({ path: { clientId: clientId.value } }) }))

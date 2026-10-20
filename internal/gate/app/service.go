@@ -51,6 +51,8 @@ type Client struct {
 	// StepUp is how fresh the Client wants two-factor; 0 when it does not. A host sign-in for it
 	// lasts only this long.
 	StepUp time.Duration
+	// MCP is whether the Client takes Connected Apps' tokens (identity#23); BearerClient sets it.
+	MCP bool
 }
 
 // Person is a signed-in User, and what vouches for them: their Single sign-on session, or, for a
@@ -99,8 +101,8 @@ type Clients interface {
 	BearerClient(ctx context.Context, host string) (Client, error)
 }
 
-// Tokens checks a Personal Token for a Client (docs/adr/0017): the User it acts for and the App
-// Roles they hold there now; ErrNoSignIn for one that is not active.
+// Tokens checks a Personal Token or a Connected App's token for a Client (docs/adr/0017): the User
+// it acts for and the App Roles they hold there now; ErrNoSignIn for one that is not active.
 type Tokens interface {
 	Bearer(ctx context.Context, secret, clientID string) (Person, []string, error)
 }
@@ -182,6 +184,13 @@ func (s *Service) CheckBearer(ctx context.Context, host, secret string) (Verdict
 		}
 		return Verdict{UserID: p.UserID, Email: p.Email, Name: p.Name, Roles: roles}, p.SessionID, time.Time{}, nil
 	})
+}
+
+// MCP reports whether a host's Client takes Connected Apps, so its refusals point a tool to where
+// it gets a token.
+func (s *Service) MCP(ctx context.Context, host string) bool {
+	c, err := s.clients.BearerClient(ctx, host)
+	return err == nil && c.MCP
 }
 
 // Client is the gated Client a host belongs to.

@@ -190,6 +190,12 @@ type Handler interface {
 	//
 	// GET /api/v1/launcher
 	GetLauncher(ctx context.Context) (GetLauncherRes, error)
+	// GetMCPResource implements getMCPResource operation.
+	//
+	// Admins only, from a session that proved a Second Factor.
+	//
+	// GET /api/v1/apps/{clientId}/mcp
+	GetMCPResource(ctx context.Context, params GetMCPResourceParams) (GetMCPResourceRes, error)
 	// GetProfile implements getProfile operation.
 	//
 	// Who is signed in.
@@ -230,6 +236,12 @@ type Handler interface {
 	//
 	// GET /api/v1/access/machines
 	ListMachines(ctx context.Context) (ListMachinesRes, error)
+	// ListMyConnectedApps implements listMyConnectedApps operation.
+	//
+	// The tools acting for the signed-in User, oldest first.
+	//
+	// GET /api/v1/profile/connected-apps
+	ListMyConnectedApps(ctx context.Context) (ListMyConnectedAppsRes, error)
 	// ListMyTokens implements listMyTokens operation.
 	//
 	// The signed-in User's tokens, newest first, and the Clients they may mint one for.
@@ -304,6 +316,12 @@ type Handler interface {
 	//
 	// POST /api/v1/password-resets/passkey/assertion
 	ResetWithPasskey(ctx context.Context, req *ResetPasskey) (ResetWithPasskeyRes, error)
+	// RevokeMyConnectedApp implements revokeMyConnectedApp operation.
+	//
+	// Its tokens stop working at once; the tool must ask for consent again.
+	//
+	// DELETE /api/v1/profile/connected-apps/{connectedAppId}
+	RevokeMyConnectedApp(ctx context.Context, params RevokeMyConnectedAppParams) (RevokeMyConnectedAppRes, error)
 	// RevokeMyToken implements revokeMyToken operation.
 	//
 	// The token is refused from now on. Revoking it twice changes nothing.
@@ -339,6 +357,13 @@ type Handler interface {
 	//
 	// PUT /api/v1/access/groups/{groupId}/two-factor
 	SetGroupTwoFactor(ctx context.Context, req *TwoFactorRequirement, params SetGroupTwoFactorParams) (SetGroupTwoFactorRes, error)
+	// SetMCPResource implements setMCPResource operation.
+	//
+	// Admins only, from a session that proved a Second Factor. Stopping keeps the Connected Apps the
+	// Client has; turning step-up on disconnects them.
+	//
+	// PUT /api/v1/apps/{clientId}/mcp
+	SetMCPResource(ctx context.Context, req *MCPResourceSetting, params SetMCPResourceParams) (SetMCPResourceRes, error)
 	// SetStepUp implements setStepUp operation.
 	//
 	// Signing in to the Client then finishes only when the session proved two-factor within the window; 0

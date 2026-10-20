@@ -20,6 +20,7 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 
+	signinconnected "github.com/JorisJonkers-dev/identity/internal/signin/adapters/connected"
 	"github.com/JorisJonkers-dev/identity/internal/signin/app"
 	"github.com/JorisJonkers-dev/identity/internal/signin/domain"
 )
@@ -37,6 +38,7 @@ type env struct {
 	accounts *accounts
 	access   *access
 	stepUps  stepUps
+	apps     *fakeApps
 	browser  *http.Client
 }
 
@@ -65,8 +67,10 @@ func serve(t *testing.T, requests app.Requests, accounts app.Accounts, access ap
 	svc.SetClientSecrets(testSecrets)
 	ups := stepUps{}
 	svc.SetStepUps(ups)
+	apps := newApps()
+	svc.SetConsents(signinconnected.New(apps))
 	var err error
-	h, err = New(Config{Issuer: srv.URL, Insecure: true, SessionCookie: cookieName}, svc, nil, NewRing(testKey()), slog.New(slog.DiscardHandler), time.Now)
+	h, err = New(Config{Issuer: srv.URL, Insecure: true, SessionCookie: cookieName}, svc, nil, apps, NewRing(testKey()), slog.New(slog.DiscardHandler), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,6 +79,7 @@ func serve(t *testing.T, requests app.Requests, accounts app.Accounts, access ap
 		session: session,
 		cookies: map[string]string{},
 		stepUps: ups,
+		apps:    apps,
 		browser: &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
 			return http.ErrUseLastResponse
 		}},

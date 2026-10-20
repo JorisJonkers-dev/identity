@@ -71,6 +71,7 @@ type StepUps struct {
 	admins   Admins
 	audit    Audit
 	tokens   ClientTokens
+	apps     ClientApps
 }
 
 // NewStepUps returns StepUps.
@@ -79,11 +80,23 @@ func NewStepUps(settings StepUpSettings, clients Clients, admins Admins, audit A
 }
 
 // StepUpState is a Client's window in minutes, 0 when it is off, and how many live Personal
-// Tokens turning it on would revoke.
+// Tokens and Connected Apps turning it on would revoke.
 type StepUpState struct {
-	Minutes int
-	Tokens  int
+	Minutes       int
+	Tokens        int
+	ConnectedApps int
 }
+
+// ClientApps is the Connected Apps acting on a Client, which step-up ends too: they prove nothing
+// fresh either (identity#23).
+type ClientApps interface {
+	CountForClient(ctx context.Context, clientID string) (int, error)
+	RevokeForClient(ctx context.Context, actor uuid.UUID, clientID string) error
+}
+
+// SetConnectedApps lets step-up end a Client's Connected Apps; until it is called, there are none.
+// It is set once, before anything serves.
+func (s *StepUps) SetConnectedApps(apps ClientApps) { s.apps = apps }
 
 // StepUp is a Client's step-up, as an Admin reads it.
 func (s *StepUps) StepUp(ctx context.Context, actor Actor, clientID string) (StepUpState, error) {
@@ -98,7 +111,11 @@ func (s *StepUps) StepUp(ctx context.Context, actor Actor, clientID string) (Ste
 		return StepUpState{}, err
 	}
 	tokens, err := s.tokens.LiveForClient(ctx, clientID)
-	return StepUpState{Minutes: minutes, Tokens: tokens}, err
+	if err != nil || s.apps == nil {
+		return StepUpState{Minutes: minutes, Tokens: tokens}, err
+	}
+	apps, err := s.apps.CountForClient(ctx, clientID)
+	return StepUpState{Minutes: minutes, Tokens: tokens, ConnectedApps: apps}, err
 }
 
 // Set sets a Client's window: off (0), 5, 15 or 60 minutes.
@@ -118,6 +135,11 @@ func (s *StepUps) Set(ctx context.Context, actor Actor, clientID string, minutes
 	if minutes > 0 {
 		if err := s.tokens.RevokeForClient(ctx, actor.ID, clientID); err != nil {
 			return err
+		}
+		if s.apps != nil {
+			if err := s.apps.RevokeForClient(ctx, actor.ID, clientID); err != nil {
+				return err
+			}
 		}
 	}
 	if err := s.settings.SetStepUp(ctx, clientID, minutes); err != nil {

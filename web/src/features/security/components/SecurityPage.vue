@@ -38,6 +38,11 @@ function day(at: string): string {
         <span class="grow"><b>Devices</b><small>Where you are signed in</small></span>
         <Icon name="chevr" class="chevr" />
       </RouterLink>
+      <RouterLink class="row link-row" to="/security/connected-apps">
+        <span class="row-ic"><Icon name="bot" /></span>
+        <span class="grow"><b>Connected apps</b><small>Tools that use your apps as you</small></span>
+        <Icon name="chevr" class="chevr" />
+      </RouterLink>
       <RouterLink class="row link-row" to="/security/password">
         <span class="row-ic"><Icon name="key" /></span>
         <span class="grow"><b>Password</b><small>Other devices are signed out when it changes</small></span>

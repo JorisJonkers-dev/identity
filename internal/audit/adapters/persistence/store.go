@@ -27,7 +27,7 @@ func (s *Store) Append(ctx context.Context, e domain.Event) error {
 		ActorID: id(e.Actor), UserID: id(e.User), ClientID: text(e.Client), GroupID: id(e.Group),
 		GroupName: text(e.GroupName), Role: text(e.Role), Email: text(e.Email), Reason: text(e.Reason),
 		Minutes:   pgtype.Int4{Int32: int32(e.Minutes), Valid: e.Action == domain.StepUpChanged}, //nolint:gosec // 0 to 60
-		MachineID: id(e.Machine), MachineName: text(e.MachineName),
+		MachineID: id(e.Machine), MachineName: text(e.MachineName), AppName: text(e.AppName),
 	})
 }
 
@@ -48,6 +48,7 @@ func (s *Store) List(ctx context.Context, f domain.Filter, limit int) ([]domain.
 			Actor: deref(r.ActorID), User: deref(r.UserID), Client: r.ClientID.String, Group: deref(r.GroupID),
 			GroupName: r.GroupName.String, Role: r.Role.String, Email: r.Email.String, Reason: r.Reason.String,
 			Minutes: int(r.Minutes.Int32), Machine: deref(r.MachineID), MachineName: r.MachineName.String,
+			AppName: r.AppName.String,
 		})
 	}
 	return events, nil

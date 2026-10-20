@@ -31,8 +31,10 @@ func (d tokenDecrypter) Decrypt(token string) (string, error) {
 	return tokenID + ":" + subject, nil
 }
 
-// newCrypto is zitadel's default Crypto with Personal Tokens looked up first.
+// newCrypto is zitadel's default Crypto with Personal Tokens looked up first, and a Connected
+// App's access token sealed behind its prefix.
 func newCrypto(key [32]byte, resolve resolver) op.Crypto {
 	sealed := op.NewAES256GCMCrypto(key, "")
-	return op.NewCompositeCrypto(sealed, []op.Decrypter{tokenDecrypter{resolve: resolve}, sealed, op.NewAESDecrypter(key)})
+	apps := appSealer{sealed: sealed}
+	return op.NewCompositeCrypto(apps, []op.Decrypter{tokenDecrypter{resolve: resolve}, apps, sealed, op.NewAESDecrypter(key)})
 }

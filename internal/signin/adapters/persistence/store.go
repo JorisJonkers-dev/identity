@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JorisJonkers-dev/identity/internal/platform/pg/queries"
 	"github.com/JorisJonkers-dev/identity/internal/signin/app"
@@ -26,7 +27,7 @@ func (s *Store) CreateRequest(ctx context.Context, r domain.AuthRequest) error {
 		ID: r.ID, ClientID: r.ClientID, RedirectUri: r.RedirectURI, Scopes: r.Scopes, State: r.State, Nonce: r.Nonce,
 		ResponseType: r.ResponseType, ResponseMode: r.ResponseMode,
 		CodeChallenge: r.CodeChallenge, CodeChallengeMethod: r.CodeChallengeMethod,
-		CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt,
+		CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt, Resource: pgtype.Text{String: r.Resource, Valid: r.Resource != ""},
 	})
 }
 
@@ -65,7 +66,7 @@ func toRequest(row queries.AuthRequest, err error) (domain.AuthRequest, error) {
 		ID: row.ID, ClientID: row.ClientID, RedirectURI: row.RedirectUri, Scopes: row.Scopes, State: row.State,
 		Nonce: row.Nonce, ResponseType: row.ResponseType, ResponseMode: row.ResponseMode,
 		CodeChallenge: row.CodeChallenge, CodeChallengeMethod: row.CodeChallengeMethod,
-		CreatedAt: row.CreatedAt, ExpiresAt: row.ExpiresAt,
+		CreatedAt: row.CreatedAt, ExpiresAt: row.ExpiresAt, Resource: row.Resource.String,
 	}
 	// The three are written together by CompleteAuthRequest, so one stands for all.
 	if row.UserID != nil {

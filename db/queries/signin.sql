@@ -1,7 +1,7 @@
 -- name: CreateAuthRequest :exec
 INSERT INTO auth_requests (id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode,
-    code_challenge, code_challenge_method, created_at, expires_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
+    code_challenge, code_challenge_method, created_at, expires_at, resource)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);
 
 -- name: AuthRequestByID :one
 SELECT * FROM auth_requests WHERE id = $1;

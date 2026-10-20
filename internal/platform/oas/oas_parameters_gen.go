@@ -1074,6 +1074,87 @@ func decodeDeleteUserParams(args [1]string, argsEscaped bool, r *http.Request) (
 	return params, nil
 }
 
+// GetMCPResourceParams is parameters of getMCPResource operation.
+type GetMCPResourceParams struct {
+	// The Client, by its id.
+	ClientId ClientId
+}
+
+func unpackGetMCPResourceParams(packed middleware.Parameters) (params GetMCPResourceParams) {
+	{
+		key := middleware.ParameterKey{
+			Name: "clientId",
+			In:   "path",
+		}
+		params.ClientId = packed[key].(ClientId)
+	}
+	return params
+}
+
+func decodeGetMCPResourceParams(args [1]string, argsEscaped bool, r *http.Request) (params GetMCPResourceParams, _ error) {
+	// Decode path: clientId.
+	if err := func() error {
+		param := args[0]
+		if argsEscaped {
+			unescaped, err := url.PathUnescape(args[0])
+			if err != nil {
+				return errors.Wrap(err, "unescape path")
+			}
+			param = unescaped
+		}
+		if len(param) > 0 {
+			d := uri.NewPathDecoder(uri.PathDecoderConfig{
+				Param:   "clientId",
+				Value:   param,
+				Style:   uri.PathStyleSimple,
+				Explode: false,
+			})
+
+			if err := func() error {
+				var paramsDotClientIdVal string
+				if err := func() error {
+					val, err := d.DecodeValue()
+					if err != nil {
+						return err
+					}
+
+					c, err := conv.ToString(val)
+					if err != nil {
+						return err
+					}
+
+					paramsDotClientIdVal = c
+					return nil
+				}(); err != nil {
+					return err
+				}
+				params.ClientId = ClientId(paramsDotClientIdVal)
+				return nil
+			}(); err != nil {
+				return err
+			}
+			if err := func() error {
+				if err := params.ClientId.Validate(); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return err
+			}
+		} else {
+			return validate.ErrFieldRequired
+		}
+		return nil
+	}(); err != nil {
+		return params, &ogenerrors.DecodeParamError{
+			Name: "clientId",
+			In:   "path",
+			Err:  err,
+		}
+	}
+	return params, nil
+}
+
 // GetStepUpParams is parameters of getStepUp operation.
 type GetStepUpParams struct {
 	// The Client, by its id.
@@ -1868,6 +1949,79 @@ func decodeRenameUserParams(args [1]string, argsEscaped bool, r *http.Request) (
 	return params, nil
 }
 
+// RevokeMyConnectedAppParams is parameters of revokeMyConnectedApp operation.
+type RevokeMyConnectedAppParams struct {
+	// The Connected App.
+	ConnectedAppId ID
+}
+
+func unpackRevokeMyConnectedAppParams(packed middleware.Parameters) (params RevokeMyConnectedAppParams) {
+	{
+		key := middleware.ParameterKey{
+			Name: "connectedAppId",
+			In:   "path",
+		}
+		params.ConnectedAppId = packed[key].(ID)
+	}
+	return params
+}
+
+func decodeRevokeMyConnectedAppParams(args [1]string, argsEscaped bool, r *http.Request) (params RevokeMyConnectedAppParams, _ error) {
+	// Decode path: connectedAppId.
+	if err := func() error {
+		param := args[0]
+		if argsEscaped {
+			unescaped, err := url.PathUnescape(args[0])
+			if err != nil {
+				return errors.Wrap(err, "unescape path")
+			}
+			param = unescaped
+		}
+		if len(param) > 0 {
+			d := uri.NewPathDecoder(uri.PathDecoderConfig{
+				Param:   "connectedAppId",
+				Value:   param,
+				Style:   uri.PathStyleSimple,
+				Explode: false,
+			})
+
+			if err := func() error {
+				var paramsDotConnectedAppIdVal uuid.UUID
+				if err := func() error {
+					val, err := d.DecodeValue()
+					if err != nil {
+						return err
+					}
+
+					c, err := conv.ToUUID(val)
+					if err != nil {
+						return err
+					}
+
+					paramsDotConnectedAppIdVal = c
+					return nil
+				}(); err != nil {
+					return err
+				}
+				params.ConnectedAppId = ID(paramsDotConnectedAppIdVal)
+				return nil
+			}(); err != nil {
+				return err
+			}
+		} else {
+			return validate.ErrFieldRequired
+		}
+		return nil
+	}(); err != nil {
+		return params, &ogenerrors.DecodeParamError{
+			Name: "connectedAppId",
+			In:   "path",
+			Err:  err,
+		}
+	}
+	return params, nil
+}
+
 // RevokeMyTokenParams is parameters of revokeMyToken operation.
 type RevokeMyTokenParams struct {
 	// The Personal Token.
@@ -2295,6 +2449,87 @@ func decodeSetGroupTwoFactorParams(args [1]string, argsEscaped bool, r *http.Req
 	}(); err != nil {
 		return params, &ogenerrors.DecodeParamError{
 			Name: "groupId",
+			In:   "path",
+			Err:  err,
+		}
+	}
+	return params, nil
+}
+
+// SetMCPResourceParams is parameters of setMCPResource operation.
+type SetMCPResourceParams struct {
+	// The Client, by its id.
+	ClientId ClientId
+}
+
+func unpackSetMCPResourceParams(packed middleware.Parameters) (params SetMCPResourceParams) {
+	{
+		key := middleware.ParameterKey{
+			Name: "clientId",
+			In:   "path",
+		}
+		params.ClientId = packed[key].(ClientId)
+	}
+	return params
+}
+
+func decodeSetMCPResourceParams(args [1]string, argsEscaped bool, r *http.Request) (params SetMCPResourceParams, _ error) {
+	// Decode path: clientId.
+	if err := func() error {
+		param := args[0]
+		if argsEscaped {
+			unescaped, err := url.PathUnescape(args[0])
+			if err != nil {
+				return errors.Wrap(err, "unescape path")
+			}
+			param = unescaped
+		}
+		if len(param) > 0 {
+			d := uri.NewPathDecoder(uri.PathDecoderConfig{
+				Param:   "clientId",
+				Value:   param,
+				Style:   uri.PathStyleSimple,
+				Explode: false,
+			})
+
+			if err := func() error {
+				var paramsDotClientIdVal string
+				if err := func() error {
+					val, err := d.DecodeValue()
+					if err != nil {
+						return err
+					}
+
+					c, err := conv.ToString(val)
+					if err != nil {
+						return err
+					}
+
+					paramsDotClientIdVal = c
+					return nil
+				}(); err != nil {
+					return err
+				}
+				params.ClientId = ClientId(paramsDotClientIdVal)
+				return nil
+			}(); err != nil {
+				return err
+			}
+			if err := func() error {
+				if err := params.ClientId.Validate(); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return err
+			}
+		} else {
+			return validate.ErrFieldRequired
+		}
+		return nil
+	}(); err != nil {
+		return params, &ogenerrors.DecodeParamError{
+			Name: "clientId",
 			In:   "path",
 			Err:  err,
 		}

@@ -22,6 +22,10 @@ const (
 	noAccessPath = "/no-access"
 	// twoFactorSetupPath is where a User with no two-factor goes when an app wants it.
 	twoFactorSetupPath = "/security/two-factor?for=step-up"
+	// consentPath is the web app's page where a User consents to a Connected App (identity#23).
+	consentPath = "/connect"
+	// consentAPIPath is where that page reads the request and answers it.
+	consentAPIPath = "/oidc/consent"
 	// bindingCookie ties an authorization request to the browser that started it.
 	bindingCookie = "__Host-identity_authorize"
 )
@@ -41,7 +45,7 @@ type Config struct {
 
 // New returns the Provider's handler: discovery at /.well-known/openid-configuration and every
 // other endpoint under /oidc/.
-func New(cfg Config, svc *app.Service, machines *app.MachineSignIn, ring *Ring, logger *slog.Logger, now func() time.Time) (http.Handler, error) {
+func New(cfg Config, svc *app.Service, machines *app.MachineSignIn, apps ConnectedApps, ring *Ring, logger *slog.Logger, now func() time.Time) (http.Handler, error) {
 	opts := []op.Option{
 		op.WithLogger(logger),
 		op.WithCustomEndpoints(
@@ -54,18 +58,26 @@ func New(cfg Config, svc *app.Service, machines *app.MachineSignIn, ring *Ring, 
 	if cfg.Insecure {
 		opts = append(opts, op.WithAllowInsecure())
 	}
+	store := &storage{svc: svc, machines: machines, apps: apps, ring: ring, logger: logger, now: now}
 	provider, err := op.NewProvider(&op.Config{
-		CryptoKey: cfg.CryptoKey, CodeMethodS256: true, AuthMethodPost: true,
+		CryptoKey: cfg.CryptoKey, CodeMethodS256: true, AuthMethodPost: true, GrantTypeRefreshToken: true,
 		BackChannelLogoutSupported: true, BackChannelLogoutSessionSupported: true,
-	}, &storage{svc: svc, machines: machines, ring: ring, logger: logger, now: now}, op.StaticIssuer(cfg.Issuer), opts...)
+	}, store, op.StaticIssuer(cfg.Issuer), opts...)
 	if err != nil {
 		return nil, err
 	}
 	l := &login{svc: svc, cookie: cfg.SessionCookie, callback: op.AuthCallbackURL(provider), logger: logger}
+	c := &consent{svc: svc, cookie: cfg.SessionCookie, issuer: op.IssuerFromContext, callback: op.AuthCallbackURL(provider), logger: logger}
 	mux := http.NewServeMux()
-	mux.Handle("/oidc/authorize", bind(provider))
+	issued := op.NewIssuerInterceptor(provider.IssuerFromRequest)
+	mux.Handle("/oidc/authorize", resources(bind(provider)))
+	mux.Handle("POST "+registerPath, register(apps, store))
+	mux.Handle("GET /.well-known/oauth-authorization-server", issued.HandlerFunc(metadata(provider, store)))
+	mux.Handle("GET /.well-known/oauth-protected-resource/{host}", issued.HandlerFunc(resourceMetadata(apps, store)))
 	mux.Handle("/oidc/authorize/callback", bound(provider)) // every method: bound refuses all but GET
-	mux.Handle("GET "+loginPath, op.NewIssuerInterceptor(provider.IssuerFromRequest).Handler(l))
+	mux.Handle("GET "+loginPath, issued.Handler(l))
+	mux.Handle("GET "+consentAPIPath, issued.HandlerFunc(c.prompt))
+	mux.Handle("POST "+consentAPIPath, issued.HandlerFunc(c.answer))
 	mux.Handle("/oidc/token", grants(provider))
 	mux.Handle("/", provider)
 	return mux, nil
@@ -162,6 +174,10 @@ func (l *login) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/signin/step-up?authRequestID="+id.String(), http.StatusSeeOther) //nolint:gosec // a fixed path and a parsed UUID
 	case errors.Is(err, app.ErrTwoFactorNeeded):
 		http.Redirect(w, r, twoFactorSetupPath, http.StatusSeeOther)
+	case errors.Is(err, app.ErrConsentNeeded):
+		http.Redirect(w, r, consentPath+"?authRequestID="+id.String(), http.StatusSeeOther) //nolint:gosec // a fixed path and a parsed UUID
+	case errors.Is(err, app.ErrNotConnectable):
+		httpx.WriteProblem(w, http.StatusBadRequest, "This tool cannot connect to that app.")
 	case errors.Is(err, app.ErrNotFound):
 		httpx.WriteProblem(w, http.StatusBadRequest, "This sign-in has expired or was already used. Start again from the app.")
 	default:

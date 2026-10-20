@@ -122,8 +122,11 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 	}
 	stopMetrics := serveMetrics(mln, metrics.Handler(identity.Unassigned, logger), logger)
 	defer stopMetrics()
-	go schedule.Every(ctx, pruneInterval, prune(identity.Prune, logger), func(err error) {
+	go schedule.Every(ctx, pruneInterval, prune(identity.Prune, logger, "audit events"), func(err error) {
 		logger.ErrorContext(ctx, "audit events not pruned", "error", err)
+	})
+	go schedule.Every(ctx, pruneInterval, prune(identity.PruneConnected, logger, "connected app records"), func(err error) {
+		logger.ErrorContext(ctx, "connected app records not pruned", "error", err)
 	})
 	go schedule.Every(ctx, keysInterval, identity.RefreshKeys, func(err error) {
 		logger.ErrorContext(ctx, "signing keys not refreshed", "error", err)
@@ -134,12 +137,12 @@ func run(ctx context.Context, logger *slog.Logger, getenv func(string) string) e
 	return server.New(logger, version, identity.Routes).Serve(ctx, ln)
 }
 
-// prune removes Audit Events older than a year, logging how many it removed.
-func prune(job func(context.Context) (int64, error), logger *slog.Logger) func(context.Context) error {
+// prune runs a job removing what has expired, logging how many of what it removed.
+func prune(job func(context.Context) (int64, error), logger *slog.Logger, what string) func(context.Context) error {
 	return func(ctx context.Context) error {
 		n, err := job(ctx)
 		if n > 0 {
-			logger.InfoContext(ctx, "audit events pruned", "count", n)
+			logger.InfoContext(ctx, what+" pruned", "count", n)
 		}
 		return err
 	}

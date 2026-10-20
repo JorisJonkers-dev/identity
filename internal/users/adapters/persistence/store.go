@@ -31,8 +31,8 @@ type Store struct {
 // New returns a Store over q, running what must be atomic through tx.
 func New(q queries.Querier, tx Transactor) *Store { return &Store{q: q, tx: tx} }
 
-// DeleteUser deletes a User and, with them, their sessions and Personal Tokens, returning their
-// ids. It holds the admins Group as removing an Admin does, and refuses the last Admin.
+// DeleteUser deletes a User and, with them, their sessions, Personal Tokens and Connected Apps,
+// returning the ids of the sessions and of the tokens the Gate may cache. It holds the admins Group as removing an Admin does, and refuses the last Admin.
 func (s *Store) DeleteUser(ctx context.Context, userID uuid.UUID) (app.Deleted, error) {
 	var d app.Deleted
 	err := s.tx.InTx(ctx, func(q *queries.Queries) error {
@@ -53,6 +53,11 @@ func (s *Store) DeleteUser(ctx context.Context, userID uuid.UUID) (app.Deleted, 
 		if d.Tokens, err = q.DeletePersonalTokensOfUser(ctx, userID); err != nil {
 			return err
 		}
+		apps, err := q.ConnectedAppAccessTokensOfUser(ctx, userID)
+		if err != nil {
+			return err
+		}
+		d.Tokens = append(d.Tokens, apps...)
 		n, err := q.DeleteUser(ctx, userID)
 		if err == nil && n == 0 {
 			return app.ErrNotFound

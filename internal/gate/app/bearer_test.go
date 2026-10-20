@@ -127,3 +127,19 @@ func TestAHostWithNoClientAndNoCookieIsUnknown(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestAHostWhoseClientTakesConnectedAppsIsAnMCPResource(t *testing.T) {
+	f := newFixture()
+	if !f.MCP(context.Background(), backupHost) {
+		t.Fatal("the backup host is no MCP resource")
+	}
+}
+
+func TestAHostWhoseClientTakesNoConnectedAppsOrIsUnknownIsNoMCPResource(t *testing.T) {
+	f := newFixture()
+	for _, host := range []string{stats.Host, "nobody.jorisjonkers.dev"} {
+		if f.MCP(context.Background(), host) {
+			t.Errorf("%s is an MCP resource", host)
+		}
+	}
+}

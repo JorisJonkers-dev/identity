@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const addSessionClient = `-- name: AddSessionClient :exec
@@ -27,7 +28,7 @@ func (q *Queries) AddSessionClient(ctx context.Context, arg AddSessionClientPara
 }
 
 const authRequestByID = `-- name: AuthRequestByID :one
-SELECT id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode, code_challenge, code_challenge_method, created_at, expires_at, user_id, session_id, auth_time, code_hash, methods FROM auth_requests WHERE id = $1
+SELECT id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode, code_challenge, code_challenge_method, created_at, expires_at, user_id, session_id, auth_time, code_hash, methods, resource FROM auth_requests WHERE id = $1
 `
 
 func (q *Queries) AuthRequestByID(ctx context.Context, id uuid.UUID) (AuthRequest, error) {
@@ -51,6 +52,7 @@ func (q *Queries) AuthRequestByID(ctx context.Context, id uuid.UUID) (AuthReques
 		&i.AuthTime,
 		&i.CodeHash,
 		&i.Methods,
+		&i.Resource,
 	)
 	return i, err
 }
@@ -93,8 +95,8 @@ func (q *Queries) CompleteAuthRequest(ctx context.Context, arg CompleteAuthReque
 
 const createAuthRequest = `-- name: CreateAuthRequest :exec
 INSERT INTO auth_requests (id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode,
-    code_challenge, code_challenge_method, created_at, expires_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    code_challenge, code_challenge_method, created_at, expires_at, resource)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 `
 
 type CreateAuthRequestParams struct {
@@ -110,6 +112,7 @@ type CreateAuthRequestParams struct {
 	CodeChallengeMethod string
 	CreatedAt           time.Time
 	ExpiresAt           time.Time
+	Resource            pgtype.Text
 }
 
 func (q *Queries) CreateAuthRequest(ctx context.Context, arg CreateAuthRequestParams) error {
@@ -126,6 +129,7 @@ func (q *Queries) CreateAuthRequest(ctx context.Context, arg CreateAuthRequestPa
 		arg.CodeChallengeMethod,
 		arg.CreatedAt,
 		arg.ExpiresAt,
+		arg.Resource,
 	)
 	return err
 }
@@ -185,7 +189,7 @@ func (q *Queries) StepUpMinutes(ctx context.Context, clientID string) (int32, er
 }
 
 const takeAuthRequestByCodeHash = `-- name: TakeAuthRequestByCodeHash :one
-DELETE FROM auth_requests WHERE code_hash = $1 RETURNING id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode, code_challenge, code_challenge_method, created_at, expires_at, user_id, session_id, auth_time, code_hash, methods
+DELETE FROM auth_requests WHERE code_hash = $1 RETURNING id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode, code_challenge, code_challenge_method, created_at, expires_at, user_id, session_id, auth_time, code_hash, methods, resource
 `
 
 // Redeeming a code removes its request in the same statement, so two exchanges racing with one
@@ -211,6 +215,7 @@ func (q *Queries) TakeAuthRequestByCodeHash(ctx context.Context, codeHash []byte
 		&i.AuthTime,
 		&i.CodeHash,
 		&i.Methods,
+		&i.Resource,
 	)
 	return i, err
 }

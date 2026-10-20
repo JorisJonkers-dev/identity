@@ -14,6 +14,7 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 	"github.com/zitadel/oidc/v3/pkg/op"
 
+	connectedapp "github.com/JorisJonkers-dev/identity/internal/connected/app"
 	"github.com/JorisJonkers-dev/identity/internal/signin/app"
 	"github.com/JorisJonkers-dev/identity/internal/signin/domain"
 )
@@ -23,6 +24,7 @@ import (
 type storage struct {
 	svc      *app.Service
 	machines *app.MachineSignIn
+	apps     ConnectedApps
 	ring     *Ring
 	logger   *slog.Logger
 	now      func() time.Time
@@ -51,6 +53,13 @@ func (s *storage) CreateAuthRequest(ctx context.Context, req *oidc.AuthRequest, 
 		ClientID: req.ClientID, RedirectURI: req.RedirectURI, Scopes: req.Scopes, State: req.State, Nonce: req.Nonce,
 		ResponseType: string(req.ResponseType), ResponseMode: string(req.ResponseMode),
 		CodeChallenge: req.CodeChallenge, CodeChallengeMethod: string(req.CodeChallengeMethod),
+	}
+	if isRegistration(req.ClientID) {
+		resource, err := s.resourceOf(ctx)
+		if err != nil {
+			return nil, err
+		}
+		r.Resource = resource
 	}
 	started, err := s.svc.Start(ctx, r)
 	if err != nil {
@@ -102,18 +111,36 @@ func (s *storage) DeleteAuthRequest(ctx context.Context, id string) error {
 }
 
 // CreateAccessToken names a JWT access token; Clients verify it against JWKS, so nothing is stored.
-func (s *storage) CreateAccessToken(context.Context, op.TokenRequest) (string, time.Time, error) {
+// A Connected App's is opaque, and kept.
+func (s *storage) CreateAccessToken(ctx context.Context, req op.TokenRequest) (string, time.Time, error) {
+	if connected(req) {
+		id, _, expires, err := s.connectedTokens(ctx, req, false)
+		return id, expires, err
+	}
 	return uuid.NewString(), s.now().Add(accessTokenLifetime), nil
 }
 
 var errNoRefreshTokens = oidc.ErrUnsupportedGrantType().WithDescription("Refresh tokens are not supported. Sign in again for a new token.")
 
-func (s *storage) CreateAccessAndRefreshTokens(context.Context, op.TokenRequest, string) (string, string, time.Time, error) {
+// CreateAccessAndRefreshTokens issues refresh tokens to Connected Apps only (identity#23).
+func (s *storage) CreateAccessAndRefreshTokens(ctx context.Context, req op.TokenRequest, _ string) (string, string, time.Time, error) {
+	if connected(req) {
+		return s.connectedTokens(ctx, req, true)
+	}
 	return "", "", time.Time{}, errNoRefreshTokens
 }
 
-func (s *storage) TokenRequestByRefreshToken(context.Context, string) (op.RefreshTokenRequest, error) {
-	return nil, op.ErrInvalidRefreshToken
+// TokenRequestByRefreshToken spends a Connected App's refresh token; spending one twice revokes the
+// Connected App.
+func (s *storage) TokenRequestByRefreshToken(ctx context.Context, token string) (op.RefreshTokenRequest, error) {
+	t, err := s.apps.Refresh(ctx, token)
+	if errors.Is(err, connectedapp.ErrInvalidToken) {
+		return nil, op.ErrInvalidRefreshToken
+	}
+	if err != nil {
+		return nil, s.fail(ctx, err)
+	}
+	return newRefreshRequest(t), nil
 }
 
 func (s *storage) GetRefreshTokenInfo(context.Context, string, string) (string, string, error) {
@@ -146,6 +173,9 @@ func (s *storage) SignatureAlgorithms(context.Context) ([]jose.SignatureAlgorith
 func (s *storage) KeySet(context.Context) ([]op.Key, error) { return s.ring.Published(), nil }
 
 func (s *storage) GetClientByClientID(ctx context.Context, id string) (op.Client, error) {
+	if isRegistration(id) {
+		return s.registration(ctx, id)
+	}
 	if m, ok, err := s.machine(ctx, id); ok || err != nil {
 		if err != nil {
 			return nil, s.fail(ctx, err)
@@ -208,8 +238,9 @@ func (s *storage) SetUserinfoFromRequest(ctx context.Context, info *oidc.UserInf
 
 // SetUserinfoFromToken answers userinfo for a verified access token: the User's own email and name.
 func (s *storage) SetUserinfoFromToken(ctx context.Context, info *oidc.UserInfo, tokenID, subject, _ string) error {
-	// A Personal Token is checked by its Client at introspection, never answered here (docs/adr/0017).
-	if app.IsPersonalToken(tokenID) {
+	// A Personal Token or a Connected App's token is checked by its Client at introspection, never
+	// answered here (docs/adr/0017).
+	if _, isApp := appTokenID(tokenID); isApp || app.IsPersonalToken(tokenID) {
 		return s.fail(ctx, app.ErrInactive)
 	}
 	claims, err := s.claims(ctx, subject)
@@ -224,6 +255,9 @@ func (s *storage) SetUserinfoFromToken(ctx context.Context, info *oidc.UserInfo,
 func (s *storage) SetIntrospectionFromToken(ctx context.Context, resp *oidc.IntrospectionResponse, tokenID, subject, clientID string) error {
 	if app.IsPersonalToken(tokenID) {
 		return s.introspectPersonalToken(ctx, resp, tokenID, clientID)
+	}
+	if id, ok := appTokenID(tokenID); ok {
+		return s.introspectAppToken(ctx, resp, id, clientID)
 	}
 	info := new(oidc.UserInfo)
 	if err := s.SetUserinfoFromToken(ctx, info, tokenID, subject, clientID); err != nil {

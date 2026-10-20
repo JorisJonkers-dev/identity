@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	connectedapp "github.com/JorisJonkers-dev/identity/internal/connected/app"
 	"github.com/JorisJonkers-dev/identity/internal/gate/adapters/contexts"
 	"github.com/JorisJonkers-dev/identity/internal/gate/app"
 	signinapp "github.com/JorisJonkers-dev/identity/internal/signin/app"
@@ -214,5 +215,89 @@ func TestASignedInPersonFailsWhenTwoFactorCannotBeLookedUp(t *testing.T) {
 	c := contexts.New(signIn{}, users{factorErr: errBoom}, stepUps{})
 	if _, err := c.SignedIn(context.Background(), "sso"); !errors.Is(err, errBoom) {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+// mcp marks stats as an MCP resource; "broken" fails.
+type mcp struct{}
+
+func (mcp) IsMCPResource(_ context.Context, id string) (bool, error) {
+	if id == "broken" {
+		return false, errBoom
+	}
+	return id == "stats", nil
+}
+
+var appToken = uuid.MustParse("00000000-0000-4000-8000-0000000000c2")
+
+// appTokens knows idapp_live for Ada; idapp_broken fails its check.
+type appTokens struct{}
+
+func (appTokens) Check(_ context.Context, token, _ string) (connectedapp.AccessToken, []string, error) {
+	switch token {
+	case "idapp_live":
+		return connectedapp.AccessToken{ID: appToken, UserID: adaID}, []string{"user"}, nil
+	case "idapp_broken":
+		return connectedapp.AccessToken{}, nil, errBoom
+	}
+	return connectedapp.AccessToken{}, nil, connectedapp.ErrInvalidToken
+}
+
+func connectedContexts(u users) *contexts.Contexts {
+	c := contexts.New(signIn{
+		"stats.jorisjonkers.dev":  {ID: "stats", Host: "stats.jorisjonkers.dev", SignIn: signindomain.Gated},
+		"backup.jorisjonkers.dev": {ID: "backup", Host: "backup.jorisjonkers.dev", SignIn: signindomain.Token},
+		"x.jorisjonkers.dev":      {ID: "broken", Host: "x.jorisjonkers.dev", SignIn: signindomain.Gated},
+	}, u, stepUps{})
+	c.SetConnectedApps(mcp{}, appTokens{})
+	return c
+}
+
+func TestABearerClientSaysWhetherItTakesConnectedApps(t *testing.T) {
+	c := connectedContexts(users{})
+	if got, err := c.BearerClient(context.Background(), "stats.jorisjonkers.dev"); err != nil || !got.MCP {
+		t.Fatalf("stats = %+v, %v", got, err)
+	}
+	if got, err := c.BearerClient(context.Background(), "backup.jorisjonkers.dev"); err != nil || got.MCP {
+		t.Fatalf("backup = %+v, %v", got, err)
+	}
+}
+
+func TestABearerClientWhoseMarkCannotBeReadFails(t *testing.T) {
+	if _, err := connectedContexts(users{}).BearerClient(context.Background(), "x.jorisjonkers.dev"); !errors.Is(err, errBoom) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestALiveConnectedAppsTokenAnswersItsUserUnderTheTokensID(t *testing.T) {
+	email, _ := usersdomain.NewEmail("ada@example.org")
+	name, _ := usersdomain.NewName("Ada")
+	p, roles, err := connectedContexts(users{user: usersdomain.User{ID: adaID, Email: email, Name: name}}).Bearer(context.Background(), "idapp_live", "stats")
+	if err != nil || p != (app.Person{UserID: adaID, Email: "ada@example.org", Name: "Ada", SessionID: appToken}) || len(roles) != 1 {
+		t.Fatalf("Bearer = %+v, %v, %v", p, roles, err)
+	}
+}
+
+func TestAConnectedAppsTokenThatIsNotActiveIsNoSignIn(t *testing.T) {
+	for _, c := range []*contexts.Contexts{connectedContexts(users{}), contexts.New(signIn{}, users{}, stepUps{})} {
+		if _, _, err := c.Bearer(context.Background(), "idapp_unknown", "stats"); !errors.Is(err, app.ErrNoSignIn) {
+			t.Fatalf("err = %v", err)
+		}
+	}
+}
+
+func TestAConnectedAppsTokenCheckFailsWithWhatItReads(t *testing.T) {
+	for _, c := range []struct {
+		name, token string
+		users       users
+	}{
+		{"the token's check", "idapp_broken", users{}},
+		{"its User", "idapp_live", users{err: errBoom}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			if _, _, err := connectedContexts(c.users).Bearer(context.Background(), c.token, "stats"); !errors.Is(err, errBoom) {
+				t.Fatalf("err = %v", err)
+			}
+		})
 	}
 }

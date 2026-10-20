@@ -231,6 +231,10 @@ const (
 	AuditActionMachineCreated         AuditAction = "machine-created"
 	AuditActionMachineDeleted         AuditAction = "machine-deleted"
 	AuditActionMachineSecretRotated   AuditAction = "machine-secret-rotated"
+	AuditActionConnectedAppAuthorized AuditAction = "connected-app-authorized"
+	AuditActionConnectedAppRevoked    AuditAction = "connected-app-revoked"
+	AuditActionMcpResourceMarked      AuditAction = "mcp-resource-marked"
+	AuditActionMcpResourceUnmarked    AuditAction = "mcp-resource-unmarked"
 )
 
 // AllValues returns all AuditAction values.
@@ -264,6 +268,10 @@ func (AuditAction) AllValues() []AuditAction {
 		AuditActionMachineCreated,
 		AuditActionMachineDeleted,
 		AuditActionMachineSecretRotated,
+		AuditActionConnectedAppAuthorized,
+		AuditActionConnectedAppRevoked,
+		AuditActionMcpResourceMarked,
+		AuditActionMcpResourceUnmarked,
 	}
 }
 
@@ -325,6 +333,14 @@ func (s AuditAction) MarshalText() ([]byte, error) {
 	case AuditActionMachineDeleted:
 		return []byte(s), nil
 	case AuditActionMachineSecretRotated:
+		return []byte(s), nil
+	case AuditActionConnectedAppAuthorized:
+		return []byte(s), nil
+	case AuditActionConnectedAppRevoked:
+		return []byte(s), nil
+	case AuditActionMcpResourceMarked:
+		return []byte(s), nil
+	case AuditActionMcpResourceUnmarked:
 		return []byte(s), nil
 	default:
 		return nil, errors.Errorf("invalid value: %q", s)
@@ -418,6 +434,18 @@ func (s *AuditAction) UnmarshalText(data []byte) error {
 	case AuditActionMachineSecretRotated:
 		*s = AuditActionMachineSecretRotated
 		return nil
+	case AuditActionConnectedAppAuthorized:
+		*s = AuditActionConnectedAppAuthorized
+		return nil
+	case AuditActionConnectedAppRevoked:
+		*s = AuditActionConnectedAppRevoked
+		return nil
+	case AuditActionMcpResourceMarked:
+		*s = AuditActionMcpResourceMarked
+		return nil
+	case AuditActionMcpResourceUnmarked:
+		*s = AuditActionMcpResourceUnmarked
+		return nil
 	default:
 		return errors.Errorf("invalid value: %q", data)
 	}
@@ -466,12 +494,15 @@ type AuditEvent struct {
 	Role      OptAppRole     `json:"role"`
 	// The address a failed sign-in gave; it may belong to no User.
 	Email OptString `json:"email"`
-	// Why a sign-in failed.
+	// Why a sign-in failed, or, as token-reused, why a Connected App was disconnected: its refresh token
+	// was spent twice.
 	Reason OptAuditEventReason `json:"reason"`
 	// The step-up window an Admin set, 0 for off.
 	Minutes OptAuditEventMinutes `json:"minutes"`
 	// The Machine Identity the event is about, as it was called then.
 	MachineName OptString `json:"machineName"`
+	// The Connected App the event is about, as it called itself.
+	AppName OptString `json:"appName"`
 }
 
 // GetID returns the value of ID.
@@ -539,6 +570,11 @@ func (s *AuditEvent) GetMachineName() OptString {
 	return s.MachineName
 }
 
+// GetAppName returns the value of AppName.
+func (s *AuditEvent) GetAppName() OptString {
+	return s.AppName
+}
+
 // SetID sets the value of ID.
 func (s *AuditEvent) SetID(val ID) {
 	s.ID = val
@@ -604,6 +640,11 @@ func (s *AuditEvent) SetMachineName(val OptString) {
 	s.MachineName = val
 }
 
+// SetAppName sets the value of AppName.
+func (s *AuditEvent) SetAppName(val OptString) {
+	s.AppName = val
+}
+
 // The step-up window an Admin set, 0 for off.
 type AuditEventMinutes int32
 
@@ -624,13 +665,15 @@ func (AuditEventMinutes) AllValues() []AuditEventMinutes {
 	}
 }
 
-// Why a sign-in failed.
+// Why a sign-in failed, or, as token-reused, why a Connected App was disconnected: its refresh token
+// was spent twice.
 type AuditEventReason string
 
 const (
 	AuditEventReasonPassword     AuditEventReason = "password"
 	AuditEventReasonSecondFactor AuditEventReason = "second-factor"
 	AuditEventReasonNoAccess     AuditEventReason = "no-access"
+	AuditEventReasonTokenReused  AuditEventReason = "token-reused"
 )
 
 // AllValues returns all AuditEventReason values.
@@ -639,6 +682,7 @@ func (AuditEventReason) AllValues() []AuditEventReason {
 		AuditEventReasonPassword,
 		AuditEventReasonSecondFactor,
 		AuditEventReasonNoAccess,
+		AuditEventReasonTokenReused,
 	}
 }
 
@@ -650,6 +694,8 @@ func (s AuditEventReason) MarshalText() ([]byte, error) {
 	case AuditEventReasonSecondFactor:
 		return []byte(s), nil
 	case AuditEventReasonNoAccess:
+		return []byte(s), nil
+	case AuditEventReasonTokenReused:
 		return []byte(s), nil
 	default:
 		return nil, errors.Errorf("invalid value: %q", s)
@@ -667,6 +713,9 @@ func (s *AuditEventReason) UnmarshalText(data []byte) error {
 		return nil
 	case AuditEventReasonNoAccess:
 		*s = AuditEventReasonNoAccess
+		return nil
+	case AuditEventReasonTokenReused:
+		*s = AuditEventReasonTokenReused
 		return nil
 	default:
 		return errors.Errorf("invalid value: %q", data)
@@ -921,6 +970,85 @@ func (s *Confirmation) SetPassword(val Password) {
 func (s *Confirmation) SetToken(val string) {
 	s.Token = val
 }
+
+// A tool acting for the User on one Client.
+// Ref: #/components/schemas/ConnectedApp
+type ConnectedApp struct {
+	ID ID `json:"id"`
+	// What the tool called itself when it registered; nothing checks it.
+	Name       string      `json:"name"`
+	Client     TokenClient `json:"client"`
+	CreatedAt  time.Time   `json:"createdAt"`
+	LastUsedAt OptDateTime `json:"lastUsedAt"`
+}
+
+// GetID returns the value of ID.
+func (s *ConnectedApp) GetID() ID {
+	return s.ID
+}
+
+// GetName returns the value of Name.
+func (s *ConnectedApp) GetName() string {
+	return s.Name
+}
+
+// GetClient returns the value of Client.
+func (s *ConnectedApp) GetClient() TokenClient {
+	return s.Client
+}
+
+// GetCreatedAt returns the value of CreatedAt.
+func (s *ConnectedApp) GetCreatedAt() time.Time {
+	return s.CreatedAt
+}
+
+// GetLastUsedAt returns the value of LastUsedAt.
+func (s *ConnectedApp) GetLastUsedAt() OptDateTime {
+	return s.LastUsedAt
+}
+
+// SetID sets the value of ID.
+func (s *ConnectedApp) SetID(val ID) {
+	s.ID = val
+}
+
+// SetName sets the value of Name.
+func (s *ConnectedApp) SetName(val string) {
+	s.Name = val
+}
+
+// SetClient sets the value of Client.
+func (s *ConnectedApp) SetClient(val TokenClient) {
+	s.Client = val
+}
+
+// SetCreatedAt sets the value of CreatedAt.
+func (s *ConnectedApp) SetCreatedAt(val time.Time) {
+	s.CreatedAt = val
+}
+
+// SetLastUsedAt sets the value of LastUsedAt.
+func (s *ConnectedApp) SetLastUsedAt(val OptDateTime) {
+	s.LastUsedAt = val
+}
+
+// The User's Connected Apps, oldest first.
+// Ref: #/components/schemas/ConnectedAppList
+type ConnectedAppList struct {
+	Apps []ConnectedApp `json:"apps"`
+}
+
+// GetApps returns the value of Apps.
+func (s *ConnectedAppList) GetApps() []ConnectedApp {
+	return s.Apps
+}
+
+// SetApps sets the value of Apps.
+func (s *ConnectedAppList) SetApps(val []ConnectedApp) {
+	s.Apps = val
+}
+
+func (*ConnectedAppList) listMyConnectedAppsRes() {}
 
 type Count int32
 
@@ -1398,6 +1526,51 @@ func (s *LinkToken) GetToken() string {
 // SetToken sets the value of Token.
 func (s *LinkToken) SetToken(val string) {
 	s.Token = val
+}
+
+// Whether a Client takes Connected Apps, and how many it has.
+// Ref: #/components/schemas/MCPResource
+type MCPResource struct {
+	On            bool  `json:"on"`
+	ConnectedApps Count `json:"connectedApps"`
+}
+
+// GetOn returns the value of On.
+func (s *MCPResource) GetOn() bool {
+	return s.On
+}
+
+// GetConnectedApps returns the value of ConnectedApps.
+func (s *MCPResource) GetConnectedApps() Count {
+	return s.ConnectedApps
+}
+
+// SetOn sets the value of On.
+func (s *MCPResource) SetOn(val bool) {
+	s.On = val
+}
+
+// SetConnectedApps sets the value of ConnectedApps.
+func (s *MCPResource) SetConnectedApps(val Count) {
+	s.ConnectedApps = val
+}
+
+func (*MCPResource) getMCPResourceRes() {}
+
+// Whether a Client takes Connected Apps.
+// Ref: #/components/schemas/MCPResourceSetting
+type MCPResourceSetting struct {
+	On bool `json:"on"`
+}
+
+// GetOn returns the value of On.
+func (s *MCPResourceSetting) GetOn() bool {
+	return s.On
+}
+
+// SetOn sets the value of On.
+func (s *MCPResourceSetting) SetOn(val bool) {
+	s.On = val
 }
 
 // A Machine Identity: a workload that signs in as itself, bound to one Kubernetes ServiceAccount. Its
@@ -2692,12 +2865,14 @@ func (*ProblemStatusCode) deleteUserRes()                {}
 func (*ProblemStatusCode) getAccessRes()                 {}
 func (*ProblemStatusCode) getDashboardRes()              {}
 func (*ProblemStatusCode) getLauncherRes()               {}
+func (*ProblemStatusCode) getMCPResourceRes()            {}
 func (*ProblemStatusCode) getProfileRes()                {}
 func (*ProblemStatusCode) getStepUpRes()                 {}
 func (*ProblemStatusCode) getVersionRes()                {}
 func (*ProblemStatusCode) listAuditEventsRes()           {}
 func (*ProblemStatusCode) listDevicesRes()               {}
 func (*ProblemStatusCode) listMachinesRes()              {}
+func (*ProblemStatusCode) listMyConnectedAppsRes()       {}
 func (*ProblemStatusCode) listMyTokensRes()              {}
 func (*ProblemStatusCode) listSecondFactorsRes()         {}
 func (*ProblemStatusCode) listUserTokensRes()            {}
@@ -2710,11 +2885,13 @@ func (*ProblemStatusCode) renameUserRes()                {}
 func (*ProblemStatusCode) resetPasskeyOptionsRes()       {}
 func (*ProblemStatusCode) resetWithCodeRes()             {}
 func (*ProblemStatusCode) resetWithPasskeyRes()          {}
+func (*ProblemStatusCode) revokeMyConnectedAppRes()      {}
 func (*ProblemStatusCode) revokeMyTokenRes()             {}
 func (*ProblemStatusCode) revokeUserTokenRes()           {}
 func (*ProblemStatusCode) rotateClientSecretRes()        {}
 func (*ProblemStatusCode) rotateMachineSecretRes()       {}
 func (*ProblemStatusCode) setGroupTwoFactorRes()         {}
+func (*ProblemStatusCode) setMCPResourceRes()            {}
 func (*ProblemStatusCode) setStepUpRes()                 {}
 func (*ProblemStatusCode) signInRes()                    {}
 func (*ProblemStatusCode) signOutDeviceRes()             {}
@@ -2958,6 +3135,11 @@ type ResetWithPasskeyNoContent struct{}
 
 func (*ResetWithPasskeyNoContent) resetWithPasskeyRes() {}
 
+// RevokeMyConnectedAppNoContent is response for RevokeMyConnectedApp operation.
+type RevokeMyConnectedAppNoContent struct{}
+
+func (*RevokeMyConnectedAppNoContent) revokeMyConnectedAppRes() {}
+
 // RevokeMyTokenNoContent is response for RevokeMyToken operation.
 type RevokeMyTokenNoContent struct{}
 
@@ -3192,6 +3374,11 @@ type SetGroupTwoFactorNoContent struct{}
 
 func (*SetGroupTwoFactorNoContent) setGroupTwoFactorRes() {}
 
+// SetMCPResourceNoContent is response for SetMCPResource operation.
+type SetMCPResourceNoContent struct{}
+
+func (*SetMCPResourceNoContent) setMCPResourceRes() {}
+
 // SetStepUpNoContent is response for SetStepUp operation.
 type SetStepUpNoContent struct{}
 
@@ -3394,13 +3581,14 @@ func (StepUpMinutes) AllValues() []StepUpMinutes {
 	}
 }
 
-// How fresh a Client wants two-factor, and how many live Personal Tokens turning step-up on would
-// revoke: none can satisfy it (docs/adr/0019).
+// How fresh a Client wants two-factor, and how many live Personal Tokens and Connected Apps turning
+// step-up on would revoke: none can satisfy it (docs/adr/0019).
 // Ref: #/components/schemas/StepUpState
 type StepUpState struct {
 	// The window in minutes; 0 is off.
-	Minutes StepUpStateMinutes `json:"minutes"`
-	Tokens  Count              `json:"tokens"`
+	Minutes       StepUpStateMinutes `json:"minutes"`
+	Tokens        Count              `json:"tokens"`
+	ConnectedApps Count              `json:"connectedApps"`
 }
 
 // GetMinutes returns the value of Minutes.
@@ -3413,6 +3601,11 @@ func (s *StepUpState) GetTokens() Count {
 	return s.Tokens
 }
 
+// GetConnectedApps returns the value of ConnectedApps.
+func (s *StepUpState) GetConnectedApps() Count {
+	return s.ConnectedApps
+}
+
 // SetMinutes sets the value of Minutes.
 func (s *StepUpState) SetMinutes(val StepUpStateMinutes) {
 	s.Minutes = val
@@ -3421,6 +3614,11 @@ func (s *StepUpState) SetMinutes(val StepUpStateMinutes) {
 // SetTokens sets the value of Tokens.
 func (s *StepUpState) SetTokens(val Count) {
 	s.Tokens = val
+}
+
+// SetConnectedApps sets the value of ConnectedApps.
+func (s *StepUpState) SetConnectedApps(val Count) {
+	s.ConnectedApps = val
 }
 
 func (*StepUpState) getStepUpRes() {}

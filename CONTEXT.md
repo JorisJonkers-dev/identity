@@ -130,6 +130,11 @@ one consenting User on one Client, never beyond that User's App Roles there.
 It is not a Client.
 _Avoid_: Dynamic client, third-party app, integration
 
+**MCP resource**:
+A Client an Admin marked as taking Connected Apps. A tool names it as the
+resource it wants to act on.
+_Avoid_: MCP server, connected Client
+
 **Machine Identity**:
 A non-person that signs in to Clients with its own credentials and its own
 Assignments, such as a workload calling another workload. It holds Assignments

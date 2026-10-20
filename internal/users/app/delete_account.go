@@ -21,7 +21,8 @@ var (
 	ErrFreshTwoFactorNeeded = errors.New("prove two-factor first")
 )
 
-// Deleted is what went with a deleted User: their sessions and Personal Tokens, by id.
+// Deleted is what went with a deleted User: their sessions, and their Personal Tokens and
+// Connected Apps' access tokens, by id.
 type Deleted struct {
 	Sessions []uuid.UUID
 	Tokens   []uuid.UUID

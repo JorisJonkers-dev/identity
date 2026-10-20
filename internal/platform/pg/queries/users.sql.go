@@ -33,6 +33,32 @@ func (q *Queries) ChallengeCeremony(ctx context.Context, arg ChallengeCeremonyPa
 	return i, err
 }
 
+const connectedAppAccessTokensOfUser = `-- name: ConnectedAppAccessTokensOfUser :many
+SELECT t.id FROM connected_app_tokens t JOIN connected_apps c ON c.id = t.connected_app_id
+WHERE c.user_id = $1 AND t.kind = 'access'
+`
+
+// Their Connected Apps go with the User by cascade; these are the access tokens the Gate may cache.
+func (q *Queries) ConnectedAppAccessTokensOfUser(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, connectedAppAccessTokensOfUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []uuid.UUID{}
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const countActiveSessions = `-- name: CountActiveSessions :one
 SELECT count(*) AS sessions, count(DISTINCT user_id) AS users FROM sessions WHERE expires_at > $1
 `

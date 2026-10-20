@@ -31,7 +31,8 @@ export async function mountAt(path: string, answers: Record<string, Answer>, opt
     const answer = answers[key]
     if (!answer) return problem(404, `no answer for ${key}`)
     const response = typeof answer === 'function' ? await answer() : answer.clone()
-    await keepsTheContract(request.method, new URL(request.url).pathname, response)
+    // The contract is the API's; the Identity Provider's own endpoints, such as /oidc/consent, are not in it.
+    if (new URL(request.url).pathname.startsWith('/api/')) await keepsTheContract(request.method, new URL(request.url).pathname, response)
     return response
   })
   configureApi({ baseUrl: 'http://app.test', fetch })

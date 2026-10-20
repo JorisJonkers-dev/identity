@@ -14,6 +14,7 @@ const why: Record<NonNullable<AuditEvent['reason']>, string> = {
   password: ' (wrong email or password)',
   'second-factor': ' (wrong code or passkey)',
   'no-access': ' (no access)',
+  'token-reused': '',
 }
 
 /** The sentence an Audit Event reads as, the way the Audit page shows it. */
@@ -27,6 +28,7 @@ export function describeEvent(e: AuditEvent): Part[] {
   const holder = e.machineName ?? (e.groupName === undefined && e.user ? name(e.user) : group)
   const role: Part = { text: e.role ?? '', as: 'pill' }
   const client = e.client?.label ?? 'an app'
+  const app = e.appName ?? 'an app'
   switch (e.action) {
     case 'signed-in':
       return [user, { text: ` signed in${to}` }]
@@ -86,6 +88,16 @@ export function describeEvent(e: AuditEvent): Part[] {
       return [actor, { text: ` deleted ${machine}` }]
     case 'machine-secret-rotated':
       return [actor, { text: ` gave ${machine} a new secret` }]
+    case 'connected-app-authorized':
+      return [user, { text: ` connected ${app} to ${client}` }]
+    case 'connected-app-revoked':
+      if (e.actor) return [actor, { text: ` disconnected ${app} from ${client} for ` }, user]
+      if (e.reason === 'token-reused') return [{ text: `${app} was disconnected from ${client} for ` }, user, { text: ' because its token was used twice, which can mean it was copied' }]
+      return [user, { text: ` disconnected ${app} from ${client}` }]
+    case 'mcp-resource-marked':
+      return [actor, { text: ` let apps connect to ${client}` }]
+    case 'mcp-resource-unmarked':
+      return [actor, { text: ` stopped apps connecting to ${client}` }]
     case 'step-up-changed':
       return [actor, { text: e.minutes ? ` set ${client} to ask for two-factor again after ${String(e.minutes)} minutes` : ` turned off asking for two-factor again in ${client}` }]
   }

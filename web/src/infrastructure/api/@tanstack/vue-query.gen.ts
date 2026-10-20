@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/vue-query';
 
 import { client } from '../client.gen';
-import { addMember, askEmailChange, askPasswordReset, askUserEmailChange, assignMachineRole, assignRole, assignUserRole, cancelEmailChange, changePassword, checkPasswordReset, completePasswordReset, completeSignIn, completeSignInWithPasskey, confirmEmail, confirmEmailChange, confirmPasskey, confirmTotp, createGroup, createMachine, deleteAccount, deleteGroup, deleteMachine, deleteUser, getAccess, getDashboard, getLauncher, getProfile, getStepUp, getVersion, listAuditEvents, listDevices, listMachines, listMyTokens, listSecondFactors, listUserTokens, mintToken, type Options, passkeyOptions, removeMember, removeSecondFactor, renameGroup, renameUser, resetPasskeyOptions, resetWithCode, resetWithPasskey, revokeMyToken, revokeUserToken, rotateClientSecret, rotateMachineSecret, setGroupTwoFactor, setStepUp, signIn, signOut, signOutDevice, signOutOtherDevices, signOutUser, signUp, startPasskey, startStepUp, startTotp, stepUpPasskeyOptions, stepUpWithCode, stepUpWithPasskey, unassignMachineRole, unassignRole, unassignUserRole, updateProfile } from '../sdk.gen';
-import type { AddMemberData, AddMemberError, AddMemberResponse, AskEmailChangeData, AskEmailChangeError, AskPasswordResetData, AskPasswordResetError, AskUserEmailChangeData, AskUserEmailChangeError, AssignMachineRoleData, AssignMachineRoleError, AssignMachineRoleResponse, AssignRoleData, AssignRoleError, AssignRoleResponse, AssignUserRoleData, AssignUserRoleError, AssignUserRoleResponse, AuditCursor, CancelEmailChangeData, CancelEmailChangeError, CancelEmailChangeResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CheckPasswordResetData, CheckPasswordResetError, CheckPasswordResetResponse, CompletePasswordResetData, CompletePasswordResetError, CompletePasswordResetResponse, CompleteSignInData, CompleteSignInError, CompleteSignInResponse, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyError, CompleteSignInWithPasskeyResponse, ConfirmEmailChangeData, ConfirmEmailChangeError, ConfirmEmailChangeResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, ConfirmPasskeyData, ConfirmPasskeyError, ConfirmPasskeyResponse, ConfirmTotpData, ConfirmTotpError, ConfirmTotpResponse, CreateGroupData, CreateGroupError, CreateGroupResponse, CreateMachineData, CreateMachineError, CreateMachineResponse, DeleteAccountData, DeleteAccountError, DeleteAccountResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, DeleteMachineData, DeleteMachineError, DeleteMachineResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, GetAccessData, GetAccessError, GetAccessResponse, GetDashboardData, GetDashboardError, GetDashboardResponse, GetLauncherData, GetLauncherError, GetLauncherResponse, GetProfileData, GetProfileError, GetProfileResponse, GetStepUpData, GetStepUpError, GetStepUpResponse, GetVersionData, GetVersionError, GetVersionResponse, ListAuditEventsData, ListAuditEventsError, ListAuditEventsResponse, ListDevicesData, ListDevicesError, ListDevicesResponse, ListMachinesData, ListMachinesError, ListMachinesResponse, ListMyTokensData, ListMyTokensError, ListMyTokensResponse, ListSecondFactorsData, ListSecondFactorsError, ListSecondFactorsResponse, ListUserTokensData, ListUserTokensError, ListUserTokensResponse, MintTokenData, MintTokenError, MintTokenResponse, PasskeyOptionsData, PasskeyOptionsError, PasskeyOptionsResponse, RemoveMemberData, RemoveMemberError, RemoveMemberResponse, RemoveSecondFactorData, RemoveSecondFactorError, RemoveSecondFactorResponse, RenameGroupData, RenameGroupError, RenameGroupResponse, RenameUserData, RenameUserError, RenameUserResponse, ResetPasskeyOptionsData, ResetPasskeyOptionsError, ResetPasskeyOptionsResponse, ResetWithCodeData, ResetWithCodeError, ResetWithCodeResponse, ResetWithPasskeyData, ResetWithPasskeyError, ResetWithPasskeyResponse, RevokeMyTokenData, RevokeMyTokenError, RevokeMyTokenResponse, RevokeUserTokenData, RevokeUserTokenError, RevokeUserTokenResponse, RotateClientSecretData, RotateClientSecretError, RotateClientSecretResponse, RotateMachineSecretData, RotateMachineSecretError, RotateMachineSecretResponse, SetGroupTwoFactorData, SetGroupTwoFactorError, SetGroupTwoFactorResponse, SetStepUpData, SetStepUpError, SetStepUpResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutDeviceData, SignOutDeviceError, SignOutDeviceResponse, SignOutError, SignOutOtherDevicesData, SignOutOtherDevicesError, SignOutOtherDevicesResponse, SignOutResponse, SignOutUserData, SignOutUserError, SignOutUserResponse, SignUpData, SignUpError, StartPasskeyData, StartPasskeyError, StartPasskeyResponse, StartStepUpData, StartStepUpError, StartStepUpResponse, StartTotpData, StartTotpError, StartTotpResponse, StepUpPasskeyOptionsData, StepUpPasskeyOptionsError, StepUpPasskeyOptionsResponse, StepUpWithCodeData, StepUpWithCodeError, StepUpWithCodeResponse, StepUpWithPasskeyData, StepUpWithPasskeyError, StepUpWithPasskeyResponse, UnassignMachineRoleData, UnassignMachineRoleError, UnassignMachineRoleResponse, UnassignRoleData, UnassignRoleError, UnassignRoleResponse, UnassignUserRoleData, UnassignUserRoleError, UnassignUserRoleResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
+import { addMember, askEmailChange, askPasswordReset, askUserEmailChange, assignMachineRole, assignRole, assignUserRole, cancelEmailChange, changePassword, checkPasswordReset, completePasswordReset, completeSignIn, completeSignInWithPasskey, confirmEmail, confirmEmailChange, confirmPasskey, confirmTotp, createGroup, createMachine, deleteAccount, deleteGroup, deleteMachine, deleteUser, getAccess, getDashboard, getLauncher, getMcpResource, getProfile, getStepUp, getVersion, listAuditEvents, listDevices, listMachines, listMyConnectedApps, listMyTokens, listSecondFactors, listUserTokens, mintToken, type Options, passkeyOptions, removeMember, removeSecondFactor, renameGroup, renameUser, resetPasskeyOptions, resetWithCode, resetWithPasskey, revokeMyConnectedApp, revokeMyToken, revokeUserToken, rotateClientSecret, rotateMachineSecret, setGroupTwoFactor, setMcpResource, setStepUp, signIn, signOut, signOutDevice, signOutOtherDevices, signOutUser, signUp, startPasskey, startStepUp, startTotp, stepUpPasskeyOptions, stepUpWithCode, stepUpWithPasskey, unassignMachineRole, unassignRole, unassignUserRole, updateProfile } from '../sdk.gen';
+import type { AddMemberData, AddMemberError, AddMemberResponse, AskEmailChangeData, AskEmailChangeError, AskPasswordResetData, AskPasswordResetError, AskUserEmailChangeData, AskUserEmailChangeError, AssignMachineRoleData, AssignMachineRoleError, AssignMachineRoleResponse, AssignRoleData, AssignRoleError, AssignRoleResponse, AssignUserRoleData, AssignUserRoleError, AssignUserRoleResponse, AuditCursor, CancelEmailChangeData, CancelEmailChangeError, CancelEmailChangeResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CheckPasswordResetData, CheckPasswordResetError, CheckPasswordResetResponse, CompletePasswordResetData, CompletePasswordResetError, CompletePasswordResetResponse, CompleteSignInData, CompleteSignInError, CompleteSignInResponse, CompleteSignInWithPasskeyData, CompleteSignInWithPasskeyError, CompleteSignInWithPasskeyResponse, ConfirmEmailChangeData, ConfirmEmailChangeError, ConfirmEmailChangeResponse, ConfirmEmailData, ConfirmEmailError, ConfirmEmailResponse, ConfirmPasskeyData, ConfirmPasskeyError, ConfirmPasskeyResponse, ConfirmTotpData, ConfirmTotpError, ConfirmTotpResponse, CreateGroupData, CreateGroupError, CreateGroupResponse, CreateMachineData, CreateMachineError, CreateMachineResponse, DeleteAccountData, DeleteAccountError, DeleteAccountResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, DeleteMachineData, DeleteMachineError, DeleteMachineResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, GetAccessData, GetAccessError, GetAccessResponse, GetDashboardData, GetDashboardError, GetDashboardResponse, GetLauncherData, GetLauncherError, GetLauncherResponse, GetMcpResourceData, GetMcpResourceError, GetMcpResourceResponse, GetProfileData, GetProfileError, GetProfileResponse, GetStepUpData, GetStepUpError, GetStepUpResponse, GetVersionData, GetVersionError, GetVersionResponse, ListAuditEventsData, ListAuditEventsError, ListAuditEventsResponse, ListDevicesData, ListDevicesError, ListDevicesResponse, ListMachinesData, ListMachinesError, ListMachinesResponse, ListMyConnectedAppsData, ListMyConnectedAppsError, ListMyConnectedAppsResponse, ListMyTokensData, ListMyTokensError, ListMyTokensResponse, ListSecondFactorsData, ListSecondFactorsError, ListSecondFactorsResponse, ListUserTokensData, ListUserTokensError, ListUserTokensResponse, MintTokenData, MintTokenError, MintTokenResponse, PasskeyOptionsData, PasskeyOptionsError, PasskeyOptionsResponse, RemoveMemberData, RemoveMemberError, RemoveMemberResponse, RemoveSecondFactorData, RemoveSecondFactorError, RemoveSecondFactorResponse, RenameGroupData, RenameGroupError, RenameGroupResponse, RenameUserData, RenameUserError, RenameUserResponse, ResetPasskeyOptionsData, ResetPasskeyOptionsError, ResetPasskeyOptionsResponse, ResetWithCodeData, ResetWithCodeError, ResetWithCodeResponse, ResetWithPasskeyData, ResetWithPasskeyError, ResetWithPasskeyResponse, RevokeMyConnectedAppData, RevokeMyConnectedAppError, RevokeMyConnectedAppResponse, RevokeMyTokenData, RevokeMyTokenError, RevokeMyTokenResponse, RevokeUserTokenData, RevokeUserTokenError, RevokeUserTokenResponse, RotateClientSecretData, RotateClientSecretError, RotateClientSecretResponse, RotateMachineSecretData, RotateMachineSecretError, RotateMachineSecretResponse, SetGroupTwoFactorData, SetGroupTwoFactorError, SetGroupTwoFactorResponse, SetMcpResourceData, SetMcpResourceError, SetMcpResourceResponse, SetStepUpData, SetStepUpError, SetStepUpResponse, SignInData, SignInError, SignInResponse, SignOutData, SignOutDeviceData, SignOutDeviceError, SignOutDeviceResponse, SignOutError, SignOutOtherDevicesData, SignOutOtherDevicesError, SignOutOtherDevicesResponse, SignOutResponse, SignOutUserData, SignOutUserError, SignOutUserResponse, SignUpData, SignUpError, StartPasskeyData, StartPasskeyError, StartPasskeyResponse, StartStepUpData, StartStepUpError, StartStepUpResponse, StartTotpData, StartTotpError, StartTotpResponse, StepUpPasskeyOptionsData, StepUpPasskeyOptionsError, StepUpPasskeyOptionsResponse, StepUpWithCodeData, StepUpWithCodeError, StepUpWithCodeResponse, StepUpWithPasskeyData, StepUpWithPasskeyError, StepUpWithPasskeyResponse, UnassignMachineRoleData, UnassignMachineRoleError, UnassignMachineRoleResponse, UnassignRoleData, UnassignRoleError, UnassignRoleResponse, UnassignUserRoleData, UnassignUserRoleError, UnassignUserRoleResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -1356,6 +1356,84 @@ export const setStepUpMutation = (options?: Partial<Options<SetStepUpData>>): Us
     const mutationOptions: UseMutationOptions<SetStepUpResponse, SetStepUpError, Options<SetStepUpData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await setStepUp({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listMyConnectedAppsQueryKey = (options?: Options<ListMyConnectedAppsData>) => createQueryKey('listMyConnectedApps', options);
+
+/**
+ * My Connected Apps
+ *
+ * The tools acting for the signed-in User, oldest first.
+ */
+export const listMyConnectedAppsOptions = (options?: Options<ListMyConnectedAppsData>) => queryOptions<ListMyConnectedAppsResponse, ListMyConnectedAppsError, ListMyConnectedAppsResponse, ReturnType<typeof listMyConnectedAppsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listMyConnectedApps({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listMyConnectedAppsQueryKey(options)
+});
+
+/**
+ * Disconnect one of my Connected Apps
+ *
+ * Its tokens stop working at once; the tool must ask for consent again.
+ */
+export const revokeMyConnectedAppMutation = (options?: Partial<Options<RevokeMyConnectedAppData>>): UseMutationOptions<RevokeMyConnectedAppResponse, RevokeMyConnectedAppError, Options<RevokeMyConnectedAppData>> => {
+    const mutationOptions: UseMutationOptions<RevokeMyConnectedAppResponse, RevokeMyConnectedAppError, Options<RevokeMyConnectedAppData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await revokeMyConnectedApp({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getMcpResourceQueryKey = (options: Options<GetMcpResourceData>) => createQueryKey('getMcpResource', options);
+
+/**
+ * Whether a Client takes Connected Apps
+ *
+ * Admins only, from a session that proved a Second Factor.
+ */
+export const getMcpResourceOptions = (options: Options<GetMcpResourceData>) => queryOptions<GetMcpResourceResponse, GetMcpResourceError, GetMcpResourceResponse, ReturnType<typeof getMcpResourceQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getMcpResource({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getMcpResourceQueryKey(options)
+});
+
+/**
+ * Let a Client take Connected Apps, or stop it
+ *
+ * Admins only, from a session that proved a Second Factor. Stopping keeps the Connected Apps the Client has; turning step-up on disconnects them.
+ */
+export const setMcpResourceMutation = (options?: Partial<Options<SetMcpResourceData>>): UseMutationOptions<SetMcpResourceResponse, SetMcpResourceError, Options<SetMcpResourceData>> => {
+    const mutationOptions: UseMutationOptions<SetMcpResourceResponse, SetMcpResourceError, Options<SetMcpResourceData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setMcpResource({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

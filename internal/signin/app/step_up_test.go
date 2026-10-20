@@ -276,3 +276,61 @@ func TestTheStepUpReadFailsWhenTheTokensOrTheSettingCannotBeRead(t *testing.T) {
 		})
 	}
 }
+
+// clientApps is one Connected App on Grafana; fail makes both methods fail.
+type clientApps struct {
+	live    map[string]int
+	revoked []string
+	fail    error
+}
+
+func (c *clientApps) CountForClient(_ context.Context, clientID string) (int, error) {
+	return c.live[clientID], c.fail
+}
+
+func (c *clientApps) RevokeForClient(_ context.Context, _ uuid.UUID, clientID string) error {
+	if c.fail != nil {
+		return c.fail
+	}
+	c.revoked = append(c.revoked, clientID)
+	return nil
+}
+
+func withApps() (*stepUpsFixture, *clientApps) {
+	f := newStepUps()
+	apps := &clientApps{live: map[string]int{"grafana": 1}}
+	f.SetConnectedApps(apps)
+	return f, apps
+}
+
+func TestTheStepUpStateCountsTheConnectedAppsTurningItOnWouldEnd(t *testing.T) {
+	f, _ := withApps()
+	if got, err := f.StepUp(context.Background(), asRoot, "grafana"); err != nil || got.ConnectedApps != 1 || got.Tokens != 2 {
+		t.Fatalf("StepUp = %+v, %v", got, err)
+	}
+}
+
+func TestTurningStepUpOnEndsTheClientsConnectedApps(t *testing.T) {
+	f, apps := withApps()
+	if err := f.Set(context.Background(), asRoot, "grafana", 5); err != nil || len(apps.revoked) != 1 {
+		t.Fatalf("Set = %v, revoked %v", err, apps.revoked)
+	}
+}
+
+func TestTurningStepUpOffEndsNoConnectedApp(t *testing.T) {
+	f, apps := withApps()
+	if err := f.Set(context.Background(), asRoot, "grafana", 0); err != nil || len(apps.revoked) != 0 {
+		t.Fatalf("Set = %v, revoked %v", err, apps.revoked)
+	}
+}
+
+func TestStepUpFailsWhenTheConnectedAppsCannotBeReadOrEnded(t *testing.T) {
+	f, apps := withApps()
+	apps.fail = errBoom
+	if _, err := f.StepUp(context.Background(), asRoot, "grafana"); !errors.Is(err, errBoom) {
+		t.Fatalf("StepUp = %v", err)
+	}
+	if err := f.Set(context.Background(), asRoot, "grafana", 5); !errors.Is(err, errBoom) || len(f.settings.minutes) != 0 {
+		t.Fatalf("Set = %v, kept %v", err, f.settings.minutes)
+	}
+}

@@ -37,6 +37,7 @@ type UseCases interface {
 	Client(ctx context.Context, host string) (app.Client, error)
 	Check(ctx context.Context, host, cookie string) (app.Verdict, error)
 	CheckBearer(ctx context.Context, host, secret string) (app.Verdict, error)
+	MCP(ctx context.Context, host string) bool
 	Start(ctx context.Context, ssoToken, host, state, returnPath string) (string, error)
 	Finish(ctx context.Context, host, code, state string) (string, string, error)
 	NewState() (string, error)
@@ -94,7 +95,7 @@ func New(uc UseCases, cfg Config, logger *slog.Logger) (http.Handler, error) {
 // check answers forwardAuth: 200 with the User's headers, or the page the browser should see.
 func (h *Handler) check(w http.ResponseWriter, r *http.Request) {
 	host := r.Header.Get("X-Forwarded-Host")
-	if secret, ok := personalToken(r); ok {
+	if secret, ok := bearerToken(r); ok {
 		h.bearer(w, r, host, secret)
 		return
 	}
@@ -103,7 +104,7 @@ func (h *Handler) check(w http.ResponseWriter, r *http.Request) {
 	case err == nil:
 		allow(w, v)
 	case errors.Is(err, app.ErrBearerNeeded):
-		unauthorized(w, `Bearer realm="`+host+`"`)
+		unauthorized(w, h.challenge(r, host, ""))
 	case errors.Is(err, app.ErrNoSignIn):
 		h.signInPage(w, r, host)
 	case errors.Is(err, app.ErrNoAccess):
@@ -123,7 +124,7 @@ func (h *Handler) bearer(w http.ResponseWriter, r *http.Request, host, secret st
 	case err == nil:
 		allow(w, v)
 	case errors.Is(err, app.ErrNoSignIn), errors.Is(err, app.ErrNoAccess):
-		unauthorized(w, `Bearer realm="`+host+`", error="invalid_token"`)
+		unauthorized(w, h.challenge(r, host, `, error="invalid_token"`))
 	case errors.Is(err, app.ErrUnknownHost):
 		h.page(w, http.StatusForbidden, "unknown", nil)
 	default:
@@ -138,17 +139,27 @@ func allow(w http.ResponseWriter, v app.Verdict) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// challenge is the Bearer challenge for a host; an MCP resource's points the tool to its metadata
+// (RFC 9728), where it learns which authorization server issues its tokens.
+func (h *Handler) challenge(r *http.Request, host, errorParam string) string {
+	c := `Bearer realm="` + host + `"` + errorParam
+	if h.uc.MCP(r.Context(), host) {
+		c += `, resource_metadata="` + h.cfg.Issuer + `/.well-known/oauth-protected-resource/` + host + `"`
+	}
+	return c
+}
+
 func unauthorized(w http.ResponseWriter, challenge string) {
 	w.Header().Set("WWW-Authenticate", challenge)
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusUnauthorized)
 }
 
-// personalToken is the Personal Token a request carries as its bearer token. Any other bearer
-// token is the app's own and is left alone (docs/adr/0017).
-func personalToken(r *http.Request) (string, bool) {
+// bearerToken is the Personal Token or Connected App's token a request carries as its bearer
+// token. Any other bearer token is the app's own and is left alone (docs/adr/0017).
+func bearerToken(r *http.Request) (string, bool) {
 	scheme, secret, ok := strings.Cut(r.Header.Get("Authorization"), " ")
-	if !ok || !strings.EqualFold(scheme, "Bearer") || !strings.HasPrefix(secret, "idpat_") {
+	if !ok || !strings.EqualFold(scheme, "Bearer") || !strings.HasPrefix(secret, "idpat_") && !strings.HasPrefix(secret, "idapp_") {
 		return "", false
 	}
 	return secret, true
@@ -170,6 +181,9 @@ func (h *Handler) signInPage(w http.ResponseWriter, r *http.Request, host string
 	back := r.Header.Get("X-Forwarded-Uri")
 	start := h.cfg.Issuer + "/gate/start?" + url.Values{"host": {host}, "state": {state}, "rd": {back}}.Encode()
 	http.SetCookie(w, hostCookie(stateCookie, state, stateMaxAge))
+	if h.uc.MCP(r.Context(), host) {
+		w.Header().Set("WWW-Authenticate", h.challenge(r, host, ""))
+	}
 	h.page(w, http.StatusUnauthorized, "signin", map[string]string{"App": client.Label, "Start": start})
 }
 
