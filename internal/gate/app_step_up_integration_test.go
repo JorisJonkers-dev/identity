@@ -22,7 +22,7 @@ func TestAnAppsStepUpWithAFreshEnoughProofComesStraightBack(t *testing.T) {
 	if !strings.HasPrefix(next, "https://stats.test/.auth/callback?code=") {
 		t.Fatalf("start went to %s", next)
 	}
-	if p := env.Principal(t, env.GateCheckCookie(t, "stats.test", ada.GateCallback(t, next, state)), "stats"); p["twoFactor"] != true {
+	if p := env.Principal(t, env.GateCheckCookie(t, "stats.test", ada.GateCallback(t, next, state)), "stats"); !p.TwoFactor {
 		t.Fatalf("principal = %v", p)
 	}
 }
@@ -48,8 +48,8 @@ func TestAnAppsStepUpWithAStaleProofProvesItAgainAndStatesTheNewProof(t *testing
 	cookie := ada.GateCallback(t, ada.Follow(t, start.Query().Get("next")), state)
 
 	after := env.Principal(t, env.GateCheckCookie(t, "stats.test", cookie), "stats")
-	if after["twoFactorAt"] == before["twoFactorAt"] || after["twoFactorAt"].(string) < before["twoFactorAt"].(string) {
-		t.Fatalf("two-factor at %v, before the step-up %v", after["twoFactorAt"], before["twoFactorAt"])
+	if after.TwoFactorAt == nil || before.TwoFactorAt == nil || !after.TwoFactorAt.After(*before.TwoFactorAt) {
+		t.Fatalf("two-factor at %v, before the step-up %v", after.TwoFactorAt, before.TwoFactorAt)
 	}
 }
 
