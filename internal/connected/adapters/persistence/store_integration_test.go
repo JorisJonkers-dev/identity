@@ -208,8 +208,30 @@ func TestAnAccessTokenIsFoundWithItsConnectedApp(t *testing.T) {
 	id := f.access(t, a.ID, t0.Add(time.Hour))
 	got, err := f.s.Access(f.ctx, id)
 	want := app.AccessToken{ID: id, AppID: a.ID, UserID: a.UserID, ClientID: "kb", ExpiresAt: t0.Add(time.Hour)}
-	if err != nil || got.ID != want.ID || got.AppID != want.AppID || got.UserID != want.UserID || got.ClientID != want.ClientID || !got.ExpiresAt.Equal(want.ExpiresAt) {
+	if err != nil || got.ID != want.ID || got.AppID != want.AppID || got.UserID != want.UserID || got.ClientID != want.ClientID || !got.ExpiresAt.Equal(want.ExpiresAt) || !strings.HasPrefix(got.RegistrationID, "mcp_") {
 		t.Fatalf("Access = %+v, %v", got, err)
+	}
+}
+
+func TestDeletingAnAccessTokenLeavesTheConnectedAppAndItsOtherTokens(t *testing.T) {
+	t.Parallel()
+	f := open(t)
+	a := f.connected(t, "kb")
+	gone := f.access(t, a.ID, t0.Add(time.Hour))
+	kept := f.access(t, a.ID, t0.Add(time.Hour))
+
+	if err := f.s.DeleteAccess(f.ctx, gone); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := f.s.Access(f.ctx, gone); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("the deleted token is found: %v", err)
+	}
+	if _, err := f.s.Access(f.ctx, kept); err != nil {
+		t.Fatalf("the other token is gone: %v", err)
+	}
+	if _, err := f.s.ConnectedApp(f.ctx, a.ID); err != nil {
+		t.Fatalf("the Connected App is gone: %v", err)
 	}
 }
 

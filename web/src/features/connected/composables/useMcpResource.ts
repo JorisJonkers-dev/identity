@@ -12,6 +12,7 @@ export function useMcpResource(clientId: Ref<string>) {
   return {
     on: computed(() => query.data.value?.on ?? false),
     connectedApps: computed(() => query.data.value?.connectedApps ?? 0),
+    tokenCheck: computed(() => query.data.value?.tokenCheck ?? 'gate'),
     error: set.error,
     set: (on: boolean) => {
       set.run({ path: { clientId: clientId.value }, body: { on } }, () => void queryClient.invalidateQueries({ queryKey: getMcpResourceQueryKey({ path: { clientId: clientId.value } }) }))

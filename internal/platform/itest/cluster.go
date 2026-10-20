@@ -99,3 +99,20 @@ func (e *Env) Token(t *testing.T, form url.Values, clientID, secret string) (int
 	}
 	return res.StatusCode, out
 }
+
+// Revoke posts form to /oidc/revoke, as a public client naming itself in the form, and answers the
+// status.
+func (e *Env) Revoke(t *testing.T, form url.Values) int {
+	t.Helper()
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "https://"+Host+"/oidc/revoke", strings.NewReader(form.Encode()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	res, err := e.Browser().client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = res.Body.Close()
+	return res.StatusCode
+}

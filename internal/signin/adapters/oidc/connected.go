@@ -32,6 +32,8 @@ type ConnectedApps interface {
 	Peek(ctx context.Context, secret string) (connectedapp.RefreshToken, error)
 	Refresh(ctx context.Context, secret string) (connectedapp.RefreshToken, error)
 	Check(ctx context.Context, tokenID uuid.UUID, clientID string) (connectedapp.AccessToken, []string, error)
+	RevokeRefresh(ctx context.Context, secret, registrationID string) error
+	RevokeAccess(ctx context.Context, tokenID uuid.UUID, registrationID string) error
 }
 
 const (
@@ -243,6 +245,15 @@ func appTokenID(tokenID string) (uuid.UUID, bool) {
 	}
 	id, err := uuid.Parse(rest)
 	return id, err == nil
+}
+
+// revokeAppToken revokes a tool's access token, by the id the Provider opened it to, or else its
+// refresh token, whatever the tool hinted.
+func (s *storage) revokeAppToken(ctx context.Context, token, registrationID string) error {
+	if id, ok := appTokenID(token); ok {
+		return s.apps.RevokeAccess(ctx, id, registrationID)
+	}
+	return s.apps.RevokeRefresh(ctx, token, registrationID)
 }
 
 // introspectAppToken answers a Client's check of a Connected App's access token: active only for

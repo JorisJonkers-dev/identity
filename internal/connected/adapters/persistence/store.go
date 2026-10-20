@@ -174,7 +174,11 @@ func (s *Store) Access(ctx context.Context, id uuid.UUID) (app.AccessToken, erro
 	if err != nil {
 		return app.AccessToken{}, notFound(err)
 	}
-	return app.AccessToken{ID: r.ID, AppID: r.AppID, UserID: r.UserID, ClientID: r.ClientID, ExpiresAt: r.ExpiresAt}, nil
+	return app.AccessToken{ID: r.ID, AppID: r.AppID, UserID: r.UserID, ClientID: r.ClientID, ExpiresAt: r.ExpiresAt, RegistrationID: r.RegistrationID}, nil
+}
+
+func (s *Store) DeleteAccess(ctx context.Context, id uuid.UUID) error {
+	return s.q.DeleteConnectedAppAccess(ctx, id)
 }
 
 func (s *Store) Refresh(ctx context.Context, hash []byte) (app.RefreshToken, error) {

@@ -494,8 +494,8 @@ type AuditEvent struct {
 	Role      OptAppRole     `json:"role"`
 	// The address a failed sign-in gave; it may belong to no User.
 	Email OptString `json:"email"`
-	// Why a sign-in failed, or, as token-reused, why a Connected App was disconnected: its refresh token
-	// was spent twice.
+	// Why a sign-in failed, or why a Connected App was disconnected: as token-reused, its refresh token
+	// was spent twice; as by-tool, the tool revoked its own refresh token.
 	Reason OptAuditEventReason `json:"reason"`
 	// The step-up window an Admin set, 0 for off.
 	Minutes OptAuditEventMinutes `json:"minutes"`
@@ -665,8 +665,8 @@ func (AuditEventMinutes) AllValues() []AuditEventMinutes {
 	}
 }
 
-// Why a sign-in failed, or, as token-reused, why a Connected App was disconnected: its refresh token
-// was spent twice.
+// Why a sign-in failed, or why a Connected App was disconnected: as token-reused, its refresh token
+// was spent twice; as by-tool, the tool revoked its own refresh token.
 type AuditEventReason string
 
 const (
@@ -674,6 +674,7 @@ const (
 	AuditEventReasonSecondFactor AuditEventReason = "second-factor"
 	AuditEventReasonNoAccess     AuditEventReason = "no-access"
 	AuditEventReasonTokenReused  AuditEventReason = "token-reused"
+	AuditEventReasonByTool       AuditEventReason = "by-tool"
 )
 
 // AllValues returns all AuditEventReason values.
@@ -683,6 +684,7 @@ func (AuditEventReason) AllValues() []AuditEventReason {
 		AuditEventReasonSecondFactor,
 		AuditEventReasonNoAccess,
 		AuditEventReasonTokenReused,
+		AuditEventReasonByTool,
 	}
 }
 
@@ -696,6 +698,8 @@ func (s AuditEventReason) MarshalText() ([]byte, error) {
 	case AuditEventReasonNoAccess:
 		return []byte(s), nil
 	case AuditEventReasonTokenReused:
+		return []byte(s), nil
+	case AuditEventReasonByTool:
 		return []byte(s), nil
 	default:
 		return nil, errors.Errorf("invalid value: %q", s)
@@ -716,6 +720,9 @@ func (s *AuditEventReason) UnmarshalText(data []byte) error {
 		return nil
 	case AuditEventReasonTokenReused:
 		*s = AuditEventReasonTokenReused
+		return nil
+	case AuditEventReasonByTool:
+		*s = AuditEventReasonByTool
 		return nil
 	default:
 		return errors.Errorf("invalid value: %q", data)
@@ -1528,11 +1535,14 @@ func (s *LinkToken) SetToken(val string) {
 	s.Token = val
 }
 
-// Whether a Client takes Connected Apps, and how many it has.
+// Whether a Client takes Connected Apps, how many it has, and how it checks their tokens.
 // Ref: #/components/schemas/MCPResource
 type MCPResource struct {
 	On            bool  `json:"on"`
 	ConnectedApps Count `json:"connectedApps"`
+	// How the Client checks a Connected App's token: the Gate fronts it; it holds a secret and introspects
+	// the token itself; or neither, so it cannot take Connected Apps.
+	TokenCheck MCPResourceTokenCheck `json:"tokenCheck"`
 }
 
 // GetOn returns the value of On.
@@ -1545,6 +1555,11 @@ func (s *MCPResource) GetConnectedApps() Count {
 	return s.ConnectedApps
 }
 
+// GetTokenCheck returns the value of TokenCheck.
+func (s *MCPResource) GetTokenCheck() MCPResourceTokenCheck {
+	return s.TokenCheck
+}
+
 // SetOn sets the value of On.
 func (s *MCPResource) SetOn(val bool) {
 	s.On = val
@@ -1553,6 +1568,11 @@ func (s *MCPResource) SetOn(val bool) {
 // SetConnectedApps sets the value of ConnectedApps.
 func (s *MCPResource) SetConnectedApps(val Count) {
 	s.ConnectedApps = val
+}
+
+// SetTokenCheck sets the value of TokenCheck.
+func (s *MCPResource) SetTokenCheck(val MCPResourceTokenCheck) {
+	s.TokenCheck = val
 }
 
 func (*MCPResource) getMCPResourceRes() {}
@@ -1571,6 +1591,56 @@ func (s *MCPResourceSetting) GetOn() bool {
 // SetOn sets the value of On.
 func (s *MCPResourceSetting) SetOn(val bool) {
 	s.On = val
+}
+
+// How the Client checks a Connected App's token: the Gate fronts it; it holds a secret and introspects
+// the token itself; or neither, so it cannot take Connected Apps.
+type MCPResourceTokenCheck string
+
+const (
+	MCPResourceTokenCheckGate          MCPResourceTokenCheck = "gate"
+	MCPResourceTokenCheckIntrospection MCPResourceTokenCheck = "introspection"
+	MCPResourceTokenCheckNone          MCPResourceTokenCheck = "none"
+)
+
+// AllValues returns all MCPResourceTokenCheck values.
+func (MCPResourceTokenCheck) AllValues() []MCPResourceTokenCheck {
+	return []MCPResourceTokenCheck{
+		MCPResourceTokenCheckGate,
+		MCPResourceTokenCheckIntrospection,
+		MCPResourceTokenCheckNone,
+	}
+}
+
+// MarshalText implements encoding.TextMarshaler.
+func (s MCPResourceTokenCheck) MarshalText() ([]byte, error) {
+	switch s {
+	case MCPResourceTokenCheckGate:
+		return []byte(s), nil
+	case MCPResourceTokenCheckIntrospection:
+		return []byte(s), nil
+	case MCPResourceTokenCheckNone:
+		return []byte(s), nil
+	default:
+		return nil, errors.Errorf("invalid value: %q", s)
+	}
+}
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (s *MCPResourceTokenCheck) UnmarshalText(data []byte) error {
+	switch MCPResourceTokenCheck(data) {
+	case MCPResourceTokenCheckGate:
+		*s = MCPResourceTokenCheckGate
+		return nil
+	case MCPResourceTokenCheckIntrospection:
+		*s = MCPResourceTokenCheckIntrospection
+		return nil
+	case MCPResourceTokenCheckNone:
+		*s = MCPResourceTokenCheckNone
+		return nil
+	default:
+		return errors.Errorf("invalid value: %q", data)
+	}
 }
 
 // A Machine Identity: a workload that signs in as itself, bound to one Kubernetes ServiceAccount. Its

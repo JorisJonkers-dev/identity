@@ -1530,7 +1530,7 @@ export const getMcpResource = <ThrowOnError extends boolean = false>(options: Op
 /**
  * Let a Client take Connected Apps, or stop it
  *
- * Admins only, from a session that proved a Second Factor. Stopping keeps the Connected Apps the Client has; turning step-up on disconnects them.
+ * Admins only, from a session that proved a Second Factor. A Client that can check no Connected App's token is refused with 409. Stopping keeps the Connected Apps the Client has; turning step-up on disconnects them.
  */
 export const setMcpResource = <ThrowOnError extends boolean = false>(options: Options<SetMcpResourceData, ThrowOnError>): RequestResult<SetMcpResourceResponses, SetMcpResourceErrors, ThrowOnError> => (options.client ?? client).put<SetMcpResourceResponses, SetMcpResourceErrors, ThrowOnError>({
     requestValidator: async (data) => await z.object({

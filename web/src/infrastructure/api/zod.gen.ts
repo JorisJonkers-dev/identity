@@ -68,11 +68,16 @@ export const zMcpResourceSetting = z.object({
 export const zCount = z.int().gte(0).lte(2147483647);
 
 /**
- * Whether a Client takes Connected Apps, and how many it has.
+ * Whether a Client takes Connected Apps, how many it has, and how it checks their tokens.
  */
 export const zMcpResource = z.object({
     on: z.boolean(),
-    connectedApps: zCount
+    connectedApps: zCount,
+    tokenCheck: z.enum([
+        'gate',
+        'introspection',
+        'none'
+    ])
 });
 
 /**
@@ -332,7 +337,8 @@ export const zAuditEvent = z.object({
         'password',
         'second-factor',
         'no-access',
-        'token-reused'
+        'token-reused',
+        'by-tool'
     ]).optional(),
     minutes: z.union([
         z.literal(0),

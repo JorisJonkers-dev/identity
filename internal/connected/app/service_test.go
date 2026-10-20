@@ -24,6 +24,8 @@ var (
 	kb      = app.Client{ID: "kb", Label: "Knowledge", Roles: []string{"user", "editor"}}
 	stats   = app.Client{ID: "stats", Label: "Stats", Roles: []string{"user"}, StepUp: true}
 	wiki    = app.Client{ID: "wiki", Label: "Wiki", Roles: []string{"user"}}
+	// desk is a public Native Client marked before it became one: it can check no tool's token.
+	desk = app.Client{ID: "desk", Label: "Desk", Roles: []string{"user"}, TokenCheck: app.Unchecked}
 )
 
 type token struct {
@@ -45,7 +47,7 @@ type store struct {
 
 func newStore() *store {
 	return &store{
-		regs: map[string]domain.Registration{}, mcp: map[string]bool{"kb": true, "stats": true},
+		regs: map[string]domain.Registration{}, mcp: map[string]bool{"kb": true, "stats": true, "desk": true},
 		apps: map[uuid.UUID]domain.ConnectedApp{}, regOf: map[uuid.UUID]string{}, tokens: map[uuid.UUID]*token{}, fail: map[string]error{},
 	}
 }
@@ -220,7 +222,15 @@ func (s *store) Touch(_ context.Context, appID uuid.UUID, at time.Time) error {
 
 func (s *store) create(id, appID uuid.UUID, refresh bool, hash []byte, expires time.Time) {
 	a := s.apps[appID]
-	s.tokens[id] = &token{AccessToken: app.AccessToken{ID: id, AppID: appID, UserID: a.UserID, ClientID: a.ClientID, ExpiresAt: expires}, refresh: refresh, hash: hash}
+	s.tokens[id] = &token{AccessToken: app.AccessToken{ID: id, AppID: appID, UserID: a.UserID, ClientID: a.ClientID, ExpiresAt: expires, RegistrationID: s.regOf[appID]}, refresh: refresh, hash: hash}
+}
+
+func (s *store) DeleteAccess(_ context.Context, id uuid.UUID) error {
+	if err := s.fail["DeleteAccess"]; err != nil {
+		return err
+	}
+	delete(s.tokens, id)
+	return nil
 }
 
 func (s *store) CreateAccess(_ context.Context, id, appID uuid.UUID, _, expires time.Time) error {
@@ -356,7 +366,7 @@ type fixture struct {
 
 func newFixture() *fixture {
 	f := &fixture{store: newStore(), events: &recorded{}, now: t0}
-	f.Service = app.New(f.store, clients{"kb": kb, "stats": stats, "wiki": wiki}, roles{}, admins{root: true}, f.events, func() time.Time { return f.now }, &counter{})
+	f.Service = app.New(f.store, clients{"kb": kb, "stats": stats, "wiki": wiki, "desk": desk}, roles{}, admins{root: true}, f.events, func() time.Time { return f.now }, &counter{})
 	f.OnForget(func(ids []uuid.UUID) { f.forgotten = append(f.forgotten, ids...) })
 	return f
 }
@@ -428,6 +438,7 @@ func TestAResourceIsRefused(t *testing.T) {
 		{"over plain http", "http://kb.example.org/mcp"},
 		{"for a host no Client serves", "https://nowhere.example.org/mcp"},
 		{"for a Client not marked as an MCP resource", "https://wiki.example.org/mcp"},
+		{"for a Client that can check no tool's token", "https://desk.example.org/mcp"},
 		{"that is no URL", "kb"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -482,6 +493,7 @@ func TestConsentIsRefused(t *testing.T) {
 	}{
 		{"for a Step-up Client", ada, "stats", app.ErrStepUpClient},
 		{"for a Client not marked as an MCP resource", ada, "wiki", app.ErrNotMCPResource},
+		{"for a Client that can check no tool's token", ada, "desk", app.ErrNotMCPResource},
 		{"for a User with no App Role there", root, "kb", app.ErrNoAccess},
 		{"for a Client not in the cluster", ada, "gone", app.ErrNotFound},
 	} {
@@ -859,6 +871,126 @@ func TestAUserCannotRevokeSomeoneElsesConnectedApp(t *testing.T) {
 	}
 }
 
+func TestAToolRevokingItsRefreshTokenIsDisconnectedAndItsAccessTokensStopAtOnce(t *testing.T) {
+	f := newFixture()
+	r, appID := f.connected(t)
+	access, _, _ := f.IssueAccess(ctx, appID)
+	secret, _ := f.IssueRefresh(ctx, appID)
+
+	if err := f.RevokeRefresh(ctx, secret, r.ClientID); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, _, err := f.Check(ctx, access, "kb"); !errors.Is(err, app.ErrInvalidToken) || len(f.store.apps) != 0 {
+		t.Fatalf("the Connected App is kept: %v", err)
+	}
+	if !slices.Equal(f.forgotten, []uuid.UUID{access}) {
+		t.Fatalf("forgotten %v", f.forgotten)
+	}
+}
+
+func TestAToolDisconnectingItselfIsAnAuditEventSayingSo(t *testing.T) {
+	f := newFixture()
+	r, appID := f.connected(t)
+	secret, _ := f.IssueRefresh(ctx, appID)
+	_ = f.RevokeRefresh(ctx, secret, r.ClientID)
+	want := audit.Event{Action: audit.ConnectedAppRevoked, User: ada, Client: "kb", AppName: "Claude Code", Reason: audit.ReasonByTool}
+	if len(*f.events) != 1 || (*f.events)[0] != want {
+		t.Fatalf("events = %+v", *f.events)
+	}
+}
+
+func TestAToolCannotRevokeAnotherToolsRefreshToken(t *testing.T) {
+	f := newFixture()
+	_, appID := f.connected(t)
+	secret, _ := f.IssueRefresh(ctx, appID)
+	if err := f.RevokeRefresh(ctx, secret, "mcp_other"); err != nil || len(f.store.apps) != 1 || len(*f.events) != 0 {
+		t.Fatalf("err = %v, apps %d", err, len(f.store.apps))
+	}
+}
+
+func TestRevokingAnUnknownRefreshTokenChangesNothing(t *testing.T) {
+	f := newFixture()
+	r, _ := f.connected(t)
+	if err := f.RevokeRefresh(ctx, "unknown", r.ClientID); err != nil || len(f.store.apps) != 1 {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestAToolRevokingAnAccessTokenStopsThatTokenOnly(t *testing.T) {
+	f := newFixture()
+	r, appID := f.connected(t)
+	gone, _, _ := f.IssueAccess(ctx, appID)
+	kept, _, _ := f.IssueAccess(ctx, appID)
+
+	if err := f.RevokeAccess(ctx, gone, r.ClientID); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, _, err := f.Check(ctx, gone, "kb"); !errors.Is(err, app.ErrInvalidToken) {
+		t.Fatalf("the revoked token still works: %v", err)
+	}
+	if _, _, err := f.Check(ctx, kept, "kb"); err != nil {
+		t.Fatalf("the other token stopped: %v", err)
+	}
+	if !slices.Equal(f.forgotten, []uuid.UUID{gone}) || len(*f.events) != 0 {
+		t.Fatalf("forgotten %v, events %+v", f.forgotten, *f.events)
+	}
+}
+
+func TestAToolCannotRevokeAnotherToolsAccessToken(t *testing.T) {
+	f := newFixture()
+	_, appID := f.connected(t)
+	access, _, _ := f.IssueAccess(ctx, appID)
+	if err := f.RevokeAccess(ctx, access, "mcp_other"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := f.Check(ctx, access, "kb"); err != nil {
+		t.Fatalf("the token stopped: %v", err)
+	}
+}
+
+func TestRevokingAnUnknownAccessTokenChangesNothing(t *testing.T) {
+	f := newFixture()
+	r, _ := f.connected(t)
+	if err := f.RevokeAccess(ctx, uuid.New(), r.ClientID); err != nil || len(f.forgotten) != 0 {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestAToolsRevocationFailsWhenTheStoreDoes(t *testing.T) {
+	for _, c := range []struct {
+		name   string
+		method string
+		revoke func(f *fixture, r domain.Registration, appID uuid.UUID) error
+	}{
+		{"finding the refresh token", "Refresh", refreshRevocation},
+		{"reading the Connected App", "ConnectedApp", refreshRevocation},
+		{"disconnecting", "DeleteConnectedApp", refreshRevocation},
+		{"finding the access token", "Access", accessRevocation},
+		{"deleting the access token", "DeleteAccess", accessRevocation},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			f := newFixture()
+			r, appID := f.connected(t)
+			f.store.fail[c.method] = errBoom
+			if err := c.revoke(f, r, appID); !errors.Is(err, errBoom) || len(*f.events) != 0 {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
+
+func refreshRevocation(f *fixture, r domain.Registration, appID uuid.UUID) error {
+	secret, _ := f.IssueRefresh(ctx, appID)
+	return f.RevokeRefresh(ctx, secret, r.ClientID)
+}
+
+func accessRevocation(f *fixture, r domain.Registration, appID uuid.UUID) error {
+	id, _, _ := f.IssueAccess(ctx, appID)
+	return f.RevokeAccess(ctx, id, r.ClientID)
+}
+
 func TestARevocationFails(t *testing.T) {
 	for _, method := range []string{"ConnectedApp", "DeleteConnectedApp"} {
 		t.Run(method, func(t *testing.T) {
@@ -916,7 +1048,7 @@ func TestAnAdminMarksAClientAsAnMCPResourceAsAnAuditEvent(t *testing.T) {
 	if on, _ := f.IsMCPResource(ctx, "wiki"); !on {
 		t.Fatal("wiki is not marked")
 	}
-	if all, _ := f.MCPResources(ctx); !slices.Equal(all, []string{"kb", "stats", "wiki"}) {
+	if all, _ := f.MCPResources(ctx); !slices.Equal(all, []string{"desk", "kb", "stats", "wiki"}) {
 		t.Fatalf("resources %v", all)
 	}
 	if (*f.events)[0] != (audit.Event{Action: audit.MCPResourceMarked, Actor: root, Client: "wiki"}) {
@@ -950,6 +1082,21 @@ func TestMarkingAnMCPResourceIsRefused(t *testing.T) {
 				t.Fatalf("err = %v", err)
 			}
 		})
+	}
+}
+
+func TestAClientThatCanCheckNoToolsTokenIsNotMarkedAsAnMCPResource(t *testing.T) {
+	f := newFixture()
+	f.store.mcp["desk"] = false
+	if err := f.SetMCPResource(ctx, app.Actor{ID: root, SecondFactor: true}, "desk", true); !errors.Is(err, app.ErrUnchecked) || f.store.mcp["desk"] || len(*f.events) != 0 {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestAnAdminUnmarksAClientThatCanCheckNoToolsToken(t *testing.T) {
+	f := newFixture()
+	if err := f.SetMCPResource(ctx, app.Actor{ID: root, SecondFactor: true}, "desk", false); err != nil || f.store.mcp["desk"] {
+		t.Fatalf("err = %v", err)
 	}
 }
 
@@ -1064,9 +1211,16 @@ func TestPruningFailsWhenTheStoreDoes(t *testing.T) {
 func TestAnAdminSeesWhetherAClientTakesConnectedAppsAndHowMany(t *testing.T) {
 	f := newFixture()
 	f.connected(t)
-	on, n, err := f.MCPState(ctx, app.Actor{ID: root, SecondFactor: true}, "kb")
-	if err != nil || !on || n != 1 {
-		t.Fatalf("MCPState = %v, %d, %v", on, n, err)
+	got, err := f.MCPState(ctx, app.Actor{ID: root, SecondFactor: true}, "kb")
+	if err != nil || got != (app.MCPState{On: true, ConnectedApps: 1}) {
+		t.Fatalf("MCPState = %+v, %v", got, err)
+	}
+}
+
+func TestAnAdminSeesHowAClientChecksAToolsToken(t *testing.T) {
+	got, err := newFixture().MCPState(ctx, app.Actor{ID: root, SecondFactor: true}, "desk")
+	if err != nil || got.TokenCheck != app.Unchecked {
+		t.Fatalf("MCPState = %+v, %v", got, err)
 	}
 }
 
@@ -1080,7 +1234,7 @@ func TestOnlyAnAdminSeesWhetherAClientTakesConnectedApps(t *testing.T) {
 		{"no second factor", app.Actor{ID: root}, app.ErrSecondFactorNeeded},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			if _, _, err := newFixture().MCPState(ctx, c.actor, "kb"); !errors.Is(err, c.want) {
+			if _, err := newFixture().MCPState(ctx, c.actor, "kb"); !errors.Is(err, c.want) {
 				t.Fatalf("err = %v", err)
 			}
 		})
@@ -1101,7 +1255,7 @@ func TestSeeingWhetherAClientTakesConnectedAppsFails(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			f := newFixture()
 			c.spoil(f)
-			if _, _, err := f.MCPState(ctx, app.Actor{ID: root, SecondFactor: true}, c.client); !errors.Is(err, c.want) {
+			if _, err := f.MCPState(ctx, app.Actor{ID: root, SecondFactor: true}, c.client); !errors.Is(err, c.want) {
 				t.Fatalf("err = %v", err)
 			}
 		})

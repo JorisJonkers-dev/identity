@@ -63,17 +63,18 @@ func (q *Queries) AccessTokensOfClient(ctx context.Context, clientID string) ([]
 }
 
 const connectedAppAccess = `-- name: ConnectedAppAccess :one
-SELECT t.id, t.expires_at, c.id AS app_id, c.user_id, c.client_id FROM connected_app_tokens t
+SELECT t.id, t.expires_at, c.id AS app_id, c.user_id, c.client_id, c.registration_id FROM connected_app_tokens t
 JOIN connected_apps c ON c.id = t.connected_app_id
 WHERE t.id = $1 AND t.kind = 'access'
 `
 
 type ConnectedAppAccessRow struct {
-	ID        uuid.UUID
-	ExpiresAt time.Time
-	AppID     uuid.UUID
-	UserID    uuid.UUID
-	ClientID  string
+	ID             uuid.UUID
+	ExpiresAt      time.Time
+	AppID          uuid.UUID
+	UserID         uuid.UUID
+	ClientID       string
+	RegistrationID string
 }
 
 // A live access token, found by the id its sealed form carries.
@@ -86,6 +87,7 @@ func (q *Queries) ConnectedAppAccess(ctx context.Context, id uuid.UUID) (Connect
 		&i.AppID,
 		&i.UserID,
 		&i.ClientID,
+		&i.RegistrationID,
 	)
 	return i, err
 }
@@ -335,6 +337,15 @@ func (q *Queries) DeleteConnectedApp(ctx context.Context, id uuid.UUID) (int64, 
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const deleteConnectedAppAccess = `-- name: DeleteConnectedAppAccess :exec
+DELETE FROM connected_app_tokens WHERE id = $1 AND kind = 'access'
+`
+
+func (q *Queries) DeleteConnectedAppAccess(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteConnectedAppAccess, id)
+	return err
 }
 
 const deleteConnectedAppsForClient = `-- name: DeleteConnectedAppsForClient :exec

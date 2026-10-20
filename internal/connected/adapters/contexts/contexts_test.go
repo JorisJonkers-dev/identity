@@ -111,3 +111,34 @@ func TestTheLabelOfAClientNotInTheClusterIsNotFound(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+// declared is an index holding one Client.
+type declared signindomain.Client
+
+func (d declared) Client(context.Context, string) (signindomain.Client, error) {
+	return signindomain.Client(d), nil
+}
+
+func (d declared) ClientForHost(context.Context, string) (signindomain.Client, error) {
+	return signindomain.Client(d), nil
+}
+
+func TestAClientChecksAToolsTokenByHowItSignsPeopleIn(t *testing.T) {
+	for _, c := range []struct {
+		name   string
+		client signindomain.Client
+		want   app.TokenCheck
+	}{
+		{"a gated Client, through the Gate", signindomain.Client{SignIn: signindomain.Gated}, app.ByGate},
+		{"a token Client, through the Gate", signindomain.Client{SignIn: signindomain.Token}, app.ByGate},
+		{"a Native Client with a secret, by introspection", signindomain.Client{SignIn: signindomain.Native, Credential: signindomain.Secret}, app.ByIntrospection},
+		{"a public Native Client, not at all", signindomain.Client{SignIn: signindomain.Native, Credential: signindomain.PKCE}, app.Unchecked},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			got, err := contexts.New(declared(c.client), stepUps{}, access{}).Client(context.Background(), "x")
+			if err != nil || got.TokenCheck != c.want {
+				t.Fatalf("Client = %+v, %v", got, err)
+			}
+		})
+	}
+}

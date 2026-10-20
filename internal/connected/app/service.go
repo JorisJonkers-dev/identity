@@ -32,6 +32,8 @@ var (
 	// ErrInvalidToken is a token that is unknown, expired, spent or for another Client.
 	ErrInvalidToken = errors.New("the token is not valid")
 	ErrNotAdmin     = errors.New("only Admins can do this")
+	// ErrUnchecked is a Client that can check no tool's token, so it cannot take Connected Apps.
+	ErrUnchecked = errors.New("the Client can check no Connected App's token")
 	// ErrSecondFactorNeeded is an Admin whose session did not prove a Second Factor.
 	ErrSecondFactorNeeded = errors.New("a session that proved a Second Factor is needed")
 )
@@ -58,6 +60,8 @@ type AccessToken struct {
 	UserID    uuid.UUID
 	ClientID  string
 	ExpiresAt time.Time
+	// RegistrationID is the registered tool the Connected App is, which alone may revoke the token.
+	RegistrationID string
 }
 
 // RefreshToken is a refresh token as the store keeps it.
@@ -103,6 +107,7 @@ type Store interface {
 	CreateRefresh(ctx context.Context, id, appID uuid.UUID, hash []byte, at, expires time.Time) error
 	// Access is ErrNotFound when there is none.
 	Access(ctx context.Context, id uuid.UUID) (AccessToken, error)
+	DeleteAccess(ctx context.Context, id uuid.UUID) error
 	// Refresh is ErrNotFound when there is none.
 	Refresh(ctx context.Context, hash []byte) (RefreshToken, error)
 	// Spend marks a refresh token spent, and reports false when it already was.
@@ -110,13 +115,35 @@ type Store interface {
 	PruneTokens(ctx context.Context, before time.Time) (int64, error)
 }
 
+// TokenCheck is how a Client checks a Connected App's access token.
+type TokenCheck string
+
+const (
+	// ByGate is a Client the Gate fronts, which checks the token for it.
+	ByGate TokenCheck = "gate"
+	// ByIntrospection is a Native Client holding a secret, which checks the token at introspection
+	// and answers a tool without one itself.
+	ByIntrospection TokenCheck = "introspection"
+	// Unchecked is a public Native Client: no Gate fronts it, and it holds no secret to introspect.
+	Unchecked TokenCheck = "none"
+)
+
 // Client is a Client as the connected context needs it.
 type Client struct {
 	ID    string
 	Label string
 	Roles []string
 	// StepUp is whether the Client asks for fresh two-factor.
-	StepUp bool
+	StepUp     bool
+	TokenCheck TokenCheck
+}
+
+// MCPState is whether a Client takes Connected Apps, how many it has, and how it checks their
+// tokens, as an Admin sees it.
+type MCPState struct {
+	On            bool
+	ConnectedApps int
+	TokenCheck    TokenCheck
 }
 
 // Clients finds the Clients the cluster declares.
@@ -208,7 +235,7 @@ func (s *Service) Resource(ctx context.Context, resource string) (Client, error)
 	if err != nil {
 		return Client{}, err
 	}
-	if !mcp {
+	if !mcp || c.TokenCheck == Unchecked {
 		return Client{}, ErrNotMCPResource
 	}
 	return c, nil
@@ -273,7 +300,7 @@ func (s *Service) consentable(ctx context.Context, userID uuid.UUID, clientID st
 		return Client{}, err
 	}
 	switch {
-	case !mcp:
+	case !mcp || c.TokenCheck == Unchecked:
 		return Client{}, ErrNotMCPResource
 	case c.StepUp:
 		return Client{}, ErrStepUpClient
@@ -435,6 +462,50 @@ func (s *Service) Revoke(ctx context.Context, userID, id uuid.UUID) error {
 	return nil
 }
 
+// RevokeRefresh is a tool revoking its refresh token (RFC 7009): its Connected App ends, as when its
+// User disconnects it. A token that is unknown, or another tool's, changes nothing.
+func (s *Service) RevokeRefresh(ctx context.Context, secret, registrationID string) error {
+	t, err := s.Peek(ctx, secret)
+	if errors.Is(err, ErrInvalidToken) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if t.RegistrationID != registrationID {
+		return nil
+	}
+	app, err := s.store.ConnectedApp(ctx, t.AppID)
+	if err != nil {
+		return err
+	}
+	if err := s.end(ctx, t.AppID); err != nil {
+		return err
+	}
+	s.audit.Record(ctx, audit.Event{Action: audit.ConnectedAppRevoked, User: app.UserID, Client: app.ClientID, AppName: app.Name, Reason: audit.ReasonByTool})
+	return nil
+}
+
+// RevokeAccess is a tool revoking one of its access tokens (RFC 7009): that token stops at once,
+// and its Connected App stays. A token that is unknown, or another tool's, changes nothing.
+func (s *Service) RevokeAccess(ctx context.Context, tokenID uuid.UUID, registrationID string) error {
+	t, err := s.store.Access(ctx, tokenID)
+	if errors.Is(err, ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if t.RegistrationID != registrationID {
+		return nil
+	}
+	if err := s.store.DeleteAccess(ctx, tokenID); err != nil {
+		return err
+	}
+	s.forget([]uuid.UUID{tokenID})
+	return nil
+}
+
 // reused ends a Connected App whose refresh token was spent twice, as an Audit Event, and answers
 // ErrInvalidToken: the second spender gets nothing.
 func (s *Service) reused(ctx context.Context, appID uuid.UUID) error {
@@ -490,14 +561,19 @@ func (s *Service) IsMCPResource(ctx context.Context, clientID string) (bool, err
 	return s.store.IsMCPResource(ctx, clientID)
 }
 
-// SetMCPResource lets a Client take Connected Apps, or stops it, as an Admin. Stopping keeps the
-// Connected Apps it has; an Admin revokes those by turning step-up on, or a User revokes their own.
+// SetMCPResource lets a Client take Connected Apps, or stops it, as an Admin. A Client that can
+// check no tool's token cannot take them. Stopping keeps the Connected Apps it has; an Admin
+// revokes those by turning step-up on, or a User revokes their own.
 func (s *Service) SetMCPResource(ctx context.Context, actor Actor, clientID string, on bool) error {
 	if err := s.admin(ctx, actor); err != nil {
 		return err
 	}
-	if _, err := s.clients.Client(ctx, clientID); err != nil {
+	c, err := s.clients.Client(ctx, clientID)
+	if err != nil {
 		return err
+	}
+	if on && c.TokenCheck == Unchecked {
+		return ErrUnchecked
 	}
 	if err := s.store.SetMCPResource(ctx, clientID, on, s.now()); err != nil {
 		return err
@@ -510,20 +586,22 @@ func (s *Service) SetMCPResource(ctx context.Context, actor Actor, clientID stri
 	return nil
 }
 
-// MCPState is whether a Client takes Connected Apps and how many it has, as an Admin sees it.
-func (s *Service) MCPState(ctx context.Context, actor Actor, clientID string) (bool, int, error) {
+// MCPState is whether a Client takes Connected Apps, how many it has, and how it checks their
+// tokens, as an Admin sees it.
+func (s *Service) MCPState(ctx context.Context, actor Actor, clientID string) (MCPState, error) {
 	if err := s.admin(ctx, actor); err != nil {
-		return false, 0, err
+		return MCPState{}, err
 	}
-	if _, err := s.clients.Client(ctx, clientID); err != nil {
-		return false, 0, err
+	c, err := s.clients.Client(ctx, clientID)
+	if err != nil {
+		return MCPState{}, err
 	}
 	on, err := s.store.IsMCPResource(ctx, clientID)
 	if err != nil {
-		return false, 0, err
+		return MCPState{}, err
 	}
 	n, err := s.store.CountForClient(ctx, clientID)
-	return on, n, err
+	return MCPState{On: on, ConnectedApps: n, TokenCheck: c.TokenCheck}, err
 }
 
 // admin is nil for an Admin whose session proved a Second Factor.

@@ -159,9 +159,17 @@ func (s *storage) TerminateSession(ctx context.Context, userID, _ string) error 
 	return nil
 }
 
-// RevokeToken refuses: a JWT access token lives its 15 minutes, and there are no refresh tokens.
-func (s *storage) RevokeToken(context.Context, string, string, string) *oidc.Error {
-	return oidc.ErrRequestNotSupported().WithDescription("Tokens cannot be revoked. An access token expires after 15 minutes.")
+// RevokeToken revokes a registered tool's own token (RFC 7009), and refuses every other Client: a
+// JWT access token lives its 15 minutes, and only tools hold refresh tokens.
+func (s *storage) RevokeToken(ctx context.Context, token, _, clientID string) *oidc.Error {
+	if !isRegistration(clientID) {
+		return oidc.ErrRequestNotSupported().WithDescription("Tokens cannot be revoked. An access token expires after 15 minutes.")
+	}
+	if err := s.revokeAppToken(ctx, token, clientID); err != nil {
+		s.logger.ErrorContext(ctx, "revoking a Connected App's token", "error", err)
+		return oidc.ErrServerError()
+	}
+	return nil
 }
 
 func (s *storage) SigningKey(context.Context) (op.SigningKey, error) { return s.ring.Signing(), nil }

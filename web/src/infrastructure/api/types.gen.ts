@@ -54,9 +54,9 @@ export type AuditEvent = {
      */
     email?: string;
     /**
-     * Why a sign-in failed, or, as token-reused, why a Connected App was disconnected: its refresh token was spent twice.
+     * Why a sign-in failed, or why a Connected App was disconnected: as token-reused, its refresh token was spent twice; as by-tool, the tool revoked its own refresh token.
      */
-    reason?: 'password' | 'second-factor' | 'no-access' | 'token-reused';
+    reason?: 'password' | 'second-factor' | 'no-access' | 'token-reused' | 'by-tool';
     /**
      * The step-up window an Admin set, 0 for off.
      */
@@ -156,11 +156,15 @@ export type ConnectedAppList = {
 };
 
 /**
- * Whether a Client takes Connected Apps, and how many it has.
+ * Whether a Client takes Connected Apps, how many it has, and how it checks their tokens.
  */
 export type McpResource = {
     on: boolean;
     connectedApps: Count;
+    /**
+     * How the Client checks a Connected App's token: the Gate fronts it; it holds a secret and introspects the token itself; or neither, so it cannot take Connected Apps.
+     */
+    tokenCheck: 'gate' | 'introspection' | 'none';
 };
 
 /**

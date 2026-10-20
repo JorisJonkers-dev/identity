@@ -381,8 +381,9 @@ type Invoker interface {
 	SetGroupTwoFactor(ctx context.Context, request *TwoFactorRequirement, params SetGroupTwoFactorParams) (SetGroupTwoFactorRes, error)
 	// SetMCPResource invokes setMCPResource operation.
 	//
-	// Admins only, from a session that proved a Second Factor. Stopping keeps the Connected Apps the
-	// Client has; turning step-up on disconnects them.
+	// Admins only, from a session that proved a Second Factor. A Client that can check no Connected App's
+	// token is refused with 409. Stopping keeps the Connected Apps the Client has; turning step-up on
+	// disconnects them.
 	//
 	// PUT /api/v1/apps/{clientId}/mcp
 	SetMCPResource(ctx context.Context, request *MCPResourceSetting, params SetMCPResourceParams) (SetMCPResourceRes, error)
@@ -6956,8 +6957,9 @@ func (c *Client) sendSetGroupTwoFactor(ctx context.Context, request *TwoFactorRe
 
 // SetMCPResource invokes setMCPResource operation.
 //
-// Admins only, from a session that proved a Second Factor. Stopping keeps the Connected Apps the
-// Client has; turning step-up on disconnects them.
+// Admins only, from a session that proved a Second Factor. A Client that can check no Connected App's
+// token is refused with 409. Stopping keeps the Connected Apps the Client has; turning step-up on
+// disconnects them.
 //
 // PUT /api/v1/apps/{clientId}/mcp
 func (c *Client) SetMCPResource(ctx context.Context, request *MCPResourceSetting, params SetMCPResourceParams) (SetMCPResourceRes, error) {

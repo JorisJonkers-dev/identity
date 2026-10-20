@@ -71,6 +71,7 @@ type Querier interface {
 	DeleteChallenge(ctx context.Context, tokenHash []byte) error
 	DeleteClientSecret(ctx context.Context, clientID string) error
 	DeleteConnectedApp(ctx context.Context, id uuid.UUID) (int64, error)
+	DeleteConnectedAppAccess(ctx context.Context, id uuid.UUID) error
 	DeleteConnectedAppsForClient(ctx context.Context, clientID string) error
 	DeleteEmailChange(ctx context.Context, userID uuid.UUID) error
 	// The admins Group stays, whatever the caller checked.

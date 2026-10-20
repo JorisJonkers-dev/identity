@@ -20,7 +20,7 @@ function server(start: AccessOverview = overview()) {
   }
   let stepUp = 0
   const tokens = { live: 0, connectedApps: 0 }
-  const mcp = { on: false }
+  const mcp: { on: boolean; tokenCheck: 'gate' | 'introspection' | 'none' } = { on: false, tokenCheck: 'gate' }
   for (const c of o.clients) {
     answers[`GET /api/v1/apps/${c.id}/step-up`] = () => Response.json({ minutes: stepUp, tokens: tokens.live, connectedApps: tokens.connectedApps })
     answers[`PUT /api/v1/apps/${c.id}/step-up`] = () => {
@@ -29,7 +29,7 @@ function server(start: AccessOverview = overview()) {
       tokens.connectedApps = 0
       return ok()
     }
-    answers[`GET /api/v1/apps/${c.id}/mcp`] = () => Response.json({ on: mcp.on, connectedApps: tokens.connectedApps })
+    answers[`GET /api/v1/apps/${c.id}/mcp`] = () => Response.json({ on: mcp.on, connectedApps: tokens.connectedApps, tokenCheck: mcp.tokenCheck })
     answers[`PUT /api/v1/apps/${c.id}/mcp`] = () => {
       mcp.on = !mcp.on
       return ok()
@@ -628,6 +628,30 @@ describe('an app’s page', () => {
     const { wrapper } = await mountAt('/admin/apps/grafana', answers)
     await pick(wrapper, 'Ask for two-factor again in Grafana', '15 minutes')
     expect(mcpRow(wrapper).get('small').text()).toBe('On, but tools cannot connect while Grafana asks for two-factor again.')
+  })
+
+  it('says an app that signs people in itself without a secret cannot take tools', async () => {
+    const { answers, mcp } = server()
+    mcp.tokenCheck = 'none'
+    const { wrapper } = await mountAt('/admin/apps/grafana', answers)
+    expect(mcpRow(wrapper).get('small').text()).toBe("Grafana cannot take tools. It signs people in itself and has no secret, so it cannot check a tool's token.")
+    expect(mcpRow(wrapper).get('input').attributes('disabled')).toBeDefined()
+  })
+
+  it('still lets an Admin stop tools on an app that cannot check their tokens', async () => {
+    const { answers, mcp } = server()
+    mcp.on = true
+    mcp.tokenCheck = 'none'
+    const { wrapper } = await mountAt('/admin/apps/grafana', answers)
+    expect(mcpRow(wrapper).get('input').attributes('disabled')).toBeUndefined()
+  })
+
+  it("says an app with a secret checks each tool's token itself", async () => {
+    const { answers, mcp } = server()
+    mcp.on = true
+    mcp.tokenCheck = 'introspection'
+    const { wrapper } = await mountAt('/admin/apps/grafana', answers)
+    expect(mcpRow(wrapper).get('small').text()).toBe("People can let tools use Grafana as them. 0 tools connected. Grafana checks each tool's token itself.")
   })
 
   it('shows a refused connected-apps change', async () => {

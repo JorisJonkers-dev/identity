@@ -4,11 +4,11 @@ status: accepted
 
 # Connected Apps get opaque access tokens and rotating refresh tokens, and only on MCP resources
 
-A tool such as an MCP client registers itself at `/oidc/register` (RFC 7591) without asking anyone. Registration gives it nothing: it gets a token only after a signed-in User consents, on identity's consent page, to that tool acting for them on one Client. The Client is the one the tool names as its `resource` (RFC 8707). A registration nobody consents to within a day is pruned.
+A tool such as an MCP client registers itself at `/oidc/register` (RFC 7591) without asking anyone. Registration gives it nothing: it gets a token only after a signed-in User consents, on identity's consent page, to that tool acting for them on one Client. The Client is the one the tool names as its `resource` (RFC 8707). A registration nobody consents to within a day is pruned. A registration a User consented to is kept, with or without a Connected App, until it goes unused for as long as a refresh token lasts. A tool disconnected and connected again within that time keeps its registration and does not register again.
 
-Only a Client an Admin marked as an **MCP resource** takes Connected Apps. A Step-up Client never does (ADR 0019).
+Only a Client an Admin marked as an **MCP resource** takes Connected Apps. A Step-up Client never does (ADR 0019). Neither does a public Native Client: the Gate does not front it, and it holds no secret to introspect a tool's token with, so it could never check one. A Native Client with a secret checks the token by introspection and answers a tool without one itself.
 
-A Connected App's access token is opaque, lasts an hour, and is kept in identity's database. The Gate and introspection check it there, with the App Roles the User holds on the Client at that moment. Its refresh token lasts 30 days and is kept only as a hash. Every refresh spends it and issues a new one. A refresh token spent a second time means a copy leaked, so the Connected App is disconnected and the event is audited.
+A Connected App's access token is opaque, lasts an hour, and is kept in identity's database. The Gate and introspection check it there, with the App Roles the User holds on the Client at that moment. Its refresh token lasts 30 days and is kept only as a hash. Every refresh spends it and issues a new one. A refresh token spent a second time means a copy leaked, so the Connected App is disconnected and the event is audited. A tool revokes its own tokens at `/oidc/revoke` (RFC 7009): revoking its refresh token disconnects it, as the User disconnecting it would, and revoking an access token stops that one token.
 
 Every other client keeps the 15-minute JWTs of ADR 0014 and gets no refresh tokens.
 

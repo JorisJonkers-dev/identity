@@ -68,7 +68,20 @@ func (c *Contexts) client(ctx context.Context, cl signindomain.Client, err error
 	if err != nil {
 		return app.Client{}, err
 	}
-	return app.Client{ID: cl.ID, Label: cl.Label, Roles: cl.Roles, StepUp: minutes > 0}, nil
+	return app.Client{ID: cl.ID, Label: cl.Label, Roles: cl.Roles, StepUp: minutes > 0, TokenCheck: tokenCheck(cl)}, nil
+}
+
+// tokenCheck is how a Client checks a Connected App's token: the Gate fronts every Client but a
+// native one, and a native one introspects only with a secret.
+func tokenCheck(cl signindomain.Client) app.TokenCheck {
+	switch {
+	case cl.SignIn != signindomain.Native:
+		return app.ByGate
+	case cl.Credential == signindomain.Secret:
+		return app.ByIntrospection
+	default:
+		return app.Unchecked
+	}
 }
 
 // Label is a Client's label from the Index alone, so a list of Connected Apps reads no step-up.

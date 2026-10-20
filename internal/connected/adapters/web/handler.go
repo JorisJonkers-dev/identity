@@ -20,7 +20,7 @@ import (
 type UseCases interface {
 	ConnectedApps(ctx context.Context, userID uuid.UUID) ([]domain.ConnectedApp, error)
 	Revoke(ctx context.Context, userID, id uuid.UUID) error
-	MCPState(ctx context.Context, actor app.Actor, clientID string) (bool, int, error)
+	MCPState(ctx context.Context, actor app.Actor, clientID string) (app.MCPState, error)
 	SetMCPResource(ctx context.Context, actor app.Actor, clientID string, on bool) error
 	Label(ctx context.Context, clientID string) string
 }
@@ -65,11 +65,11 @@ func (h *Connected) RevokeMyConnectedApp(ctx context.Context, params oas.RevokeM
 
 // GetMCPResource implements getMCPResource.
 func (h *Connected) GetMCPResource(ctx context.Context, params oas.GetMCPResourceParams) (oas.GetMCPResourceRes, error) {
-	on, n, err := h.uc.MCPState(ctx, actor(ctx), string(params.ClientId))
+	m, err := h.uc.MCPState(ctx, actor(ctx), string(params.ClientId))
 	if err != nil {
 		return refusal(err)
 	}
-	return &oas.MCPResource{On: on, ConnectedApps: oas.Count(n)}, nil //nolint:gosec // a count
+	return &oas.MCPResource{On: m.On, ConnectedApps: oas.Count(m.ConnectedApps), TokenCheck: oas.MCPResourceTokenCheck(m.TokenCheck)}, nil //nolint:gosec // a count
 }
 
 // SetMCPResource implements setMCPResource.
@@ -94,6 +94,8 @@ func refusal(err error) (*oas.ProblemStatusCode, error) {
 		return problem(http.StatusForbidden, "This page needs a Second Factor. If you have a passkey or authenticator app, sign out and sign in again with it. If you have neither, add a Second Factor on the Security page first, then sign out and sign in again."), nil
 	case errors.Is(err, app.ErrNotFound):
 		return problem(http.StatusNotFound, "That app is not registered any more. Reload the page."), nil
+	case errors.Is(err, app.ErrUnchecked):
+		return problem(http.StatusConflict, "This app cannot take tools. It signs people in itself and has no secret, so it cannot check a tool's token."), nil
 	default:
 		return nil, err
 	}

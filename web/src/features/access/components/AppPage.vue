@@ -101,8 +101,8 @@ function rotateNow() {
         <p v-if="stepUp.error.value" role="alert" class="alert"><Icon name="alert" />{{ stepUp.error.value }}</p>
         <div class="row mcp">
           <span class="row-ic"><Icon name="bot" /></span>
-          <span class="grow"><b>Connected apps</b><small>{{ mcpSummary(mcp.on.value, mcp.connectedApps.value, !!stepUp.minutes.value, app.label) }}</small></span>
-          <label class="switch"><input type="checkbox" :aria-label="`Let tools use ${app.label} as the people who connect them`" :checked="mcp.on.value" @click.prevent="mcp.set(!mcp.on.value)" /><span class="sw" /></label>
+          <span class="grow"><b>Connected apps</b><small>{{ mcpSummary(mcp.on.value, mcp.connectedApps.value, !!stepUp.minutes.value, app.label, mcp.tokenCheck.value) }}</small></span>
+          <label class="switch"><input type="checkbox" :aria-label="`Let tools use ${app.label} as the people who connect them`" :checked="mcp.on.value" :disabled="mcp.tokenCheck.value === 'none' && !mcp.on.value" @click.prevent="mcp.set(!mcp.on.value)" /><span class="sw" /></label>
         </div>
         <p v-if="mcp.error.value" role="alert" class="alert"><Icon name="alert" />{{ mcp.error.value }}</p>
       </section>

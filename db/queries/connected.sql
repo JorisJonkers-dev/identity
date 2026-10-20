@@ -69,9 +69,12 @@ INSERT INTO connected_app_tokens (id, connected_app_id, kind, hash, created_at, 
 
 -- name: ConnectedAppAccess :one
 -- A live access token, found by the id its sealed form carries.
-SELECT t.id, t.expires_at, c.id AS app_id, c.user_id, c.client_id FROM connected_app_tokens t
+SELECT t.id, t.expires_at, c.id AS app_id, c.user_id, c.client_id, c.registration_id FROM connected_app_tokens t
 JOIN connected_apps c ON c.id = t.connected_app_id
 WHERE t.id = $1 AND t.kind = 'access';
+
+-- name: DeleteConnectedAppAccess :exec
+DELETE FROM connected_app_tokens WHERE id = $1 AND kind = 'access';
 
 -- name: ConnectedAppRefresh :one
 SELECT t.id, t.expires_at, t.used_at, c.id AS app_id, c.user_id, c.client_id, c.registration_id FROM connected_app_tokens t
