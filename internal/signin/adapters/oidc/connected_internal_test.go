@@ -22,7 +22,8 @@ import (
 )
 
 // fakeApps is the connected context in memory: web.test is the one MCP resource, the Client web;
-// boom.test fails to resolve. fail makes the named method fail.
+// boom.test fails to resolve. fail makes the named method fail; secret, when set, is the next
+// refresh token.
 type fakeApps struct {
 	mu       sync.Mutex
 	n        int
@@ -33,6 +34,7 @@ type fakeApps struct {
 	refresh  map[string]*spendable
 	refuse   error
 	fail     map[string]error
+	secret   string
 }
 
 type consented struct {
@@ -150,6 +152,9 @@ func (f *fakeApps) IssueRefresh(_ context.Context, appID uuid.UUID) (string, err
 	}
 	a := f.apps[appID]
 	secret := "rt-" + uuid.NewString()
+	if f.secret != "" {
+		secret, f.secret = f.secret, ""
+	}
 	f.refresh[secret] = &spendable{RefreshToken: connectedapp.RefreshToken{ID: uuid.New(), AppID: appID, UserID: a.user, ClientID: a.client, RegistrationID: a.reg}}
 	return secret, nil
 }
@@ -523,6 +528,26 @@ func TestAToolRevokingItsRefreshTokenIsDisconnected(t *testing.T) {
 	for _, hint := range []string{"refresh_token", "access_token", ""} {
 		t.Run("hinted "+hint, func(t *testing.T) {
 			e := newEnv(t)
+			reg, tok := e.connectedTokens(t)
+			if p := e.revocation(t, reg, tok.RefreshToken, hint); p.status != http.StatusOK {
+				t.Fatalf("revoke = %d %s", p.status, p.body)
+			}
+			if e.introspection(t, tok.AccessToken)["active"] != false {
+				t.Fatal("the access token still works")
+			}
+		})
+	}
+}
+
+func TestAToolRevokingARefreshTokenThatOpensUnderAnUnauthenticatedCipherIsDisconnected(t *testing.T) {
+	sealed, err := op.NewAESCrypto([32]byte{}).Encrypt("rt:someone") //nolint:staticcheck // the cipher the Provider must not open
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, hint := range []string{"refresh_token", "access_token", ""} {
+		t.Run("hinted "+hint, func(t *testing.T) {
+			e := newEnv(t)
+			e.apps.secret = sealed
 			reg, tok := e.connectedTokens(t)
 			if p := e.revocation(t, reg, tok.RefreshToken, hint); p.status != http.StatusOK {
 				t.Fatalf("revoke = %d %s", p.status, p.body)
