@@ -28,7 +28,7 @@ func TestAnAccountWithoutANameIsNamedByItsUsername(t *testing.T) {
 }
 
 func TestAServiceBecomesTheClientNamedLikeIt(t *testing.T) {
-	if got := domain.ClientFor("KNOWLEDGE_API", nil); got != "knowledge-api" {
+	if got := domain.ClientFor("MEMORY_API", nil); got != "memory-api" {
 		t.Fatalf("ClientFor = %q", got)
 	}
 }
@@ -36,5 +36,17 @@ func TestAServiceBecomesTheClientNamedLikeIt(t *testing.T) {
 func TestAServiceBecomesTheClientItIsMappedTo(t *testing.T) {
 	if got := domain.ClientFor("MAIL", map[string]string{"MAIL": "stalwart"}); got != "stalwart" {
 		t.Fatalf("ClientFor = %q", got)
+	}
+}
+
+func TestTheRetiredKnowledgeAPIIsRetired(t *testing.T) {
+	if !domain.Retired("KNOWLEDGE_API") {
+		t.Fatal("KNOWLEDGE_API is not retired")
+	}
+}
+
+func TestALiveServiceIsNotRetired(t *testing.T) {
+	if domain.Retired("MEMORY_API") {
+		t.Fatal("MEMORY_API is retired")
 	}
 }

@@ -107,12 +107,24 @@ func TestAnAccountIsImportedWithItsOwnIdHashNameAndSignUpTime(t *testing.T) {
 
 func TestEachGrantBecomesARoleOnTheClientForItsServiceOnce(t *testing.T) {
 	a := account("ada@example.org")
-	a.Services = []string{"MAIL", "KNOWLEDGE_API", "STALWART"}
+	a.Services = []string{"MAIL", "MEMORY_API", "STALWART"}
 	w := newWorld(a)
 
 	w.run(t, false)
 
-	if got := w.target.people[a.ID].Clients; !slices.Equal(got, []string{"knowledge-api", "stalwart"}) {
+	if got := w.target.people[a.ID].Clients; !slices.Equal(got, []string{"memory-api", "stalwart"}) {
+		t.Fatalf("Clients = %v", got)
+	}
+}
+
+func TestAGrantOnTheRetiredKnowledgeAPIBecomesNoRole(t *testing.T) {
+	a := account("ada@example.org")
+	a.Services = []string{"KNOWLEDGE_API", "GRAFANA"}
+	w := newWorld(a)
+
+	w.run(t, false)
+
+	if got := w.target.people[a.ID].Clients; !slices.Equal(got, []string{"grafana"}) {
 		t.Fatalf("Clients = %v", got)
 	}
 }
