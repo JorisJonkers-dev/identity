@@ -57,6 +57,7 @@ type AuthRequest struct {
 	CodeHash            []byte
 	Methods             []string
 	Resource            pgtype.Text
+	TwoFactorAt         *time.Time
 }
 
 type ClientSecret struct {

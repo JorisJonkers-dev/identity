@@ -77,11 +77,22 @@ func TestIntrospectingAPersonalTokenAnswersItsUserAndRolesForTheClient(t *testin
 	if resp.Subject != a.ada.String() || resp.ClientID != "spa" || !slices.Equal(resp.Audience, oidc.Audience{"spa"}) || resp.TokenType != "Bearer" {
 		t.Fatalf("response = %+v", resp)
 	}
-	if !resp.IssuedAt.AsTime().Equal(tokenIssued) || !resp.Expiration.AsTime().Equal(tokenIssued.Add(30*24*time.Hour)) || resp.Email == "" {
+	if !resp.IssuedAt.AsTime().Equal(tokenIssued) || !resp.Expiration.AsTime().Equal(tokenIssued.Add(30*24*time.Hour)) || resp.Claims["email"] != "ada@example.org" {
 		t.Fatalf("response = %+v", resp)
 	}
 	if roles, _ := resp.Claims["roles"].([]string); !slices.Equal(roles, []string{"viewer"}) {
 		t.Fatalf("roles = %v", resp.Claims["roles"])
+	}
+}
+
+func TestAPersonalTokensIntrospectionSaysItCameByPersonalToken(t *testing.T) {
+	s, p, a := storageWithTokens()
+	resp := new(oidc.IntrospectionResponse)
+
+	_ = s.SetIntrospectionFromToken(context.Background(), resp, "pat-"+p.id.String(), a.ada.String(), "spa")
+
+	if resp.Claims["via"] != "personal-token" || resp.Claims["kind"] != "user" || resp.Claims["sid"] != nil || resp.Claims["act"] != nil {
+		t.Fatalf("claims = %v", resp.Claims)
 	}
 }
 

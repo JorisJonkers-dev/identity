@@ -10,6 +10,7 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 	"github.com/zitadel/oidc/v3/pkg/op"
 
+	"github.com/JorisJonkers-dev/identity/internal/platform/principalclaims"
 	"github.com/JorisJonkers-dev/identity/internal/signin/app"
 )
 
@@ -167,7 +168,7 @@ func (s *storage) SetUserinfoFromTokenExchangeRequest(context.Context, *oidc.Use
 	return errNoIDToken
 }
 
-// machineClaims is the App Roles a Machine Identity holds on the one Client audience names. The
+// machineClaims is a Machine Identity's Principal: the App Roles it holds on the one Client audience names. The
 // subject is a Machine Identity's id: VerifyExchangeSubjectToken or ClientCredentials set it.
 func (s *storage) machineClaims(ctx context.Context, subject string, audience []string) (map[string]any, error) {
 	if len(audience) != 1 {
@@ -182,7 +183,7 @@ func (s *storage) machineClaims(ctx context.Context, subject string, audience []
 	case err != nil:
 		return nil, s.fail(ctx, err)
 	}
-	return map[string]any{"roles": roles}, nil
+	return principalclaims.Claims(principalclaims.Principal{Kind: principalclaims.KindMachine, Via: principalclaims.ViaMachine, Roles: roles}), nil
 }
 
 // ClientCredentials signs a Machine Identity in with its client secret, outside the cluster.
@@ -220,15 +221,14 @@ func (s *storage) ClientCredentialsTokenRequest(ctx context.Context, clientID st
 	return machineRequest{subject: clientID, audience: audience}, nil
 }
 
-// GetPrivateClaimsFromRequest puts the App Roles in an access token: a Machine Identity's on the
+// GetPrivateClaimsFromRequest puts the Principal in an access token: a Machine Identity's on the
 // Client its request names, or a User's on the Client they signed in to.
-func (s *storage) GetPrivateClaimsFromRequest(ctx context.Context, req op.TokenRequest, scopes []string) (map[string]any, error) {
-	if m, ok := req.(machineRequest); ok {
-		return s.machineClaims(ctx, m.subject, m.audience)
+func (s *storage) GetPrivateClaimsFromRequest(ctx context.Context, req op.TokenRequest, _ []string) (map[string]any, error) {
+	switch r := req.(type) {
+	case machineRequest:
+		return s.machineClaims(ctx, r.subject, r.audience)
+	case authRequest:
+		return s.sessionClaims(ctx, r)
 	}
-	clientID := ""
-	if r, ok := req.(interface{ GetClientID() string }); ok {
-		clientID = r.GetClientID()
-	}
-	return s.GetPrivateClaimsFromScopes(ctx, req.GetSubject(), clientID, scopes)
+	return nil, errNoPrincipal
 }

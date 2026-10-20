@@ -13,7 +13,7 @@ DELETE FROM auth_requests WHERE code_hash = $1 RETURNING *;
 
 -- name: CompleteAuthRequest :execrows
 -- Records who signed in, once: a request already completed keeps its first User.
-UPDATE auth_requests SET user_id = $2, session_id = $3, auth_time = $4, methods = $5 WHERE id = $1 AND user_id IS NULL;
+UPDATE auth_requests SET user_id = $2, session_id = $3, auth_time = $4, methods = $5, two_factor_at = $6 WHERE id = $1 AND user_id IS NULL;
 
 -- name: SaveAuthCode :execrows
 -- A request gets one code; a second is refused.

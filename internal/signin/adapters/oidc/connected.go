@@ -15,6 +15,7 @@ import (
 
 	connectedapp "github.com/JorisJonkers-dev/identity/internal/connected/app"
 	connecteddomain "github.com/JorisJonkers-dev/identity/internal/connected/domain"
+	"github.com/JorisJonkers-dev/identity/internal/platform/principalclaims"
 )
 
 // A tool such as an MCP client registers itself (RFC 7591), and a User consents to it acting for
@@ -266,14 +267,17 @@ func (s *storage) introspectAppToken(ctx context.Context, resp *oidc.Introspecti
 	if err != nil {
 		return s.fail(ctx, err)
 	}
-	claims, err := s.claims(ctx, t.UserID.String())
+	tool, err := s.apps.Registration(ctx, t.RegistrationID)
+	if err != nil {
+		return s.fail(ctx, err)
+	}
+	claims, err := s.userClaims(ctx, t.UserID.String(), roles, principalclaims.Principal{
+		Via: principalclaims.ViaTool, Actor: &principalclaims.Actor{ID: tool.ClientID, Name: tool.Name},
+	})
 	if err != nil {
 		return err
 	}
-	resp.Subject, resp.ClientID, resp.Audience, resp.TokenType = t.UserID.String(), clientID, oidc.Audience{clientID}, "Bearer"
-	resp.Expiration = oidc.FromTime(t.ExpiresAt)
-	resp.Email, resp.EmailVerified, resp.Name = claims.Email, true, claims.Name
-	resp.Claims = map[string]any{"roles": roles}
+	answer(resp, t.UserID.String(), clientID, t.ExpiresAt, claims)
 	return nil
 }
 

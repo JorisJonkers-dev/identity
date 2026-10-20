@@ -11,7 +11,7 @@
     "X-Auth-Request-Roles": "user,editor",
     "X-Auth-Request-User": "00000000-0000-4000-8000-0000000000a1",
     "X-Auth-Request-Via": "session",
-    "X-Identity-Principal": "eyJhbGciOiJSUzI1NiIsImtpZCI6InZlY3Rvci1pc3N1ZXIiLCJ0eXAiOiJpZGVudGl0eS1wcmluY2lwYWwrand0In0.eyJpc3MiOiJodHRwczovL2F1dGguZXhhbXBsZS50ZXN0Iiwic3ViIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMGExIiwiYXVkIjoid2lraSIsImlhdCI6MTc5MjQ5NzYwMCwiZXhwIjoxNzkyNDk3NjYwLCJ2ZXIiOiIxLjAiLCJraW5kIjoidXNlciIsImVtYWlsIjoiYWRhQGV4YW1wbGUub3JnIiwibmFtZSI6IkFkYSBMb3ZlbGFjZSIsInJvbGVzIjpbInVzZXIiLCJlZGl0b3IiXSwidmlhIjoic2Vzc2lvbiIsInR3b19mYWN0b3IiOnRydWUsInR3b19mYWN0b3JfYXQiOjE3OTI0OTY3MDAsInNpZCI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDBjMSJ9.VIPARE33Icu6rC2QSWxFwezbRkPDRoQqzAtyCv5JgyCb2zF3YBsbdr5emaL9hSzrGTqKpEow4JzROag2dOP-kj3MIOltYQwzF-5stfJptbZ4vdEVgRYEm643-qJBstrai5ZrouV9h6qynAHC9t6oljocCVXLHcS-xr5UsuEu9TyKI6znORqcfVJy2DKhwmNrxG18SjtXKAljjrhTKpQqR5u_uldadbfNGTrS50FvoxHrbFzol8XIui4M8YQ6lKqKJBYfKwOe-dPd1jF5kgsYFkBnHHGLb-gRd1jjC0E5Rp3CTEaNSpMLL6jF-ooplPwmuq3Vax_mpIYdXwVQbhamEQ"
+    "X-Identity-Principal": "eyJhbGciOiJSUzI1NiIsImtpZCI6InZlY3Rvci1pc3N1ZXIiLCJ0eXAiOiJpZGVudGl0eS1wcmluY2lwYWwrand0In0.eyJhdWQiOiJ3aWtpIiwiZW1haWwiOiJhZGFAZXhhbXBsZS5vcmciLCJleHAiOjE3OTI0OTc2NjAsImlhdCI6MTc5MjQ5NzYwMCwiaXNzIjoiaHR0cHM6Ly9hdXRoLmV4YW1wbGUudGVzdCIsImtpbmQiOiJ1c2VyIiwibmFtZSI6IkFkYSBMb3ZlbGFjZSIsInJvbGVzIjpbInVzZXIiLCJlZGl0b3IiXSwic2lkIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMGMxIiwic3ViIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMGExIiwidHdvX2ZhY3RvciI6dHJ1ZSwidHdvX2ZhY3Rvcl9hdCI6MTc5MjQ5NjcwMCwidmVyIjoiMS4xIiwidmlhIjoic2Vzc2lvbiJ9.x-vvNNAi5AOpL9d9mg5gWL5LRsKo---qPmQrkm8Iu5gse-VAU2eN1Qa1qg22Z-LfmoKZUID9BemTFphHLM59QsgQ5bIjj83lpixnh39Ftau-jGBWRfvlPy0X7ntxIh70DF8MKviS776d_AtONXXeqz_QCt000YNh2qaV147gWBoR_e7g0y8d9C8LOdammc7wyZW7hix4I-i0tr2UqrVdf0ckkz0j-LOIT2KuYrrRN0Jd9nez3NqgiKCIL43M6Mwojr2g8PehhVXVbdtlb4P_6xh8Kmqfsgps0G2vDrm15abO-Acbxws6OV7p504IHtgKUD5G8sGbqoZnoK0NMWkGww"
   },
   "principal": {
     "subject": "00000000-0000-4000-8000-0000000000a1",
@@ -26,6 +26,6 @@
     "twoFactor": true,
     "twoFactorAt": "2026-10-20T11:45:00Z",
     "sid": "00000000-0000-4000-8000-0000000000c1",
-    "ver": "1.0"
+    "ver": "1.1"
   }
 }

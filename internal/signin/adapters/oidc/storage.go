@@ -15,6 +15,7 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/op"
 
 	connectedapp "github.com/JorisJonkers-dev/identity/internal/connected/app"
+	"github.com/JorisJonkers-dev/identity/internal/platform/principalclaims"
 	"github.com/JorisJonkers-dev/identity/internal/signin/app"
 	"github.com/JorisJonkers-dev/identity/internal/signin/domain"
 )
@@ -282,14 +283,12 @@ func (s *storage) introspectPersonalToken(ctx context.Context, resp *oidc.Intros
 	if err != nil {
 		return s.fail(ctx, err)
 	}
-	claims, err := s.claims(ctx, t.UserID.String())
+	claims, err := s.userClaims(ctx, t.UserID.String(), t.Roles, principalclaims.Principal{Via: principalclaims.ViaPersonalToken})
 	if err != nil {
 		return err
 	}
-	resp.Subject, resp.ClientID, resp.Audience, resp.TokenType = t.UserID.String(), clientID, oidc.Audience{clientID}, "Bearer"
-	resp.IssuedAt, resp.Expiration = oidc.FromTime(t.CreatedAt), oidc.FromTime(t.ExpiresAt)
-	resp.Email, resp.EmailVerified, resp.Name = claims.Email, true, claims.Name
-	resp.Claims = map[string]any{"roles": t.Roles}
+	answer(resp, t.UserID.String(), clientID, t.ExpiresAt, claims)
+	resp.IssuedAt = oidc.FromTime(t.CreatedAt)
 	return nil
 }
 
@@ -305,14 +304,9 @@ func (s *storage) claims(ctx context.Context, subject string) (app.Claims, error
 	return c, nil
 }
 
-// GetPrivateClaimsFromScopes puts the User's App Roles on this Client in the access token, and
-// nothing about Groups (docs/adr/0004).
-func (s *storage) GetPrivateClaimsFromScopes(ctx context.Context, subject, clientID string, _ []string) (map[string]any, error) {
-	roles, err := s.roles(ctx, subject, clientID)
-	if err != nil {
-		return nil, err
-	}
-	return map[string]any{"roles": roles}, nil
+// GetPrivateClaimsFromScopes is never asked: GetPrivateClaimsFromRequest answers every access token.
+func (s *storage) GetPrivateClaimsFromScopes(context.Context, string, string, []string) (map[string]any, error) {
+	return nil, errNoPrincipal
 }
 
 func (s *storage) roles(ctx context.Context, subject, clientID string) ([]string, error) {

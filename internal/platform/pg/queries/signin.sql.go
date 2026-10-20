@@ -28,7 +28,7 @@ func (q *Queries) AddSessionClient(ctx context.Context, arg AddSessionClientPara
 }
 
 const authRequestByID = `-- name: AuthRequestByID :one
-SELECT id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode, code_challenge, code_challenge_method, created_at, expires_at, user_id, session_id, auth_time, code_hash, methods, resource FROM auth_requests WHERE id = $1
+SELECT id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode, code_challenge, code_challenge_method, created_at, expires_at, user_id, session_id, auth_time, code_hash, methods, resource, two_factor_at FROM auth_requests WHERE id = $1
 `
 
 func (q *Queries) AuthRequestByID(ctx context.Context, id uuid.UUID) (AuthRequest, error) {
@@ -53,6 +53,7 @@ func (q *Queries) AuthRequestByID(ctx context.Context, id uuid.UUID) (AuthReques
 		&i.CodeHash,
 		&i.Methods,
 		&i.Resource,
+		&i.TwoFactorAt,
 	)
 	return i, err
 }
@@ -67,15 +68,16 @@ func (q *Queries) ClearStepUp(ctx context.Context, clientID string) error {
 }
 
 const completeAuthRequest = `-- name: CompleteAuthRequest :execrows
-UPDATE auth_requests SET user_id = $2, session_id = $3, auth_time = $4, methods = $5 WHERE id = $1 AND user_id IS NULL
+UPDATE auth_requests SET user_id = $2, session_id = $3, auth_time = $4, methods = $5, two_factor_at = $6 WHERE id = $1 AND user_id IS NULL
 `
 
 type CompleteAuthRequestParams struct {
-	ID        uuid.UUID
-	UserID    *uuid.UUID
-	SessionID *uuid.UUID
-	AuthTime  *time.Time
-	Methods   []string
+	ID          uuid.UUID
+	UserID      *uuid.UUID
+	SessionID   *uuid.UUID
+	AuthTime    *time.Time
+	Methods     []string
+	TwoFactorAt *time.Time
 }
 
 // Records who signed in, once: a request already completed keeps its first User.
@@ -86,6 +88,7 @@ func (q *Queries) CompleteAuthRequest(ctx context.Context, arg CompleteAuthReque
 		arg.SessionID,
 		arg.AuthTime,
 		arg.Methods,
+		arg.TwoFactorAt,
 	)
 	if err != nil {
 		return 0, err
@@ -189,7 +192,7 @@ func (q *Queries) StepUpMinutes(ctx context.Context, clientID string) (int32, er
 }
 
 const takeAuthRequestByCodeHash = `-- name: TakeAuthRequestByCodeHash :one
-DELETE FROM auth_requests WHERE code_hash = $1 RETURNING id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode, code_challenge, code_challenge_method, created_at, expires_at, user_id, session_id, auth_time, code_hash, methods, resource
+DELETE FROM auth_requests WHERE code_hash = $1 RETURNING id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode, code_challenge, code_challenge_method, created_at, expires_at, user_id, session_id, auth_time, code_hash, methods, resource, two_factor_at
 `
 
 // Redeeming a code removes its request in the same statement, so two exchanges racing with one
@@ -216,6 +219,7 @@ func (q *Queries) TakeAuthRequestByCodeHash(ctx context.Context, codeHash []byte
 		&i.CodeHash,
 		&i.Methods,
 		&i.Resource,
+		&i.TwoFactorAt,
 	)
 	return i, err
 }

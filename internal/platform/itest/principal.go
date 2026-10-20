@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -18,6 +19,9 @@ import (
 
 	"github.com/go-jose/go-jose/v4"
 	"github.com/santhosh-tekuri/jsonschema/v6"
+	"github.com/zitadel/oidc/v3/pkg/oidc"
+
+	signindomain "github.com/JorisJonkers-dev/identity/internal/signin/domain"
 )
 
 // GateSignIn is b signing in to a gated host through the Gate's button, and answers the cookie the
@@ -113,18 +117,37 @@ func contract(file string) string {
 	return filepath.Join(filepath.Dir(here), "../../../contract/principal", file)
 }
 
-// Principal is the signed Principal a Gate answer carries for clientID: verified against identity's
-// published keys, typed, bound to the Client, lasting 60 seconds, and validated against the
-// contract's schema. It answers the Principal as the contract states it.
-func (e *Env) Principal(t *testing.T, a GateAnswer, clientID string) map[string]any {
+// principalClaims is the contract's claims, as any channel carries them.
+type principalClaims struct {
+	Active      *bool                       `json:"active"`
+	Issuer      string                      `json:"iss"`
+	Subject     string                      `json:"sub"`
+	Audience    oidc.Audience               `json:"aud"`
+	ClientID    string                      `json:"client_id"`
+	IssuedAt    int64                       `json:"iat"`
+	Expiry      int64                       `json:"exp"`
+	Version     string                      `json:"ver"`
+	Kind        string                      `json:"kind"`
+	Email       string                      `json:"email"`
+	Name        string                      `json:"name"`
+	Roles       []string                    `json:"roles"`
+	Via         string                      `json:"via"`
+	Actor       *struct{ Sub, Name string } `json:"act"`
+	TwoFactor   bool                        `json:"two_factor"`
+	TwoFactorAt int64                       `json:"two_factor_at"`
+	SessionID   string                      `json:"sid"`
+}
+
+// verified is a JWT identity signed, typed typ, checked against its published keys: its claims.
+func (e *Env) verified(t *testing.T, token, typ string) principalClaims {
 	t.Helper()
-	jws, err := jose.ParseSigned(a.Header.Get("X-Identity-Principal"), []jose.SignatureAlgorithm{jose.RS256})
+	jws, err := jose.ParseSigned(token, []jose.SignatureAlgorithm{jose.RS256})
 	if err != nil {
-		t.Fatalf("X-Identity-Principal: %v", err)
+		t.Fatalf("%q: %v", token, err)
 	}
 	h := jws.Signatures[0].Protected
-	if h.ExtraHeaders[jose.HeaderType] != "identity-principal+jwt" {
-		t.Fatalf("typ = %v", h.ExtraHeaders[jose.HeaderType])
+	if h.ExtraHeaders[jose.HeaderType] != typ {
+		t.Fatalf("typ = %v, want %s", h.ExtraHeaders[jose.HeaderType], typ)
 	}
 	var keys jose.JSONWebKeySet
 	e.Browser().Call(t, http.MethodGet, "/oidc/keys", nil, http.StatusOK, &keys)
@@ -136,29 +159,19 @@ func (e *Env) Principal(t *testing.T, a GateAnswer, clientID string) map[string]
 	if err != nil {
 		t.Fatal(err)
 	}
-	var c struct {
-		Issuer      string                      `json:"iss"`
-		Subject     string                      `json:"sub"`
-		Audience    string                      `json:"aud"`
-		IssuedAt    int64                       `json:"iat"`
-		Expiry      int64                       `json:"exp"`
-		Version     string                      `json:"ver"`
-		Kind        string                      `json:"kind"`
-		Email       string                      `json:"email"`
-		Name        string                      `json:"name"`
-		Roles       []string                    `json:"roles"`
-		Via         string                      `json:"via"`
-		Actor       *struct{ Sub, Name string } `json:"act"`
-		TwoFactor   bool                        `json:"two_factor"`
-		TwoFactorAt int64                       `json:"two_factor_at"`
-		SessionID   string                      `json:"sid"`
-	}
+	var c principalClaims
 	if err := json.Unmarshal(payload, &c); err != nil {
 		t.Fatal(err)
 	}
-	if c.Issuer != "https://"+Host || c.Audience != clientID || c.Expiry-c.IssuedAt != 60 || !e.Now().Before(time.Unix(c.Expiry, 0)) {
+	if c.Issuer != "https://"+Host || !e.Now().Before(time.Unix(c.Expiry, 0)) {
 		t.Fatalf("claims = %+v", c)
 	}
+	return c
+}
+
+// stated is c as the contract states a Principal, validated against its schema.
+func stated(t *testing.T, c principalClaims) map[string]any {
+	t.Helper()
 	p := map[string]any{"subject": c.Subject, "kind": c.Kind, "roles": c.Roles, "via": c.Via, "twoFactor": c.TwoFactor, "ver": c.Version}
 	for field, value := range map[string]string{"email": c.Email, "name": c.Name, "sid": c.SessionID} {
 		if value != "" {
@@ -175,6 +188,44 @@ func (e *Env) Principal(t *testing.T, a GateAnswer, clientID string) map[string]
 	return p
 }
 
+// Principal is the signed Principal a Gate answer carries for clientID: verified against identity's
+// published keys, typed, bound to the Client, lasting 60 seconds, and validated against the
+// contract's schema. It answers the Principal as the contract states it.
+func (e *Env) Principal(t *testing.T, a GateAnswer, clientID string) map[string]any {
+	t.Helper()
+	c := e.verified(t, a.Header.Get("X-Identity-Principal"), "identity-principal+jwt")
+	if !slices.Equal(c.Audience, oidc.Audience{clientID}) || c.Expiry-c.IssuedAt != 60 {
+		t.Fatalf("claims = %+v", c)
+	}
+	return stated(t, c)
+}
+
+// AccessTokenPrincipal is the Principal a JWT access token states for clientID: verified, typed JWT,
+// naming clientID as client_id and audience, and validated against the contract's schema.
+func (e *Env) AccessTokenPrincipal(t *testing.T, token, clientID string) map[string]any {
+	t.Helper()
+	c := e.verified(t, token, "JWT")
+	if c.ClientID == "" || !slices.Equal(c.Audience, oidc.Audience{clientID}) {
+		t.Fatalf("claims = %+v", c)
+	}
+	return stated(t, c)
+}
+
+// IntrospectionPrincipal is the Principal identity's introspection answer states for clientID:
+// active, for clientID, and validated against the contract's schema.
+func IntrospectionPrincipal(t *testing.T, answer map[string]any, clientID string) map[string]any {
+	t.Helper()
+	raw, _ := json.Marshal(answer)
+	var c principalClaims
+	if err := json.Unmarshal(raw, &c); err != nil {
+		t.Fatal(err)
+	}
+	if c.Active == nil || !*c.Active || c.ClientID != clientID || !slices.Equal(c.Audience, oidc.Audience{clientID}) {
+		t.Fatalf("introspection = %v", answer)
+	}
+	return stated(t, c)
+}
+
 func validate(t *testing.T, p map[string]any) {
 	t.Helper()
 	compiler := jsonschema.NewCompiler()
@@ -188,4 +239,22 @@ func validate(t *testing.T, p map[string]any) {
 	if err := schema.Validate(doc); err != nil {
 		t.Fatalf("the Principal %s breaks the contract: %v", raw, err)
 	}
+}
+
+// AccessToken is b signing in to Client c through the code flow with PKCE, as a native app does,
+// and answers the access token its code buys.
+func (b *Browser) AccessToken(t *testing.T, c signindomain.Client) string {
+	t.Helper()
+	back, err := url.Parse(b.Follow(t, b.Follow(t, b.Authorize(t, c))))
+	if err != nil || back.Query().Get("code") == "" {
+		t.Fatalf("the sign-in came back to %v", back)
+	}
+	status, tokens := b.env.Token(t, url.Values{
+		"grant_type": {"authorization_code"}, "code": {back.Query().Get("code")}, "client_id": {c.ID},
+		"redirect_uri": {c.RedirectURIs[0]}, "code_verifier": {"dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"},
+	}, "", "")
+	if status != http.StatusOK {
+		t.Fatalf("token = %d %v", status, tokens)
+	}
+	return tokens["access_token"].(string)
 }

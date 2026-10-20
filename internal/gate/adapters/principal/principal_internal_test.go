@@ -13,6 +13,7 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/op"
 
 	"github.com/JorisJonkers-dev/identity/internal/gate/app"
+	"github.com/JorisJonkers-dev/identity/internal/platform/principalclaims"
 )
 
 // key is an op.SigningKey over a JWK.
@@ -31,7 +32,7 @@ func (r ring) Signing() op.SigningKey { return r.key }
 // JWKS publishes.
 func vectorKeys(t *testing.T) (issuer, stranger key) {
 	t.Helper()
-	raw, err := os.ReadFile("testdata/vector-keys.test.json")
+	raw, err := os.ReadFile("../../../platform/principalclaims/testdata/vector-keys.test.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +86,7 @@ func TestASignedPrincipalIsBoundToItsClientAndLastsSixtySeconds(t *testing.T) {
 	token, _ := New("https://auth.example.test", ring{k}).Sign(adaSays, "wiki", signedAt)
 
 	_, _, c := verified(t, token, k)
-	if c["iss"] != "https://auth.example.test" || c["aud"] != "wiki" || c["iat"] != float64(signedAt.Unix()) || c["exp"] != float64(signedAt.Unix()+60) || c["ver"] != "1.0" {
+	if c["iss"] != "https://auth.example.test" || c["aud"] != "wiki" || c["iat"] != float64(signedAt.Unix()) || c["exp"] != float64(signedAt.Unix()+60) || c["ver"] != principalclaims.Version {
 		t.Fatalf("claims = %v", c)
 	}
 }
