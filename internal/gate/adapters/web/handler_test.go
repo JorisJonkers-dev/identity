@@ -22,11 +22,15 @@ var errBoom = errors.New("boom")
 type useCases struct {
 	checkErr, bearerErr, startErr, finishErr, clientErr, stateErr error
 	asked                                                         []string
-	// mcp is whether the host's Client takes Connected Apps.
-	mcp bool
+	// mcp is whether the host's Client takes Connected Apps, and mcpAsked how often it was asked.
+	mcp      bool
+	mcpAsked int
 }
 
-func (u *useCases) MCP(context.Context, string) bool { return u.mcp }
+func (u *useCases) MCP(context.Context, string) bool {
+	u.mcpAsked++
+	return u.mcp
+}
 
 func (u *useCases) Client(_ context.Context, host string) (app.Client, error) {
 	return app.Client{ID: "stats", Label: "Tribelt stats", Host: host}, u.clientErr
