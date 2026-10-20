@@ -32,8 +32,14 @@ func (a Account) FullName() string {
 	return a.Username
 }
 
+// Retired is whether Legacy Auth names service but its app is gone from the estate, so a grant on
+// it becomes no Client at all.
+func Retired(service string) bool {
+	return service == "KNOWLEDGE_API"
+}
+
 // ClientFor is the Client a service's grant becomes: the one named in clients, or by default the
-// service in lower case with hyphens, so KNOWLEDGE_API becomes knowledge-api.
+// service in lower case with hyphens, so MEMORY_API becomes memory-api.
 func ClientFor(service string, clients map[string]string) string {
 	if id, ok := clients[service]; ok {
 		return id

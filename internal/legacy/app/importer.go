@@ -149,10 +149,13 @@ func usable(a domain.Account) (usersdomain.Email, usersdomain.Name, string) {
 	return email, name, ""
 }
 
-// clientsOf is each Client a's grants give a role on, once each, in order.
+// clientsOf is each Client a's grants give a role on, once each, in order, less a retired service's.
 func (i *Importer) clientsOf(a domain.Account) []string {
 	ids := make([]string, 0, len(a.Services))
 	for _, s := range a.Services {
+		if domain.Retired(s) {
+			continue
+		}
 		ids = append(ids, domain.ClientFor(s, i.clients))
 	}
 	slices.Sort(ids)
