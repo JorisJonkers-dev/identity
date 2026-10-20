@@ -12,7 +12,7 @@ import (
 
 func TestAGateSignInIsRecorded(t *testing.T) {
 	f := newFixture()
-	if _, err := f.Start(context.Background(), "sso", stats.Host, "s", "/"); err != nil {
+	if _, err := f.Start(context.Background(), "sso", stats.Host, "s", "/", 0); err != nil {
 		t.Fatal(err)
 	}
 	want := []audit.Event{{Action: audit.SignedIn, User: ada.UserID, Client: stats.ID}}
@@ -24,7 +24,7 @@ func TestAGateSignInIsRecorded(t *testing.T) {
 func TestAGateSignInRefusedForWantOfAnAppRoleIsRecordedAsFailed(t *testing.T) {
 	f := newFixture()
 	f.roles.held["tribelt-stats"] = nil
-	if _, err := f.Start(context.Background(), "sso", stats.Host, "s", "/"); !errors.Is(err, app.ErrNoAccess) {
+	if _, err := f.Start(context.Background(), "sso", stats.Host, "s", "/", 0); !errors.Is(err, app.ErrNoAccess) {
 		t.Fatal(err)
 	}
 	want := []audit.Event{{Action: audit.SignInFailed, User: ada.UserID, Client: stats.ID, Reason: audit.ReasonNoAccess}}
@@ -41,7 +41,7 @@ func TestAGateSignInThatFailsOtherwiseRecordsNothing(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			f := newFixture()
 			broken(f)
-			if _, err := f.Start(context.Background(), "sso", stats.Host, "s", "/"); !errors.Is(err, errBoom) {
+			if _, err := f.Start(context.Background(), "sso", stats.Host, "s", "/", 0); !errors.Is(err, errBoom) {
 				t.Fatal(err)
 			}
 			if len(*f.events) != 0 {

@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -25,6 +26,8 @@ type useCases struct {
 	// mcp is whether the host's Client takes Connected Apps, and mcpAsked how often it was asked.
 	mcp      bool
 	mcpAsked int
+	// fresh is the proof window the last Start was asked for.
+	fresh time.Duration
 }
 
 func (u *useCases) MCP(context.Context, string) bool {
@@ -46,8 +49,9 @@ func (u *useCases) CheckBearer(_ context.Context, host, secret string) (app.Verd
 	return app.Verdict{UserID: uuid.MustParse("00000000-0000-4000-8000-0000000000a1"), Email: "ada@example.org", Roles: []string{"viewer"}}, u.bearerErr
 }
 
-func (u *useCases) Start(_ context.Context, sso, host, state, back string) (string, error) {
+func (u *useCases) Start(_ context.Context, sso, host, state, back string, fresh time.Duration) (string, error) {
 	u.asked = append(u.asked, sso, host, state, back)
+	u.fresh = fresh
 	return "the-code", u.startErr
 }
 
@@ -252,5 +256,62 @@ func TestAnAllowedCheckSetsEveryPlainHeaderEvenWhenItIsEmpty(t *testing.T) {
 	}
 	if rec.Header().Get("X-Auth-Request-Via") != "session" || rec.Header().Get("X-Auth-Request-Name") != "" {
 		t.Fatalf("headers = %v", rec.Header())
+	}
+}
+
+func TestAnAppsStepUpSendsTheBrowserToStartWithItsStateAndWindow(t *testing.T) {
+	rec := get(t, serve(t, &useCases{}), "https://tribelt.jorisjonkers.dev/.auth/step-up?minutes=5&rd=%2Fpay", nil)
+
+	want := "https://auth.test/gate/start?" + url.Values{"host": {"tribelt.jorisjonkers.dev"}, "state": {"state-1"}, "rd": {"/pay"}, "fresh": {"5"}}.Encode()
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != want || !strings.Contains(rec.Header().Get("Set-Cookie"), "__Host-identity_gate_state=state-1") {
+		t.Fatalf("step-up = %d %q %q", rec.Code, rec.Header().Get("Location"), rec.Header().Get("Set-Cookie"))
+	}
+}
+
+func TestAnAppsStepUpKeepsTheReturnPathOnTheHost(t *testing.T) {
+	rec := get(t, serve(t, &useCases{}), "https://tribelt.jorisjonkers.dev/.auth/step-up?minutes=5&rd=https%3A%2F%2Fevil.test%2F", nil)
+
+	if loc, _ := url.Parse(rec.Header().Get("Location")); loc.Query().Get("rd") != "/" {
+		t.Fatalf("rd = %q", loc.Query().Get("rd"))
+	}
+}
+
+func TestAStepUpWindowOutsideOneToSixtyMinutesIsRefused(t *testing.T) {
+	for _, minutes := range []string{"", "0", "61", "five"} {
+		t.Run("minutes="+minutes, func(t *testing.T) {
+			rec := get(t, serve(t, &useCases{}), "https://tribelt.jorisjonkers.dev/.auth/step-up?minutes="+minutes+"&rd=%2F", nil)
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("step-up = %d", rec.Code)
+			}
+		})
+	}
+}
+
+func TestAStepUpWhoseStateCannotBeMadeFails(t *testing.T) {
+	rec := get(t, serve(t, &useCases{stateErr: errBoom}), "https://tribelt.jorisjonkers.dev/.auth/step-up?minutes=5&rd=%2F", nil)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("step-up = %d", rec.Code)
+	}
+}
+
+func TestStartAsksForTheWindowAnAppsStepUpCarries(t *testing.T) {
+	uc := &useCases{}
+	get(t, serve(t, uc), "https://auth.test/gate/start?host=tribelt.jorisjonkers.dev&state=s&rd=%2Fpay&fresh=15", nil)
+
+	if uc.fresh != 15*time.Minute {
+		t.Fatalf("fresh = %v", uc.fresh)
+	}
+}
+
+func TestStartRefusesAWindowOutsideOneToSixtyMinutes(t *testing.T) {
+	for _, fresh := range []string{"0", "61", "soon"} {
+		t.Run("fresh="+fresh, func(t *testing.T) {
+			uc := &useCases{}
+			rec := get(t, serve(t, uc), "https://auth.test/gate/start?host=tribelt.jorisjonkers.dev&state=s&fresh="+fresh, nil)
+			if rec.Code != http.StatusBadRequest || len(uc.asked) != 0 {
+				t.Fatalf("start = %d, asked %v", rec.Code, uc.asked)
+			}
+		})
 	}
 }

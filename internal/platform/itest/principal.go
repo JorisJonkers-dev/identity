@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -23,15 +24,48 @@ import (
 // host's /.auth/callback sets.
 func (b *Browser) GateSignIn(t *testing.T, host string) string {
 	t.Helper()
-	next, err := url.Parse(b.Follow(t, "/gate/start?"+url.Values{"host": {host}, "state": {"s"}, "rd": {"/"}}.Encode()))
-	if err != nil || next.Host != host {
-		t.Fatalf("start went to %v", next)
+	return b.GateCallback(t, b.Follow(t, "/gate/start?"+url.Values{"host": {host}, "state": {"s"}, "rd": {"/"}}.Encode()), "s")
+}
+
+// GateStepUp is an app on host sending b to step up for a two-factor proof no older than minutes. It
+// answers where /gate/start then sends b, and the state the host set for the callback.
+func (b *Browser) GateStepUp(t *testing.T, host string, minutes int) (string, string) {
+	t.Helper()
+	target := "https://" + host + "/.auth/step-up?" + url.Values{"minutes": {strconv.Itoa(minutes)}, "rd": {"/pay"}}.Encode()
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, target, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := b.client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = res.Body.Close()
+	var state string
+	for _, c := range res.Cookies() {
+		if c.Name == "__Host-identity_gate_state" {
+			state = c.Value
+		}
+	}
+	if res.StatusCode != http.StatusSeeOther || state == "" {
+		t.Fatalf("step-up = %d %v", res.StatusCode, res.Header)
+	}
+	return b.Follow(t, res.Header.Get("Location")), state
+}
+
+// GateCallback follows a code back to its host, in a browser holding the state the host set, and
+// answers the host cookie the callback sets.
+func (b *Browser) GateCallback(t *testing.T, callback, state string) string {
+	t.Helper()
+	next, err := url.Parse(callback)
+	if err != nil || next.Path != "/.auth/callback" {
+		t.Fatalf("start went to %s", callback)
 	}
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, next.String(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	req.AddCookie(&http.Cookie{Name: "__Host-identity_gate_state", Value: "s"}) //nolint:gosec // a request's cookie carries no attributes
+	req.AddCookie(&http.Cookie{Name: "__Host-identity_gate_state", Value: state}) //nolint:gosec // a request's cookie carries no attributes
 	res, err := b.client.Do(req)
 	if err != nil {
 		t.Fatal(err)
