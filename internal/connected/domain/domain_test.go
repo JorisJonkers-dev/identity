@@ -65,6 +65,7 @@ func TestARegistrationGivesOneToTenRedirectURIsAndAShortName(t *testing.T) {
 		{"no redirect URI", "App", nil},
 		{"eleven redirect URIs", "App", eleven},
 		{"a name of 101 characters", strings.Repeat("a", 101), []string{"https://app.example.org/cb"}},
+		{"a redirect URI of 2001 characters", "App", []string{"https://app.example.org/" + strings.Repeat("a", 2001-len("https://app.example.org/"))}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			if _, err := domain.NewRegistration("mcp_1", c.app, c.uris, at); !errors.Is(err, domain.ErrInvalidRegistration) {
@@ -75,7 +76,7 @@ func TestARegistrationGivesOneToTenRedirectURIsAndAShortName(t *testing.T) {
 }
 
 func TestARegistrationMayUseTheFullNameAndTenRedirectURIs(t *testing.T) {
-	ten := slices.Repeat([]string{"https://app.example.org/cb"}, 10)
+	ten := slices.Repeat([]string{"https://app.example.org/" + strings.Repeat("a", 2000-len("https://app.example.org/"))}, 10)
 	if _, err := domain.NewRegistration("mcp_1", strings.Repeat("a", 100), ten, at); err != nil {
 		t.Fatalf("err = %v", err)
 	}
