@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/JorisJonkers-dev/identity/compare/v0.2.0...v0.3.0) (2026-10-20)
+
+
+### Features
+
+* access tokens and introspection carry the Principal claims ([#129](https://github.com/JorisJonkers-dev/identity/issues/129)) ([37506c6](https://github.com/JorisJonkers-dev/identity/commit/37506c6fa81bcb62a4c4a5035bc06bf1228caa9a))
+
 ## [0.2.0](https://github.com/JorisJonkers-dev/identity/compare/v0.1.0...v0.2.0) (2026-10-20)
 
 
