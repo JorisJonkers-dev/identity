@@ -61,6 +61,9 @@ tasks:
       - golangci-lint run --build-tags dev,integration ./cmd/seed/... ./cmd/identity/... # dev only
       - go tool testlint -tags dev,integration ./cmd/seed/... ./cmd/identity/... # dev only
       - golangci-lint fmt --diff ./...
+      # The Principal contract is a module of its own, which adapters pin by its tag.
+      - cmd: go vet ./...
+        dir: contract/principal
 
   lint:spec:
     desc: OpenAPI conformance; Redocly recommended-strict, Spectral with OWASP, vacuum

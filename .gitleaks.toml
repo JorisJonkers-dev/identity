@@ -9,6 +9,8 @@ useDefault = true
 description = "Global allowlist"
 paths = [
   '''(.*?)(example|sample|fixture|test)(.*?)\.(env|json|ya?ml)$''',
+  # The Principal contract's conformance vectors: JWTs signed by a test key committed beside them.
+  '''^contract/principal/vectors/''',
 ]
 regexes = [
   '''EXAMPLE_[A-Z0-9_]+''',

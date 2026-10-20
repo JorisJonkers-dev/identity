@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	connectedapp "github.com/JorisJonkers-dev/identity/internal/connected/app"
+	connecteddomain "github.com/JorisJonkers-dev/identity/internal/connected/domain"
 	"github.com/JorisJonkers-dev/identity/internal/gate/adapters/contexts"
 	"github.com/JorisJonkers-dev/identity/internal/gate/app"
 	signinapp "github.com/JorisJonkers-dev/identity/internal/signin/app"
@@ -122,7 +123,7 @@ func TestAccountsTranslateTheSession(t *testing.T) {
 	s := usersapp.Session{ID: uuid.New()}
 	ctx := context.Background()
 	c := contexts.New(signIn{}, users{user: u, sess: s}, stepUps{})
-	want := app.Person{UserID: u.ID, Email: "ada@example.org", Name: "Ada", SessionID: s.ID}
+	want := app.Person{UserID: u.ID, Email: "ada@example.org", Name: "Ada", SessionID: s.ID, Via: app.ViaSession}
 	if p, err := c.SignedIn(ctx, "sso"); err != nil || p != want {
 		t.Fatalf("SignedIn = %+v, %v", p, err)
 	}
@@ -165,7 +166,7 @@ func TestALivePersonalTokenAnswersItsUserAndRoles(t *testing.T) {
 	c := contexts.New(signIn{}, users{user: usersdomain.User{ID: adaID, Email: email, Name: name}}, stepUps{})
 	p, roles, err := c.Bearer(context.Background(), "idpat_live", "stats")
 	// The token stands where a session would, so revoking it can drop its cached checks.
-	if err != nil || p != (app.Person{UserID: adaID, Email: "ada@example.org", Name: "Ada", SessionID: adaToken}) || len(roles) != 1 || roles[0] != "viewer" {
+	if err != nil || p != (app.Person{UserID: adaID, Email: "ada@example.org", Name: "Ada", SessionID: adaToken, Via: app.ViaPersonalToken}) || len(roles) != 1 || roles[0] != "viewer" {
 		t.Fatalf("Bearer = %+v, %v, %v", p, roles, err)
 	}
 }
@@ -218,8 +219,16 @@ func TestASignedInPersonFailsWhenTwoFactorCannotBeLookedUp(t *testing.T) {
 	}
 }
 
-// mcp marks stats as an MCP resource; "broken" fails.
+// mcp marks stats as an MCP resource, "broken" failing, and knows one registered tool, mcp_1; mcp_broken
+// fails to read.
 type mcp struct{}
+
+func (mcp) Registration(_ context.Context, clientID string) (connecteddomain.Registration, error) {
+	if clientID == "mcp_broken" {
+		return connecteddomain.Registration{}, errBoom
+	}
+	return connecteddomain.Registration{ClientID: clientID, Name: "Claude Code"}, nil
+}
 
 func (mcp) IsMCPResource(_ context.Context, id string) (bool, error) {
 	if id == "broken" {
@@ -230,13 +239,16 @@ func (mcp) IsMCPResource(_ context.Context, id string) (bool, error) {
 
 var appToken = uuid.MustParse("00000000-0000-4000-8000-0000000000c2")
 
-// appTokens knows idapp_live for Ada; idapp_broken fails its check.
+// appTokens knows idapp_live for Ada, from mcp_1, and idapp_orphan, from a tool that cannot be read;
+// idapp_broken fails its check.
 type appTokens struct{}
 
 func (appTokens) Check(_ context.Context, token, _ string) (connectedapp.AccessToken, []string, error) {
 	switch token {
 	case "idapp_live":
-		return connectedapp.AccessToken{ID: appToken, UserID: adaID}, []string{"user"}, nil
+		return connectedapp.AccessToken{ID: appToken, UserID: adaID, RegistrationID: "mcp_1"}, []string{"user"}, nil
+	case "idapp_orphan":
+		return connectedapp.AccessToken{ID: appToken, UserID: adaID, RegistrationID: "mcp_broken"}, []string{"user"}, nil
 	case "idapp_broken":
 		return connectedapp.AccessToken{}, nil, errBoom
 	}
@@ -273,7 +285,7 @@ func TestALiveConnectedAppsTokenAnswersItsUserUnderTheTokensID(t *testing.T) {
 	email, _ := usersdomain.NewEmail("ada@example.org")
 	name, _ := usersdomain.NewName("Ada")
 	p, roles, err := connectedContexts(users{user: usersdomain.User{ID: adaID, Email: email, Name: name}}).Bearer(context.Background(), "idapp_live", "stats")
-	if err != nil || p != (app.Person{UserID: adaID, Email: "ada@example.org", Name: "Ada", SessionID: appToken}) || len(roles) != 1 {
+	if err != nil || p != (app.Person{UserID: adaID, Email: "ada@example.org", Name: "Ada", SessionID: appToken, Via: app.ViaTool, Actor: app.Actor{ID: "mcp_1", Name: "Claude Code"}}) || len(roles) != 1 {
 		t.Fatalf("Bearer = %+v, %v, %v", p, roles, err)
 	}
 }
@@ -293,6 +305,7 @@ func TestAConnectedAppsTokenCheckFailsWithWhatItReads(t *testing.T) {
 	}{
 		{"the token's check", "idapp_broken", users{}},
 		{"its User", "idapp_live", users{err: errBoom}},
+		{"its tool", "idapp_orphan", users{}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			if _, _, err := connectedContexts(c.users).Bearer(context.Background(), c.token, "stats"); !errors.Is(err, errBoom) {

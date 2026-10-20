@@ -1,0 +1,55 @@
+{
+  "version": "1.0",
+  "signedHeader": {
+    "header": "X-Identity-Principal",
+    "typ": "identity-principal+jwt",
+    "alg": ["RS256"],
+    "lifetimeSeconds": 60,
+    "claims": {
+      "iss": "the Issuer",
+      "aud": "the Client the request is for",
+      "iat": "when the Gate signed it",
+      "exp": "iat + lifetimeSeconds"
+    }
+  },
+  "fields": {
+    "subject": { "claim": "sub", "header": "X-Auth-Request-User" },
+    "kind": { "claim": "kind", "header": "X-Auth-Request-Kind" },
+    "email": { "claim": "email", "header": "X-Auth-Request-Email" },
+    "name": { "claim": "name", "header": "X-Auth-Request-Name" },
+    "roles": { "claim": "roles", "header": "X-Auth-Request-Roles", "headerFormat": "comma-separated" },
+    "via": { "claim": "via", "header": "X-Auth-Request-Via" },
+    "actor": {
+      "claim": "act",
+      "claimFormat": "RFC 8693 act: {\"sub\": actor.id, \"name\": actor.name}",
+      "header": "X-Auth-Request-Actor",
+      "headerFormat": "actor.name"
+    },
+    "twoFactor": { "claim": "two_factor" },
+    "twoFactorAt": { "claim": "two_factor_at", "claimFormat": "NumericDate; the Principal states it as RFC 3339 UTC" },
+    "sid": { "claim": "sid" },
+    "ver": { "claim": "ver" }
+  },
+  "plainHeaders": {
+    "rule": "The Gate sets every plain header on every allowed answer, empty when the field has no value, so a caller's copy of a header can never stand in for one the Gate left out. A reader of the contract reads only the signed header.",
+    "headers": [
+      "X-Auth-Request-User",
+      "X-Auth-Request-Email",
+      "X-Auth-Request-Name",
+      "X-Auth-Request-Roles",
+      "X-Auth-Request-Kind",
+      "X-Auth-Request-Via",
+      "X-Auth-Request-Actor"
+    ]
+  },
+  "refusals": {
+    "missing": "No signed header, whatever plain headers the request carries.",
+    "wrong-typ": "The JWT's typ is not identity-principal+jwt.",
+    "wrong-issuer": "iss is not the Issuer.",
+    "wrong-audience": "aud is not the reader's own Client.",
+    "expired": "The reader's clock is at or past exp.",
+    "unknown-key": "No key in the Issuer's JWKS has the JWT's kid.",
+    "bad-signature": "The signature does not verify with the key the kid names.",
+    "unknown-major": "ver names a major version the reader does not know."
+  }
+}

@@ -132,10 +132,13 @@ func (h *Handler) bearer(w http.ResponseWriter, r *http.Request, host, secret st
 	}
 }
 
+// allow passes the User on: the signed Principal our apps read, and every plain header for the apps
+// that read those.
 func allow(w http.ResponseWriter, v app.Verdict) {
-	w.Header().Set("X-Auth-Request-User", v.UserID.String())
-	w.Header().Set("X-Auth-Request-Email", v.Email)
-	w.Header().Set("X-Auth-Request-Roles", strings.Join(v.Roles, ","))
+	for name, value := range v.Headers() {
+		w.Header().Set(name, value)
+	}
+	w.Header().Set("X-Identity-Principal", v.Signed)
 	w.WriteHeader(http.StatusOK)
 }
 

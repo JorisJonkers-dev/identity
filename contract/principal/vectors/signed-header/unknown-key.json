@@ -1,0 +1,17 @@
+{
+  "description": "A Principal signed by a key the Issuer's JWKS does not publish is refused.",
+  "issuer": "https://auth.example.test",
+  "client": "wiki",
+  "now": "2026-10-20T12:00:30Z",
+  "headers": {
+    "X-Auth-Request-Actor": "",
+    "X-Auth-Request-Email": "ada@example.org",
+    "X-Auth-Request-Kind": "user",
+    "X-Auth-Request-Name": "Ada Lovelace",
+    "X-Auth-Request-Roles": "user,editor",
+    "X-Auth-Request-User": "00000000-0000-4000-8000-0000000000a1",
+    "X-Auth-Request-Via": "session",
+    "X-Identity-Principal": "eyJhbGciOiJSUzI1NiIsImtpZCI6InZlY3Rvci1zdHJhbmdlciIsInR5cCI6ImlkZW50aXR5LXByaW5jaXBhbCtqd3QifQ.eyJpc3MiOiJodHRwczovL2F1dGguZXhhbXBsZS50ZXN0Iiwic3ViIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMGExIiwiYXVkIjoid2lraSIsImlhdCI6MTc5MjQ5NzYwMCwiZXhwIjoxNzkyNDk3NjYwLCJ2ZXIiOiIxLjAiLCJraW5kIjoidXNlciIsImVtYWlsIjoiYWRhQGV4YW1wbGUub3JnIiwibmFtZSI6IkFkYSBMb3ZlbGFjZSIsInJvbGVzIjpbInVzZXIiLCJlZGl0b3IiXSwidmlhIjoic2Vzc2lvbiIsInR3b19mYWN0b3IiOmZhbHNlLCJzaWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwYzEifQ.blE2_qt0IPqaw2l0jE7SIQxprJfOLezmRHRttlFZNltb5xatnGs6AMNXTrQSfGMpAj_f6oXJEACtKe-vzS6SpJ2ehuv5_dEem0RwGI44Zu0rZlXZSYORo9KA0nJIkNKOwi9zneCHXGNIFrcQ204jlPHnnXonwpbuZF_CejvZVG3IGk9Wm9GQ06WvfPJtVNzYIV9SE0Ggj7t6lLAo7fqIIN0E-UWnNxF_DlSu1uq448TKqXKfulHE_u_YkefkjcPu0_LSPO5W1PgSDInO4ytdPaMrtrLBpaEteZ-DCHuTSMiY8v9roLR5OfENMpnWp19aAoSh4WxMAktqnFQqRMJ5BQ"
+  },
+  "refusal": "unknown-key"
+}
