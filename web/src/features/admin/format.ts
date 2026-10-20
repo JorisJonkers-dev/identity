@@ -94,7 +94,7 @@ export function describeEvent(e: AuditEvent): Part[] {
     case 'connected-app-revoked':
       if (e.actor) return [actor, { text: ` disconnected ${app} from ${client} for ` }, user]
       if (e.reason === 'token-reused') return [{ text: `${app} was disconnected from ${client} for ` }, user, { text: ' because its token was used twice, which can mean it was copied' }]
-      if (e.reason === 'by-tool') return [{ text: `${app} disconnected itself from ${client} for ` }, user]
+      if (e.reason === 'by-tool') return [{ text: `${app} disconnected itself from ${client}. ` }, user, { text: ' had connected it' }]
       return [user, { text: ` disconnected ${app} from ${client}` }]
     case 'mcp-resource-marked':
       return [actor, { text: ` let apps connect to ${client}` }]

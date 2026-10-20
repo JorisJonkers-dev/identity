@@ -95,7 +95,7 @@ func refusal(err error) (*oas.ProblemStatusCode, error) {
 	case errors.Is(err, app.ErrNotFound):
 		return problem(http.StatusNotFound, "That app is not registered any more. Reload the page."), nil
 	case errors.Is(err, app.ErrUnchecked):
-		return problem(http.StatusConflict, "This app cannot take tools. It signs people in itself and has no secret, so it cannot check a tool's token."), nil
+		return problem(http.StatusConflict, "This app cannot take tools. It signs people in itself and has no client secret, so it cannot check a tool's token."), nil
 	default:
 		return nil, err
 	}

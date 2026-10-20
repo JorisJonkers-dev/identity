@@ -634,7 +634,7 @@ describe('an app’s page', () => {
     const { answers, mcp } = server()
     mcp.tokenCheck = 'none'
     const { wrapper } = await mountAt('/admin/apps/grafana', answers)
-    expect(mcpRow(wrapper).get('small').text()).toBe("Grafana cannot take tools. It signs people in itself and has no secret, so it cannot check a tool's token.")
+    expect(mcpRow(wrapper).get('small').text()).toBe("Grafana cannot take tools. It signs people in itself and has no client secret, so it cannot check a tool's token.")
     expect(mcpRow(wrapper).get('input').attributes('disabled')).toBeDefined()
   })
 
