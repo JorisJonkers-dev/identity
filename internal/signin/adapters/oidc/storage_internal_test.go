@@ -179,6 +179,14 @@ func TestAnIDTokenCarriesTheUsersRolesOnTheClient(t *testing.T) {
 	}
 }
 
+func TestAnAccessTokenForASignInNobodyCompletedIsRefused(t *testing.T) {
+	s, _, _ := newStorage()
+
+	_, err := s.GetPrivateClaimsFromRequest(context.Background(), authRequest{domain.AuthRequest{ClientID: "web"}}, nil)
+
+	wantOIDC(t, err, "invalid_request")
+}
+
 func TestAnAccessTokenForARemovedClientIsRefused(t *testing.T) {
 	s, _, a := newStorage()
 
