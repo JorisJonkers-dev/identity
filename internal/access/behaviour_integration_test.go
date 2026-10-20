@@ -276,7 +276,7 @@ func TestAUserWhoIsNotAnAdminCannotOpenTheAccessPage(t *testing.T) {
 	refused(t, ada, http.MethodGet, "/api/v1/access", nil, http.StatusForbidden, "Only Admins manage access.")
 }
 
-func TestAnAdminWhoseSessionProvedNoSecondFactorIsToldToAddOne(t *testing.T) {
+func TestAnAdminWhoseSessionProvedNoTwoFactorIsToldToAddOne(t *testing.T) {
 	t.Parallel()
 	env := itest.Start(t)
 	admin := env.SignedUp(t, "root@example.org")

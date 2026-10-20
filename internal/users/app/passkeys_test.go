@@ -57,7 +57,7 @@ func TestAddingAPasskey(t *testing.T) {
 	if len(f.store.passkeys) != 1 || f.store.passkeys[0].Label.String() != "MacBook" || string(f.store.passkeys[0].CredentialID) != "cred-1" {
 		t.Fatalf("passkeys = %+v", f.store.passkeys)
 	}
-	if s := f.store.sessions[sum(session)]; !slices.Equal(s.Methods, []string{"pwd", "hwk"}) || !app.ProvedSecondFactor(s.Methods) {
+	if s := f.store.sessions[sum(session)]; !slices.Equal(s.Methods, []string{"pwd", "hwk"}) || !app.ProvedTwoFactor(s.Methods) {
 		t.Fatalf("methods = %v", s.Methods)
 	}
 	if _, err := f.Authenticate(ctx, elsewhere); !errors.Is(err, app.ErrNoSession) {
@@ -70,10 +70,10 @@ func TestAddingAPasskey(t *testing.T) {
 		t.Fatalf("confirming twice = %v", err)
 	}
 
-	// A User with a Second Factor adds another only from a session that proved one.
+	// A User with a two-factor method adds another only from a session that proved one.
 	f.store.sessions[sum("old")] = app.Session{TokenHash: []byte(sum("old")), UserID: id, ExpiresAt: f.now.Add(time.Hour), Methods: []string{"pwd"}}
 	_, _ = f.StartPasskey(ctx, id)
-	if err := f.ConfirmPasskey(ctx, id, "old", "iPhone", []byte("made:reg-"+id.String()), pw); !errors.Is(err, app.ErrSecondFactorNeeded) {
+	if err := f.ConfirmPasskey(ctx, id, "old", "iPhone", []byte("made:reg-"+id.String()), pw); !errors.Is(err, app.ErrTwoFactorProofNeeded) {
 		t.Fatalf("adding from a password-only session = %v", err)
 	}
 
@@ -90,7 +90,7 @@ func TestSigningInWithAPasskey(t *testing.T) {
 	f.now = t0.Add(time.Hour)
 
 	challenge, err := f.SignIn(ctx, "ada@example.org", pw)
-	if !errors.Is(err, app.ErrSecondFactorNeeded) {
+	if !errors.Is(err, app.ErrTwoFactorProofNeeded) {
 		t.Fatalf("SignIn with a passkey = %v", err)
 	}
 	if kinds, err := f.ChallengeKinds(ctx, challenge); err != nil || !slices.Equal(kinds, []string{"passkey"}) {
@@ -165,7 +165,7 @@ func TestAUserWithBothFactorsIsOfferedBoth(t *testing.T) {
 	if err := f.ConfirmPasskey(ctx, id.ID, session, "MacBook", []byte("made:reg-"+id.ID.String()), pw); err != nil {
 		t.Fatal(err)
 	}
-	factors, _ := f.SecondFactors(ctx, id.ID)
+	factors, _ := f.TwoFactorMethods(ctx, id.ID)
 	if len(factors) != 2 || factors[0].Kind != app.KindTOTP || factors[1].Kind != app.KindPasskey {
 		t.Fatalf("factors = %+v", factors)
 	}
@@ -194,7 +194,7 @@ func TestTwoAuthenticatorAppsAreOneKind(t *testing.T) {
 	if err := f.ConfirmTOTP(ctx, id, session, "Tablet", code(t, setup.Secret, f.now), pw); err != nil {
 		t.Fatal(err)
 	}
-	if kinds, err := f.SecondFactorKinds(ctx, id); err != nil || !slices.Equal(kinds, []string{"totp"}) {
+	if kinds, err := f.TwoFactorMethodKinds(ctx, id); err != nil || !slices.Equal(kinds, []string{"totp"}) {
 		t.Fatalf("kinds = %v, %v", kinds, err)
 	}
 }
@@ -355,7 +355,7 @@ func TestFinishingASignInWithAPasskeyFailsWhenTheStoreDoes(t *testing.T) {
 	}
 }
 
-func TestTheSecondFactorKindsFailWhenThePasskeysCannotBeRead(t *testing.T) {
+func TestTheTwoFactorMethodKindsFailWhenThePasskeysCannotBeRead(t *testing.T) {
 	f, _, challenge := passkeyStep(t)
 	f.store.fail["Passkeys"] = errBoomPK
 	if _, err := f.ChallengeKinds(context.Background(), challenge); !errors.Is(err, errBoomPK) {

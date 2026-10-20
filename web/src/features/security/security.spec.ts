@@ -2,20 +2,20 @@ import type { DOMWrapper, VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { profile } from '../../app/fixtures'
 import { mountAt, problem, settle } from '../../app/testing'
-import type { SecondFactor } from '../../infrastructure/api/types.gen'
+import type { TwoFactorMethod } from '../../infrastructure/api/types.gen'
 import { passkeys } from '../../infrastructure/passkeys'
 
-const phone: SecondFactor = { id: '00000000-0000-4000-8000-0000000000f1', kind: 'totp', label: 'Phone', createdAt: '2026-10-16T12:00:00Z', lastUsedAt: '2026-10-18T18:00:00Z' }
-const laptop: SecondFactor = { id: '00000000-0000-4000-8000-0000000000f2', kind: 'passkey', label: 'MacBook Pro', createdAt: '2026-10-17T12:00:00Z' }
+const phone: TwoFactorMethod = { id: '00000000-0000-4000-8000-0000000000f1', kind: 'totp', label: 'Phone', createdAt: '2026-10-16T12:00:00Z', lastUsedAt: '2026-10-18T18:00:00Z' }
+const laptop: TwoFactorMethod = { id: '00000000-0000-4000-8000-0000000000f2', kind: 'passkey', label: 'MacBook Pro', createdAt: '2026-10-17T12:00:00Z' }
 const setup = {
   secret: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP',
   uri: 'otpauth://totp/jorisjonkers.dev:ada@example.org?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=jorisjonkers.dev',
 }
 const ok = () => new Response(null, { status: 204 })
 
-const page = (factors: SecondFactor[] = []) => ({
+const page = (factors: TwoFactorMethod[] = []) => ({
   'GET /api/v1/profile': () => Response.json(profile()),
-  'GET /api/v1/profile/second-factors': () => Response.json({ factors }),
+  'GET /api/v1/profile/two-factor-methods': () => Response.json({ factors }),
 })
 
 function button(wrapper: { findAll: (selector: string) => DOMWrapper<Element>[] }, text: string) {
@@ -58,7 +58,7 @@ describe('the Security page', () => {
   })
 
   it('shows the problem when the list cannot load', async () => {
-    const { wrapper } = await mountAt('/security', { ...page(), 'GET /api/v1/profile/second-factors': problem(500, 'Something went wrong. Try again.') })
+    const { wrapper } = await mountAt('/security', { ...page(), 'GET /api/v1/profile/two-factor-methods': problem(500, 'Something went wrong. Try again.') })
     expect(wrapper.get('[role="alert"]').text()).toBe('Something went wrong. Try again.')
   })
 })
@@ -219,8 +219,8 @@ describe('the Two-factor page', () => {
     let factors = [phone]
     const { wrapper, requests } = await mountAt('/security/two-factor', {
       ...page(),
-      'GET /api/v1/profile/second-factors': () => Response.json({ factors }),
-      [`POST /api/v1/profile/second-factors/${phone.id}/removal`]: () => {
+      'GET /api/v1/profile/two-factor-methods': () => Response.json({ factors }),
+      [`POST /api/v1/profile/two-factor-methods/${phone.id}/removal`]: () => {
         factors = []
         return ok()
       },
@@ -272,7 +272,7 @@ describe('the Two-factor page', () => {
   it('shows a refused removal', async () => {
     const { wrapper } = await mountAt('/security/two-factor', {
       ...page([phone]),
-      [`POST /api/v1/profile/second-factors/${phone.id}/removal`]: problem(422, 'Your password is wrong. Enter it again.'),
+      [`POST /api/v1/profile/two-factor-methods/${phone.id}/removal`]: problem(422, 'Your password is wrong. Enter it again.'),
     })
     await button(wrapper, 'Remove').trigger('click')
     await wrapper.get('#rm-pw').setValue('wrong password!!')
@@ -284,12 +284,12 @@ describe('the Two-factor page', () => {
   it('adds a passkey after asking for a name and the password', async () => {
     vi.spyOn(passkeys, 'supported').mockReturnValue(true)
     const create = vi.spyOn(passkeys, 'create').mockResolvedValue('{"id":"cred-1"}')
-    let factors: SecondFactor[] = []
+    let factors: TwoFactorMethod[] = []
     const { wrapper, requests } = await mountAt('/security/two-factor', {
       ...page(),
-      'GET /api/v1/profile/second-factors': () => Response.json({ factors }),
-      'POST /api/v1/profile/second-factors/passkey': Response.json({ options: '{"publicKey":{}}' }),
-      'POST /api/v1/profile/second-factors/passkey/confirmation': () => {
+      'GET /api/v1/profile/two-factor-methods': () => Response.json({ factors }),
+      'POST /api/v1/profile/two-factor-methods/passkey': Response.json({ options: '{"publicKey":{}}' }),
+      'POST /api/v1/profile/two-factor-methods/passkey/confirmation': () => {
         factors = [laptop]
         return ok()
       },
@@ -308,7 +308,7 @@ describe('the Two-factor page', () => {
   it('says when the browser made no passkey', async () => {
     vi.spyOn(passkeys, 'supported').mockReturnValue(true)
     vi.spyOn(passkeys, 'create').mockRejectedValue(new Error('NotAllowedError'))
-    const { wrapper } = await mountAt('/security/two-factor', { ...page(), 'POST /api/v1/profile/second-factors/passkey': Response.json({ options: '{"publicKey":{}}' }) })
+    const { wrapper } = await mountAt('/security/two-factor', { ...page(), 'POST /api/v1/profile/two-factor-methods/passkey': Response.json({ options: '{"publicKey":{}}' }) })
     await button(wrapper, 'Add a passkey').trigger('click')
     await wrapper.get('#pk-l').setValue('MacBook Pro')
     await wrapper.get('#pk-pw').setValue('correct horse battery')
@@ -331,7 +331,7 @@ describe('the Two-factor page', () => {
   })
 
   it('shows the problem when the list cannot load', async () => {
-    const { wrapper } = await mountAt('/security/two-factor', { ...page(), 'GET /api/v1/profile/second-factors': problem(500, 'Something went wrong. Try again.') })
+    const { wrapper } = await mountAt('/security/two-factor', { ...page(), 'GET /api/v1/profile/two-factor-methods': problem(500, 'Something went wrong. Try again.') })
     expect(wrapper.get('[role="alert"]').text()).toBe('Something went wrong. Try again.')
   })
 })
@@ -339,8 +339,8 @@ describe('the Two-factor page', () => {
 describe('setting up an authenticator app', () => {
   const answers = (over: Record<string, unknown> = {}) => ({
     ...page(),
-    'POST /api/v1/profile/second-factors/totp': Response.json(setup),
-    'POST /api/v1/profile/second-factors/totp/confirmation': ok(),
+    'POST /api/v1/profile/two-factor-methods/totp': Response.json(setup),
+    'POST /api/v1/profile/two-factor-methods/totp/confirmation': ok(),
     ...over,
   })
 
@@ -403,7 +403,7 @@ describe('setting up an authenticator app', () => {
   })
 
   it('shows a refused confirmation', async () => {
-    const { wrapper } = await mountAt('/security/two-factor/setup', answers({ 'POST /api/v1/profile/second-factors/totp/confirmation': problem(422, 'That code is wrong. Enter the code your app shows now.') }))
+    const { wrapper } = await mountAt('/security/two-factor/setup', answers({ 'POST /api/v1/profile/two-factor-methods/totp/confirmation': problem(422, 'That code is wrong. Enter the code your app shows now.') }))
     await toPassword(wrapper)
     await wrapper.get('#tf-pw').setValue('correct horse battery')
     await wrapper.get('form').trigger('submit')
@@ -412,7 +412,7 @@ describe('setting up an authenticator app', () => {
   })
 
   it('shows a refused start', async () => {
-    const { wrapper } = await mountAt('/security/two-factor/setup', answers({ 'POST /api/v1/profile/second-factors/totp': problem(409, 'You already have an authenticator app.') }))
+    const { wrapper } = await mountAt('/security/two-factor/setup', answers({ 'POST /api/v1/profile/two-factor-methods/totp': problem(409, 'You already have an authenticator app.') }))
     expect(wrapper.get('[role="alert"]').text()).toBe('You already have an authenticator app.')
     expect(button(wrapper, 'I have scanned it').attributes('disabled')).toBeDefined()
   })

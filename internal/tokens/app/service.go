@@ -31,9 +31,9 @@ var (
 	ErrStepUpClient = errors.New("the Client wants a fresh two-factor proof")
 	// ErrInactive is a token a Client's check refuses: revoked, expired, another Client's, or one
 	// whose User holds no App Role on the Client now.
-	ErrInactive           = errors.New("the token is not active")
-	ErrNotAdmin           = errors.New("only Admins manage other Users' tokens")
-	ErrSecondFactorNeeded = errors.New("other Users' tokens are managed only from a session proved with a Second Factor")
+	ErrInactive             = errors.New("the token is not active")
+	ErrNotAdmin             = errors.New("only Admins manage other Users' tokens")
+	ErrTwoFactorProofNeeded = errors.New("other Users' tokens are managed only from a session that proved two-factor")
 )
 
 const secretBytes = 32
@@ -93,8 +93,8 @@ type Audit interface {
 // Actor is an Admin acting on another User's tokens, and whether their session proved a Second
 // Factor.
 type Actor struct {
-	ID           uuid.UUID
-	SecondFactor bool
+	ID        uuid.UUID
+	TwoFactor bool
 }
 
 // Minted is a new token: its secret, shown once, and what is kept of it.
@@ -289,8 +289,8 @@ func (s *Service) admin(ctx context.Context, actor Actor) error {
 	if !yes {
 		return ErrNotAdmin
 	}
-	if !actor.SecondFactor {
-		return ErrSecondFactorNeeded
+	if !actor.TwoFactor {
+		return ErrTwoFactorProofNeeded
 	}
 	return nil
 }

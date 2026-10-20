@@ -160,7 +160,7 @@ paths:
       operationId: checkPasswordReset
       summary: Check a password reset link
       description: >-
-        Says which kinds of two-factor the reset must be proved with first; none when the User has none
+        Says which kinds of two-factor method the reset must be proved with first; none when the User has none
         or proved it already.
       tags: [account]
       security: []
@@ -297,7 +297,7 @@ paths:
                 maxLength: 256
         "202":
           description: >-
-            The password is right and the User has a Second Factor. A short-lived challenge cookie
+            The password is right and the User has two-factor. A short-lived challenge cookie
             is set; completeSignIn takes the code.
           headers:
             Set-Cookie:
@@ -309,7 +309,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecondFactorNeeded"
+                $ref: "#/components/schemas/TwoFactorNeeded"
         "4XX":
           $ref: "#/components/responses/Problem"
         default:
@@ -473,10 +473,10 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
-  /api/v1/session/second-factor:
+  /api/v1/session/two-factor:
     post:
       operationId: completeSignIn
-      summary: Finish signing in with a Second Factor
+      summary: Finish signing in with a two-factor method
       description: >-
         Takes a code from the User's authenticator app for the sign-in the challenge cookie names,
         and starts a session proved by both. A challenge takes five codes; a code works once.
@@ -488,7 +488,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SecondFactorCode"
+              $ref: "#/components/schemas/TwoFactorCode"
       responses:
         "204":
           description: Signed in.
@@ -503,24 +503,24 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
-  /api/v1/profile/second-factors:
+  /api/v1/profile/two-factor-methods:
     get:
-      operationId: listSecondFactors
-      summary: The signed-in User's Second Factors
+      operationId: listTwoFactorMethods
+      summary: The signed-in User's two-factor methods
       description: Every authenticator app and passkey the User added.
       tags: [profile]
       responses:
         "200":
-          description: The Second Factors.
+          description: The two-factor methods.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecondFactors"
+                $ref: "#/components/schemas/TwoFactorMethods"
         "4XX":
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
-  /api/v1/profile/second-factors/totp:
+  /api/v1/profile/two-factor-methods/totp:
     post:
       operationId: startTOTP
       summary: Start adding an authenticator app
@@ -539,7 +539,7 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
-  /api/v1/profile/second-factors/totp/confirmation:
+  /api/v1/profile/two-factor-methods/totp/confirmation:
     post:
       operationId: confirmTOTP
       summary: Finish adding an authenticator app
@@ -556,7 +556,7 @@ paths:
               $ref: "#/components/schemas/TOTPConfirmation"
       responses:
         "204":
-          description: The authenticator app is a Second Factor of the User's.
+          description: The authenticator app is a two-factor method of the User's.
         "4XX":
           $ref: "#/components/responses/Problem"
         default:
@@ -616,15 +616,15 @@ paths:
       summary: Start proving two-factor again
       description: >-
         For an app that wants a fresh proof (step-up), starts proving the signed-in session again
-        and says which kinds of Second Factor can prove it. A User with none is told to add one.
+        and says which kinds of two-factor method can prove it. A User with none is told to add one.
       tags: [account]
       responses:
         "200":
-          description: The kinds of Second Factor the User has.
+          description: The kinds of two-factor method the User has.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecondFactorNeeded"
+                $ref: "#/components/schemas/TwoFactorNeeded"
         "4XX":
           $ref: "#/components/responses/Problem"
         default:
@@ -642,7 +642,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SecondFactorCode"
+              $ref: "#/components/schemas/TwoFactorCode"
       responses:
         "204":
           description: The session proved two-factor now.
@@ -738,7 +738,7 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
-  /api/v1/profile/second-factors/passkey:
+  /api/v1/profile/two-factor-methods/passkey:
     post:
       operationId: startPasskey
       summary: Start adding a passkey
@@ -755,13 +755,13 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
-  /api/v1/profile/second-factors/passkey/confirmation:
+  /api/v1/profile/two-factor-methods/passkey/confirmation:
     post:
       operationId: confirmPasskey
       summary: Finish adding a passkey
       description: >-
-        Keeps the passkey the browser made, given the User's password. A User who already has a
-        Second Factor must be in a session that proved one. Every other session of the User's ends.
+        Keeps the passkey the browser made, given the User's password. A User who already has
+        two-factor must be in a session that proved it. Every other session of the User's ends.
       tags: [profile]
       requestBody:
         required: true
@@ -771,25 +771,25 @@ paths:
               $ref: "#/components/schemas/PasskeyConfirmation"
       responses:
         "204":
-          description: The passkey is a Second Factor of the User's.
+          description: The passkey is a two-factor method of the User's.
         "4XX":
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
-  /api/v1/profile/second-factors/{factorId}/removal:
+  /api/v1/profile/two-factor-methods/{factorId}/removal:
     parameters:
       - name: factorId
         in: path
         required: true
-        description: The Second Factor.
+        description: The two-factor.
         schema:
           $ref: "#/components/schemas/Id"
     post:
-      operationId: removeSecondFactor
-      summary: Remove a Second Factor
+      operationId: removeTwoFactorMethod
+      summary: Remove a two-factor method
       description: >-
         Removes one of the User's authenticator apps or passkeys once they give their password,
-        from a session that proved a Second Factor.
+        from a session that proved two-factor.
       tags: [profile]
       requestBody:
         required: true
@@ -1168,7 +1168,7 @@ paths:
       description: >-
         For a workload outside the cluster, which signs in with the client credentials grant. The
         secret is answered once, here, and kept only as a hash. The previous secret keeps working
-        until the new one is first used. Admins only, from a session that proved a Second Factor.
+        until the new one is first used. Admins only, from a session that proved two-factor.
       tags: [access]
       responses:
         "200":
@@ -1187,7 +1187,7 @@ paths:
       summary: Audit Events, newest first
       description: >-
         One page of Audit Events, newest first, narrowed by any of the filters. Pass a page's next
-        as before to read the page after it. Admins only, from a session that proved a Second Factor.
+        as before to read the page after it. Admins only, from a session that proved two-factor.
       tags: [audit]
       parameters:
         - name: user
@@ -1227,7 +1227,7 @@ paths:
       summary: How things stand
       description: >-
         Users, the Unassigned queue, sign-ins and failed sign-ins over the last 24 hours, and live
-        sessions. Admins only, from a session that proved a Second Factor.
+        sessions. Admins only, from a session that proved two-factor.
       tags: [audit]
       responses:
         "200":
@@ -1302,7 +1302,7 @@ paths:
     get:
       operationId: listUserTokens
       summary: A User's Personal Tokens
-      description: Admins only, from a session that proved a Second Factor.
+      description: Admins only, from a session that proved two-factor.
       tags: [tokens]
       responses:
         "200":
@@ -1322,7 +1322,7 @@ paths:
     delete:
       operationId: revokeUserToken
       summary: Revoke a User's Personal Token
-      description: Admins only, from a session that proved a Second Factor. Revoking it twice changes nothing.
+      description: Admins only, from a session that proved two-factor. Revoking it twice changes nothing.
       tags: [tokens]
       responses:
         "204":
@@ -1338,7 +1338,7 @@ paths:
       operationId: rotateClientSecret
       summary: Give a Client a new secret
       description: >-
-        Admins only, from a session that proved a Second Factor, for a Client that signs in with a
+        Admins only, from a session that proved two-factor, for a Client that signs in with a
         secret. The new secret is written where the Client's Application reads it, never answered
         here. The old one keeps working until the Application first uses the new one.
       tags: [apps]
@@ -1356,8 +1356,8 @@ paths:
       operationId: getStepUp
       summary: How fresh a Client wants two-factor
       description: >-
-        The Client's step-up window, 0 when it is off. Admins only, from a session that proved a
-        Second Factor.
+        The Client's step-up window, 0 when it is off. Admins only, from a session that proved
+        two-factor.
       tags: [apps]
       responses:
         "200":
@@ -1375,7 +1375,7 @@ paths:
       summary: Set how fresh a Client wants two-factor
       description: >-
         Signing in to the Client then finishes only when the session proved two-factor within the
-        window; 0 turns step-up off. Admins only, from a session that proved a Second Factor.
+        window; 0 turns step-up off. Admins only, from a session that proved two-factor.
       tags: [apps]
       requestBody:
         required: true
@@ -1428,7 +1428,7 @@ paths:
     get:
       operationId: getMCPResource
       summary: Whether a Client takes Connected Apps
-      description: Admins only, from a session that proved a Second Factor.
+      description: Admins only, from a session that proved two-factor.
       tags: [connected]
       responses:
         "200":
@@ -1445,7 +1445,7 @@ paths:
       operationId: setMCPResource
       summary: Let a Client take Connected Apps, or stop it
       description: >-
-        Admins only, from a session that proved a Second Factor. A Client that can check no
+        Admins only, from a session that proved two-factor. A Client that can check no
         Connected App's token is refused with 409. Stopping keeps the Connected Apps the Client
         has; turning step-up on disconnects them.
       tags: [connected]
@@ -1469,7 +1469,7 @@ components:
       in: cookie
       name: __Host-identity_challenge
       description: >-
-        A sign-in whose password was right, waiting for its Second Factor: set by signIn's 202,
+        A sign-in whose password was right, waiting for two-factor: set by signIn's 202,
         host-only, HttpOnly, Secure, SameSite=Lax, for five minutes.
     session:
       type: apiKey
@@ -1557,8 +1557,8 @@ components:
         - user-created
         - user-renamed
         - password-changed
-        - second-factor-added
-        - second-factor-removed
+        - two-factor-method-added
+        - two-factor-method-removed
         - admin-promoted
         - group-created
         - group-renamed
@@ -1645,7 +1645,7 @@ components:
           description: The address a failed sign-in gave; it may belong to no User.
         reason:
           type: string
-          enum: [password, second-factor, no-access, token-reused, by-tool]
+          enum: [password, two-factor, no-access, token-reused, by-tool]
           description: >-
             Why a sign-in failed, or why a Connected App was disconnected: as token-reused, its
             refresh token was spent twice; as by-tool, the tool revoked its own refresh token.
@@ -1960,9 +1960,9 @@ components:
         methods:
           type: array
           maxItems: 2
-          description: The kinds of two-factor the User has, authenticator apps first; empty when none is needed.
+          description: The kinds of two-factor method the User has, authenticator apps first; empty when none is needed.
           items:
-            $ref: "#/components/schemas/SecondFactorKind"
+            $ref: "#/components/schemas/TwoFactorMethodKind"
     ResetCode:
       description: A reset link's token, with a code from an authenticator app.
       type: object
@@ -2058,11 +2058,11 @@ components:
       description: The signed-in User.
       type: object
       additionalProperties: false
-      required: [email, name, createdAt, admin, secondFactor]
+      required: [email, name, createdAt, admin, twoFactor]
       properties:
-        secondFactor:
+        twoFactor:
           type: boolean
-          description: Whether this session was proved with a Second Factor, which the admin pages need.
+          description: Whether this session proved two-factor, which the admin pages need.
         admin:
           type: boolean
           description: Whether the User is an Admin, who manages access. An Admin holds no App Role by being one.
@@ -2475,8 +2475,8 @@ components:
           maxItems: 1000
           items:
             $ref: "#/components/schemas/Device"
-    SecondFactorNeeded:
-      description: The sign-in waits for a Second Factor.
+    TwoFactorNeeded:
+      description: The sign-in waits for two-factor.
       type: object
       additionalProperties: false
       required: [methods]
@@ -2485,10 +2485,10 @@ components:
           type: array
           minItems: 1
           maxItems: 2
-          description: The kinds of Second Factor the User has, any of which finishes the sign-in.
+          description: The kinds of two-factor method the User has, any of which finishes the sign-in.
           items:
-            $ref: "#/components/schemas/SecondFactorKind"
-    SecondFactorKind:
+            $ref: "#/components/schemas/TwoFactorMethodKind"
+    TwoFactorMethodKind:
       description: An authenticator app or a passkey.
       type: string
       enum: [totp, passkey]
@@ -2534,7 +2534,7 @@ components:
           description: The new credential, as PublicKeyCredential.toJSON gives it.
         password:
           $ref: "#/components/schemas/Password"
-    SecondFactorCode:
+    TwoFactorCode:
       description: A code from an authenticator app.
       type: object
       additionalProperties: false
@@ -2546,8 +2546,8 @@ components:
           maxLength: 16
           description: The six digits the app shows.
           example: "492039"
-    SecondFactor:
-      description: One of a User's Second Factors.
+    TwoFactorMethod:
+      description: One of a User's two-factor methods.
       type: object
       additionalProperties: false
       required: [id, kind, label, createdAt]
@@ -2555,7 +2555,7 @@ components:
         id:
           $ref: "#/components/schemas/Id"
         kind:
-          $ref: "#/components/schemas/SecondFactorKind"
+          $ref: "#/components/schemas/TwoFactorMethodKind"
         label:
           type: string
           maxLength: 256
@@ -2573,8 +2573,8 @@ components:
           maxLength: 64
           description: When it last signed the User in.
           example: "2026-10-16T18:00:00Z"
-    SecondFactors:
-      description: A User's Second Factors.
+    TwoFactorMethods:
+      description: A User's two-factor methods.
       type: object
       additionalProperties: false
       required: [factors]
@@ -2584,7 +2584,7 @@ components:
           maxItems: 64
           description: Oldest first.
           items:
-            $ref: "#/components/schemas/SecondFactor"
+            $ref: "#/components/schemas/TwoFactorMethod"
     TOTPSetup:
       description: What an authenticator app needs, as a QR code's URI and as a secret to type in.
       type: object

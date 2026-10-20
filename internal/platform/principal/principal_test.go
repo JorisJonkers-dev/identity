@@ -10,7 +10,7 @@ import (
 )
 
 func TestFromIsWhoWithPut(t *testing.T) {
-	p := principal.Principal{UserID: uuid.New(), SecondFactor: true}
+	p := principal.Principal{UserID: uuid.New(), TwoFactor: true}
 	if got := principal.From(principal.With(context.Background(), p)); got != p {
 		t.Fatalf("From = %+v, want %+v", got, p)
 	}

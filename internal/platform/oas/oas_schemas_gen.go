@@ -209,8 +209,8 @@ const (
 	AuditActionUserCreated            AuditAction = "user-created"
 	AuditActionUserRenamed            AuditAction = "user-renamed"
 	AuditActionPasswordChanged        AuditAction = "password-changed"
-	AuditActionSecondFactorAdded      AuditAction = "second-factor-added"
-	AuditActionSecondFactorRemoved    AuditAction = "second-factor-removed"
+	AuditActionTwoFactorMethodAdded   AuditAction = "two-factor-method-added"
+	AuditActionTwoFactorMethodRemoved AuditAction = "two-factor-method-removed"
 	AuditActionAdminPromoted          AuditAction = "admin-promoted"
 	AuditActionGroupCreated           AuditAction = "group-created"
 	AuditActionGroupRenamed           AuditAction = "group-renamed"
@@ -246,8 +246,8 @@ func (AuditAction) AllValues() []AuditAction {
 		AuditActionUserCreated,
 		AuditActionUserRenamed,
 		AuditActionPasswordChanged,
-		AuditActionSecondFactorAdded,
-		AuditActionSecondFactorRemoved,
+		AuditActionTwoFactorMethodAdded,
+		AuditActionTwoFactorMethodRemoved,
 		AuditActionAdminPromoted,
 		AuditActionGroupCreated,
 		AuditActionGroupRenamed,
@@ -290,9 +290,9 @@ func (s AuditAction) MarshalText() ([]byte, error) {
 		return []byte(s), nil
 	case AuditActionPasswordChanged:
 		return []byte(s), nil
-	case AuditActionSecondFactorAdded:
+	case AuditActionTwoFactorMethodAdded:
 		return []byte(s), nil
-	case AuditActionSecondFactorRemoved:
+	case AuditActionTwoFactorMethodRemoved:
 		return []byte(s), nil
 	case AuditActionAdminPromoted:
 		return []byte(s), nil
@@ -368,11 +368,11 @@ func (s *AuditAction) UnmarshalText(data []byte) error {
 	case AuditActionPasswordChanged:
 		*s = AuditActionPasswordChanged
 		return nil
-	case AuditActionSecondFactorAdded:
-		*s = AuditActionSecondFactorAdded
+	case AuditActionTwoFactorMethodAdded:
+		*s = AuditActionTwoFactorMethodAdded
 		return nil
-	case AuditActionSecondFactorRemoved:
-		*s = AuditActionSecondFactorRemoved
+	case AuditActionTwoFactorMethodRemoved:
+		*s = AuditActionTwoFactorMethodRemoved
 		return nil
 	case AuditActionAdminPromoted:
 		*s = AuditActionAdminPromoted
@@ -670,18 +670,18 @@ func (AuditEventMinutes) AllValues() []AuditEventMinutes {
 type AuditEventReason string
 
 const (
-	AuditEventReasonPassword     AuditEventReason = "password"
-	AuditEventReasonSecondFactor AuditEventReason = "second-factor"
-	AuditEventReasonNoAccess     AuditEventReason = "no-access"
-	AuditEventReasonTokenReused  AuditEventReason = "token-reused"
-	AuditEventReasonByTool       AuditEventReason = "by-tool"
+	AuditEventReasonPassword    AuditEventReason = "password"
+	AuditEventReasonTwoFactor   AuditEventReason = "two-factor"
+	AuditEventReasonNoAccess    AuditEventReason = "no-access"
+	AuditEventReasonTokenReused AuditEventReason = "token-reused"
+	AuditEventReasonByTool      AuditEventReason = "by-tool"
 )
 
 // AllValues returns all AuditEventReason values.
 func (AuditEventReason) AllValues() []AuditEventReason {
 	return []AuditEventReason{
 		AuditEventReasonPassword,
-		AuditEventReasonSecondFactor,
+		AuditEventReasonTwoFactor,
 		AuditEventReasonNoAccess,
 		AuditEventReasonTokenReused,
 		AuditEventReasonByTool,
@@ -693,7 +693,7 @@ func (s AuditEventReason) MarshalText() ([]byte, error) {
 	switch s {
 	case AuditEventReasonPassword:
 		return []byte(s), nil
-	case AuditEventReasonSecondFactor:
+	case AuditEventReasonTwoFactor:
 		return []byte(s), nil
 	case AuditEventReasonNoAccess:
 		return []byte(s), nil
@@ -712,8 +712,8 @@ func (s *AuditEventReason) UnmarshalText(data []byte) error {
 	case AuditEventReasonPassword:
 		*s = AuditEventReasonPassword
 		return nil
-	case AuditEventReasonSecondFactor:
-		*s = AuditEventReasonSecondFactor
+	case AuditEventReasonTwoFactor:
+		*s = AuditEventReasonTwoFactor
 		return nil
 	case AuditEventReasonNoAccess:
 		*s = AuditEventReasonNoAccess
@@ -2944,12 +2944,12 @@ func (*ProblemStatusCode) listDevicesRes()               {}
 func (*ProblemStatusCode) listMachinesRes()              {}
 func (*ProblemStatusCode) listMyConnectedAppsRes()       {}
 func (*ProblemStatusCode) listMyTokensRes()              {}
-func (*ProblemStatusCode) listSecondFactorsRes()         {}
+func (*ProblemStatusCode) listTwoFactorMethodsRes()      {}
 func (*ProblemStatusCode) listUserTokensRes()            {}
 func (*ProblemStatusCode) mintTokenRes()                 {}
 func (*ProblemStatusCode) passkeyOptionsRes()            {}
 func (*ProblemStatusCode) removeMemberRes()              {}
-func (*ProblemStatusCode) removeSecondFactorRes()        {}
+func (*ProblemStatusCode) removeTwoFactorMethodRes()     {}
 func (*ProblemStatusCode) renameGroupRes()               {}
 func (*ProblemStatusCode) renameUserRes()                {}
 func (*ProblemStatusCode) resetPasskeyOptionsRes()       {}
@@ -2983,8 +2983,8 @@ func (*ProblemStatusCode) updateProfileRes()             {}
 // The signed-in User.
 // Ref: #/components/schemas/Profile
 type Profile struct {
-	// Whether this session was proved with a Second Factor, which the admin pages need.
-	SecondFactor bool `json:"secondFactor"`
+	// Whether this session proved two-factor, which the admin pages need.
+	TwoFactor bool `json:"twoFactor"`
 	// Whether the User is an Admin, who manages access. An Admin holds no App Role by being one.
 	Admin        bool     `json:"admin"`
 	Email        Email    `json:"email"`
@@ -2995,9 +2995,9 @@ type Profile struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
-// GetSecondFactor returns the value of SecondFactor.
-func (s *Profile) GetSecondFactor() bool {
-	return s.SecondFactor
+// GetTwoFactor returns the value of TwoFactor.
+func (s *Profile) GetTwoFactor() bool {
+	return s.TwoFactor
 }
 
 // GetAdmin returns the value of Admin.
@@ -3025,9 +3025,9 @@ func (s *Profile) GetCreatedAt() time.Time {
 	return s.CreatedAt
 }
 
-// SetSecondFactor sets the value of SecondFactor.
-func (s *Profile) SetSecondFactor(val bool) {
-	s.SecondFactor = val
+// SetTwoFactor sets the value of TwoFactor.
+func (s *Profile) SetTwoFactor(val bool) {
+	s.TwoFactor = val
 }
 
 // SetAdmin sets the value of Admin.
@@ -3080,10 +3080,10 @@ type RemoveMemberNoContent struct{}
 
 func (*RemoveMemberNoContent) removeMemberRes() {}
 
-// RemoveSecondFactorNoContent is response for RemoveSecondFactor operation.
-type RemoveSecondFactorNoContent struct{}
+// RemoveTwoFactorMethodNoContent is response for RemoveTwoFactorMethod operation.
+type RemoveTwoFactorMethodNoContent struct{}
 
-func (*RemoveSecondFactorNoContent) removeSecondFactorRes() {}
+func (*RemoveTwoFactorMethodNoContent) removeTwoFactorMethodRes() {}
 
 // RenameGroupNoContent is response for RenameGroup operation.
 type RenameGroupNoContent struct{}
@@ -3098,17 +3098,17 @@ func (*RenameUserNoContent) renameUserRes() {}
 // What a password reset must be proved with first.
 // Ref: #/components/schemas/ResetCheck
 type ResetCheck struct {
-	// The kinds of two-factor the User has, authenticator apps first; empty when none is needed.
-	Methods []SecondFactorKind `json:"methods"`
+	// The kinds of two-factor method the User has, authenticator apps first; empty when none is needed.
+	Methods []TwoFactorMethodKind `json:"methods"`
 }
 
 // GetMethods returns the value of Methods.
-func (s *ResetCheck) GetMethods() []SecondFactorKind {
+func (s *ResetCheck) GetMethods() []TwoFactorMethodKind {
 	return s.Methods
 }
 
 // SetMethods sets the value of Methods.
-func (s *ResetCheck) SetMethods(val []SecondFactorKind) {
+func (s *ResetCheck) SetMethods(val []TwoFactorMethodKind) {
 	s.Methods = val
 }
 
@@ -3224,195 +3224,6 @@ func (*RevokeUserTokenNoContent) revokeUserTokenRes() {}
 type RotateClientSecretNoContent struct{}
 
 func (*RotateClientSecretNoContent) rotateClientSecretRes() {}
-
-// One of a User's Second Factors.
-// Ref: #/components/schemas/SecondFactor
-type SecondFactor struct {
-	ID   ID               `json:"id"`
-	Kind SecondFactorKind `json:"kind"`
-	// What the User called it.
-	Label string `json:"label"`
-	// When it was added.
-	CreatedAt time.Time `json:"createdAt"`
-	// When it last signed the User in.
-	LastUsedAt OptDateTime `json:"lastUsedAt"`
-}
-
-// GetID returns the value of ID.
-func (s *SecondFactor) GetID() ID {
-	return s.ID
-}
-
-// GetKind returns the value of Kind.
-func (s *SecondFactor) GetKind() SecondFactorKind {
-	return s.Kind
-}
-
-// GetLabel returns the value of Label.
-func (s *SecondFactor) GetLabel() string {
-	return s.Label
-}
-
-// GetCreatedAt returns the value of CreatedAt.
-func (s *SecondFactor) GetCreatedAt() time.Time {
-	return s.CreatedAt
-}
-
-// GetLastUsedAt returns the value of LastUsedAt.
-func (s *SecondFactor) GetLastUsedAt() OptDateTime {
-	return s.LastUsedAt
-}
-
-// SetID sets the value of ID.
-func (s *SecondFactor) SetID(val ID) {
-	s.ID = val
-}
-
-// SetKind sets the value of Kind.
-func (s *SecondFactor) SetKind(val SecondFactorKind) {
-	s.Kind = val
-}
-
-// SetLabel sets the value of Label.
-func (s *SecondFactor) SetLabel(val string) {
-	s.Label = val
-}
-
-// SetCreatedAt sets the value of CreatedAt.
-func (s *SecondFactor) SetCreatedAt(val time.Time) {
-	s.CreatedAt = val
-}
-
-// SetLastUsedAt sets the value of LastUsedAt.
-func (s *SecondFactor) SetLastUsedAt(val OptDateTime) {
-	s.LastUsedAt = val
-}
-
-// A code from an authenticator app.
-// Ref: #/components/schemas/SecondFactorCode
-type SecondFactorCode struct {
-	// The six digits the app shows.
-	Code string `json:"code"`
-}
-
-// GetCode returns the value of Code.
-func (s *SecondFactorCode) GetCode() string {
-	return s.Code
-}
-
-// SetCode sets the value of Code.
-func (s *SecondFactorCode) SetCode(val string) {
-	s.Code = val
-}
-
-// An authenticator app or a passkey.
-// Ref: #/components/schemas/SecondFactorKind
-type SecondFactorKind string
-
-const (
-	SecondFactorKindTotp    SecondFactorKind = "totp"
-	SecondFactorKindPasskey SecondFactorKind = "passkey"
-)
-
-// AllValues returns all SecondFactorKind values.
-func (SecondFactorKind) AllValues() []SecondFactorKind {
-	return []SecondFactorKind{
-		SecondFactorKindTotp,
-		SecondFactorKindPasskey,
-	}
-}
-
-// MarshalText implements encoding.TextMarshaler.
-func (s SecondFactorKind) MarshalText() ([]byte, error) {
-	switch s {
-	case SecondFactorKindTotp:
-		return []byte(s), nil
-	case SecondFactorKindPasskey:
-		return []byte(s), nil
-	default:
-		return nil, errors.Errorf("invalid value: %q", s)
-	}
-}
-
-// UnmarshalText implements encoding.TextUnmarshaler.
-func (s *SecondFactorKind) UnmarshalText(data []byte) error {
-	switch SecondFactorKind(data) {
-	case SecondFactorKindTotp:
-		*s = SecondFactorKindTotp
-		return nil
-	case SecondFactorKindPasskey:
-		*s = SecondFactorKindPasskey
-		return nil
-	default:
-		return errors.Errorf("invalid value: %q", data)
-	}
-}
-
-// The sign-in waits for a Second Factor.
-// Ref: #/components/schemas/SecondFactorNeeded
-type SecondFactorNeeded struct {
-	// The kinds of Second Factor the User has, any of which finishes the sign-in.
-	Methods []SecondFactorKind `json:"methods"`
-}
-
-// GetMethods returns the value of Methods.
-func (s *SecondFactorNeeded) GetMethods() []SecondFactorKind {
-	return s.Methods
-}
-
-// SetMethods sets the value of Methods.
-func (s *SecondFactorNeeded) SetMethods(val []SecondFactorKind) {
-	s.Methods = val
-}
-
-func (*SecondFactorNeeded) startStepUpRes() {}
-
-// SecondFactorNeededHeaders wraps SecondFactorNeeded with response headers.
-type SecondFactorNeededHeaders struct {
-	SetCookie string
-	Response  SecondFactorNeeded
-}
-
-// GetSetCookie returns the value of SetCookie.
-func (s *SecondFactorNeededHeaders) GetSetCookie() string {
-	return s.SetCookie
-}
-
-// GetResponse returns the value of Response.
-func (s *SecondFactorNeededHeaders) GetResponse() SecondFactorNeeded {
-	return s.Response
-}
-
-// SetSetCookie sets the value of SetCookie.
-func (s *SecondFactorNeededHeaders) SetSetCookie(val string) {
-	s.SetCookie = val
-}
-
-// SetResponse sets the value of Response.
-func (s *SecondFactorNeededHeaders) SetResponse(val SecondFactorNeeded) {
-	s.Response = val
-}
-
-func (*SecondFactorNeededHeaders) signInRes() {}
-
-// A User's Second Factors.
-// Ref: #/components/schemas/SecondFactors
-type SecondFactors struct {
-	// Oldest first.
-	Factors []SecondFactor `json:"factors"`
-}
-
-// GetFactors returns the value of Factors.
-func (s *SecondFactors) GetFactors() []SecondFactor {
-	return s.Factors
-}
-
-// SetFactors sets the value of Factors.
-func (s *SecondFactors) SetFactors(val []SecondFactor) {
-	s.Factors = val
-}
-
-func (*SecondFactors) listSecondFactorsRes() {}
 
 type Session struct {
 	APIKey string
@@ -3894,6 +3705,195 @@ func (s *TokenList) SetTokens(val []PersonalToken) {
 }
 
 func (*TokenList) listUserTokensRes() {}
+
+// A code from an authenticator app.
+// Ref: #/components/schemas/TwoFactorCode
+type TwoFactorCode struct {
+	// The six digits the app shows.
+	Code string `json:"code"`
+}
+
+// GetCode returns the value of Code.
+func (s *TwoFactorCode) GetCode() string {
+	return s.Code
+}
+
+// SetCode sets the value of Code.
+func (s *TwoFactorCode) SetCode(val string) {
+	s.Code = val
+}
+
+// One of a User's two-factor methods.
+// Ref: #/components/schemas/TwoFactorMethod
+type TwoFactorMethod struct {
+	ID   ID                  `json:"id"`
+	Kind TwoFactorMethodKind `json:"kind"`
+	// What the User called it.
+	Label string `json:"label"`
+	// When it was added.
+	CreatedAt time.Time `json:"createdAt"`
+	// When it last signed the User in.
+	LastUsedAt OptDateTime `json:"lastUsedAt"`
+}
+
+// GetID returns the value of ID.
+func (s *TwoFactorMethod) GetID() ID {
+	return s.ID
+}
+
+// GetKind returns the value of Kind.
+func (s *TwoFactorMethod) GetKind() TwoFactorMethodKind {
+	return s.Kind
+}
+
+// GetLabel returns the value of Label.
+func (s *TwoFactorMethod) GetLabel() string {
+	return s.Label
+}
+
+// GetCreatedAt returns the value of CreatedAt.
+func (s *TwoFactorMethod) GetCreatedAt() time.Time {
+	return s.CreatedAt
+}
+
+// GetLastUsedAt returns the value of LastUsedAt.
+func (s *TwoFactorMethod) GetLastUsedAt() OptDateTime {
+	return s.LastUsedAt
+}
+
+// SetID sets the value of ID.
+func (s *TwoFactorMethod) SetID(val ID) {
+	s.ID = val
+}
+
+// SetKind sets the value of Kind.
+func (s *TwoFactorMethod) SetKind(val TwoFactorMethodKind) {
+	s.Kind = val
+}
+
+// SetLabel sets the value of Label.
+func (s *TwoFactorMethod) SetLabel(val string) {
+	s.Label = val
+}
+
+// SetCreatedAt sets the value of CreatedAt.
+func (s *TwoFactorMethod) SetCreatedAt(val time.Time) {
+	s.CreatedAt = val
+}
+
+// SetLastUsedAt sets the value of LastUsedAt.
+func (s *TwoFactorMethod) SetLastUsedAt(val OptDateTime) {
+	s.LastUsedAt = val
+}
+
+// An authenticator app or a passkey.
+// Ref: #/components/schemas/TwoFactorMethodKind
+type TwoFactorMethodKind string
+
+const (
+	TwoFactorMethodKindTotp    TwoFactorMethodKind = "totp"
+	TwoFactorMethodKindPasskey TwoFactorMethodKind = "passkey"
+)
+
+// AllValues returns all TwoFactorMethodKind values.
+func (TwoFactorMethodKind) AllValues() []TwoFactorMethodKind {
+	return []TwoFactorMethodKind{
+		TwoFactorMethodKindTotp,
+		TwoFactorMethodKindPasskey,
+	}
+}
+
+// MarshalText implements encoding.TextMarshaler.
+func (s TwoFactorMethodKind) MarshalText() ([]byte, error) {
+	switch s {
+	case TwoFactorMethodKindTotp:
+		return []byte(s), nil
+	case TwoFactorMethodKindPasskey:
+		return []byte(s), nil
+	default:
+		return nil, errors.Errorf("invalid value: %q", s)
+	}
+}
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (s *TwoFactorMethodKind) UnmarshalText(data []byte) error {
+	switch TwoFactorMethodKind(data) {
+	case TwoFactorMethodKindTotp:
+		*s = TwoFactorMethodKindTotp
+		return nil
+	case TwoFactorMethodKindPasskey:
+		*s = TwoFactorMethodKindPasskey
+		return nil
+	default:
+		return errors.Errorf("invalid value: %q", data)
+	}
+}
+
+// A User's two-factor methods.
+// Ref: #/components/schemas/TwoFactorMethods
+type TwoFactorMethods struct {
+	// Oldest first.
+	Factors []TwoFactorMethod `json:"factors"`
+}
+
+// GetFactors returns the value of Factors.
+func (s *TwoFactorMethods) GetFactors() []TwoFactorMethod {
+	return s.Factors
+}
+
+// SetFactors sets the value of Factors.
+func (s *TwoFactorMethods) SetFactors(val []TwoFactorMethod) {
+	s.Factors = val
+}
+
+func (*TwoFactorMethods) listTwoFactorMethodsRes() {}
+
+// The sign-in waits for two-factor.
+// Ref: #/components/schemas/TwoFactorNeeded
+type TwoFactorNeeded struct {
+	// The kinds of two-factor method the User has, any of which finishes the sign-in.
+	Methods []TwoFactorMethodKind `json:"methods"`
+}
+
+// GetMethods returns the value of Methods.
+func (s *TwoFactorNeeded) GetMethods() []TwoFactorMethodKind {
+	return s.Methods
+}
+
+// SetMethods sets the value of Methods.
+func (s *TwoFactorNeeded) SetMethods(val []TwoFactorMethodKind) {
+	s.Methods = val
+}
+
+func (*TwoFactorNeeded) startStepUpRes() {}
+
+// TwoFactorNeededHeaders wraps TwoFactorNeeded with response headers.
+type TwoFactorNeededHeaders struct {
+	SetCookie string
+	Response  TwoFactorNeeded
+}
+
+// GetSetCookie returns the value of SetCookie.
+func (s *TwoFactorNeededHeaders) GetSetCookie() string {
+	return s.SetCookie
+}
+
+// GetResponse returns the value of Response.
+func (s *TwoFactorNeededHeaders) GetResponse() TwoFactorNeeded {
+	return s.Response
+}
+
+// SetSetCookie sets the value of SetCookie.
+func (s *TwoFactorNeededHeaders) SetSetCookie(val string) {
+	s.SetCookie = val
+}
+
+// SetResponse sets the value of Response.
+func (s *TwoFactorNeededHeaders) SetResponse(val TwoFactorNeeded) {
+	s.Response = val
+}
+
+func (*TwoFactorNeededHeaders) signInRes() {}
 
 // Whether a Group requires two-factor of its members.
 // Ref: #/components/schemas/TwoFactorRequirement

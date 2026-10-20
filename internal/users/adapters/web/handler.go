@@ -23,7 +23,7 @@ import (
 // to this host, over HTTPS, with Path=/.
 const CookieName = "__Host-identity_session"
 
-// challengeCookie holds a sign-in whose password was right while it waits for a Second Factor.
+// challengeCookie holds a sign-in whose password was right while it waits for two-factor.
 const challengeCookie = "__Host-identity_challenge"
 
 // challengeMaxAge is the challenge's five minutes, in seconds.
@@ -67,7 +67,7 @@ type UseCases interface {
 	ResetPasskeyOptions(ctx context.Context, token string) ([]byte, error)
 	ResetWithPasskey(ctx context.Context, token string, response []byte) error
 	CompletePasswordReset(ctx context.Context, token, password string) error
-	SecondFactors(ctx context.Context, userID uuid.UUID) ([]app.Factor, error)
+	TwoFactorMethods(ctx context.Context, userID uuid.UUID) ([]app.Factor, error)
 	StartTOTP(ctx context.Context, userID uuid.UUID) (app.TOTPSetup, error)
 	ConfirmTOTP(ctx context.Context, userID uuid.UUID, sessionToken, label, code, password string) error
 	StartPasskey(ctx context.Context, userID uuid.UUID) ([]byte, error)
@@ -93,9 +93,9 @@ type Handler struct {
 func New(uc UseCases, admins Admins) *Handler { return &Handler{uc: uc, admins: admins} }
 
 type signedIn struct {
-	user         domain.User
-	token        string
-	secondFactor bool
+	user      domain.User
+	token     string
+	twoFactor bool
 }
 
 type signedInKey struct{}
@@ -106,9 +106,9 @@ func (h *Handler) HandleSession(ctx context.Context, _ oas.OperationName, t oas.
 	if err != nil {
 		return ctx, err
 	}
-	proved := app.ProvedSecondFactor(sess.Methods)
-	ctx = principal.With(ctx, principal.Principal{UserID: u.ID, SecondFactor: proved})
-	return context.WithValue(ctx, signedInKey{}, signedIn{user: u, token: t.APIKey, secondFactor: proved}), nil
+	proved := app.ProvedTwoFactor(sess.Methods)
+	ctx = principal.With(ctx, principal.Principal{UserID: u.ID, TwoFactor: proved})
+	return context.WithValue(ctx, signedInKey{}, signedIn{user: u, token: t.APIKey, twoFactor: proved}), nil
 }
 
 type challengeKey struct{}
@@ -148,12 +148,12 @@ func (h *Handler) ConfirmEmail(ctx context.Context, req *oas.Confirmation) (oas.
 func (h *Handler) SignIn(ctx context.Context, req *oas.SignIn) (oas.SignInRes, error) {
 	ctx = app.WithDevice(ctx, device.From(ctx))
 	token, err := h.uc.SignIn(ctx, req.Email, string(req.Password))
-	if errors.Is(err, app.ErrSecondFactorNeeded) {
+	if errors.Is(err, app.ErrTwoFactorProofNeeded) {
 		kinds, err := h.uc.ChallengeKinds(ctx, token)
 		if err != nil {
 			return nil, err
 		}
-		return &oas.SecondFactorNeededHeaders{
+		return &oas.TwoFactorNeededHeaders{
 			SetCookie: named(challengeCookie, token, challengeMaxAge).String(),
 			Response:  needs(kinds),
 		}, nil
@@ -165,7 +165,7 @@ func (h *Handler) SignIn(ctx context.Context, req *oas.SignIn) (oas.SignInRes, e
 }
 
 // CompleteSignIn implements completeSignIn.
-func (h *Handler) CompleteSignIn(ctx context.Context, req *oas.SecondFactorCode) (oas.CompleteSignInRes, error) {
+func (h *Handler) CompleteSignIn(ctx context.Context, req *oas.TwoFactorCode) (oas.CompleteSignInRes, error) {
 	ctx = app.WithDevice(ctx, device.From(ctx))
 	challenge, _ := ctx.Value(challengeKey{}).(string)
 	token, err := h.uc.CompleteSignIn(ctx, challenge, req.Code)
@@ -209,12 +209,12 @@ func (h *Handler) CompleteSignInWithPasskey(ctx context.Context, req *oas.Passke
 	return &oas.CompleteSignInWithPasskeyNoContent{SetCookie: cookie(token, sessionMaxAge).String()}, nil
 }
 
-func needs(kinds []string) oas.SecondFactorNeeded {
-	methods := make([]oas.SecondFactorKind, 0, len(kinds))
+func needs(kinds []string) oas.TwoFactorNeeded {
+	methods := make([]oas.TwoFactorMethodKind, 0, len(kinds))
 	for _, k := range kinds {
-		methods = append(methods, oas.SecondFactorKind(k))
+		methods = append(methods, oas.TwoFactorMethodKind(k))
 	}
-	return oas.SecondFactorNeeded{Methods: methods}
+	return oas.TwoFactorNeeded{Methods: methods}
 }
 
 // StartStepUp implements startStepUp.
@@ -227,7 +227,7 @@ func (h *Handler) StartStepUp(ctx context.Context) (oas.StartStepUpRes, error) {
 }
 
 // StepUpWithCode implements stepUpWithCode.
-func (h *Handler) StepUpWithCode(ctx context.Context, req *oas.SecondFactorCode) (oas.StepUpWithCodeRes, error) {
+func (h *Handler) StepUpWithCode(ctx context.Context, req *oas.TwoFactorCode) (oas.StepUpWithCodeRes, error) {
 	if err := h.uc.StepUpWithCode(ctx, current(ctx).token, req.Code); err != nil {
 		return stepUpRefusal(err)
 	}
@@ -251,11 +251,11 @@ func (h *Handler) StepUpWithPasskey(ctx context.Context, req *oas.PasskeyAsserti
 	return &oas.StepUpWithPasskeyNoContent{}, nil
 }
 
-// stepUpRefusal is refusal, with what a step-up adds: no Second Factor to prove, or no step-up
+// stepUpRefusal is refusal, with what a step-up adds: no two-factor to prove, or no step-up
 // begun.
 func stepUpRefusal(err error) (*oas.ProblemStatusCode, error) {
 	switch {
-	case errors.Is(err, app.ErrNoSecondFactor):
+	case errors.Is(err, app.ErrNoTwoFactor):
 		return problem(http.StatusConflict, "Add a passkey or an authenticator app on the Security page first."), nil
 	case errors.Is(err, app.ErrInvalidToken):
 		return problem(http.StatusUnauthorized, "This check expired, or you entered too many wrong codes. Start again from the app. After five wrong codes, wait 15 minutes before you try again."), nil
@@ -357,22 +357,22 @@ func enrolRefusal(err error) (*oas.ProblemStatusCode, error) {
 		return problem(http.StatusUnprocessableEntity, "This setup has expired. Start adding it again."), nil
 	case errors.Is(err, app.ErrInvalidCredentials):
 		return problem(http.StatusUnprocessableEntity, "Your password is wrong. Enter it again."), nil
-	case errors.Is(err, app.ErrSecondFactorNeeded):
+	case errors.Is(err, app.ErrTwoFactorProofNeeded):
 		return problem(http.StatusForbidden, "Sign out, then sign in again with a passkey or authenticator app to add another."), nil
 	default:
 		return refusal(err)
 	}
 }
 
-// ListSecondFactors implements listSecondFactors.
-func (h *Handler) ListSecondFactors(ctx context.Context) (oas.ListSecondFactorsRes, error) {
-	factors, err := h.uc.SecondFactors(ctx, current(ctx).user.ID)
+// ListTwoFactorMethods implements listTwoFactorMethods.
+func (h *Handler) ListTwoFactorMethods(ctx context.Context) (oas.ListTwoFactorMethodsRes, error) {
+	factors, err := h.uc.TwoFactorMethods(ctx, current(ctx).user.ID)
 	if err != nil {
 		return nil, err
 	}
-	res := &oas.SecondFactors{Factors: make([]oas.SecondFactor, 0, len(factors))}
+	res := &oas.TwoFactorMethods{Factors: make([]oas.TwoFactorMethod, 0, len(factors))}
 	for _, f := range factors {
-		sf := oas.SecondFactor{ID: oas.ID(f.ID), Kind: oas.SecondFactorKind(f.Kind), Label: f.Label.String(), CreatedAt: f.CreatedAt}
+		sf := oas.TwoFactorMethod{ID: oas.ID(f.ID), Kind: oas.TwoFactorMethodKind(f.Kind), Label: f.Label.String(), CreatedAt: f.CreatedAt}
 		if f.LastUsedAt != nil {
 			sf.LastUsedAt = oas.NewOptDateTime(*f.LastUsedAt)
 		}
@@ -400,12 +400,12 @@ func (h *Handler) ConfirmTOTP(ctx context.Context, req *oas.TOTPConfirmation) (o
 	return &oas.ConfirmTOTPNoContent{}, nil
 }
 
-// RemoveSecondFactor implements removeSecondFactor.
-func (h *Handler) RemoveSecondFactor(ctx context.Context, req *oas.PasswordCheck, p oas.RemoveSecondFactorParams) (oas.RemoveSecondFactorRes, error) {
+// RemoveTwoFactorMethod implements removeTwoFactorMethod.
+func (h *Handler) RemoveTwoFactorMethod(ctx context.Context, req *oas.PasswordCheck, p oas.RemoveTwoFactorMethodParams) (oas.RemoveTwoFactorMethodRes, error) {
 	s := current(ctx)
 	err := h.uc.RemoveFactor(ctx, s.user.ID, uuid.UUID(p.FactorId), s.token, string(req.Password))
 	switch {
-	case errors.Is(err, app.ErrSecondFactorNeeded):
+	case errors.Is(err, app.ErrTwoFactorProofNeeded):
 		return problem(http.StatusForbidden, "Sign out, then sign in again with a passkey or authenticator app to remove one."), nil
 	case errors.Is(err, app.ErrInvalidCredentials):
 		return problem(http.StatusUnprocessableEntity, "Your password is wrong. Enter it again."), nil
@@ -414,7 +414,7 @@ func (h *Handler) RemoveSecondFactor(ctx context.Context, req *oas.PasswordCheck
 	case err != nil:
 		return nil, err
 	}
-	return &oas.RemoveSecondFactorNoContent{}, nil
+	return &oas.RemoveTwoFactorMethodNoContent{}, nil
 }
 
 // SignOut implements signOut.
@@ -507,7 +507,7 @@ func resetRefusal(err error) (*oas.ProblemStatusCode, error) {
 
 func actor(ctx context.Context) app.Actor {
 	p := principal.From(ctx)
-	return app.Actor{ID: p.UserID, SecondFactor: p.SecondFactor}
+	return app.Actor{ID: p.UserID, TwoFactor: p.TwoFactor}
 }
 
 // RenameUser implements renameUser.
@@ -539,7 +539,7 @@ func adminRefusal(err error) (*oas.ProblemStatusCode, error) {
 	switch {
 	case errors.Is(err, app.ErrNotAdmin):
 		return problem(http.StatusForbidden, "Only Admins manage people."), nil
-	case errors.Is(err, app.ErrAdminSecondFactorNeeded):
+	case errors.Is(err, app.ErrAdminTwoFactorProofNeeded):
 		return problem(http.StatusForbidden, "Sign in again with a passkey or authenticator app to manage people."), nil
 	case errors.Is(err, app.ErrNotFound):
 		return problem(http.StatusNotFound, "That person no longer exists. Reload the page."), nil
@@ -592,7 +592,7 @@ func (h *Handler) profile(ctx context.Context, u domain.User) (*oas.Profile, err
 	}
 	p := &oas.Profile{
 		Email: oas.Email(u.Email.String()), Name: u.Name.String(), CreatedAt: u.CreatedAt, Admin: admin,
-		SecondFactor: current(ctx).secondFactor,
+		TwoFactor: current(ctx).twoFactor,
 	}
 	if pending != "" {
 		p.PendingEmail = oas.NewOptEmail(oas.Email(pending))

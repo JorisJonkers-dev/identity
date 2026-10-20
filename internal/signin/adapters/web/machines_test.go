@@ -34,7 +34,7 @@ func TestAnAdminGetsAMachineIdentitysNewSecretOnce(t *testing.T) {
 	if err != nil || !ok || s.Secret != "new-secret" {
 		t.Fatalf("RotateMachineSecret = %+v, %v", res, err)
 	}
-	if m.actor != (app.Actor{ID: root, SecondFactor: true}) || m.id != backupID {
+	if m.actor != (app.Actor{ID: root, TwoFactor: true}) || m.id != backupID {
 		t.Fatalf("asked %+v for %v", m.actor, m.id)
 	}
 }
@@ -48,7 +48,7 @@ func TestARefusedMachineSecretSaysWhy(t *testing.T) {
 		detail string
 	}{
 		{"not an Admin", app.ErrNotAdmin, 403, "Only Admins can make a new secret for a Machine Identity."},
-		{"no Second Factor", app.ErrSecondFactorNeeded, 403, "This page needs a Second Factor. If you have a passkey or authenticator app, sign out and sign in again with it. If you have neither, add a Second Factor on the Security page first, then sign out and sign in again."},
+		{"no two-factor", app.ErrTwoFactorProofNeeded, 403, "This page needs two-factor. If you have a passkey or authenticator app, sign out and sign in again with it. If you have neither, add a two-factor method on the Security page first, then sign out and sign in again."},
 		{"a Machine Identity that is gone", app.ErrNotFound, 404, "That Machine Identity no longer exists. Reload the page."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

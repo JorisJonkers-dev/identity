@@ -5,7 +5,7 @@ import { navigation } from '../infrastructure/navigation'
 
 const personalPage = (who = profile()) => ({
   'GET /api/v1/profile': () => Response.json(who),
-  'GET /api/v1/profile/second-factors': () => Response.json({ factors: [] }),
+  'GET /api/v1/profile/two-factor-methods': () => Response.json({ factors: [] }),
   'GET /api/v1/launcher': () => Response.json({ apps: [], heldBack: 0 }),
   'GET /api/v1/dashboard': () => Response.json(dashboard()),
 })
@@ -88,7 +88,7 @@ describe('the Admin pages', () => {
   })
 
   it('send an Admin without two-factor to set it up first', async () => {
-    const { router } = await mountAt('/admin/groups', adminPage({ ...admin(), secondFactor: false }))
+    const { router } = await mountAt('/admin/groups', adminPage({ ...admin(), twoFactor: false }))
     expect(router.currentRoute.value.fullPath).toBe('/security/two-factor?for=admin')
   })
 

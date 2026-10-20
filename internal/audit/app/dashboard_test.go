@@ -84,7 +84,7 @@ func TestTheDashboardLeavesOutHoursOutsideTheDay(t *testing.T) {
 
 func TestOnlyAnAdminSeesTheDashboard(t *testing.T) {
 	t.Parallel()
-	if _, err := newFixture(counting()).Dashboard(context.Background(), app.Actor{ID: ada, SecondFactor: true}); !errors.Is(err, app.ErrNotAdmin) {
+	if _, err := newFixture(counting()).Dashboard(context.Background(), app.Actor{ID: ada, TwoFactor: true}); !errors.Is(err, app.ErrNotAdmin) {
 		t.Fatalf("Dashboard = %v", err)
 	}
 }

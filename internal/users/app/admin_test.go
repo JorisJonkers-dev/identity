@@ -21,7 +21,7 @@ func withRoot(t *testing.T) (*fixture, uuid.UUID) {
 	return f, f.signedUp(t, "ada@example.org")
 }
 
-var asRoot = app.Actor{ID: root, SecondFactor: true}
+var asRoot = app.Actor{ID: root, TwoFactor: true}
 
 func TestAnAdminRenamesAPersonAsAnAuditEventNamingThem(t *testing.T) {
 	f, ada := withRoot(t)
@@ -79,14 +79,14 @@ func TestAnAdminDeletesAPersonAsAnAuditEventNamingTheAdmin(t *testing.T) {
 	}
 }
 
-func TestOnlyAnAdminWhoProvedASecondFactorManagesPeople(t *testing.T) {
+func TestOnlyAnAdminWhoProvedTwoFactorManagesPeople(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
 		actor app.Actor
 		want  error
 	}{
-		{"someone who is not an Admin", app.Actor{ID: uuid.New(), SecondFactor: true}, app.ErrNotAdmin},
-		{"an Admin without a Second Factor", app.Actor{ID: root}, app.ErrAdminSecondFactorNeeded},
+		{"someone who is not an Admin", app.Actor{ID: uuid.New(), TwoFactor: true}, app.ErrNotAdmin},
+		{"an Admin without a two-factor method", app.Actor{ID: root}, app.ErrAdminTwoFactorProofNeeded},
 	} {
 		for _, op := range []struct {
 			name string

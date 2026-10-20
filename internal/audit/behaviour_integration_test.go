@@ -206,8 +206,8 @@ func TestAWrongAuthenticatorCodeIsAFailedSignIn(t *testing.T) {
 	admin := env.Admin(t, "root@example.org")
 	other := env.Browser()
 	other.Call(t, http.MethodPost, "/api/v1/session", map[string]string{"email": admin.Email, "password": itest.Password}, http.StatusAccepted, nil)
-	other.Call(t, http.MethodPost, "/api/v1/session/second-factor", map[string]string{"code": "000000"}, http.StatusUnprocessableEntity, nil)
-	if e := only(t, admin, kind("sign-in"), "sign-in-failed"); e.User == nil || e.User.Email != admin.Email || e.Reason != "second-factor" {
+	other.Call(t, http.MethodPost, "/api/v1/session/two-factor", map[string]string{"code": "000000"}, http.StatusUnprocessableEntity, nil)
+	if e := only(t, admin, kind("sign-in"), "sign-in-failed"); e.User == nil || e.User.Email != admin.Email || e.Reason != "two-factor" {
 		t.Fatalf("event = %+v", e)
 	}
 }
@@ -248,7 +248,7 @@ func TestEachProfileChangeIsOneAuditEvent(t *testing.T) {
 		{name: "changing the password", action: "password-changed", change: func(t *testing.T, ada *itest.Browser) {
 			ada.Call(t, http.MethodPost, "/api/v1/profile/password", map[string]string{"current": itest.Password, "next": "another long password"}, http.StatusNoContent, nil)
 		}},
-		{name: "adding an authenticator app", action: "second-factor-added", change: func(t *testing.T, ada *itest.Browser) {
+		{name: "adding an authenticator app", action: "two-factor-method-added", change: func(t *testing.T, ada *itest.Browser) {
 			addAuthenticator(t, ada)
 		}},
 	} {
@@ -266,14 +266,14 @@ func TestEachProfileChangeIsOneAuditEvent(t *testing.T) {
 	}
 }
 
-func TestRemovingASecondFactorIsAnAuditEvent(t *testing.T) {
+func TestRemovingATwoFactorMethodIsAnAuditEvent(t *testing.T) {
 	t.Parallel()
 	env := itest.Start(t)
 	admin := env.Admin(t, "root@example.org")
 	var listed struct{ Factors []struct{ ID string } }
-	admin.Call(t, http.MethodGet, "/api/v1/profile/second-factors", nil, http.StatusOK, &listed)
-	admin.Call(t, http.MethodPost, "/api/v1/profile/second-factors/"+listed.Factors[0].ID+"/removal", map[string]string{"password": itest.Password}, http.StatusNoContent, nil)
-	if e := only(t, admin, kind("people"), "second-factor-removed"); e.User == nil || e.User.Email != admin.Email {
+	admin.Call(t, http.MethodGet, "/api/v1/profile/two-factor-methods", nil, http.StatusOK, &listed)
+	admin.Call(t, http.MethodPost, "/api/v1/profile/two-factor-methods/"+listed.Factors[0].ID+"/removal", map[string]string{"password": itest.Password}, http.StatusNoContent, nil)
+	if e := only(t, admin, kind("people"), "two-factor-method-removed"); e.User == nil || e.User.Email != admin.Email {
 		t.Fatalf("event = %+v", e)
 	}
 }
@@ -281,12 +281,12 @@ func TestRemovingASecondFactorIsAnAuditEvent(t *testing.T) {
 func addAuthenticator(t *testing.T, b *itest.Browser) {
 	t.Helper()
 	var setup struct{ Secret string }
-	b.Call(t, http.MethodPost, "/api/v1/profile/second-factors/totp", nil, http.StatusOK, &setup)
+	b.Call(t, http.MethodPost, "/api/v1/profile/two-factor-methods/totp", nil, http.StatusOK, &setup)
 	code, err := totp.GenerateCode(setup.Secret, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
-	b.Call(t, http.MethodPost, "/api/v1/profile/second-factors/totp/confirmation",
+	b.Call(t, http.MethodPost, "/api/v1/profile/two-factor-methods/totp/confirmation",
 		map[string]string{"label": "Phone", "code": code, "password": itest.Password}, http.StatusNoContent, nil)
 }
 
@@ -300,7 +300,7 @@ func TestTheAuditLogFiltersByUser(t *testing.T) {
 			t.Fatalf("event of someone else: %+v", e)
 		}
 	}
-	none(t, admin, url.Values{"user": {ada}}, "second-factor-added")
+	none(t, admin, url.Values{"user": {ada}}, "two-factor-method-added")
 }
 
 func TestTheAuditLogFiltersByClient(t *testing.T) {

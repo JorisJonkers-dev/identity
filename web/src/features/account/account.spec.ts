@@ -149,7 +149,7 @@ describe('signing in', () => {
   it('asks for the code when the User has an authenticator app, then signs in', async () => {
     const { wrapper, router, requests } = await mountAt('/signin', {
       'POST /api/v1/session': Response.json({ methods: ['totp'] }, { status: 202 }),
-      'POST /api/v1/session/second-factor': noContent(),
+      'POST /api/v1/session/two-factor': noContent(),
       'GET /api/v1/profile': ada,
     })
     await signIn(wrapper)
@@ -157,7 +157,7 @@ describe('signing in', () => {
     expect(wrapper.get('.from.who').text()).toBe('ada@example.org')
     expect(wrapper.text()).not.toContain('Use your passkey')
     await typeCode(wrapper, '492039')
-    expect(requests.find((r) => r.key === 'POST /api/v1/session/second-factor')?.body).toEqual({ code: '492039' })
+    expect(requests.find((r) => r.key === 'POST /api/v1/session/two-factor')?.body).toEqual({ code: '492039' })
     expect(router.currentRoute.value.path).toBe('/')
   })
 
@@ -170,7 +170,7 @@ describe('signing in', () => {
   it('says when the code is wrong', async () => {
     const { wrapper } = await mountAt('/signin', {
       'POST /api/v1/session': Response.json({ methods: ['totp'] }, { status: 202 }),
-      'POST /api/v1/session/second-factor': problem(422, 'That code is wrong or was already used.'),
+      'POST /api/v1/session/two-factor': problem(422, 'That code is wrong or was already used.'),
     })
     await signIn(wrapper)
     await typeCode(wrapper, '000000')
@@ -513,7 +513,7 @@ describe('resetting a forgotten password', () => {
 describe('the Account page', () => {
   const answers = (over: Record<string, unknown> = {}) => ({
     'GET /api/v1/profile': () => Response.json(profile(over)),
-    'GET /api/v1/profile/second-factors': () => Response.json({ factors: [] }),
+    'GET /api/v1/profile/two-factor-methods': () => Response.json({ factors: [] }),
     'GET /api/v1/launcher': () => Response.json({ apps: [], heldBack: 0 }),
   })
 
@@ -525,7 +525,7 @@ describe('the Account page', () => {
   })
 
   it('marks an Admin', async () => {
-    const { wrapper } = await mountAt('/account', answers({ admin: true, secondFactor: true }))
+    const { wrapper } = await mountAt('/account', answers({ admin: true, twoFactor: true }))
     expect(wrapper.get('.pill.accent').text()).toBe('Admin')
   })
 
@@ -633,7 +633,7 @@ describe('the Account page', () => {
   it('says whether two-factor is on', async () => {
     const { wrapper } = await mountAt('/account', {
       ...answers(),
-      'GET /api/v1/profile/second-factors': () =>
+      'GET /api/v1/profile/two-factor-methods': () =>
         Response.json({ factors: [{ id: '00000000-0000-4000-8000-0000000000f1', kind: 'totp', label: 'Phone', createdAt: '2026-10-01T09:00:00Z' }] }),
     })
     expect(wrapper.get('a[href="/security/two-factor"] .state').text()).toBe('On')

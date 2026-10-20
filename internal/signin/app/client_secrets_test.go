@@ -303,7 +303,7 @@ func TestAuthorizingFailsWhenTheHashesCannotBeRead(t *testing.T) {
 func TestAnAdminRotatesASecretAndTheApplicationReadsTheNewOne(t *testing.T) {
 	f := newSecretsFixture()
 	old := f.provisioned(t)
-	if err := f.Rotate(context.Background(), app.Actor{ID: root, SecondFactor: true}, "grafana"); err != nil {
+	if err := f.Rotate(context.Background(), app.Actor{ID: root, TwoFactor: true}, "grafana"); err != nil {
 		t.Fatal(err)
 	}
 	if renewed := f.secretAt(t, grafanaPath); renewed == old || f.vault.at[grafanaPath][0] != "grafana" {
@@ -314,7 +314,7 @@ func TestAnAdminRotatesASecretAndTheApplicationReadsTheNewOne(t *testing.T) {
 func TestTheOldSecretWorksUntilTheNewOneIsFirstUsed(t *testing.T) {
 	f := newSecretsFixture()
 	old := f.provisioned(t)
-	if err := f.Rotate(context.Background(), app.Actor{ID: root, SecondFactor: true}, "grafana"); err != nil {
+	if err := f.Rotate(context.Background(), app.Actor{ID: root, TwoFactor: true}, "grafana"); err != nil {
 		t.Fatal(err)
 	}
 	renewed := f.secretAt(t, grafanaPath)
@@ -333,7 +333,7 @@ func TestTheOldSecretWorksUntilTheNewOneIsFirstUsed(t *testing.T) {
 func TestUsingTheNewSecretFailsWhenTheOldOneCannotBeEnded(t *testing.T) {
 	f := newSecretsFixture()
 	f.provisioned(t)
-	if err := f.Rotate(context.Background(), app.Actor{ID: root, SecondFactor: true}, "grafana"); err != nil {
+	if err := f.Rotate(context.Background(), app.Actor{ID: root, TwoFactor: true}, "grafana"); err != nil {
 		t.Fatal(err)
 	}
 	f.hashes.fail["EndPrevious"] = errBoom
@@ -345,7 +345,7 @@ func TestUsingTheNewSecretFailsWhenTheOldOneCannotBeEnded(t *testing.T) {
 func TestARotationIsAnAuditEventNamingTheAdminAndTheClient(t *testing.T) {
 	f := newSecretsFixture()
 	f.provisioned(t)
-	if err := f.Rotate(context.Background(), app.Actor{ID: root, SecondFactor: true}, "grafana"); err != nil {
+	if err := f.Rotate(context.Background(), app.Actor{ID: root, TwoFactor: true}, "grafana"); err != nil {
 		t.Fatal(err)
 	}
 	want := []audit.Event{{Action: audit.ClientSecretRotated, Actor: root, Client: "grafana"}}
@@ -361,11 +361,11 @@ func TestARotationIsRefused(t *testing.T) {
 		client string
 		want   error
 	}{
-		{"for someone who is not an Admin", app.Actor{ID: uuid.New(), SecondFactor: true}, "grafana", app.ErrNotAdmin},
-		{"for an Admin without a Second Factor", app.Actor{ID: root}, "grafana", app.ErrSecondFactorNeeded},
-		{"for a Client that is not there", app.Actor{ID: root, SecondFactor: true}, "nobody", app.ErrNotFound},
-		{"for a public Client", app.Actor{ID: root, SecondFactor: true}, "spa", app.ErrNoSecret},
-		{"for a gated Client", app.Actor{ID: root, SecondFactor: true}, "stats", app.ErrNoSecret},
+		{"for someone who is not an Admin", app.Actor{ID: uuid.New(), TwoFactor: true}, "grafana", app.ErrNotAdmin},
+		{"for an Admin without a two-factor method", app.Actor{ID: root}, "grafana", app.ErrTwoFactorProofNeeded},
+		{"for a Client that is not there", app.Actor{ID: root, TwoFactor: true}, "nobody", app.ErrNotFound},
+		{"for a public Client", app.Actor{ID: root, TwoFactor: true}, "spa", app.ErrNoSecret},
+		{"for a gated Client", app.Actor{ID: root, TwoFactor: true}, "stats", app.ErrNoSecret},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			f := newSecretsFixture()
@@ -392,7 +392,7 @@ func TestARotationFails(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			f := newSecretsFixture()
 			c.fault(f)
-			if err := f.Rotate(context.Background(), app.Actor{ID: c.actor, SecondFactor: true}, "grafana"); err == nil {
+			if err := f.Rotate(context.Background(), app.Actor{ID: c.actor, TwoFactor: true}, "grafana"); err == nil {
 				t.Fatal("rotated")
 			}
 			if len(*f.events) != 0 {
@@ -407,7 +407,7 @@ func TestASecretClientWithoutASecretPathCannotBeRotated(t *testing.T) {
 	f.ClientSecrets = app.NewClientSecrets(f.hashes, f.vault, clients{
 		"lost": {ID: "lost", SignIn: domain.Native, Credential: domain.Secret},
 	}, admins{root: true}, f.events, f.random)
-	if err := f.Rotate(context.Background(), app.Actor{ID: root, SecondFactor: true}, "lost"); !errors.Is(err, app.ErrNoSecretPath) {
+	if err := f.Rotate(context.Background(), app.Actor{ID: root, TwoFactor: true}, "lost"); !errors.Is(err, app.ErrNoSecretPath) {
 		t.Fatalf("err = %v", err)
 	}
 }

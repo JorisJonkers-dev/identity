@@ -200,7 +200,7 @@ func TestAnImportedAuthenticatorAppGivesValidCodes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b.Call(t, http.MethodPost, "/api/v1/session/second-factor", map[string]string{"code": code}, http.StatusNoContent, nil)
+	b.Call(t, http.MethodPost, "/api/v1/session/two-factor", map[string]string{"code": code}, http.StatusNoContent, nil)
 }
 
 func TestAnAuthenticatorAppWhoseSetupNeverFinishedIsNotImported(t *testing.T) {

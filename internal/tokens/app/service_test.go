@@ -23,7 +23,7 @@ var (
 	ada     = uuid.MustParse("00000000-0000-4000-8000-0000000000a1")
 	bob     = uuid.MustParse("00000000-0000-4000-8000-0000000000a2")
 	root    = uuid.MustParse("00000000-0000-4000-8000-0000000000a3")
-	asAdmin = app.Actor{ID: root, SecondFactor: true}
+	asAdmin = app.Actor{ID: root, TwoFactor: true}
 )
 
 // store keeps tokens in memory; fail makes the named method return its error.
@@ -410,14 +410,14 @@ func TestAnAdminSeesAndRevokesAUsersTokenAsThemself(t *testing.T) {
 	}
 }
 
-func TestOnlyAnAdminWithASecondFactorManagesOthersTokens(t *testing.T) {
+func TestOnlyAnAdminWithTwoFactorManagesOthersTokens(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
 		actor app.Actor
 		want  error
 	}{
-		{"someone who is not an Admin", app.Actor{ID: bob, SecondFactor: true}, app.ErrNotAdmin},
-		{"an Admin whose session proved no Second Factor", app.Actor{ID: root}, app.ErrSecondFactorNeeded},
+		{"someone who is not an Admin", app.Actor{ID: bob, TwoFactor: true}, app.ErrNotAdmin},
+		{"an Admin whose session proved no two-factor", app.Actor{ID: root}, app.ErrTwoFactorProofNeeded},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newFixture()

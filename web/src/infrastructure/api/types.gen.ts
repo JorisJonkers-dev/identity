@@ -12,7 +12,7 @@ export type AuditKind = 'sign-in' | 'people' | 'access' | 'tokens';
 /**
  * What an Audit Event records.
  */
-export type AuditAction = 'signed-in' | 'sign-in-failed' | 'signed-out' | 'user-created' | 'user-renamed' | 'password-changed' | 'second-factor-added' | 'second-factor-removed' | 'admin-promoted' | 'group-created' | 'group-renamed' | 'group-deleted' | 'member-added' | 'member-removed' | 'role-assigned' | 'role-removed' | 'token-minted' | 'token-revoked' | 'client-secret-rotated' | 'group-two-factor-required' | 'group-two-factor-dropped' | 'email-changed' | 'account-deleted' | 'password-reset' | 'step-up-changed' | 'machine-created' | 'machine-deleted' | 'machine-secret-rotated' | 'connected-app-authorized' | 'connected-app-revoked' | 'mcp-resource-marked' | 'mcp-resource-unmarked';
+export type AuditAction = 'signed-in' | 'sign-in-failed' | 'signed-out' | 'user-created' | 'user-renamed' | 'password-changed' | 'two-factor-method-added' | 'two-factor-method-removed' | 'admin-promoted' | 'group-created' | 'group-renamed' | 'group-deleted' | 'member-added' | 'member-removed' | 'role-assigned' | 'role-removed' | 'token-minted' | 'token-revoked' | 'client-secret-rotated' | 'group-two-factor-required' | 'group-two-factor-dropped' | 'email-changed' | 'account-deleted' | 'password-reset' | 'step-up-changed' | 'machine-created' | 'machine-deleted' | 'machine-secret-rotated' | 'connected-app-authorized' | 'connected-app-revoked' | 'mcp-resource-marked' | 'mcp-resource-unmarked';
 
 /**
  * Where a page of Audit Events ends; opaque.
@@ -56,7 +56,7 @@ export type AuditEvent = {
     /**
      * Why a sign-in failed, or why a Connected App was disconnected: as token-reused, its refresh token was spent twice; as by-tool, the tool revoked its own refresh token.
      */
-    reason?: 'password' | 'second-factor' | 'no-access' | 'token-reused' | 'by-tool';
+    reason?: 'password' | 'two-factor' | 'no-access' | 'token-reused' | 'by-tool';
     /**
      * The step-up window an Admin set, 0 for off.
      */
@@ -293,9 +293,9 @@ export type EmailAddress = {
  */
 export type ResetCheck = {
     /**
-     * The kinds of two-factor the User has, authenticator apps first; empty when none is needed.
+     * The kinds of two-factor method the User has, authenticator apps first; empty when none is needed.
      */
-    methods: Array<SecondFactorKind>;
+    methods: Array<TwoFactorMethodKind>;
 };
 
 /**
@@ -367,9 +367,9 @@ export type SignIn = {
  */
 export type Profile = {
     /**
-     * Whether this session was proved with a Second Factor, which the admin pages need.
+     * Whether this session proved two-factor, which the admin pages need.
      */
-    secondFactor: boolean;
+    twoFactor: boolean;
     /**
      * Whether the User is an Admin, who manages access. An Admin holds no App Role by being one.
      */
@@ -678,19 +678,19 @@ export type Devices = {
 };
 
 /**
- * The sign-in waits for a Second Factor.
+ * The sign-in waits for two-factor.
  */
-export type SecondFactorNeeded = {
+export type TwoFactorNeeded = {
     /**
-     * The kinds of Second Factor the User has, any of which finishes the sign-in.
+     * The kinds of two-factor method the User has, any of which finishes the sign-in.
      */
-    methods: Array<SecondFactorKind>;
+    methods: Array<TwoFactorMethodKind>;
 };
 
 /**
  * An authenticator app or a passkey.
  */
-export type SecondFactorKind = 'totp' | 'passkey';
+export type TwoFactorMethodKind = 'totp' | 'passkey';
 
 /**
  * WebAuthn options, as the JSON that PublicKeyCredential.parseCreationOptionsFromJSON or parseRequestOptionsFromJSON reads from their publicKey member.
@@ -730,7 +730,7 @@ export type PasskeyConfirmation = {
 /**
  * A code from an authenticator app.
  */
-export type SecondFactorCode = {
+export type TwoFactorCode = {
     /**
      * The six digits the app shows.
      */
@@ -738,11 +738,11 @@ export type SecondFactorCode = {
 };
 
 /**
- * One of a User's Second Factors.
+ * One of a User's two-factor methods.
  */
-export type SecondFactor = {
+export type TwoFactorMethod = {
     id: Id;
-    kind: SecondFactorKind;
+    kind: TwoFactorMethodKind;
     /**
      * What the User called it.
      */
@@ -758,13 +758,13 @@ export type SecondFactor = {
 };
 
 /**
- * A User's Second Factors.
+ * A User's two-factor methods.
  */
-export type SecondFactors = {
+export type TwoFactorMethods = {
     /**
      * Oldest first.
      */
-    factors: Array<SecondFactor>;
+    factors: Array<TwoFactorMethod>;
 };
 
 /**
@@ -1212,9 +1212,9 @@ export type SignInError = SignInErrors[keyof SignInErrors];
 
 export type SignInResponses = {
     /**
-     * The password is right and the User has a Second Factor. A short-lived challenge cookie is set; completeSignIn takes the code.
+     * The password is right and the User has two-factor. A short-lived challenge cookie is set; completeSignIn takes the code.
      */
-    202: SecondFactorNeeded;
+    202: TwoFactorNeeded;
     /**
      * Signed in.
      */
@@ -1425,10 +1425,10 @@ export type ChangePasswordResponses = {
 export type ChangePasswordResponse = ChangePasswordResponses[keyof ChangePasswordResponses];
 
 export type CompleteSignInData = {
-    body: SecondFactorCode;
+    body: TwoFactorCode;
     path?: never;
     query?: never;
-    url: '/api/v1/session/second-factor';
+    url: '/api/v1/session/two-factor';
 };
 
 export type CompleteSignInErrors = {
@@ -1453,14 +1453,14 @@ export type CompleteSignInResponses = {
 
 export type CompleteSignInResponse = CompleteSignInResponses[keyof CompleteSignInResponses];
 
-export type ListSecondFactorsData = {
+export type ListTwoFactorMethodsData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/api/v1/profile/second-factors';
+    url: '/api/v1/profile/two-factor-methods';
 };
 
-export type ListSecondFactorsErrors = {
+export type ListTwoFactorMethodsErrors = {
     /**
      * An RFC 9457 problem.
      */
@@ -1471,22 +1471,22 @@ export type ListSecondFactorsErrors = {
     default: Problem;
 };
 
-export type ListSecondFactorsError = ListSecondFactorsErrors[keyof ListSecondFactorsErrors];
+export type ListTwoFactorMethodsError = ListTwoFactorMethodsErrors[keyof ListTwoFactorMethodsErrors];
 
-export type ListSecondFactorsResponses = {
+export type ListTwoFactorMethodsResponses = {
     /**
-     * The Second Factors.
+     * The two-factor methods.
      */
-    200: SecondFactors;
+    200: TwoFactorMethods;
 };
 
-export type ListSecondFactorsResponse = ListSecondFactorsResponses[keyof ListSecondFactorsResponses];
+export type ListTwoFactorMethodsResponse = ListTwoFactorMethodsResponses[keyof ListTwoFactorMethodsResponses];
 
 export type StartTotpData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/api/v1/profile/second-factors/totp';
+    url: '/api/v1/profile/two-factor-methods/totp';
 };
 
 export type StartTotpErrors = {
@@ -1515,7 +1515,7 @@ export type ConfirmTotpData = {
     body: TotpConfirmation;
     path?: never;
     query?: never;
-    url: '/api/v1/profile/second-factors/totp/confirmation';
+    url: '/api/v1/profile/two-factor-methods/totp/confirmation';
 };
 
 export type ConfirmTotpErrors = {
@@ -1533,7 +1533,7 @@ export type ConfirmTotpError = ConfirmTotpErrors[keyof ConfirmTotpErrors];
 
 export type ConfirmTotpResponses = {
     /**
-     * The authenticator app is a Second Factor of the User's.
+     * The authenticator app is a two-factor method of the User's.
      */
     204: void;
 };
@@ -1620,15 +1620,15 @@ export type StartStepUpError = StartStepUpErrors[keyof StartStepUpErrors];
 
 export type StartStepUpResponses = {
     /**
-     * The kinds of Second Factor the User has.
+     * The kinds of two-factor method the User has.
      */
-    200: SecondFactorNeeded;
+    200: TwoFactorNeeded;
 };
 
 export type StartStepUpResponse = StartStepUpResponses[keyof StartStepUpResponses];
 
 export type StepUpWithCodeData = {
-    body: SecondFactorCode;
+    body: TwoFactorCode;
     path?: never;
     query?: never;
     url: '/api/v1/session/step-up/code';
@@ -1810,7 +1810,7 @@ export type StartPasskeyData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/api/v1/profile/second-factors/passkey';
+    url: '/api/v1/profile/two-factor-methods/passkey';
 };
 
 export type StartPasskeyErrors = {
@@ -1839,7 +1839,7 @@ export type ConfirmPasskeyData = {
     body: PasskeyConfirmation;
     path?: never;
     query?: never;
-    url: '/api/v1/profile/second-factors/passkey/confirmation';
+    url: '/api/v1/profile/two-factor-methods/passkey/confirmation';
 };
 
 export type ConfirmPasskeyErrors = {
@@ -1857,26 +1857,26 @@ export type ConfirmPasskeyError = ConfirmPasskeyErrors[keyof ConfirmPasskeyError
 
 export type ConfirmPasskeyResponses = {
     /**
-     * The passkey is a Second Factor of the User's.
+     * The passkey is a two-factor method of the User's.
      */
     204: void;
 };
 
 export type ConfirmPasskeyResponse = ConfirmPasskeyResponses[keyof ConfirmPasskeyResponses];
 
-export type RemoveSecondFactorData = {
+export type RemoveTwoFactorMethodData = {
     body: PasswordCheck;
     path: {
         /**
-         * The Second Factor.
+         * The two-factor.
          */
         factorId: Id;
     };
     query?: never;
-    url: '/api/v1/profile/second-factors/{factorId}/removal';
+    url: '/api/v1/profile/two-factor-methods/{factorId}/removal';
 };
 
-export type RemoveSecondFactorErrors = {
+export type RemoveTwoFactorMethodErrors = {
     /**
      * An RFC 9457 problem.
      */
@@ -1887,16 +1887,16 @@ export type RemoveSecondFactorErrors = {
     default: Problem;
 };
 
-export type RemoveSecondFactorError = RemoveSecondFactorErrors[keyof RemoveSecondFactorErrors];
+export type RemoveTwoFactorMethodError = RemoveTwoFactorMethodErrors[keyof RemoveTwoFactorMethodErrors];
 
-export type RemoveSecondFactorResponses = {
+export type RemoveTwoFactorMethodResponses = {
     /**
      * Removed.
      */
     204: void;
 };
 
-export type RemoveSecondFactorResponse = RemoveSecondFactorResponses[keyof RemoveSecondFactorResponses];
+export type RemoveTwoFactorMethodResponse = RemoveTwoFactorMethodResponses[keyof RemoveTwoFactorMethodResponses];
 
 export type GetAccessData = {
     body?: never;

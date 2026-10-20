@@ -171,10 +171,10 @@ func (s *seeder) enrolAll(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		if err := b.call(ctx, http.MethodPost, "/api/v1/profile/second-factors/totp", nil, http.StatusOK, nil); err != nil {
+		if err := b.call(ctx, http.MethodPost, "/api/v1/profile/two-factor-methods/totp", nil, http.StatusOK, nil); err != nil {
 			return err
 		}
-		if err := b.call(ctx, http.MethodPost, "/api/v1/profile/second-factors/totp/confirmation",
+		if err := b.call(ctx, http.MethodPost, "/api/v1/profile/two-factor-methods/totp/confirmation",
 			map[string]string{"label": "Phone", "code": devcode.Code, "password": password}, http.StatusNoContent, nil); err != nil {
 			return err
 		}
@@ -194,7 +194,7 @@ func (s *seeder) signedIn(ctx context.Context, p person) (*browser, error) {
 		return nil, err
 	}
 	if p.authenticator {
-		if err := b.call(ctx, http.MethodPost, "/api/v1/session/second-factor", map[string]string{"code": devcode.Code}, http.StatusNoContent, nil); err != nil {
+		if err := b.call(ctx, http.MethodPost, "/api/v1/session/two-factor", map[string]string{"code": devcode.Code}, http.StatusNoContent, nil); err != nil {
 			return nil, err
 		}
 	}

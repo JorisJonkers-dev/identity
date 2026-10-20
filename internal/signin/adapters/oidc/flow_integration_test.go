@@ -117,7 +117,7 @@ func TestRolesComeFromAssignmentsOverPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	actor := accessapp.Actor{ID: ada.ID, SecondFactor: true}
+	actor := accessapp.Actor{ID: ada.ID, TwoFactor: true}
 	index := clientindex.NewIndex()
 	index.Put(testClients["web"])
 	access := accessapp.New(accesspersistence.New(q, store), catalog.New(index), accesspeople.New(users), discard{}, rand.Reader)
@@ -156,7 +156,7 @@ func TestRolesComeFromAssignmentsOverPostgres(t *testing.T) {
 		}
 		return tok
 	}
-	// The session proved a Second Factor, and the ID token says so.
+	// The session proved two-factor, and the ID token says so.
 	sum := sha256.Sum256([]byte(token))
 	if err := q.SetSessionMethods(ctx, queries.SetSessionMethodsParams{TokenHash: sum[:], Methods: []string{"pwd", "otp"}}); err != nil {
 		t.Fatal(err)

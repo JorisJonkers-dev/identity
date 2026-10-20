@@ -12,7 +12,7 @@ function name(p: AuditPerson | undefined): string {
 
 const why: Record<NonNullable<AuditEvent['reason']>, string> = {
   password: ' (wrong email or password)',
-  'second-factor': ' (wrong code or passkey)',
+  'two-factor': ' (wrong code or passkey)',
   'no-access': ' (no access)',
   'token-reused': '',
   'by-tool': '',
@@ -53,10 +53,10 @@ export function describeEvent(e: AuditEvent): Part[] {
       return e.actor ? [actor, { text: ' deleted the account of ' }, user] : [user, { text: ' deleted their own account' }]
     case 'email-changed':
       return [user, { text: ` changed their sign-in email from ${e.email ?? 'an earlier address'}${e.user?.email ? ` to ${e.user.email}` : ''}` }]
-    case 'second-factor-added':
-      return [user, { text: ' added a Second Factor' }]
-    case 'second-factor-removed':
-      return [user, { text: ' removed a Second Factor' }]
+    case 'two-factor-method-added':
+      return [user, { text: ' added a two-factor method' }]
+    case 'two-factor-method-removed':
+      return [user, { text: ' removed a two-factor method' }]
     case 'admin-promoted':
       return [user, { text: ' was made an Admin' }]
     case 'group-created':

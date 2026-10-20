@@ -8,7 +8,7 @@ import {
   resetWithCodeMutation,
   resetWithPasskeyMutation,
 } from '../../../infrastructure/api/@tanstack/vue-query.gen'
-import type { SecondFactorKind } from '../../../infrastructure/api/types.gen'
+import type { TwoFactorMethodKind } from '../../../infrastructure/api/types.gen'
 import { passkeys } from '../../../infrastructure/passkeys'
 import { useAction } from '../../../infrastructure/useAction'
 import AuthShell from '../../../shared/AuthShell.vue'
@@ -24,7 +24,7 @@ const withCode = useAction(resetWithCodeMutation())
 const keyOptions = useAction(resetPasskeyOptionsMutation())
 const keyAnswer = useAction(resetWithPasskeyMutation())
 const complete = useAction(completePasswordResetMutation())
-const methods = ref<SecondFactorKind[] | null>(null)
+const methods = ref<TwoFactorMethodKind[] | null>(null)
 const code = ref('')
 const password = ref('')
 const browserRefused = ref<string | null>(null)

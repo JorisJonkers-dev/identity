@@ -104,8 +104,8 @@ func TestRemovingTheLastTwoFactorMethodHoldsTheRolesBackAgain(t *testing.T) {
 	_, ada, _ := heldBack(t)
 	ada.AddAuthenticator(t)
 	var f struct{ Factors []struct{ ID string } }
-	ada.Call(t, http.MethodGet, "/api/v1/profile/second-factors", nil, http.StatusOK, &f)
-	ada.Call(t, http.MethodPost, "/api/v1/profile/second-factors/"+f.Factors[0].ID+"/removal", map[string]string{"password": itest.Password}, http.StatusNoContent, nil)
+	ada.Call(t, http.MethodGet, "/api/v1/profile/two-factor-methods", nil, http.StatusOK, &f)
+	ada.Call(t, http.MethodPost, "/api/v1/profile/two-factor-methods/"+f.Factors[0].ID+"/removal", map[string]string{"password": itest.Password}, http.StatusNoContent, nil)
 	if got := grafanaRoles(t, ada); !slices.Equal(got, []string{"user"}) {
 		t.Fatalf("roles = %v", got)
 	}

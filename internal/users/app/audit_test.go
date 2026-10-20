@@ -80,11 +80,11 @@ func TestAnEmailThatIsNoAddressRecordsAFailedSignInNamingNothing(t *testing.T) {
 	}
 }
 
-func TestASignInThatWaitsForASecondFactorRecordsNoSignInYet(t *testing.T) {
+func TestASignInThatWaitsForTwoFactorRecordsNoSignInYet(t *testing.T) {
 	f := newFixture()
 	f.enrolled(t, "ada@example.org")
 	*f.events = nil
-	if _, err := f.SignIn(context.Background(), "ada@example.org", pw); !errors.Is(err, app.ErrSecondFactorNeeded) {
+	if _, err := f.SignIn(context.Background(), "ada@example.org", pw); !errors.Is(err, app.ErrTwoFactorProofNeeded) {
 		t.Fatal(err)
 	}
 	if len(*f.events) != 0 {
@@ -118,7 +118,7 @@ func TestAWrongCodeRecordsAFailedSignIn(t *testing.T) {
 			if _, err := f.CompleteSignIn(context.Background(), challenge, wrong); !errors.Is(err, app.ErrInvalidCode) {
 				t.Fatalf("CompleteSignIn = %v", err)
 			}
-			if e := f.only(t, audit.SignInFailed); e != (audit.Event{Action: audit.SignInFailed, User: id, Reason: audit.ReasonSecondFactor}) {
+			if e := f.only(t, audit.SignInFailed); e != (audit.Event{Action: audit.SignInFailed, User: id, Reason: audit.ReasonTwoFactor}) {
 				t.Fatalf("event = %+v", e)
 			}
 		})
@@ -166,7 +166,7 @@ func TestARefusedPasskeyRecordsAFailedSignIn(t *testing.T) {
 			if _, err := f.CompleteSignInWithPasskey(context.Background(), challenge, []byte(tc.assertion(id))); !errors.Is(err, app.ErrInvalidPasskey) {
 				t.Fatalf("CompleteSignInWithPasskey = %v", err)
 			}
-			if e := f.only(t, audit.SignInFailed); e != (audit.Event{Action: audit.SignInFailed, User: id, Reason: audit.ReasonSecondFactor}) {
+			if e := f.only(t, audit.SignInFailed); e != (audit.Event{Action: audit.SignInFailed, User: id, Reason: audit.ReasonTwoFactor}) {
 				t.Fatalf("event = %+v", e)
 			}
 		})
@@ -220,14 +220,14 @@ func TestEachProfileChangeIsRecorded(t *testing.T) {
 		{"changing the password", audit.PasswordChanged, func(_ *testing.T, f *fixture, id uuid.UUID, session string) error {
 			return f.ChangePassword(context.Background(), id, session, pw, "another long password")
 		}},
-		{"adding an authenticator app", audit.SecondFactorAdded, func(t *testing.T, f *fixture, id uuid.UUID, session string) error {
+		{"adding an authenticator app", audit.TwoFactorMethodAdded, func(t *testing.T, f *fixture, id uuid.UUID, session string) error {
 			setup, err := f.StartTOTP(context.Background(), id)
 			if err != nil {
 				return err
 			}
 			return f.ConfirmTOTP(context.Background(), id, session, "Phone", code(t, setup.Secret, f.now), pw)
 		}},
-		{"adding a passkey", audit.SecondFactorAdded, func(_ *testing.T, f *fixture, id uuid.UUID, session string) error {
+		{"adding a passkey", audit.TwoFactorMethodAdded, func(_ *testing.T, f *fixture, id uuid.UUID, session string) error {
 			if _, err := f.StartPasskey(context.Background(), id); err != nil {
 				return err
 			}
@@ -256,7 +256,7 @@ func TestARefusedProfileChangeRecordsNothing(t *testing.T) {
 	f.none(t, audit.UserRenamed)
 }
 
-func TestRemovingASecondFactorIsRecorded(t *testing.T) {
+func TestRemovingATwoFactorMethodIsRecorded(t *testing.T) {
 	for name, setUp := range map[string]func(*testing.T, *fixture) (uuid.UUID, uuid.UUID, string){
 		"an authenticator app": func(t *testing.T, f *fixture) (uuid.UUID, uuid.UUID, string) {
 			id, _, session := f.enrolled(t, "ada@example.org")
@@ -273,18 +273,18 @@ func TestRemovingASecondFactorIsRecorded(t *testing.T) {
 			if err := f.RemoveFactor(context.Background(), id, factor, session, pw); err != nil {
 				t.Fatal(err)
 			}
-			if e := f.only(t, audit.SecondFactorRemoved); e != (audit.Event{Action: audit.SecondFactorRemoved, User: id}) {
+			if e := f.only(t, audit.TwoFactorMethodRemoved); e != (audit.Event{Action: audit.TwoFactorMethodRemoved, User: id}) {
 				t.Fatalf("event = %+v", e)
 			}
 		})
 	}
 }
 
-func TestRemovingASecondFactorTheUserDoesNotHaveRecordsNothing(t *testing.T) {
+func TestRemovingATwoFactorMethodTheUserDoesNotHaveRecordsNothing(t *testing.T) {
 	f := newFixture()
 	id, _, session := f.enrolled(t, "ada@example.org")
 	_ = f.RemoveFactor(context.Background(), id, uuid.New(), session, pw)
-	f.none(t, audit.SecondFactorRemoved)
+	f.none(t, audit.TwoFactorMethodRemoved)
 }
 
 func TestWithoutAnAuditNothingIsRecordedAndSigningInStillWorks(t *testing.T) {

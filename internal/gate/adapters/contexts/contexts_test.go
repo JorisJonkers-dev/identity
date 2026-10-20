@@ -66,7 +66,7 @@ type users struct {
 	factorErr error
 }
 
-func (u users) HasSecondFactor(context.Context, uuid.UUID) (bool, error) {
+func (u users) HasTwoFactor(context.Context, uuid.UUID) (bool, error) {
 	return u.twoFactor, u.factorErr
 }
 

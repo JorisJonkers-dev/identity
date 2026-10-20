@@ -82,7 +82,7 @@ func (h *Connected) SetMCPResource(ctx context.Context, req *oas.MCPResourceSett
 
 func actor(ctx context.Context) app.Actor {
 	p := principal.From(ctx)
-	return app.Actor{ID: p.UserID, SecondFactor: p.SecondFactor}
+	return app.Actor{ID: p.UserID, TwoFactor: p.TwoFactor}
 }
 
 // refusal answers a rule the caller broke with a problem saying which, and passes anything else on.
@@ -90,8 +90,8 @@ func refusal(err error) (*oas.ProblemStatusCode, error) {
 	switch {
 	case errors.Is(err, app.ErrNotAdmin):
 		return problem(http.StatusForbidden, "Only Admins can change this."), nil
-	case errors.Is(err, app.ErrSecondFactorNeeded):
-		return problem(http.StatusForbidden, "This page needs a Second Factor. If you have a passkey or authenticator app, sign out and sign in again with it. If you have neither, add a Second Factor on the Security page first, then sign out and sign in again."), nil
+	case errors.Is(err, app.ErrTwoFactorProofNeeded):
+		return problem(http.StatusForbidden, "This page needs two-factor. If you have a passkey or authenticator app, sign out and sign in again with it. If you have neither, add a two-factor method on the Security page first, then sign out and sign in again."), nil
 	case errors.Is(err, app.ErrNotFound):
 		return problem(http.StatusNotFound, "That app is not registered any more. Reload the page."), nil
 	case errors.Is(err, app.ErrUnchecked):

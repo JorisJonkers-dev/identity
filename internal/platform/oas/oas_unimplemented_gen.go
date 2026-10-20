@@ -102,8 +102,8 @@ func (UnimplementedHandler) ChangePassword(ctx context.Context, req *PasswordCha
 
 // CheckPasswordReset implements checkPasswordReset operation.
 //
-// Says which kinds of two-factor the reset must be proved with first; none when the User has none or
-// proved it already.
+// Says which kinds of two-factor method the reset must be proved with first; none when the User has
+// none or proved it already.
 //
 // POST /api/v1/password-resets/check
 func (UnimplementedHandler) CheckPasswordReset(ctx context.Context, req *LinkToken) (r CheckPasswordResetRes, _ error) {
@@ -125,8 +125,8 @@ func (UnimplementedHandler) CompletePasswordReset(ctx context.Context, req *Rese
 // Takes a code from the User's authenticator app for the sign-in the challenge cookie names, and
 // starts a session proved by both. A challenge takes five codes; a code works once.
 //
-// POST /api/v1/session/second-factor
-func (UnimplementedHandler) CompleteSignIn(ctx context.Context, req *SecondFactorCode) (r CompleteSignInRes, _ error) {
+// POST /api/v1/session/two-factor
+func (UnimplementedHandler) CompleteSignIn(ctx context.Context, req *TwoFactorCode) (r CompleteSignInRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -163,10 +163,10 @@ func (UnimplementedHandler) ConfirmEmailChange(ctx context.Context, req *LinkTok
 
 // ConfirmPasskey implements confirmPasskey operation.
 //
-// Keeps the passkey the browser made, given the User's password. A User who already has a Second
-// Factor must be in a session that proved one. Every other session of the User's ends.
+// Keeps the passkey the browser made, given the User's password. A User who already has two-factor
+// must be in a session that proved it. Every other session of the User's ends.
 //
-// POST /api/v1/profile/second-factors/passkey/confirmation
+// POST /api/v1/profile/two-factor-methods/passkey/confirmation
 func (UnimplementedHandler) ConfirmPasskey(ctx context.Context, req *PasskeyConfirmation) (r ConfirmPasskeyRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
@@ -177,7 +177,7 @@ func (UnimplementedHandler) ConfirmPasskey(ctx context.Context, req *PasskeyConf
 // right. A User who already has one must be in a session that proved it. Every other session of the
 // User's ends.
 //
-// POST /api/v1/profile/second-factors/totp/confirmation
+// POST /api/v1/profile/two-factor-methods/totp/confirmation
 func (UnimplementedHandler) ConfirmTOTP(ctx context.Context, req *TOTPConfirmation) (r ConfirmTOTPRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
@@ -256,7 +256,7 @@ func (UnimplementedHandler) GetAccess(ctx context.Context) (r GetAccessRes, _ er
 // GetDashboard implements getDashboard operation.
 //
 // Users, the Unassigned queue, sign-ins and failed sign-ins over the last 24 hours, and live sessions.
-// Admins only, from a session that proved a Second Factor.
+// Admins only, from a session that proved two-factor.
 //
 // GET /api/v1/dashboard
 func (UnimplementedHandler) GetDashboard(ctx context.Context) (r GetDashboardRes, _ error) {
@@ -275,7 +275,7 @@ func (UnimplementedHandler) GetLauncher(ctx context.Context) (r GetLauncherRes, 
 
 // GetMCPResource implements getMCPResource operation.
 //
-// Admins only, from a session that proved a Second Factor.
+// Admins only, from a session that proved two-factor.
 //
 // GET /api/v1/apps/{clientId}/mcp
 func (UnimplementedHandler) GetMCPResource(ctx context.Context, params GetMCPResourceParams) (r GetMCPResourceRes, _ error) {
@@ -293,8 +293,7 @@ func (UnimplementedHandler) GetProfile(ctx context.Context) (r GetProfileRes, _ 
 
 // GetStepUp implements getStepUp operation.
 //
-// The Client's step-up window, 0 when it is off. Admins only, from a session that proved a Second
-// Factor.
+// The Client's step-up window, 0 when it is off. Admins only, from a session that proved two-factor.
 //
 // GET /api/v1/apps/{clientId}/step-up
 func (UnimplementedHandler) GetStepUp(ctx context.Context, params GetStepUpParams) (r GetStepUpRes, _ error) {
@@ -314,7 +313,7 @@ func (UnimplementedHandler) GetVersion(ctx context.Context) (r GetVersionRes, _ 
 // ListAuditEvents implements listAuditEvents operation.
 //
 // One page of Audit Events, newest first, narrowed by any of the filters. Pass a page's next as before
-// to read the page after it. Admins only, from a session that proved a Second Factor.
+// to read the page after it. Admins only, from a session that proved two-factor.
 //
 // GET /api/v1/audit
 func (UnimplementedHandler) ListAuditEvents(ctx context.Context, params ListAuditEventsParams) (r ListAuditEventsRes, _ error) {
@@ -358,18 +357,18 @@ func (UnimplementedHandler) ListMyTokens(ctx context.Context) (r ListMyTokensRes
 	return r, ht.ErrNotImplemented
 }
 
-// ListSecondFactors implements listSecondFactors operation.
+// ListTwoFactorMethods implements listTwoFactorMethods operation.
 //
 // Every authenticator app and passkey the User added.
 //
-// GET /api/v1/profile/second-factors
-func (UnimplementedHandler) ListSecondFactors(ctx context.Context) (r ListSecondFactorsRes, _ error) {
+// GET /api/v1/profile/two-factor-methods
+func (UnimplementedHandler) ListTwoFactorMethods(ctx context.Context) (r ListTwoFactorMethodsRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
 // ListUserTokens implements listUserTokens operation.
 //
-// Admins only, from a session that proved a Second Factor.
+// Admins only, from a session that proved two-factor.
 //
 // GET /api/v1/access/users/{userId}/tokens
 func (UnimplementedHandler) ListUserTokens(ctx context.Context, params ListUserTokensParams) (r ListUserTokensRes, _ error) {
@@ -404,13 +403,13 @@ func (UnimplementedHandler) RemoveMember(ctx context.Context, params RemoveMembe
 	return r, ht.ErrNotImplemented
 }
 
-// RemoveSecondFactor implements removeSecondFactor operation.
+// RemoveTwoFactorMethod implements removeTwoFactorMethod operation.
 //
 // Removes one of the User's authenticator apps or passkeys once they give their password, from a
-// session that proved a Second Factor.
+// session that proved two-factor.
 //
-// POST /api/v1/profile/second-factors/{factorId}/removal
-func (UnimplementedHandler) RemoveSecondFactor(ctx context.Context, req *PasswordCheck, params RemoveSecondFactorParams) (r RemoveSecondFactorRes, _ error) {
+// POST /api/v1/profile/two-factor-methods/{factorId}/removal
+func (UnimplementedHandler) RemoveTwoFactorMethod(ctx context.Context, req *PasswordCheck, params RemoveTwoFactorMethodParams) (r RemoveTwoFactorMethodRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -479,7 +478,7 @@ func (UnimplementedHandler) RevokeMyToken(ctx context.Context, params RevokeMyTo
 
 // RevokeUserToken implements revokeUserToken operation.
 //
-// Admins only, from a session that proved a Second Factor. Revoking it twice changes nothing.
+// Admins only, from a session that proved two-factor. Revoking it twice changes nothing.
 //
 // DELETE /api/v1/access/users/{userId}/tokens/{patId}
 func (UnimplementedHandler) RevokeUserToken(ctx context.Context, params RevokeUserTokenParams) (r RevokeUserTokenRes, _ error) {
@@ -488,8 +487,8 @@ func (UnimplementedHandler) RevokeUserToken(ctx context.Context, params RevokeUs
 
 // RotateClientSecret implements rotateClientSecret operation.
 //
-// Admins only, from a session that proved a Second Factor, for a Client that signs in with a secret.
-// The new secret is written where the Client's Application reads it, never answered here. The old one
+// Admins only, from a session that proved two-factor, for a Client that signs in with a secret. The
+// new secret is written where the Client's Application reads it, never answered here. The old one
 // keeps working until the Application first uses the new one.
 //
 // POST /api/v1/apps/{clientId}/secret
@@ -501,7 +500,7 @@ func (UnimplementedHandler) RotateClientSecret(ctx context.Context, params Rotat
 //
 // For a workload outside the cluster, which signs in with the client credentials grant. The secret is
 // answered once, here, and kept only as a hash. The previous secret keeps working until the new one is
-// first used. Admins only, from a session that proved a Second Factor.
+// first used. Admins only, from a session that proved two-factor.
 //
 // POST /api/v1/access/machines/{machineId}/secret
 func (UnimplementedHandler) RotateMachineSecret(ctx context.Context, params RotateMachineSecretParams) (r RotateMachineSecretRes, _ error) {
@@ -520,8 +519,8 @@ func (UnimplementedHandler) SetGroupTwoFactor(ctx context.Context, req *TwoFacto
 
 // SetMCPResource implements setMCPResource operation.
 //
-// Admins only, from a session that proved a Second Factor. A Client that can check no Connected App's
-// token is refused with 409. Stopping keeps the Connected Apps the Client has; turning step-up on
+// Admins only, from a session that proved two-factor. A Client that can check no Connected App's token
+// is refused with 409. Stopping keeps the Connected Apps the Client has; turning step-up on
 // disconnects them.
 //
 // PUT /api/v1/apps/{clientId}/mcp
@@ -532,7 +531,7 @@ func (UnimplementedHandler) SetMCPResource(ctx context.Context, req *MCPResource
 // SetStepUp implements setStepUp operation.
 //
 // Signing in to the Client then finishes only when the session proved two-factor within the window; 0
-// turns step-up off. Admins only, from a session that proved a Second Factor.
+// turns step-up off. Admins only, from a session that proved two-factor.
 //
 // PUT /api/v1/apps/{clientId}/step-up
 func (UnimplementedHandler) SetStepUp(ctx context.Context, req *StepUp, params SetStepUpParams) (r SetStepUpRes, _ error) {
@@ -601,7 +600,7 @@ func (UnimplementedHandler) SignUp(ctx context.Context, req *SignUp) (r SignUpRe
 //
 // Returns the WebAuthn options to make a passkey, kept for ten minutes.
 //
-// POST /api/v1/profile/second-factors/passkey
+// POST /api/v1/profile/two-factor-methods/passkey
 func (UnimplementedHandler) StartPasskey(ctx context.Context) (r StartPasskeyRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
@@ -609,7 +608,7 @@ func (UnimplementedHandler) StartPasskey(ctx context.Context) (r StartPasskeyRes
 // StartStepUp implements startStepUp operation.
 //
 // For an app that wants a fresh proof (step-up), starts proving the signed-in session again and says
-// which kinds of Second Factor can prove it. A User with none is told to add one.
+// which kinds of two-factor method can prove it. A User with none is told to add one.
 //
 // POST /api/v1/session/step-up
 func (UnimplementedHandler) StartStepUp(ctx context.Context) (r StartStepUpRes, _ error) {
@@ -621,7 +620,7 @@ func (UnimplementedHandler) StartStepUp(ctx context.Context) (r StartStepUpRes, 
 // Makes a secret for a new authenticator app. It is kept, sealed by Vault, for ten minutes, until
 // confirmTOTP gets a right code from the app.
 //
-// POST /api/v1/profile/second-factors/totp
+// POST /api/v1/profile/two-factor-methods/totp
 func (UnimplementedHandler) StartTOTP(ctx context.Context) (r StartTOTPRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
@@ -641,7 +640,7 @@ func (UnimplementedHandler) StepUpPasskeyOptions(ctx context.Context) (r StepUpP
 // session proved now. Five codes in fifteen minutes, as at sign-in; a code works once.
 //
 // POST /api/v1/session/step-up/code
-func (UnimplementedHandler) StepUpWithCode(ctx context.Context, req *SecondFactorCode) (r StepUpWithCodeRes, _ error) {
+func (UnimplementedHandler) StepUpWithCode(ctx context.Context, req *TwoFactorCode) (r StepUpWithCodeRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 

@@ -761,7 +761,7 @@ type SetSessionMethodsParams struct {
 	TwoFactorAt *time.Time
 }
 
-// A session that has just proved a Second Factor says so from then on, and when.
+// A session that has just proved two-factor says so from then on, and when.
 func (q *Queries) SetSessionMethods(ctx context.Context, arg SetSessionMethodsParams) error {
 	_, err := q.db.Exec(ctx, setSessionMethods, arg.TokenHash, arg.Methods, arg.TwoFactorAt)
 	return err

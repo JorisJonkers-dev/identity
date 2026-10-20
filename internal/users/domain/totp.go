@@ -15,8 +15,8 @@ import (
 	"github.com/pquerna/otp/hotp"
 )
 
-// ErrInvalidLabel is a Second Factor name outside the rules.
-var ErrInvalidLabel = errors.New("a name for a Second Factor is 1 to 64 characters")
+// ErrInvalidLabel is a two-factor method name outside the rules.
+var ErrInvalidLabel = errors.New("a name for a two-factor method is 1 to 64 characters")
 
 const (
 	totpIssuer    = "jorisjonkers.dev"
@@ -26,7 +26,7 @@ const (
 	maxLabel      = 64
 )
 
-// FactorLabel is what a User calls one of their Second Factors, such as "Phone".
+// FactorLabel is what a User calls one of their two-factor methods, such as "Phone".
 type FactorLabel struct{ value string }
 
 // NewFactorLabel trims raw and bounds it by characters.

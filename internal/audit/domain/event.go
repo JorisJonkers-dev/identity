@@ -33,10 +33,10 @@ const (
 	// AccountDeleted is a User deleting their account, or an Admin deleting it for them.
 	AccountDeleted Action = "account-deleted"
 	// PasswordReset is a User choosing a new password through a mailed link.
-	PasswordReset       Action = "password-reset"
-	SecondFactorAdded   Action = "second-factor-added"
-	SecondFactorRemoved Action = "second-factor-removed"
-	AdminPromoted       Action = "admin-promoted"
+	PasswordReset          Action = "password-reset"
+	TwoFactorMethodAdded   Action = "two-factor-method-added"
+	TwoFactorMethodRemoved Action = "two-factor-method-removed"
+	AdminPromoted          Action = "admin-promoted"
 
 	GroupCreated  Action = "group-created"
 	GroupRenamed  Action = "group-renamed"
@@ -75,7 +75,7 @@ func (a Action) Kind() Kind {
 	switch a {
 	case SignedIn, SignInFailed, SignedOut:
 		return KindSignIn
-	case UserCreated, UserRenamed, PasswordChanged, EmailChanged, AccountDeleted, PasswordReset, SecondFactorAdded, SecondFactorRemoved, AdminPromoted:
+	case UserCreated, UserRenamed, PasswordChanged, EmailChanged, AccountDeleted, PasswordReset, TwoFactorMethodAdded, TwoFactorMethodRemoved, AdminPromoted:
 		return KindPeople
 	case GroupCreated, GroupRenamed, GroupDeleted, MemberAdded, MemberRemoved, RoleAssigned, RoleRemoved, ClientSecretRotated, StepUpChanged, GroupTwoFactorRequired, GroupTwoFactorDropped,
 		MachineCreated, MachineDeleted, MachineSecretRotated, MCPResourceMarked, MCPResourceUnmarked:
@@ -88,9 +88,9 @@ func (a Action) Kind() Kind {
 
 // Why a sign-in failed, or why a Connected App was disconnected with no one asking.
 const (
-	ReasonPassword     = "password"
-	ReasonSecondFactor = "second-factor"
-	ReasonNoAccess     = "no-access"
+	ReasonPassword  = "password"
+	ReasonTwoFactor = "two-factor"
+	ReasonNoAccess  = "no-access"
 	// ReasonTokenReused is a Connected App's refresh token spent twice, so one of them leaked.
 	ReasonTokenReused = "token-reused"
 	// ReasonByTool is a Connected App the tool itself disconnected, by revoking its refresh token.

@@ -196,7 +196,7 @@ func TestATouchedSessionReadsBackWithItsNewTimes(t *testing.T) {
 	}
 }
 
-func TestASessionRecordsTheSecondFactorItProved(t *testing.T) {
+func TestASessionRecordsTheTwoFactorMethodItProved(t *testing.T) {
 	ctx := context.Background()
 	s, _, u := stored(t)
 	sess := session(u, "hash")
@@ -210,7 +210,7 @@ func TestASessionRecordsTheSecondFactorItProved(t *testing.T) {
 	}
 }
 
-func TestASessionStartedWithASecondFactorSaysWhen(t *testing.T) {
+func TestASessionStartedWithTwoFactorSaysWhen(t *testing.T) {
 	ctx := context.Background()
 	s, _, u := stored(t)
 	sess := session(u, "hash")

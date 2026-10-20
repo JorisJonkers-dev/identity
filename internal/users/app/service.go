@@ -26,13 +26,13 @@ var (
 	ErrInvalidToken       = errors.New("this link has expired or was already used")
 	ErrNoSession          = errors.New("not signed in")
 	ErrBusy               = errors.New("too many password checks at once")
-	// ErrSecondFactorNeeded means the password was right and a Second Factor is enrolled: SignIn's
+	// ErrTwoFactorProofNeeded means the password was right and a two-factor method is enrolled: SignIn's
 	// token is then a sign-in challenge, which CompleteSignIn turns into a session.
-	ErrSecondFactorNeeded = errors.New("the sign-in needs a Second Factor")
-	ErrInvalidCode        = errors.New("the code is wrong or was already used")
-	ErrUnavailable        = errors.New("second factors are not set up on this server")
-	// ErrNoSecondFactor is a User asked to prove a Second Factor they never added.
-	ErrNoSecondFactor = errors.New("the User has no Second Factor")
+	ErrTwoFactorProofNeeded = errors.New("the sign-in needs two-factor")
+	ErrInvalidCode          = errors.New("the code is wrong or was already used")
+	ErrUnavailable          = errors.New("two-factor methods are not set up on this server")
+	// ErrNoTwoFactor is a User asked to prove a two-factor method they never added.
+	ErrNoTwoFactor = errors.New("the User has no two-factor method")
 )
 
 const (
@@ -63,10 +63,10 @@ type Session struct {
 	CreatedAt  time.Time
 	LastSeenAt time.Time
 	ExpiresAt  time.Time
-	// Methods is how the session was proved, as RFC 8176 names them: "pwd", and "otp" once a
-	// Second Factor was.
+	// Methods is how the session was proved, as RFC 8176 names them: "pwd", and "otp" once
+	// two-factor was.
 	Methods []string
-	// TwoFactorAt is when the session last proved a Second Factor; nil when it never did.
+	// TwoFactorAt is when the session last proved two-factor; nil when it never did.
 	TwoFactorAt *time.Time
 	// Device is the browser and operating system the session was started from.
 	Device string
@@ -120,7 +120,7 @@ type Store interface {
 	// DeleteOtherSessions ends every session of a User but the one keepTokenHash names, or every
 	// one when it is nil, and returns the ids of those it ended.
 	DeleteOtherSessions(ctx context.Context, userID uuid.UUID, keepTokenHash []byte) ([]uuid.UUID, error)
-	// SetSessionMethods records how a session was proved, and that it proved a Second Factor at.
+	// SetSessionMethods records how a session was proved, and that it proved two-factor at.
 	SetSessionMethods(ctx context.Context, tokenHash []byte, methods []string, at time.Time) error
 	// SaveChallenge makes or replaces the User's one challenge. Its spent attempts carry over unless
 	// the window that holds them began at or before windowSince.
@@ -216,7 +216,7 @@ type Service struct {
 // Option sets what a Service may run without.
 type Option func(*Service)
 
-// WithSealer lets Users enrol a TOTP Second Factor, its secret sealed by sealer.
+// WithSealer lets Users enrol an authenticator app as a two-factor method, its secret sealed by sealer.
 func WithSealer(sealer Sealer) Option { return func(s *Service) { s.sealer = sealer } }
 
 // SignedOut is told which sessions of a User ended, so what was signed in through them can end too:
@@ -382,7 +382,7 @@ func (s *Service) SignIn(ctx context.Context, rawEmail, password string) (string
 		return "", s.failed(ctx, refused, ErrInvalidCredentials)
 	}
 	s.rehash(ctx, u, password)
-	has, err := s.hasSecondFactor(ctx, u.ID)
+	has, err := s.hasTwoFactor(ctx, u.ID)
 	if err != nil {
 		return "", err
 	}
@@ -391,7 +391,7 @@ func (s *Service) SignIn(ctx context.Context, rawEmail, password string) (string
 		if err != nil {
 			return "", err
 		}
-		return challenge, ErrSecondFactorNeeded
+		return challenge, ErrTwoFactorProofNeeded
 	}
 	return s.startSession(ctx, u.ID, []string{methodPassword})
 }
@@ -427,7 +427,7 @@ func (s *Service) startSession(ctx context.Context, userID uuid.UUID, methods []
 		TokenHash: hash, ID: id, UserID: userID, CreatedAt: now, LastSeenAt: now,
 		ExpiresAt: earliest(now.Add(sessionLifetime), end), Methods: methods, Device: deviceOf(ctx),
 	}
-	if ProvedSecondFactor(methods) {
+	if ProvedTwoFactor(methods) {
 		sess.TwoFactorAt = &now
 	}
 	if err := s.store.CreateSession(ctx, sess); err != nil {

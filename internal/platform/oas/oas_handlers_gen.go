@@ -1823,8 +1823,8 @@ func (s *Server) handleChangePasswordRequest(args [0]string, argsEscaped bool, w
 
 // handleCheckPasswordResetRequest handles checkPasswordReset operation.
 //
-// Says which kinds of two-factor the reset must be proved with first; none when the User has none or
-// proved it already.
+// Says which kinds of two-factor method the reset must be proved with first; none when the User has
+// none or proved it already.
 //
 // POST /api/v1/password-resets/check
 func (s *Server) handleCheckPasswordResetRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
@@ -2136,14 +2136,14 @@ func (s *Server) handleCompletePasswordResetRequest(args [0]string, argsEscaped 
 // Takes a code from the User's authenticator app for the sign-in the challenge cookie names, and
 // starts a session proved by both. A challenge takes five codes; a code works once.
 //
-// POST /api/v1/session/second-factor
+// POST /api/v1/session/two-factor
 func (s *Server) handleCompleteSignInRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
 	statusWriter := &codeRecorder{ResponseWriter: w}
 	w = statusWriter
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("completeSignIn"),
 		semconv.HTTPRequestMethodKey.String("POST"),
-		semconv.HTTPRouteKey.String("/api/v1/session/second-factor"),
+		semconv.HTTPRouteKey.String("/api/v1/session/two-factor"),
 	}
 	// Add attributes from config.
 	otelAttrs = append(otelAttrs, s.cfg.Attributes...)
@@ -2277,7 +2277,7 @@ func (s *Server) handleCompleteSignInRequest(args [0]string, argsEscaped bool, w
 		mreq := middleware.Request{
 			Context:          ctx,
 			OperationName:    CompleteSignInOperation,
-			OperationSummary: "Finish signing in with a Second Factor",
+			OperationSummary: "Finish signing in with a two-factor method",
 			OperationID:      "completeSignIn",
 			Body:             request,
 			RawBody:          rawBody,
@@ -2286,7 +2286,7 @@ func (s *Server) handleCompleteSignInRequest(args [0]string, argsEscaped bool, w
 		}
 
 		type (
-			Request  = *SecondFactorCode
+			Request  = *TwoFactorCode
 			Params   = struct{}
 			Response = CompleteSignInRes
 		)
@@ -2846,17 +2846,17 @@ func (s *Server) handleConfirmEmailChangeRequest(args [0]string, argsEscaped boo
 
 // handleConfirmPasskeyRequest handles confirmPasskey operation.
 //
-// Keeps the passkey the browser made, given the User's password. A User who already has a Second
-// Factor must be in a session that proved one. Every other session of the User's ends.
+// Keeps the passkey the browser made, given the User's password. A User who already has two-factor
+// must be in a session that proved it. Every other session of the User's ends.
 //
-// POST /api/v1/profile/second-factors/passkey/confirmation
+// POST /api/v1/profile/two-factor-methods/passkey/confirmation
 func (s *Server) handleConfirmPasskeyRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
 	statusWriter := &codeRecorder{ResponseWriter: w}
 	w = statusWriter
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("confirmPasskey"),
 		semconv.HTTPRequestMethodKey.String("POST"),
-		semconv.HTTPRouteKey.String("/api/v1/profile/second-factors/passkey/confirmation"),
+		semconv.HTTPRouteKey.String("/api/v1/profile/two-factor-methods/passkey/confirmation"),
 	}
 	// Add attributes from config.
 	otelAttrs = append(otelAttrs, s.cfg.Attributes...)
@@ -3051,14 +3051,14 @@ func (s *Server) handleConfirmPasskeyRequest(args [0]string, argsEscaped bool, w
 // right. A User who already has one must be in a session that proved it. Every other session of the
 // User's ends.
 //
-// POST /api/v1/profile/second-factors/totp/confirmation
+// POST /api/v1/profile/two-factor-methods/totp/confirmation
 func (s *Server) handleConfirmTOTPRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
 	statusWriter := &codeRecorder{ResponseWriter: w}
 	w = statusWriter
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("confirmTOTP"),
 		semconv.HTTPRequestMethodKey.String("POST"),
-		semconv.HTTPRouteKey.String("/api/v1/profile/second-factors/totp/confirmation"),
+		semconv.HTTPRouteKey.String("/api/v1/profile/two-factor-methods/totp/confirmation"),
 	}
 	// Add attributes from config.
 	otelAttrs = append(otelAttrs, s.cfg.Attributes...)
@@ -4643,7 +4643,7 @@ func (s *Server) handleGetAccessRequest(args [0]string, argsEscaped bool, w http
 // handleGetDashboardRequest handles getDashboard operation.
 //
 // Users, the Unassigned queue, sign-ins and failed sign-ins over the last 24 hours, and live sessions.
-// Admins only, from a session that proved a Second Factor.
+// Admins only, from a session that proved two-factor.
 //
 // GET /api/v1/dashboard
 func (s *Server) handleGetDashboardRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
@@ -5014,7 +5014,7 @@ func (s *Server) handleGetLauncherRequest(args [0]string, argsEscaped bool, w ht
 
 // handleGetMCPResourceRequest handles getMCPResource operation.
 //
-// Admins only, from a session that proved a Second Factor.
+// Admins only, from a session that proved two-factor.
 //
 // GET /api/v1/apps/{clientId}/mcp
 func (s *Server) handleGetMCPResourceRequest(args [1]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
@@ -5399,8 +5399,7 @@ func (s *Server) handleGetProfileRequest(args [0]string, argsEscaped bool, w htt
 
 // handleGetStepUpRequest handles getStepUp operation.
 //
-// The Client's step-up window, 0 when it is off. Admins only, from a session that proved a Second
-// Factor.
+// The Client's step-up window, 0 when it is off. Admins only, from a session that proved two-factor.
 //
 // GET /api/v1/apps/{clientId}/step-up
 func (s *Server) handleGetStepUpRequest(args [1]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
@@ -5737,7 +5736,7 @@ func (s *Server) handleGetVersionRequest(args [0]string, argsEscaped bool, w htt
 // handleListAuditEventsRequest handles listAuditEvents operation.
 //
 // One page of Audit Events, newest first, narrowed by any of the filters. Pass a page's next as before
-// to read the page after it. Admins only, from a session that proved a Second Factor.
+// to read the page after it. Admins only, from a session that proved two-factor.
 //
 // GET /api/v1/audit
 func (s *Server) handleListAuditEventsRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
@@ -6688,24 +6687,24 @@ func (s *Server) handleListMyTokensRequest(args [0]string, argsEscaped bool, w h
 	}
 }
 
-// handleListSecondFactorsRequest handles listSecondFactors operation.
+// handleListTwoFactorMethodsRequest handles listTwoFactorMethods operation.
 //
 // Every authenticator app and passkey the User added.
 //
-// GET /api/v1/profile/second-factors
-func (s *Server) handleListSecondFactorsRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
+// GET /api/v1/profile/two-factor-methods
+func (s *Server) handleListTwoFactorMethodsRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
 	statusWriter := &codeRecorder{ResponseWriter: w}
 	w = statusWriter
 	otelAttrs := []attribute.KeyValue{
-		otelogen.OperationID("listSecondFactors"),
+		otelogen.OperationID("listTwoFactorMethods"),
 		semconv.HTTPRequestMethodKey.String("GET"),
-		semconv.HTTPRouteKey.String("/api/v1/profile/second-factors"),
+		semconv.HTTPRouteKey.String("/api/v1/profile/two-factor-methods"),
 	}
 	// Add attributes from config.
 	otelAttrs = append(otelAttrs, s.cfg.Attributes...)
 
 	// Start a span for this request.
-	ctx, span := s.cfg.Tracer.Start(r.Context(), ListSecondFactorsOperation,
+	ctx, span := s.cfg.Tracer.Start(r.Context(), ListTwoFactorMethodsOperation,
 		trace.WithAttributes(otelAttrs...),
 		serverSpanKind,
 	)
@@ -6760,15 +6759,15 @@ func (s *Server) handleListSecondFactorsRequest(args [0]string, argsEscaped bool
 		}
 		err          error
 		opErrContext = ogenerrors.OperationContext{
-			Name: ListSecondFactorsOperation,
-			ID:   "listSecondFactors",
+			Name: ListTwoFactorMethodsOperation,
+			ID:   "listTwoFactorMethods",
 		}
 	)
 	{
 		type bitset = [1]uint8
 		var satisfied bitset
 		{
-			sctx, ok, err := s.securitySession(ctx, ListSecondFactorsOperation, r)
+			sctx, ok, err := s.securitySession(ctx, ListTwoFactorMethodsOperation, r)
 			if err != nil {
 				err = &ogenerrors.SecurityError{
 					OperationContext: opErrContext,
@@ -6813,13 +6812,13 @@ func (s *Server) handleListSecondFactorsRequest(args [0]string, argsEscaped bool
 
 	var rawBody []byte
 
-	var response ListSecondFactorsRes
+	var response ListTwoFactorMethodsRes
 	if m := s.cfg.Middleware; m != nil {
 		mreq := middleware.Request{
 			Context:          ctx,
-			OperationName:    ListSecondFactorsOperation,
-			OperationSummary: "The signed-in User's Second Factors",
-			OperationID:      "listSecondFactors",
+			OperationName:    ListTwoFactorMethodsOperation,
+			OperationSummary: "The signed-in User's two-factor methods",
+			OperationID:      "listTwoFactorMethods",
 			Body:             nil,
 			RawBody:          rawBody,
 			Params:           middleware.Parameters{},
@@ -6829,7 +6828,7 @@ func (s *Server) handleListSecondFactorsRequest(args [0]string, argsEscaped bool
 		type (
 			Request  = struct{}
 			Params   = struct{}
-			Response = ListSecondFactorsRes
+			Response = ListTwoFactorMethodsRes
 		)
 		response, err = middleware.HookMiddleware[
 			Request,
@@ -6840,12 +6839,12 @@ func (s *Server) handleListSecondFactorsRequest(args [0]string, argsEscaped bool
 			mreq,
 			nil,
 			func(ctx context.Context, request Request, params Params) (response Response, err error) {
-				response, err = s.h.ListSecondFactors(ctx)
+				response, err = s.h.ListTwoFactorMethods(ctx)
 				return response, err
 			},
 		)
 	} else {
-		response, err = s.h.ListSecondFactors(ctx)
+		response, err = s.h.ListTwoFactorMethods(ctx)
 	}
 	if err != nil {
 		if errRes, ok := errors.Into[*ProblemStatusCode](err); ok {
@@ -6864,7 +6863,7 @@ func (s *Server) handleListSecondFactorsRequest(args [0]string, argsEscaped bool
 		return
 	}
 
-	if err := encodeListSecondFactorsResponse(response, w, span); err != nil {
+	if err := encodeListTwoFactorMethodsResponse(response, w, span); err != nil {
 		defer recordError("EncodeResponse", err)
 		if !errors.Is(err, ht.ErrInternalServerErrorResponse) {
 			s.cfg.ErrorHandler(ctx, w, r, err)
@@ -6875,7 +6874,7 @@ func (s *Server) handleListSecondFactorsRequest(args [0]string, argsEscaped bool
 
 // handleListUserTokensRequest handles listUserTokens operation.
 //
-// Admins only, from a session that proved a Second Factor.
+// Admins only, from a session that proved two-factor.
 //
 // GET /api/v1/access/users/{userId}/tokens
 func (s *Server) handleListUserTokensRequest(args [1]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
@@ -7663,25 +7662,25 @@ func (s *Server) handleRemoveMemberRequest(args [2]string, argsEscaped bool, w h
 	}
 }
 
-// handleRemoveSecondFactorRequest handles removeSecondFactor operation.
+// handleRemoveTwoFactorMethodRequest handles removeTwoFactorMethod operation.
 //
 // Removes one of the User's authenticator apps or passkeys once they give their password, from a
-// session that proved a Second Factor.
+// session that proved two-factor.
 //
-// POST /api/v1/profile/second-factors/{factorId}/removal
-func (s *Server) handleRemoveSecondFactorRequest(args [1]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
+// POST /api/v1/profile/two-factor-methods/{factorId}/removal
+func (s *Server) handleRemoveTwoFactorMethodRequest(args [1]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
 	statusWriter := &codeRecorder{ResponseWriter: w}
 	w = statusWriter
 	otelAttrs := []attribute.KeyValue{
-		otelogen.OperationID("removeSecondFactor"),
+		otelogen.OperationID("removeTwoFactorMethod"),
 		semconv.HTTPRequestMethodKey.String("POST"),
-		semconv.HTTPRouteKey.String("/api/v1/profile/second-factors/{factorId}/removal"),
+		semconv.HTTPRouteKey.String("/api/v1/profile/two-factor-methods/{factorId}/removal"),
 	}
 	// Add attributes from config.
 	otelAttrs = append(otelAttrs, s.cfg.Attributes...)
 
 	// Start a span for this request.
-	ctx, span := s.cfg.Tracer.Start(r.Context(), RemoveSecondFactorOperation,
+	ctx, span := s.cfg.Tracer.Start(r.Context(), RemoveTwoFactorMethodOperation,
 		trace.WithAttributes(otelAttrs...),
 		serverSpanKind,
 	)
@@ -7736,15 +7735,15 @@ func (s *Server) handleRemoveSecondFactorRequest(args [1]string, argsEscaped boo
 		}
 		err          error
 		opErrContext = ogenerrors.OperationContext{
-			Name: RemoveSecondFactorOperation,
-			ID:   "removeSecondFactor",
+			Name: RemoveTwoFactorMethodOperation,
+			ID:   "removeTwoFactorMethod",
 		}
 	)
 	{
 		type bitset = [1]uint8
 		var satisfied bitset
 		{
-			sctx, ok, err := s.securitySession(ctx, RemoveSecondFactorOperation, r)
+			sctx, ok, err := s.securitySession(ctx, RemoveTwoFactorMethodOperation, r)
 			if err != nil {
 				err = &ogenerrors.SecurityError{
 					OperationContext: opErrContext,
@@ -7786,7 +7785,7 @@ func (s *Server) handleRemoveSecondFactorRequest(args [1]string, argsEscaped boo
 			return
 		}
 	}
-	params, err := decodeRemoveSecondFactorParams(args, argsEscaped, r)
+	params, err := decodeRemoveTwoFactorMethodParams(args, argsEscaped, r)
 	if err != nil {
 		err = &ogenerrors.DecodeParamsError{
 			OperationContext: opErrContext,
@@ -7798,7 +7797,7 @@ func (s *Server) handleRemoveSecondFactorRequest(args [1]string, argsEscaped boo
 	}
 
 	var rawBody []byte
-	request, rawBody, close, err := s.decodeRemoveSecondFactorRequest(r)
+	request, rawBody, close, err := s.decodeRemoveTwoFactorMethodRequest(r)
 	if err != nil {
 		err = &ogenerrors.DecodeRequestError{
 			OperationContext: opErrContext,
@@ -7814,13 +7813,13 @@ func (s *Server) handleRemoveSecondFactorRequest(args [1]string, argsEscaped boo
 		}
 	}()
 
-	var response RemoveSecondFactorRes
+	var response RemoveTwoFactorMethodRes
 	if m := s.cfg.Middleware; m != nil {
 		mreq := middleware.Request{
 			Context:          ctx,
-			OperationName:    RemoveSecondFactorOperation,
-			OperationSummary: "Remove a Second Factor",
-			OperationID:      "removeSecondFactor",
+			OperationName:    RemoveTwoFactorMethodOperation,
+			OperationSummary: "Remove a two-factor method",
+			OperationID:      "removeTwoFactorMethod",
 			Body:             request,
 			RawBody:          rawBody,
 			Params: middleware.Parameters{
@@ -7834,8 +7833,8 @@ func (s *Server) handleRemoveSecondFactorRequest(args [1]string, argsEscaped boo
 
 		type (
 			Request  = *PasswordCheck
-			Params   = RemoveSecondFactorParams
-			Response = RemoveSecondFactorRes
+			Params   = RemoveTwoFactorMethodParams
+			Response = RemoveTwoFactorMethodRes
 		)
 		response, err = middleware.HookMiddleware[
 			Request,
@@ -7844,14 +7843,14 @@ func (s *Server) handleRemoveSecondFactorRequest(args [1]string, argsEscaped boo
 		](
 			m,
 			mreq,
-			unpackRemoveSecondFactorParams,
+			unpackRemoveTwoFactorMethodParams,
 			func(ctx context.Context, request Request, params Params) (response Response, err error) {
-				response, err = s.h.RemoveSecondFactor(ctx, request, params)
+				response, err = s.h.RemoveTwoFactorMethod(ctx, request, params)
 				return response, err
 			},
 		)
 	} else {
-		response, err = s.h.RemoveSecondFactor(ctx, request, params)
+		response, err = s.h.RemoveTwoFactorMethod(ctx, request, params)
 	}
 	if err != nil {
 		if errRes, ok := errors.Into[*ProblemStatusCode](err); ok {
@@ -7870,7 +7869,7 @@ func (s *Server) handleRemoveSecondFactorRequest(args [1]string, argsEscaped boo
 		return
 	}
 
-	if err := encodeRemoveSecondFactorResponse(response, w, span); err != nil {
+	if err := encodeRemoveTwoFactorMethodResponse(response, w, span); err != nil {
 		defer recordError("EncodeResponse", err)
 		if !errors.Is(err, ht.ErrInternalServerErrorResponse) {
 			s.cfg.ErrorHandler(ctx, w, r, err)
@@ -9173,7 +9172,7 @@ func (s *Server) handleRevokeMyTokenRequest(args [1]string, argsEscaped bool, w 
 
 // handleRevokeUserTokenRequest handles revokeUserToken operation.
 //
-// Admins only, from a session that proved a Second Factor. Revoking it twice changes nothing.
+// Admins only, from a session that proved two-factor. Revoking it twice changes nothing.
 //
 // DELETE /api/v1/access/users/{userId}/tokens/{patId}
 func (s *Server) handleRevokeUserTokenRequest(args [2]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
@@ -9377,8 +9376,8 @@ func (s *Server) handleRevokeUserTokenRequest(args [2]string, argsEscaped bool, 
 
 // handleRotateClientSecretRequest handles rotateClientSecret operation.
 //
-// Admins only, from a session that proved a Second Factor, for a Client that signs in with a secret.
-// The new secret is written where the Client's Application reads it, never answered here. The old one
+// Admins only, from a session that proved two-factor, for a Client that signs in with a secret. The
+// new secret is written where the Client's Application reads it, never answered here. The old one
 // keeps working until the Application first uses the new one.
 //
 // POST /api/v1/apps/{clientId}/secret
@@ -9581,7 +9580,7 @@ func (s *Server) handleRotateClientSecretRequest(args [1]string, argsEscaped boo
 //
 // For a workload outside the cluster, which signs in with the client credentials grant. The secret is
 // answered once, here, and kept only as a hash. The previous secret keeps working until the new one is
-// first used. Admins only, from a session that proved a Second Factor.
+// first used. Admins only, from a session that proved two-factor.
 //
 // POST /api/v1/access/machines/{machineId}/secret
 func (s *Server) handleRotateMachineSecretRequest(args [1]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
@@ -9997,8 +9996,8 @@ func (s *Server) handleSetGroupTwoFactorRequest(args [1]string, argsEscaped bool
 
 // handleSetMCPResourceRequest handles setMCPResource operation.
 //
-// Admins only, from a session that proved a Second Factor. A Client that can check no Connected App's
-// token is refused with 409. Stopping keeps the Connected Apps the Client has; turning step-up on
+// Admins only, from a session that proved two-factor. A Client that can check no Connected App's token
+// is refused with 409. Stopping keeps the Connected Apps the Client has; turning step-up on
 // disconnects them.
 //
 // PUT /api/v1/apps/{clientId}/mcp
@@ -10215,7 +10214,7 @@ func (s *Server) handleSetMCPResourceRequest(args [1]string, argsEscaped bool, w
 // handleSetStepUpRequest handles setStepUp operation.
 //
 // Signing in to the Client then finishes only when the session proved two-factor within the window; 0
-// turns step-up off. Admins only, from a session that proved a Second Factor.
+// turns step-up off. Admins only, from a session that proved two-factor.
 //
 // PUT /api/v1/apps/{clientId}/step-up
 func (s *Server) handleSetStepUpRequest(args [1]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
@@ -11514,14 +11513,14 @@ func (s *Server) handleSignUpRequest(args [0]string, argsEscaped bool, w http.Re
 //
 // Returns the WebAuthn options to make a passkey, kept for ten minutes.
 //
-// POST /api/v1/profile/second-factors/passkey
+// POST /api/v1/profile/two-factor-methods/passkey
 func (s *Server) handleStartPasskeyRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
 	statusWriter := &codeRecorder{ResponseWriter: w}
 	w = statusWriter
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("startPasskey"),
 		semconv.HTTPRequestMethodKey.String("POST"),
-		semconv.HTTPRouteKey.String("/api/v1/profile/second-factors/passkey"),
+		semconv.HTTPRouteKey.String("/api/v1/profile/two-factor-methods/passkey"),
 	}
 	// Add attributes from config.
 	otelAttrs = append(otelAttrs, s.cfg.Attributes...)
@@ -11698,7 +11697,7 @@ func (s *Server) handleStartPasskeyRequest(args [0]string, argsEscaped bool, w h
 // handleStartStepUpRequest handles startStepUp operation.
 //
 // For an app that wants a fresh proof (step-up), starts proving the signed-in session again and says
-// which kinds of Second Factor can prove it. A User with none is told to add one.
+// which kinds of two-factor method can prove it. A User with none is told to add one.
 //
 // POST /api/v1/session/step-up
 func (s *Server) handleStartStepUpRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
@@ -11886,14 +11885,14 @@ func (s *Server) handleStartStepUpRequest(args [0]string, argsEscaped bool, w ht
 // Makes a secret for a new authenticator app. It is kept, sealed by Vault, for ten minutes, until
 // confirmTOTP gets a right code from the app.
 //
-// POST /api/v1/profile/second-factors/totp
+// POST /api/v1/profile/two-factor-methods/totp
 func (s *Server) handleStartTOTPRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
 	statusWriter := &codeRecorder{ResponseWriter: w}
 	w = statusWriter
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("startTOTP"),
 		semconv.HTTPRequestMethodKey.String("POST"),
-		semconv.HTTPRouteKey.String("/api/v1/profile/second-factors/totp"),
+		semconv.HTTPRouteKey.String("/api/v1/profile/two-factor-methods/totp"),
 	}
 	// Add attributes from config.
 	otelAttrs = append(otelAttrs, s.cfg.Attributes...)
@@ -12407,7 +12406,7 @@ func (s *Server) handleStepUpWithCodeRequest(args [0]string, argsEscaped bool, w
 		}
 
 		type (
-			Request  = *SecondFactorCode
+			Request  = *TwoFactorCode
 			Params   = struct{}
 			Response = StepUpWithCodeRes
 		)

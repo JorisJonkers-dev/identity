@@ -167,14 +167,14 @@ func TestTheReplacedSecretWorksUntilTheNewOneIsUsed(t *testing.T) {
 	}
 }
 
-func TestOnlyAnAdminWhoProvedASecondFactorGivesAMachineIdentityASecret(t *testing.T) {
+func TestOnlyAnAdminWhoProvedTwoFactorGivesAMachineIdentityASecret(t *testing.T) {
 	for _, c := range []struct {
 		name  string
 		actor app.Actor
 		want  error
 	}{
-		{"not an Admin", app.Actor{ID: uuid.New(), SecondFactor: true}, app.ErrNotAdmin},
-		{"no second factor", app.Actor{ID: root}, app.ErrSecondFactorNeeded},
+		{"not an Admin", app.Actor{ID: uuid.New(), TwoFactor: true}, app.ErrNotAdmin},
+		{"no two-factor", app.Actor{ID: root}, app.ErrTwoFactorProofNeeded},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			f := newMachineFixture()

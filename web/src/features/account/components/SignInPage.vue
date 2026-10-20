@@ -7,7 +7,7 @@ import {
   passkeyOptionsMutation,
   signInMutation,
 } from '../../../infrastructure/api/@tanstack/vue-query.gen'
-import type { SecondFactorKind } from '../../../infrastructure/api/types.gen'
+import type { TwoFactorMethodKind } from '../../../infrastructure/api/types.gen'
 import { navigation } from '../../../infrastructure/navigation'
 import { passkeys } from '../../../infrastructure/passkeys'
 import { useAction } from '../../../infrastructure/useAction'
@@ -21,7 +21,7 @@ const email = ref('')
 const password = ref('')
 const shown = ref(false)
 const code = ref('')
-const methods = ref<SecondFactorKind[]>([])
+const methods = ref<TwoFactorMethodKind[]>([])
 const signIn = useAction(signInMutation())
 const complete = useAction(completeSignInMutation())
 const keyOptions = useAction(passkeyOptionsMutation())

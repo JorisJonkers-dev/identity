@@ -32,7 +32,7 @@ func (u *users) SignOutEverywhere(_ context.Context, actor, id uuid.UUID) error 
 	return u.err
 }
 
-func (u *users) HasSecondFactor(context.Context, uuid.UUID) (bool, error) { return u.has, u.err }
+func (u *users) HasTwoFactor(context.Context, uuid.UUID) (bool, error) { return u.has, u.err }
 
 func TestSignedInTranslatesTheSession(t *testing.T) {
 	at := time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC)

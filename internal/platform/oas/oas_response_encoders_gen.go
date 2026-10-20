@@ -1395,9 +1395,9 @@ func encodeListMyTokensResponse(response ListMyTokensRes, w http.ResponseWriter,
 	}
 }
 
-func encodeListSecondFactorsResponse(response ListSecondFactorsRes, w http.ResponseWriter, span trace.Span) error {
+func encodeListTwoFactorMethodsResponse(response ListTwoFactorMethodsRes, w http.ResponseWriter, span trace.Span) error {
 	switch response := response.(type) {
-	case *SecondFactors:
+	case *TwoFactorMethods:
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.WriteHeader(200)
 
@@ -1598,9 +1598,9 @@ func encodeRemoveMemberResponse(response RemoveMemberRes, w http.ResponseWriter,
 	}
 }
 
-func encodeRemoveSecondFactorResponse(response RemoveSecondFactorRes, w http.ResponseWriter, span trace.Span) error {
+func encodeRemoveTwoFactorMethodResponse(response RemoveTwoFactorMethodRes, w http.ResponseWriter, span trace.Span) error {
 	switch response := response.(type) {
-	case *RemoveSecondFactorNoContent:
+	case *RemoveTwoFactorMethodNoContent:
 		w.WriteHeader(204)
 
 		return nil
@@ -2104,7 +2104,7 @@ func encodeSetStepUpResponse(response SetStepUpRes, w http.ResponseWriter, span 
 
 func encodeSignInResponse(response SignInRes, w http.ResponseWriter, span trace.Span) error {
 	switch response := response.(type) {
-	case *SecondFactorNeededHeaders:
+	case *TwoFactorNeededHeaders:
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.Header().Set("Access-Control-Expose-Headers", "Set-Cookie")
 		// Encoding response headers.
@@ -2419,7 +2419,7 @@ func encodeStartPasskeyResponse(response StartPasskeyRes, w http.ResponseWriter,
 
 func encodeStartStepUpResponse(response StartStepUpRes, w http.ResponseWriter, span trace.Span) error {
 	switch response := response.(type) {
-	case *SecondFactorNeeded:
+	case *TwoFactorNeeded:
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.WriteHeader(200)
 

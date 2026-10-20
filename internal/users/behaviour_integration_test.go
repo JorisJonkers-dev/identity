@@ -21,7 +21,7 @@ type profile struct{ Email, Name string }
 
 type problem struct{ Detail string }
 
-type needsSecondFactor struct{ Methods []string }
+type needsTwoFactor struct{ Methods []string }
 
 func signIn(t *testing.T, b *itest.Browser, password string, want int, out any) {
 	t.Helper()
@@ -112,9 +112,9 @@ func withAuthenticator(t *testing.T) (*itest.Env, *itest.Browser, string) {
 	env := itest.Start(t)
 	ada := env.SignedUp(t, "ada@example.org")
 	var setup struct{ Secret string }
-	ada.Call(t, http.MethodPost, "/api/v1/profile/second-factors/totp", nil, http.StatusOK, &setup)
+	ada.Call(t, http.MethodPost, "/api/v1/profile/two-factor-methods/totp", nil, http.StatusOK, &setup)
 	code, _ := totp.GenerateCode(setup.Secret, time.Now())
-	ada.Call(t, http.MethodPost, "/api/v1/profile/second-factors/totp/confirmation",
+	ada.Call(t, http.MethodPost, "/api/v1/profile/two-factor-methods/totp/confirmation",
 		map[string]string{"label": "Phone", "code": code, "password": itest.Password}, http.StatusNoContent, nil)
 	return env, ada, setup.Secret
 }
@@ -124,7 +124,7 @@ func TestWithAnAuthenticatorSigningInAsksForItsCode(t *testing.T) {
 	env, ada, _ := withAuthenticator(t)
 	again := env.Browser()
 	again.Email = ada.Email
-	var needs needsSecondFactor
+	var needs needsTwoFactor
 	signIn(t, again, itest.Password, http.StatusAccepted, &needs)
 	if !slices.Equal(needs.Methods, []string{"totp"}) {
 		t.Fatalf("methods = %v", needs.Methods)
@@ -139,7 +139,7 @@ func TestTheAuthenticatorsNextCodeFinishesTheSignIn(t *testing.T) {
 	again.Email = ada.Email
 	signIn(t, again, itest.Password, http.StatusAccepted, nil)
 	next, _ := totp.GenerateCode(secret, time.Now().Add(30*time.Second)) // the code that added the app is spent
-	again.Call(t, http.MethodPost, "/api/v1/session/second-factor", map[string]string{"code": next}, http.StatusNoContent, nil)
+	again.Call(t, http.MethodPost, "/api/v1/session/two-factor", map[string]string{"code": next}, http.StatusNoContent, nil)
 	again.Call(t, http.MethodGet, "/api/v1/profile", nil, http.StatusOK, nil)
 }
 
@@ -150,7 +150,7 @@ func TestAWrongAuthenticatorCodeIsRefused(t *testing.T) {
 	again.Email = ada.Email
 	signIn(t, again, itest.Password, http.StatusAccepted, nil)
 	var p problem
-	again.Call(t, http.MethodPost, "/api/v1/session/second-factor", map[string]string{"code": "000000"}, http.StatusUnprocessableEntity, &p)
+	again.Call(t, http.MethodPost, "/api/v1/session/two-factor", map[string]string{"code": "000000"}, http.StatusUnprocessableEntity, &p)
 	if p.Detail != "That code is wrong or was already used. Enter the code your authenticator app shows now." {
 		t.Fatalf("detail = %q", p.Detail)
 	}
@@ -180,19 +180,19 @@ func TestAPasskeyAddedInTheProfileFinishesTheNextSignIn(t *testing.T) {
 	authenticator.AddCredential(credential)
 
 	var made struct{ Options string }
-	ada.Call(t, http.MethodPost, "/api/v1/profile/second-factors/passkey", nil, http.StatusOK, &made)
+	ada.Call(t, http.MethodPost, "/api/v1/profile/two-factor-methods/passkey", nil, http.StatusOK, &made)
 	attestation, err := virtualwebauthn.ParseAttestationOptions(publicKey(t, made.Options))
 	if err != nil {
 		t.Fatal(err)
 	}
-	ada.Call(t, http.MethodPost, "/api/v1/profile/second-factors/passkey/confirmation", map[string]string{
+	ada.Call(t, http.MethodPost, "/api/v1/profile/two-factor-methods/passkey/confirmation", map[string]string{
 		"label": "MacBook", "password": itest.Password,
 		"response": virtualwebauthn.CreateAttestationResponse(relyingParty, authenticator, credential, *attestation),
 	}, http.StatusNoContent, nil)
 
 	again := env.Browser()
 	again.Email = ada.Email
-	var needs needsSecondFactor
+	var needs needsTwoFactor
 	signIn(t, again, itest.Password, http.StatusAccepted, &needs)
 	if !slices.Equal(needs.Methods, []string{"passkey"}) {
 		t.Fatalf("methods = %v", needs.Methods)
@@ -222,17 +222,17 @@ func TestAPasskeyProvesTheSessionAgainForStepUp(t *testing.T) {
 	credential := itest.PasskeyCredential(t)
 	authenticator.AddCredential(credential)
 	var made struct{ Options string }
-	ada.Call(t, http.MethodPost, "/api/v1/profile/second-factors/passkey", nil, http.StatusOK, &made)
+	ada.Call(t, http.MethodPost, "/api/v1/profile/two-factor-methods/passkey", nil, http.StatusOK, &made)
 	attestation, err := virtualwebauthn.ParseAttestationOptions(publicKey(t, made.Options))
 	if err != nil {
 		t.Fatal(err)
 	}
-	ada.Call(t, http.MethodPost, "/api/v1/profile/second-factors/passkey/confirmation", map[string]string{
+	ada.Call(t, http.MethodPost, "/api/v1/profile/two-factor-methods/passkey/confirmation", map[string]string{
 		"label": "MacBook", "password": itest.Password,
 		"response": virtualwebauthn.CreateAttestationResponse(relyingParty, authenticator, credential, *attestation),
 	}, http.StatusNoContent, nil)
 
-	var needs needsSecondFactor
+	var needs needsTwoFactor
 	ada.Call(t, http.MethodPost, "/api/v1/session/step-up", nil, http.StatusOK, &needs)
 	if !slices.Equal(needs.Methods, []string{"passkey"}) {
 		t.Fatalf("methods = %v", needs.Methods)

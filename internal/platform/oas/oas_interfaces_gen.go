@@ -141,8 +141,8 @@ type ListMyTokensRes interface {
 	listMyTokensRes()
 }
 
-type ListSecondFactorsRes interface {
-	listSecondFactorsRes()
+type ListTwoFactorMethodsRes interface {
+	listTwoFactorMethodsRes()
 }
 
 type ListUserTokensRes interface {
@@ -161,8 +161,8 @@ type RemoveMemberRes interface {
 	removeMemberRes()
 }
 
-type RemoveSecondFactorRes interface {
-	removeSecondFactorRes()
+type RemoveTwoFactorMethodRes interface {
+	removeTwoFactorMethodRes()
 }
 
 type RenameGroupRes interface {

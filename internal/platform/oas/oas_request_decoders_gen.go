@@ -489,7 +489,7 @@ func (s *Server) decodeCompletePasswordResetRequest(r *http.Request) (
 }
 
 func (s *Server) decodeCompleteSignInRequest(r *http.Request) (
-	req *SecondFactorCode,
+	req *TwoFactorCode,
 	rawBody []byte,
 	close func() error,
 	rerr error,
@@ -536,7 +536,7 @@ func (s *Server) decodeCompleteSignInRequest(r *http.Request) (
 		rawBody = append(rawBody, buf...)
 		d := jx.DecodeBytes(buf)
 
-		var request SecondFactorCode
+		var request TwoFactorCode
 		if err := func() error {
 			if err := request.Decode(d); err != nil {
 				return err
@@ -1278,7 +1278,7 @@ func (s *Server) decodeMintTokenRequest(r *http.Request) (
 	}
 }
 
-func (s *Server) decodeRemoveSecondFactorRequest(r *http.Request) (
+func (s *Server) decodeRemoveTwoFactorMethodRequest(r *http.Request) (
 	req *PasswordCheck,
 	rawBody []byte,
 	close func() error,
@@ -2132,7 +2132,7 @@ func (s *Server) decodeSignUpRequest(r *http.Request) (
 }
 
 func (s *Server) decodeStepUpWithCodeRequest(r *http.Request) (
-	req *SecondFactorCode,
+	req *TwoFactorCode,
 	rawBody []byte,
 	close func() error,
 	rerr error,
@@ -2179,7 +2179,7 @@ func (s *Server) decodeStepUpWithCodeRequest(r *http.Request) (
 		rawBody = append(rawBody, buf...)
 		d := jx.DecodeBytes(buf)
 
-		var request SecondFactorCode
+		var request TwoFactorCode
 		if err := func() error {
 			if err := request.Decode(d); err != nil {
 				return err
