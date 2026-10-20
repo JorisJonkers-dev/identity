@@ -13,6 +13,7 @@ import (
 
 type Querier interface {
 	AccessTokensOfApp(ctx context.Context, connectedAppID uuid.UUID) ([]uuid.UUID, error)
+	AccessTokensOfClient(ctx context.Context, clientID string) ([]uuid.UUID, error)
 	AddMember(ctx context.Context, arg AddMemberParams) (int64, error)
 	AddSessionClient(ctx context.Context, arg AddSessionClientParams) error
 	AdminsGroup(ctx context.Context) (AdminsGroupRow, error)
@@ -147,8 +148,9 @@ type Querier interface {
 	Ping(ctx context.Context) (int32, error)
 	ProvePasswordReset(ctx context.Context, arg ProvePasswordResetParams) error
 	PruneConnectedAppTokens(ctx context.Context, expiresAt time.Time) (int64, error)
-	// A registration nobody consented to gives nothing, so it goes after a day.
-	PruneRegistrations(ctx context.Context, createdAt time.Time) (int64, error)
+	// A registration without a Connected App goes a day after it was made when nobody consented to
+	// it, and once unused for as long as a refresh token lasts when somebody did.
+	PruneRegistrations(ctx context.Context, arg PruneRegistrationsParams) (int64, error)
 	RegistrationByID(ctx context.Context, clientID string) (OauthRegistration, error)
 	// Only while the hash is still the one that was verified, so a password changed meanwhile stays.
 	RehashUserPassword(ctx context.Context, arg RehashUserPasswordParams) error
@@ -227,6 +229,7 @@ type Querier interface {
 	// Keeps the signature counter and flags WebAuthn returned with the assertion, only if the record is
 	// still the one the assertion was checked against: of two sign-ins racing with one key, one wins.
 	UsePasskey(ctx context.Context, arg UsePasskeyParams) (int64, error)
+	UseRegistration(ctx context.Context, arg UseRegistrationParams) error
 	// Accepts a code's step once: a replayed or older code changes nothing.
 	UseTOTPStep(ctx context.Context, arg UseTOTPStepParams) (int64, error)
 	UserByEmail(ctx context.Context, email string) (User, error)

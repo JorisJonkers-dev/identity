@@ -113,7 +113,7 @@ func TestPruningRemovesOnlyOldRegistrationsNobodyConsentedTo(t *testing.T) {
 	fresh := f.registration(t, "Waiting", t0)
 	used := f.connected(t, "kb-prune")
 
-	if _, err := f.s.PruneRegistrations(f.ctx, t0.Add(-24*time.Hour)); err != nil {
+	if _, err := f.s.PruneRegistrations(f.ctx, t0.Add(-24*time.Hour), t0.Add(-30*24*time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -125,6 +125,29 @@ func TestPruningRemovesOnlyOldRegistrationsNobodyConsentedTo(t *testing.T) {
 	}
 	if _, err := f.s.ConnectedApp(f.ctx, used.ID); err != nil {
 		t.Fatalf("the consented registration is gone: %v", err)
+	}
+}
+
+func TestPruningRemovesARegistrationUnusedSinceTheIdleTimeOnly(t *testing.T) {
+	t.Parallel()
+	f := open(t)
+	idle := f.registration(t, "Idle", t0.Add(-90*24*time.Hour))
+	recent := f.registration(t, "Recent", t0.Add(-90*24*time.Hour))
+	for id, at := range map[string]time.Time{idle: t0.Add(-31 * 24 * time.Hour), recent: t0.Add(-29 * 24 * time.Hour)} {
+		if err := f.s.UseRegistration(f.ctx, id, at); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if _, err := f.s.PruneRegistrations(f.ctx, t0.Add(-24*time.Hour), t0.Add(-30*24*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := f.s.Registration(f.ctx, idle); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("the idle registration is kept: %v", err)
+	}
+	if r, err := f.s.Registration(f.ctx, recent); err != nil || r.LastUsedAt == nil || !r.LastUsedAt.Equal(t0.Add(-29*24*time.Hour)) {
+		t.Fatalf("the recent registration = %+v, %v", r, err)
 	}
 }
 

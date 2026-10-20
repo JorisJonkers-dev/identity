@@ -133,7 +133,8 @@ CREATE TABLE public.oauth_registrations (
     client_id text NOT NULL,
     name text NOT NULL,
     redirect_uris text[] NOT NULL,
-    created_at timestamp with time zone NOT NULL
+    created_at timestamp with time zone NOT NULL,
+    last_used_at timestamp with time zone
 );
 
 CREATE TABLE public.passkey_enrolments (

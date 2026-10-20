@@ -140,6 +140,7 @@ type OauthRegistration struct {
 	Name         string
 	RedirectUris []string
 	CreatedAt    time.Time
+	LastUsedAt   *time.Time
 }
 
 type Passkey struct {

@@ -66,7 +66,7 @@ func (s *store) Registration(_ context.Context, id string) (domain.Registration,
 	return r, nil
 }
 
-func (s *store) PruneRegistrations(_ context.Context, before time.Time) (int64, error) {
+func (s *store) PruneRegistrations(_ context.Context, unconsented, idle time.Time) (int64, error) {
 	var n int64
 	for id, r := range s.regs {
 		used := slices.Contains(slices.Collect(func(yield func(string) bool) {
@@ -76,12 +76,23 @@ func (s *store) PruneRegistrations(_ context.Context, before time.Time) (int64, 
 				}
 			}
 		}), id)
-		if r.CreatedAt.Before(before) && !used {
+		stale := r.LastUsedAt == nil && r.CreatedAt.Before(unconsented) || r.LastUsedAt != nil && r.LastUsedAt.Before(idle)
+		if stale && !used {
 			delete(s.regs, id)
 			n++
 		}
 	}
 	return n, s.fail["PruneRegistrations"]
+}
+
+func (s *store) UseRegistration(_ context.Context, id string, at time.Time) error {
+	if err := s.fail["UseRegistration"]; err != nil {
+		return err
+	}
+	r := s.regs[id]
+	r.LastUsedAt = &at
+	s.regs[id] = r
+	return nil
 }
 
 func (s *store) MCPResources(context.Context) ([]string, error) {
@@ -171,6 +182,7 @@ func (s *store) DeleteConnectedApp(_ context.Context, id uuid.UUID) ([]uuid.UUID
 		}
 	}
 	delete(s.apps, id)
+	delete(s.regOf, id)
 	return ids, nil
 }
 
@@ -275,6 +287,11 @@ func (c clients) Client(_ context.Context, id string) (app.Client, error) {
 		return app.Client{}, app.ErrNotFound
 	}
 	return cl, nil
+}
+
+func (c clients) Label(ctx context.Context, id string) (string, error) {
+	cl, err := c.Client(ctx, id)
+	return cl.Label, err
 }
 
 func (c clients) ClientForHost(_ context.Context, host string) (app.Client, error) {
@@ -650,6 +667,8 @@ func (failingClients) ClientForHost(context.Context, string) (app.Client, error)
 	return app.Client{}, errBoom
 }
 
+func (failingClients) Label(context.Context, string) (string, error) { return "", errBoom }
+
 func TestACheckFailsWhenTheClientCannotBeRead(t *testing.T) {
 	f := newFixture()
 	_, appID := f.connected(t)
@@ -962,6 +981,71 @@ func TestPruningKeepsARegistrationForADayToBeConsentedTo(t *testing.T) {
 	f.now = t0.Add(23 * time.Hour)
 	if n, err := f.Prune(ctx); err != nil || n != 0 || len(f.store.regs) != 1 {
 		t.Fatalf("pruned %d, %v", n, err)
+	}
+}
+
+func TestADisconnectedToolKeepsItsRegistrationForThirtyDaysAfterItsLastUse(t *testing.T) {
+	f := newFixture()
+	r, appID := f.connected(t)
+	_ = f.Revoke(ctx, ada, appID)
+	f.now = t0.Add(app.RefreshLifetime - time.Hour)
+	if _, _ = f.Prune(ctx); f.store.regs[r.ClientID].ClientID == "" {
+		t.Fatal("the registration is gone")
+	}
+}
+
+func TestADisconnectedToolsRegistrationGoesThirtyDaysAfterItsLastUse(t *testing.T) {
+	f := newFixture()
+	r, appID := f.connected(t)
+	_ = f.Revoke(ctx, ada, appID)
+	f.now = t0.Add(app.RefreshLifetime + time.Hour)
+	if _, _ = f.Prune(ctx); f.store.regs[r.ClientID].ClientID != "" {
+		t.Fatal("the registration is kept")
+	}
+}
+
+func TestRefreshingCountsAsUsingTheRegistration(t *testing.T) {
+	f := newFixture()
+	r, appID := f.connected(t)
+	secret, _ := f.IssueRefresh(ctx, appID)
+	f.now = t0.Add(20 * 24 * time.Hour)
+	_, _ = f.Refresh(ctx, secret)
+	_ = f.Revoke(ctx, ada, appID)
+	f.now = t0.Add(app.RefreshLifetime + time.Hour)
+	if _, _ = f.Prune(ctx); f.store.regs[r.ClientID].ClientID == "" {
+		t.Fatal("the registration is gone")
+	}
+}
+
+func TestUsingARegistrationFailsWhenTheStoreDoes(t *testing.T) {
+	t.Run("on consent", func(t *testing.T) {
+		f := newFixture()
+		r, _ := f.Register(ctx, "Claude Code", []string{"http://localhost:33418/callback"})
+		f.store.fail["UseRegistration"] = errBoom
+		if _, err := f.Consent(ctx, ada, r.ClientID, "kb"); !errors.Is(err, errBoom) {
+			t.Fatalf("err = %v", err)
+		}
+	})
+	t.Run("on refresh", func(t *testing.T) {
+		f := newFixture()
+		_, appID := f.connected(t)
+		secret, _ := f.IssueRefresh(ctx, appID)
+		f.store.fail["UseRegistration"] = errBoom
+		if _, err := f.Refresh(ctx, secret); !errors.Is(err, errBoom) {
+			t.Fatalf("err = %v", err)
+		}
+	})
+}
+
+func TestARefreshThatCannotRecordItsUseLeavesTheTokenToTheNextTry(t *testing.T) {
+	f := newFixture()
+	_, appID := f.connected(t)
+	secret, _ := f.IssueRefresh(ctx, appID)
+	f.store.fail["UseRegistration"] = errBoom
+	_, _ = f.Refresh(ctx, secret)
+	delete(f.store.fail, "UseRegistration")
+	if _, err := f.Refresh(ctx, secret); err != nil {
+		t.Fatalf("err = %v", err)
 	}
 }
 

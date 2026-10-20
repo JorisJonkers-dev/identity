@@ -98,3 +98,16 @@ func TestAUsersRolesComeFromAccess(t *testing.T) {
 		t.Fatalf("Roles = %v, %v", roles, err)
 	}
 }
+
+func TestAClientsLabelIsReadWithoutItsStepUp(t *testing.T) {
+	label, err := contexts.New(index{}, stepUps{err: errBoom}, access{}).Label(context.Background(), "kb")
+	if err != nil || label != "Knowledge" {
+		t.Fatalf("Label = %q, %v", label, err)
+	}
+}
+
+func TestTheLabelOfAClientNotInTheClusterIsNotFound(t *testing.T) {
+	if _, err := contexts.New(index{}, stepUps{}, access{}).Label(context.Background(), "gone"); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("err = %v", err)
+	}
+}

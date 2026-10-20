@@ -76,7 +76,11 @@ type Store interface {
 	CreateRegistration(ctx context.Context, r domain.Registration) error
 	// Registration is ErrNotFound when there is none.
 	Registration(ctx context.Context, clientID string) (domain.Registration, error)
-	PruneRegistrations(ctx context.Context, before time.Time) (int64, error)
+	// PruneRegistrations removes registrations without a Connected App: unused ones made before
+	// unconsented, and used ones last used before idle.
+	PruneRegistrations(ctx context.Context, unconsented, idle time.Time) (int64, error)
+	// UseRegistration records that a registration was consented to or refreshed at a time.
+	UseRegistration(ctx context.Context, clientID string, at time.Time) error
 	MCPResources(ctx context.Context) ([]string, error)
 	IsMCPResource(ctx context.Context, clientID string) (bool, error)
 	SetMCPResource(ctx context.Context, clientID string, on bool, at time.Time) error
@@ -121,6 +125,8 @@ type Clients interface {
 	Client(ctx context.Context, id string) (Client, error)
 	// ClientForHost is ErrNotFound for a host no Client serves.
 	ClientForHost(ctx context.Context, host string) (Client, error)
+	// Label is ErrNotFound for a Client not in the cluster.
+	Label(ctx context.Context, id string) (string, error)
 }
 
 // Roles is the App Roles a User holds on a Client, directly and through Groups.
@@ -238,6 +244,9 @@ func (s *Service) Consent(ctx context.Context, userID uuid.UUID, registrationID,
 	if err != nil {
 		return uuid.Nil, err
 	}
+	if err := s.store.UseRegistration(ctx, registrationID, s.now()); err != nil {
+		return uuid.Nil, err
+	}
 	if created {
 		s.audit.Record(ctx, audit.Event{Action: audit.ConnectedAppAuthorized, User: userID, Client: c.ID, AppName: r.Name})
 	}
@@ -352,6 +361,10 @@ func (s *Service) Peek(ctx context.Context, secret string) (RefreshToken, error)
 func (s *Service) Refresh(ctx context.Context, secret string) (RefreshToken, error) {
 	t, err := s.Peek(ctx, secret)
 	if err != nil {
+		return RefreshToken{}, err
+	}
+	// Recorded before the spend, so a failure here leaves the token to the next try.
+	if err := s.store.UseRegistration(ctx, t.RegistrationID, s.now()); err != nil {
 		return RefreshToken{}, err
 	}
 	spent, err := s.store.Spend(ctx, t.ID, s.now())
@@ -530,17 +543,19 @@ func (s *Service) admin(ctx context.Context, actor Actor) error {
 
 // Label is a Client's label, for the Security page; its id when it has none or is gone.
 func (s *Service) Label(ctx context.Context, clientID string) string {
-	c, err := s.clients.Client(ctx, clientID)
-	if err != nil || c.Label == "" {
+	label, err := s.clients.Label(ctx, clientID)
+	if err != nil || label == "" {
 		return clientID
 	}
-	return c.Label
+	return label
 }
 
-// Prune removes registrations nobody consented to within a day, and expired tokens.
+// Prune removes expired tokens and registrations without a Connected App: one nobody consented to
+// within a day, and one unused for as long as a refresh token lasts, so a tool disconnected and
+// connected again within that time keeps its registration.
 func (s *Service) Prune(ctx context.Context) (int64, error) {
 	now := s.now()
-	regs, err := s.store.PruneRegistrations(ctx, now.Add(-unconsentedLifetime))
+	regs, err := s.store.PruneRegistrations(ctx, now.Add(-unconsentedLifetime), now.Add(-RefreshLifetime))
 	if err != nil {
 		return 0, err
 	}

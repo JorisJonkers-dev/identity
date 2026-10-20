@@ -1,0 +1,11 @@
+# A registration records its last use, so a tool disconnected and connected again within a refresh
+# token's lifetime keeps its registration rather than registering again.
+databaseChangeLog:
+  - changeSet:
+      id: 0020-registration-last-use
+      author: identity
+      changes:
+        - addColumn:
+            tableName: oauth_registrations
+            columns:
+              - column: {name: last_used_at, type: timestamptz}

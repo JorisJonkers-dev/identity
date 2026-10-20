@@ -51,11 +51,15 @@ func (s *Store) Registration(ctx context.Context, clientID string) (domain.Regis
 	if err != nil {
 		return domain.Registration{}, notFound(err)
 	}
-	return domain.Registration{ClientID: r.ClientID, Name: r.Name, RedirectURIs: r.RedirectUris, CreatedAt: r.CreatedAt}, nil
+	return domain.Registration{ClientID: r.ClientID, Name: r.Name, RedirectURIs: r.RedirectUris, CreatedAt: r.CreatedAt, LastUsedAt: r.LastUsedAt}, nil
 }
 
-func (s *Store) PruneRegistrations(ctx context.Context, before time.Time) (int64, error) {
-	return s.q.PruneRegistrations(ctx, before)
+func (s *Store) UseRegistration(ctx context.Context, clientID string, at time.Time) error {
+	return s.q.UseRegistration(ctx, queries.UseRegistrationParams{ClientID: clientID, LastUsedAt: &at})
+}
+
+func (s *Store) PruneRegistrations(ctx context.Context, unconsented, idle time.Time) (int64, error) {
+	return s.q.PruneRegistrations(ctx, queries.PruneRegistrationsParams{Unconsented: unconsented, Idle: idle})
 }
 
 func (s *Store) MCPResources(ctx context.Context) ([]string, error) {
@@ -135,12 +139,10 @@ func (s *Store) DeleteForClient(ctx context.Context, clientID string) ([]domain.
 			return err
 		}
 		for _, r := range rows {
-			ids, err := q.AccessTokensOfApp(ctx, r.ID)
-			if err != nil {
-				return err
-			}
 			apps = append(apps, domain.ConnectedApp{ID: r.ID, UserID: r.UserID, ClientID: clientID, Name: r.Name})
-			tokens = append(tokens, ids...)
+		}
+		if tokens, err = q.AccessTokensOfClient(ctx, clientID); err != nil {
+			return err
 		}
 		return q.DeleteConnectedAppsForClient(ctx, clientID)
 	})

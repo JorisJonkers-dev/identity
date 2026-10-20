@@ -33,6 +33,8 @@ type Registration struct {
 	Name         string
 	RedirectURIs []string
 	CreatedAt    time.Time
+	// LastUsedAt is when a User last consented to it or it last refreshed; nil until then.
+	LastUsedAt *time.Time
 }
 
 // NewRegistration is a registration with a trimmed name of up to 100 characters, an unnamed one
