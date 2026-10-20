@@ -1,0 +1,11 @@
+# A completed sign-in keeps when its session last proved two-factor, so the access token its code
+# buys states it (contract/principal 1.1).
+databaseChangeLog:
+  - changeSet:
+      id: 0021-auth-request-two-factor-at
+      author: identity
+      changes:
+        - addColumn:
+            tableName: auth_requests
+            columns:
+              - column: {name: two_factor_at, type: timestamptz}

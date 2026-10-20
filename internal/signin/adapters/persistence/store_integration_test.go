@@ -183,3 +183,35 @@ func TestTheClientsASessionSignedIntoAreTakenOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestACompletedRequestKeepsWhenItsSessionProvedTwoFactor(t *testing.T) {
+	ctx := context.Background()
+	s, pool := open(t)
+	r := request()
+	_ = s.CreateRequest(ctx, r)
+	userID, sessionID := session(t, pool)
+	proved := t0.Add(-15 * time.Minute)
+	_, _ = s.CompleteRequest(ctx, r.ID, domain.SignIn{UserID: userID, SessionID: sessionID, At: t0, TwoFactorAt: proved})
+	_, _ = s.SaveCode(ctx, r.ID, []byte("code-hash"))
+
+	got, err := s.TakeByCodeHash(ctx, []byte("code-hash"))
+
+	if err != nil || got.SignIn == nil || !got.SignIn.TwoFactorAt.Equal(proved) {
+		t.Fatalf("TakeByCodeHash = %+v, %v", got.SignIn, err)
+	}
+}
+
+func TestACompletedRequestWhoseSessionNeverProvedTwoFactorSaysSo(t *testing.T) {
+	ctx := context.Background()
+	s, pool := open(t)
+	r := request()
+	_ = s.CreateRequest(ctx, r)
+	userID, sessionID := session(t, pool)
+	_, _ = s.CompleteRequest(ctx, r.ID, domain.SignIn{UserID: userID, SessionID: sessionID, At: t0})
+
+	got, err := s.RequestByID(ctx, r.ID)
+
+	if err != nil || got.SignIn == nil || !got.SignIn.TwoFactorAt.IsZero() {
+		t.Fatalf("RequestByID = %+v, %v", got.SignIn, err)
+	}
+}

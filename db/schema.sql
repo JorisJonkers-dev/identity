@@ -48,7 +48,8 @@ CREATE TABLE public.auth_requests (
     auth_time timestamp with time zone,
     code_hash bytea,
     methods text[],
-    resource text
+    resource text,
+    two_factor_at timestamp with time zone
 );
 
 CREATE TABLE public.client_secrets (

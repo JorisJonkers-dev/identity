@@ -140,7 +140,7 @@ func (f *fakeApps) IssueAccess(_ context.Context, appID uuid.UUID) (uuid.UUID, t
 	}
 	a := f.apps[appID]
 	id, expires := uuid.New(), time.Now().Add(time.Hour)
-	f.access[id] = connectedapp.AccessToken{ID: id, AppID: appID, UserID: a.user, ClientID: a.client, ExpiresAt: expires}
+	f.access[id] = connectedapp.AccessToken{ID: id, AppID: appID, UserID: a.user, ClientID: a.client, ExpiresAt: expires, RegistrationID: a.reg}
 	return id, expires, nil
 }
 
@@ -755,5 +755,27 @@ func TestARefreshByAnotherToolLeavesTheTokenToItsOwn(t *testing.T) {
 	e.refreshWith(t, e.registered(t), first.RefreshToken)
 	if status, _ := e.refreshWith(t, reg, first.RefreshToken); status != http.StatusOK {
 		t.Fatalf("refresh by its own tool = %d", status)
+	}
+}
+
+func TestAConnectedAppsIntrospectionNamesTheToolAsAct(t *testing.T) {
+	e := newEnv(t)
+	reg, tok := e.connectedTokens(t)
+
+	got := e.introspection(t, tok.AccessToken)
+
+	act, _ := got["act"].(map[string]any)
+	if got["via"] != "tool" || act["sub"] != reg || act["name"] == nil || got["kind"] != "user" || got["ver"] != "1.1" {
+		t.Fatalf("introspection = %v", got)
+	}
+}
+
+func TestAConnectedAppsTokenWhoseToolCannotBeReadIsInactive(t *testing.T) {
+	e := newEnv(t)
+	_, tok := e.connectedTokens(t)
+	e.apps.fail["Registration"] = errBoom
+
+	if got := e.introspection(t, tok.AccessToken); got["active"] != false {
+		t.Fatalf("introspection = %v", got)
 	}
 }

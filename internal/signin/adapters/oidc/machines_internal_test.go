@@ -340,3 +340,13 @@ func TestAMachineIdentityMayAskForAnAccessTokenByName(t *testing.T) {
 	f.Set("requested_token_type", string(oidc.AccessTokenType))
 	wantRoles(t, postToken(t, serveMachines(t, machines{}), f, robot.ID.String(), ""))
 }
+
+func TestAMachineIdentitysAccessTokenSaysKindMachineAndCarriesNoEmailOrName(t *testing.T) {
+	a := postToken(t, serveMachines(t, machines{}), exchangeForm("sa:media:backup", "web"), robot.ID.String(), "")
+
+	_, email := a.claims["email"]
+	_, name := a.claims["name"]
+	if a.claims["kind"] != "machine" || a.claims["via"] != "machine" || a.claims["ver"] != "1.1" || email || name {
+		t.Fatalf("claims = %v", a.claims)
+	}
+}

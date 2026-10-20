@@ -19,6 +19,7 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	"github.com/JorisJonkers-dev/identity/internal/gate/app"
+	"github.com/JorisJonkers-dev/identity/internal/platform/principalclaims"
 )
 
 // go test ./internal/gate/adapters/principal -run TestTheCommittedVectorsAreTheOnesTheGateSigns -update
@@ -105,14 +106,14 @@ func generated(t *testing.T) map[string]vector {
 		if err != nil {
 			t.Fatal(err)
 		}
-		return vector{Description: description, Headers: answer(v, token), Principal: statedFrom(v, Version)}
+		return vector{Description: description, Headers: answer(v, token), Principal: statedFrom(v, principalclaims.Version)}
 	}
 	refused := func(description, refusal string, headers map[string]string) vector {
 		return vector{Description: description, Headers: headers, Refusal: refusal}
 	}
-	with := func(edit func(c *claims)) claims {
+	with := func(edit func(c map[string]any)) map[string]any {
 		c := claimsOf(adaSays, vectorIssuer, vectorClient, signedAt)
-		edit(&c)
+		edit(c)
 		return c
 	}
 
@@ -129,18 +130,15 @@ func generated(t *testing.T) map[string]vector {
 	spoofed := allowed("A caller's own plain headers never stand in for the signed Principal.", adaSays)
 	spoofed.Headers["X-Auth-Request-User"] = "00000000-0000-4000-8000-0000000000e1"
 	spoofed.Headers["X-Auth-Request-Roles"] = "admin"
-	future := struct {
-		claims
-		Future string `json:"future"`
-	}{with(func(c *claims) { c.Version = "1.1" }), "a field a later minor version adds"}
+	future := with(func(c map[string]any) { c["ver"], c["future"] = "1.2", "a field a later minor version adds" })
 	minor := vector{
 		Description: "A later minor version's Principal is read, and the field the reader does not know is ignored.",
 		Headers:     answer(adaSays, signedBy(issuer, Type, future)),
-		Principal:   statedFrom(adaSays, "1.1"),
+		Principal:   statedFrom(adaSays, "1.2"),
 	}
 	valid := signedBy(issuer, Type, claimsOf(adaSays, vectorIssuer, vectorClient, signedAt))
 	parts := strings.Split(valid, ".")
-	forged, _ := json.Marshal(with(func(c *claims) { c.Roles = []string{"admin"} }))
+	forged, _ := json.Marshal(with(func(c map[string]any) { c["roles"] = []string{"admin"} }))
 	parts[1] = base64.RawURLEncoding.EncodeToString(forged)
 
 	vectors := map[string]vector{
@@ -156,15 +154,15 @@ func generated(t *testing.T) map[string]vector {
 		"wrong-typ": refused("A JWT typed as anything but identity-principal+jwt, such as an access token, is refused.",
 			"wrong-typ", answer(adaSays, signedBy(issuer, "at+jwt", claimsOf(adaSays, vectorIssuer, vectorClient, signedAt)))),
 		"wrong-issuer": refused("A Principal another issuer states is refused.",
-			"wrong-issuer", answer(adaSays, signedBy(issuer, Type, with(func(c *claims) { c.Issuer = "https://auth.example.org" })))),
+			"wrong-issuer", answer(adaSays, signedBy(issuer, Type, with(func(c map[string]any) { c["iss"] = "https://auth.example.org" })))),
 		"wrong-audience": refused("A Principal signed for another Client is refused.",
-			"wrong-audience", answer(adaSays, signedBy(issuer, Type, with(func(c *claims) { c.Audience = "grafana" })))),
+			"wrong-audience", answer(adaSays, signedBy(issuer, Type, with(func(c map[string]any) { c["aud"] = "grafana" })))),
 		"unknown-key": refused("A Principal signed by a key the Issuer's JWKS does not publish is refused.",
 			"unknown-key", answer(adaSays, signedBy(stranger, Type, claimsOf(adaSays, vectorIssuer, vectorClient, signedAt)))),
 		"bad-signature": refused("A Principal whose claims were changed after signing is refused.",
 			"bad-signature", answer(adaSays, strings.Join(parts, "."))),
 		"unknown-major": refused("A Principal stated in a major version the reader does not know is refused.",
-			"unknown-major", answer(adaSays, signedBy(issuer, Type, with(func(c *claims) { c.Version = "2.0" })))),
+			"unknown-major", answer(adaSays, signedBy(issuer, Type, with(func(c map[string]any) { c["ver"] = "2.0" })))),
 	}
 	expired := refused("A Principal read at the moment it expires is refused.",
 		"expired", answer(adaSays, valid))
@@ -212,7 +210,7 @@ func files(t *testing.T) map[string][]byte {
 func TestTheCommittedVectorsAreTheOnesTheGateSigns(t *testing.T) {
 	want := files(t)
 	if *update {
-		_ = os.RemoveAll(filepath.Join(contract, "vectors"))
+		_ = os.RemoveAll(filepath.Join(contract, "vectors/signed-header"))
 		for path, b := range want {
 			if err := os.MkdirAll(filepath.Dir(filepath.Join(contract, path)), 0o750); err != nil {
 				t.Fatal(err)
@@ -225,7 +223,8 @@ func TestTheCommittedVectorsAreTheOnesTheGateSigns(t *testing.T) {
 
 	got := map[string][]byte{}
 	committedFiles := os.DirFS(contract)
-	_ = fs.WalkDir(committedFiles, "vectors", func(path string, d fs.DirEntry, err error) error {
+	got["vectors/jwks.json"], _ = fs.ReadFile(committedFiles, "vectors/jwks.json")
+	_ = fs.WalkDir(committedFiles, "vectors/signed-header", func(path string, d fs.DirEntry, err error) error {
 		if err == nil && !d.IsDir() {
 			got[path], _ = fs.ReadFile(committedFiles, path)
 		}
@@ -257,6 +256,27 @@ func committed(t *testing.T) map[string]vector {
 	return out
 }
 
+// readClaims is a signed Principal's claims, as a reader of the contract decodes them.
+type readClaims struct {
+	Issuer   string   `json:"iss"`
+	Subject  string   `json:"sub"`
+	Audience string   `json:"aud"`
+	Expiry   int64    `json:"exp"`
+	Version  string   `json:"ver"`
+	Kind     string   `json:"kind"`
+	Email    string   `json:"email"`
+	Name     string   `json:"name"`
+	Roles    []string `json:"roles"`
+	Via      string   `json:"via"`
+	Actor    *struct {
+		Subject string `json:"sub"`
+		Name    string `json:"name"`
+	} `json:"act"`
+	TwoFactor   bool   `json:"two_factor"`
+	TwoFactorAt int64  `json:"two_factor_at"`
+	SessionID   string `json:"sid"`
+}
+
 // read is a reader of the contract, written from mapping.json alone: the Principal a request
 // carries for client at now, or why it is refused.
 func read(v vector, keys jose.JSONWebKeySet) (*stated, string) {
@@ -280,7 +300,7 @@ func read(v vector, keys jose.JSONWebKeySet) (*stated, string) {
 	if err != nil {
 		return nil, "bad-signature"
 	}
-	var c claims
+	var c readClaims
 	if err := json.Unmarshal(payload, &c); err != nil {
 		return nil, "bad-signature"
 	}

@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"log/slog"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -145,27 +146,83 @@ func TestUserinfoFailsAsAServerErrorWhenTheClaimsCannotBeRead(t *testing.T) {
 	wantOIDC(t, s.SetUserinfoFromToken(context.Background(), new(oidc.UserInfo), "t", a.ada.String(), "web"), "server_error")
 }
 
-func TestRolesInTokens(t *testing.T) {
-	ctx := context.Background()
+// signedIn is a sign-in's request for client, completed by user in session sid, which proved
+// two-factor at twoFactorAt (zero for never).
+func signedIn(user uuid.UUID, client string, sid uuid.UUID, twoFactorAt time.Time) authRequest {
+	return authRequest{domain.AuthRequest{ClientID: client, SignIn: &domain.SignIn{UserID: user, SessionID: sid, TwoFactorAt: twoFactorAt}}}
+}
+
+func TestAnAccessTokenStatesTheUsersPrincipalOnTheClientTheySignedInTo(t *testing.T) {
 	s, _, a := newStorage()
-	got, err := s.GetPrivateClaimsFromScopes(ctx, a.ada.String(), "web", nil)
-	if err != nil || !slices.Equal(got["roles"].([]string), []string{"user"}) || len(got) != 1 {
+	sid := uuid.MustParse("00000000-0000-4000-8000-0000000000c1")
+	proved := time.Date(2026, 10, 20, 11, 45, 0, 0, time.UTC)
+
+	got, err := s.GetPrivateClaimsFromRequest(context.Background(), signedIn(a.ada, "web", sid, proved), nil)
+
+	want := map[string]any{
+		"ver": "1.1", "kind": "user", "email": "ada@example.org", "name": "Ada", "roles": []string{"user"}, "via": "session",
+		"sid": sid.String(), "two_factor": true, "two_factor_at": proved.Unix(),
+	}
+	if err != nil || !reflect.DeepEqual(got, want) {
 		t.Fatalf("access token claims = %v, %v", got, err)
 	}
+}
+
+func TestAnIDTokenCarriesTheUsersRolesOnTheClient(t *testing.T) {
+	s, _, a := newStorage()
 	info := new(oidc.UserInfo)
-	if err := s.SetUserinfoFromRequest(ctx, info, tokenRequest{a.ada.String()}, []string{"openid"}); err != nil ||
-		!slices.Equal(info.Claims["roles"].([]string), []string{"user"}) {
+
+	err := s.SetUserinfoFromRequest(context.Background(), info, tokenRequest{a.ada.String()}, []string{"openid"})
+
+	if err != nil || !slices.Equal(info.Claims["roles"].([]string), []string{"user"}) {
 		t.Fatalf("ID token claims = %+v, %v", info.Claims, err)
 	}
-	_, err = s.GetPrivateClaimsFromScopes(ctx, "not-a-uuid", "web", nil)
+}
+
+func TestAnAccessTokenForARemovedClientIsRefused(t *testing.T) {
+	s, _, a := newStorage()
+
+	_, err := s.GetPrivateClaimsFromRequest(context.Background(), signedIn(a.ada, "removed", uuid.New(), time.Time{}), nil)
+
 	wantOIDC(t, err, "invalid_request")
-	_, err = s.GetPrivateClaimsFromScopes(ctx, a.ada.String(), "removed", nil)
-	wantOIDC(t, err, "invalid_request")
+}
+
+func TestAnAccessTokenWhoseRolesOrUserCannotBeReadIsAServerError(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		fail func(s *storage, a *accounts)
+	}{
+		{"the roles", func(s *storage, a *accounts) {
+			s.svc = app.New(newRequests(), testClients, a, &access{fail: errBoom}, noLogouts{}, discard{}, time.Now, rand.Reader)
+			s.svc.SetClientSecrets(testSecrets)
+		}},
+		{"the User", func(_ *storage, a *accounts) { a.failClaims = errBoom }},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			s, _, a := newStorage()
+			c.fail(s, a)
+			_, err := s.GetPrivateClaimsFromRequest(context.Background(), signedIn(a.ada, "web", uuid.New(), time.Time{}), nil)
+			wantOIDC(t, err, "server_error")
+		})
+	}
+}
+
+func TestAnIDTokenWhoseRolesCannotBeReadIsAServerError(t *testing.T) {
+	s, _, a := newStorage()
 	s.svc = app.New(newRequests(), testClients, a, &access{fail: errBoom}, noLogouts{}, discard{}, time.Now, rand.Reader)
 	s.svc.SetClientSecrets(testSecrets)
-	_, err = s.GetPrivateClaimsFromScopes(ctx, a.ada.String(), "web", nil)
-	wantOIDC(t, err, "server_error")
-	wantOIDC(t, s.SetUserinfoFromRequest(ctx, new(oidc.UserInfo), tokenRequest{a.ada.String()}, nil), "server_error")
+
+	wantOIDC(t, s.SetUserinfoFromRequest(context.Background(), new(oidc.UserInfo), tokenRequest{a.ada.String()}, nil), "server_error")
+}
+
+func TestARequestThatMakesNoAccessTokenStatesNoPrincipal(t *testing.T) {
+	s, _, a := newStorage()
+
+	_, fromRequest := s.GetPrivateClaimsFromRequest(context.Background(), tokenRequest{a.ada.String()}, nil)
+	_, fromScopes := s.GetPrivateClaimsFromScopes(context.Background(), a.ada.String(), "web", nil)
+
+	wantOIDC(t, fromRequest, "server_error")
+	wantOIDC(t, fromScopes, "server_error")
 }
 
 func TestAWrapperBeforeSignInVouchesForNobody(t *testing.T) {
