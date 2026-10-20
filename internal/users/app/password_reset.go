@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"errors"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,30 +30,6 @@ type PasswordReset struct {
 	ProvedAt  *time.Time
 }
 
-// limiter counts recent hits per key, in memory: each replica counts its own.
-type limiter struct {
-	mu   sync.Mutex
-	hits map[string][]time.Time
-}
-
-// allow records a hit for key and reports whether it is within most over window.
-func (l *limiter) allow(key string, most int, now time.Time, window time.Duration) bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if l.hits == nil {
-		l.hits = map[string][]time.Time{}
-	}
-	recent := l.hits[key][:0]
-	for _, at := range l.hits[key] {
-		if now.Sub(at) < window {
-			recent = append(recent, at)
-		}
-	}
-	recent = append(recent, now)
-	l.hits[key] = recent
-	return len(recent) <= most
-}
-
 type clientKey struct{}
 
 // WithClient names the client a request came from, for limits counted per client.
@@ -76,8 +51,8 @@ func (s *Service) AskPasswordReset(ctx context.Context, rawEmail string) error {
 		return err
 	}
 	now := s.now()
-	byEmail := s.resets.allow("email:"+email.String(), resetsPerEmail, now, resetWindow)
-	byClient := s.resets.allow("client:"+clientOf(ctx), resetsPerClient, now, resetWindow)
+	byEmail := s.resets.allow("email:"+email.String(), resetsPerEmail, now)
+	byClient := s.resets.allow("client:"+clientOf(ctx), resetsPerClient, now)
 	if !byEmail || !byClient {
 		return nil
 	}
