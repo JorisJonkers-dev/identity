@@ -1149,6 +1149,8 @@ func (s *AuditEventReason) Decode(d *jx.Decoder) error {
 		*s = AuditEventReasonNoAccess
 	case AuditEventReasonTokenReused:
 		*s = AuditEventReasonTokenReused
+	case AuditEventReasonByTool:
+		*s = AuditEventReasonByTool
 	default:
 		*s = AuditEventReason(v)
 	}
@@ -3402,11 +3404,16 @@ func (s *MCPResource) encodeFields(e *jx.Encoder) {
 		e.FieldStart("connectedApps")
 		s.ConnectedApps.Encode(e)
 	}
+	{
+		e.FieldStart("tokenCheck")
+		s.TokenCheck.Encode(e)
+	}
 }
 
-var jsonFieldsNameOfMCPResource = [2]string{
+var jsonFieldsNameOfMCPResource = [3]string{
 	0: "on",
 	1: "connectedApps",
+	2: "tokenCheck",
 }
 
 // Decode decodes MCPResource from json.
@@ -3440,6 +3447,16 @@ func (s *MCPResource) Decode(d *jx.Decoder) error {
 			}(); err != nil {
 				return errors.Wrap(err, "decode field \"connectedApps\"")
 			}
+		case "tokenCheck":
+			requiredBitSet[0] |= 1 << 2
+			if err := func() error {
+				if err := s.TokenCheck.Decode(d); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"tokenCheck\"")
+			}
 		default:
 			return errors.Errorf("unexpected field %q", k)
 		}
@@ -3450,7 +3467,7 @@ func (s *MCPResource) Decode(d *jx.Decoder) error {
 	// Validate required fields.
 	var failures []validate.FieldError
 	for i, mask := range [1]uint8{
-		0b00000011,
+		0b00000111,
 	} {
 		if result := (requiredBitSet[i] & mask) ^ mask; result != 0 {
 			// Mask only required fields and check equality to mask using XOR.
@@ -3588,6 +3605,48 @@ func (s *MCPResourceSetting) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON implements stdjson.Unmarshaler.
 func (s *MCPResourceSetting) UnmarshalJSON(data []byte) error {
+	d := jx.DecodeBytes(data)
+	return s.Decode(d)
+}
+
+// Encode encodes MCPResourceTokenCheck as json.
+func (s MCPResourceTokenCheck) Encode(e *jx.Encoder) {
+	e.Str(string(s))
+}
+
+// Decode decodes MCPResourceTokenCheck from json.
+func (s *MCPResourceTokenCheck) Decode(d *jx.Decoder) error {
+	if s == nil {
+		return errors.New("invalid: unable to decode MCPResourceTokenCheck to nil")
+	}
+	v, err := d.StrBytes()
+	if err != nil {
+		return err
+	}
+	// Try to use constant string.
+	switch MCPResourceTokenCheck(v) {
+	case MCPResourceTokenCheckGate:
+		*s = MCPResourceTokenCheckGate
+	case MCPResourceTokenCheckIntrospection:
+		*s = MCPResourceTokenCheckIntrospection
+	case MCPResourceTokenCheckNone:
+		*s = MCPResourceTokenCheckNone
+	default:
+		*s = MCPResourceTokenCheck(v)
+	}
+
+	return nil
+}
+
+// MarshalJSON implements stdjson.Marshaler.
+func (s MCPResourceTokenCheck) MarshalJSON() ([]byte, error) {
+	e := jx.Encoder{}
+	s.Encode(&e)
+	return e.Bytes(), nil
+}
+
+// UnmarshalJSON implements stdjson.Unmarshaler.
+func (s *MCPResourceTokenCheck) UnmarshalJSON(data []byte) error {
 	d := jx.DecodeBytes(data)
 	return s.Decode(d)
 }

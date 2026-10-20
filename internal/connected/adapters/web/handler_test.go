@@ -36,9 +36,9 @@ func (u *useCases) ConnectedApps(context.Context, uuid.UUID) ([]domain.Connected
 
 func (u *useCases) Revoke(context.Context, uuid.UUID, uuid.UUID) error { return u.err }
 
-func (u *useCases) MCPState(_ context.Context, actor app.Actor, _ string) (bool, int, error) {
+func (u *useCases) MCPState(_ context.Context, actor app.Actor, _ string) (app.MCPState, error) {
 	u.actor = actor
-	return true, 2, u.err
+	return app.MCPState{On: true, ConnectedApps: 2, TokenCheck: app.ByIntrospection}, u.err
 }
 
 func (u *useCases) SetMCPResource(_ context.Context, actor app.Actor, _ string, on bool) error {
@@ -103,7 +103,7 @@ func TestDisconnectingFailsWhenTheUseCaseDoes(t *testing.T) {
 func TestAnAdminReadsWhetherAClientTakesConnectedApps(t *testing.T) {
 	uc := &useCases{}
 	res, err := web.New(uc).GetMCPResource(signedIn(), oas.GetMCPResourceParams{ClientId: "kb"})
-	if m, ok := res.(*oas.MCPResource); err != nil || !ok || !m.On || m.ConnectedApps != 2 || uc.actor != (app.Actor{ID: ada, SecondFactor: true}) {
+	if m, ok := res.(*oas.MCPResource); err != nil || !ok || !m.On || m.ConnectedApps != 2 || m.TokenCheck != oas.MCPResourceTokenCheckIntrospection || uc.actor != (app.Actor{ID: ada, SecondFactor: true}) {
 		t.Fatalf("get = %+v, %v", res, err)
 	}
 }
@@ -125,6 +125,7 @@ func TestTheMCPSettingIsRefusedByWhatTheCallerBroke(t *testing.T) {
 		{"not an Admin", app.ErrNotAdmin, http.StatusForbidden},
 		{"no second factor", app.ErrSecondFactorNeeded, http.StatusForbidden},
 		{"a Client that is gone", app.ErrNotFound, http.StatusNotFound},
+		{"a Client that can check no tool's token", app.ErrUnchecked, http.StatusConflict},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			h := web.New(&useCases{err: c.err})

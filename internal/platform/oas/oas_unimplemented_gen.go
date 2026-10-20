@@ -520,8 +520,9 @@ func (UnimplementedHandler) SetGroupTwoFactor(ctx context.Context, req *TwoFacto
 
 // SetMCPResource implements setMCPResource operation.
 //
-// Admins only, from a session that proved a Second Factor. Stopping keeps the Connected Apps the
-// Client has; turning step-up on disconnects them.
+// Admins only, from a session that proved a Second Factor. A Client that can check no Connected App's
+// token is refused with 409. Stopping keeps the Connected Apps the Client has; turning step-up on
+// disconnects them.
 //
 // PUT /api/v1/apps/{clientId}/mcp
 func (UnimplementedHandler) SetMCPResource(ctx context.Context, req *MCPResourceSetting, params SetMCPResourceParams) (r SetMCPResourceRes, _ error) {

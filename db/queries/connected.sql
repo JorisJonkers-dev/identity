@@ -2,11 +2,17 @@
 INSERT INTO oauth_registrations (client_id, name, redirect_uris, created_at) VALUES ($1, $2, $3, $4);
 
 -- name: RegistrationByID :one
-SELECT client_id, name, redirect_uris, created_at FROM oauth_registrations WHERE client_id = $1;
+SELECT client_id, name, redirect_uris, created_at, last_used_at FROM oauth_registrations WHERE client_id = $1;
+
+-- name: UseRegistration :exec
+UPDATE oauth_registrations SET last_used_at = $2 WHERE client_id = $1;
 
 -- name: PruneRegistrations :execrows
--- A registration nobody consented to gives nothing, so it goes after a day.
-DELETE FROM oauth_registrations r WHERE r.created_at < $1
+-- A registration without a Connected App goes a day after it was made when nobody consented to
+-- it, and once unused for as long as a refresh token lasts when somebody did.
+DELETE FROM oauth_registrations r
+WHERE (r.last_used_at IS NULL AND r.created_at < sqlc.arg(unconsented)::timestamptz
+       OR r.last_used_at < sqlc.arg(idle)::timestamptz)
   AND NOT EXISTS (SELECT 1 FROM connected_apps c WHERE c.registration_id = r.client_id);
 
 -- name: MCPResources :many
@@ -63,9 +69,12 @@ INSERT INTO connected_app_tokens (id, connected_app_id, kind, hash, created_at, 
 
 -- name: ConnectedAppAccess :one
 -- A live access token, found by the id its sealed form carries.
-SELECT t.id, t.expires_at, c.id AS app_id, c.user_id, c.client_id FROM connected_app_tokens t
+SELECT t.id, t.expires_at, c.id AS app_id, c.user_id, c.client_id, c.registration_id FROM connected_app_tokens t
 JOIN connected_apps c ON c.id = t.connected_app_id
 WHERE t.id = $1 AND t.kind = 'access';
+
+-- name: DeleteConnectedAppAccess :exec
+DELETE FROM connected_app_tokens WHERE id = $1 AND kind = 'access';
 
 -- name: ConnectedAppRefresh :one
 SELECT t.id, t.expires_at, t.used_at, c.id AS app_id, c.user_id, c.client_id, c.registration_id FROM connected_app_tokens t
@@ -75,6 +84,11 @@ WHERE t.hash = $1 AND t.kind = 'refresh';
 -- name: SpendRefresh :execrows
 -- A refresh token is spent once; a second spend finds it used and changes nothing.
 UPDATE connected_app_tokens SET used_at = $2 WHERE id = $1 AND used_at IS NULL;
+
+-- name: AccessTokensOfClient :many
+SELECT t.id FROM connected_app_tokens t
+JOIN connected_apps c ON c.id = t.connected_app_id
+WHERE c.client_id = $1 AND t.kind = 'access';
 
 -- name: AccessTokensOfApp :many
 SELECT id FROM connected_app_tokens WHERE connected_app_id = $1 AND kind = 'access';

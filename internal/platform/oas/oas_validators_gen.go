@@ -761,6 +761,8 @@ func (s AuditEventReason) Validate() error {
 		return nil
 	case "token-reused":
 		return nil
+	case "by-tool":
+		return nil
 	default:
 		return errors.Errorf("invalid value: %v", s)
 	}
@@ -1853,10 +1855,34 @@ func (s *MCPResource) Validate() error {
 			Error: err,
 		})
 	}
+	if err := func() error {
+		if err := s.TokenCheck.Validate(); err != nil {
+			return err
+		}
+		return nil
+	}(); err != nil {
+		failures = append(failures, validate.FieldError{
+			Name:  "tokenCheck",
+			Error: err,
+		})
+	}
 	if len(failures) > 0 {
 		return &validate.Error{Fields: failures}
 	}
 	return nil
+}
+
+func (s MCPResourceTokenCheck) Validate() error {
+	switch s {
+	case "gate":
+		return nil
+	case "introspection":
+		return nil
+	case "none":
+		return nil
+	default:
+		return errors.Errorf("invalid value: %v", s)
+	}
 }
 
 func (s *Machine) Validate() error {

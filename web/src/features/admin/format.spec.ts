@@ -63,6 +63,7 @@ describe('an Audit Event reads as a sentence', () => {
     ['an app disconnected by its User', { action: 'connected-app-revoked', kind: 'tokens', user: noor, client: grafana, appName: 'Claude Code' }, '**Noor Bakker** disconnected Claude Code from Grafana'],
     ['an app disconnected by an Admin', { action: 'connected-app-revoked', kind: 'tokens', actor: joris, user: noor, client: grafana, appName: 'Claude Code' }, '**Joris** disconnected Claude Code from Grafana for **Noor Bakker**'],
     ['an app disconnected for a reused token', { action: 'connected-app-revoked', kind: 'tokens', user: noor, client: grafana, appName: 'Claude Code', reason: 'token-reused' }, 'Claude Code was disconnected from Grafana for **Noor Bakker** because its token was used twice, which can mean it was copied'],
+    ['an app that disconnected itself', { action: 'connected-app-revoked', kind: 'tokens', user: noor, client: grafana, appName: 'Claude Code', reason: 'by-tool' }, 'Claude Code disconnected itself from Grafana. **Noor Bakker** had connected it'],
     ['an unnamed app connected', { action: 'connected-app-authorized', kind: 'tokens', user: noor, client: grafana }, '**Noor Bakker** connected an app to Grafana'],
     ['apps let connect', { action: 'mcp-resource-marked', actor: joris, client: grafana }, '**Joris** let apps connect to Grafana'],
     ['apps stopped connecting', { action: 'mcp-resource-unmarked', actor: joris, client: grafana }, '**Joris** stopped apps connecting to Grafana'],

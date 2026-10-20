@@ -93,6 +93,8 @@ const (
 	ReasonNoAccess     = "no-access"
 	// ReasonTokenReused is a Connected App's refresh token spent twice, so one of them leaked.
 	ReasonTokenReused = "token-reused"
+	// ReasonByTool is a Connected App the tool itself disconnected, by revoking its refresh token.
+	ReasonByTool = "by-tool"
 )
 
 // Event is one Audit Event. Zero ids and empty strings are absent.

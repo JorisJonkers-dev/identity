@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -184,6 +185,28 @@ func (f *fakeApps) Refresh(_ context.Context, secret string) (connectedapp.Refre
 	return t.RefreshToken, nil
 }
 
+func (f *fakeApps) RevokeRefresh(_ context.Context, secret, reg string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.fail["RevokeRefresh"]; err != nil {
+		return err
+	}
+	if t, ok := f.refresh[secret]; ok && t.RegistrationID == reg {
+		f.revoke(t.AppID)
+	}
+	return nil
+}
+
+func (f *fakeApps) RevokeAccess(_ context.Context, id uuid.UUID, _ string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.fail["RevokeAccess"]; err != nil {
+		return err
+	}
+	delete(f.access, id)
+	return nil
+}
+
 func (f *fakeApps) Check(_ context.Context, id uuid.UUID, clientID string) (connectedapp.AccessToken, []string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -336,6 +359,15 @@ func TestTheAuthorizationServerMetadataNamesTheRegistrationEndpoint(t *testing.T
 	}
 }
 
+func TestTheAuthorizationServerMetadataLetsAToolRevokeWithoutASecret(t *testing.T) {
+	e := newEnv(t)
+	var got oidc.DiscoveryConfiguration
+	_ = json.Unmarshal(e.get(t, "/.well-known/oauth-authorization-server", false).body, &got)
+	if got.RevocationEndpoint != e.issuer+"/oidc/revoke" || !slices.Contains(got.RevocationEndpointAuthMethodsSupported, oidc.AuthMethodNone) {
+		t.Fatalf("metadata = %+v", got)
+	}
+}
+
 func TestAnMCPResourcesMetadataNamesTheIssuer(t *testing.T) {
 	e := newEnv(t)
 	p := e.get(t, "/.well-known/oauth-protected-resource/web.test", false)
@@ -478,6 +510,66 @@ func TestARefreshTokenSpentTwiceDisconnectsTheTool(t *testing.T) {
 
 	if status != http.StatusBadRequest || again.Error != "invalid_grant" || e.introspection(t, next.AccessToken)["active"] != false {
 		t.Fatalf("reuse = %d %+v", status, again)
+	}
+}
+
+// revocation is what /oidc/revoke answers a tool revoking a token.
+func (e *env) revocation(t *testing.T, reg, token, hint string) page {
+	t.Helper()
+	return e.post(t, "/oidc/revoke", url.Values{"token": {token}, "token_type_hint": {hint}, "client_id": {reg}})
+}
+
+func TestAToolRevokingItsRefreshTokenIsDisconnected(t *testing.T) {
+	for _, hint := range []string{"refresh_token", "access_token", ""} {
+		t.Run("hinted "+hint, func(t *testing.T) {
+			e := newEnv(t)
+			reg, tok := e.connectedTokens(t)
+			if p := e.revocation(t, reg, tok.RefreshToken, hint); p.status != http.StatusOK {
+				t.Fatalf("revoke = %d %s", p.status, p.body)
+			}
+			if e.introspection(t, tok.AccessToken)["active"] != false {
+				t.Fatal("the access token still works")
+			}
+		})
+	}
+}
+
+func TestAToolRevokingItsAccessTokenStopsThatTokenOnly(t *testing.T) {
+	e := newEnv(t)
+	reg, tok := e.connectedTokens(t)
+	if p := e.revocation(t, reg, tok.AccessToken, "access_token"); p.status != http.StatusOK {
+		t.Fatalf("revoke = %d %s", p.status, p.body)
+	}
+	if e.introspection(t, tok.AccessToken)["active"] != false {
+		t.Fatal("the access token still works")
+	}
+	if status, _ := e.refreshWith(t, reg, tok.RefreshToken); status != http.StatusOK {
+		t.Fatalf("refresh = %d", status)
+	}
+}
+
+func TestRevokingAnUnknownTokenAnswersOK(t *testing.T) {
+	e := newEnv(t)
+	reg, _ := e.connectedTokens(t)
+	if p := e.revocation(t, reg, "unknown", ""); p.status != http.StatusOK {
+		t.Fatalf("revoke = %d %s", p.status, p.body)
+	}
+}
+
+func TestARevocationFailsAsAServerErrorWhenTheStoreDoes(t *testing.T) {
+	for _, c := range []struct{ method, token string }{{"RevokeRefresh", "refresh"}, {"RevokeAccess", "access"}} {
+		t.Run(c.method, func(t *testing.T) {
+			e := newEnv(t)
+			reg, tok := e.connectedTokens(t)
+			e.apps.fail[c.method] = errBoom
+			token := tok.RefreshToken
+			if c.token == "access" {
+				token = tok.AccessToken
+			}
+			if p := e.revocation(t, reg, token, ""); p.status != http.StatusInternalServerError {
+				t.Fatalf("revoke = %d %s", p.status, p.body)
+			}
+		})
 	}
 }
 

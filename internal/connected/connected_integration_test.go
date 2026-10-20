@@ -139,6 +139,37 @@ func TestAdaDisconnectsAToolAndItsTokenStopsAtOnce(t *testing.T) {
 	}
 }
 
+func TestAToolRevokingItsRefreshTokenDisconnectsItselfAtOnce(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t)
+	tool, tokens := w.connect(t)
+	w.env.GateCheck(t, "kb.test", bearer(tokens)) // cached
+	if status := w.env.Revoke(t, url.Values{"token": {tokens["refresh_token"].(string)}, "token_type_hint": {"refresh_token"}, "client_id": {tool}}); status != http.StatusOK {
+		t.Fatalf("revoke = %d", status)
+	}
+	var list struct{ Apps []struct{ ID string } }
+	w.ada.Call(t, http.MethodGet, "/api/v1/profile/connected-apps", nil, http.StatusOK, &list)
+	if got := w.env.GateCheck(t, "kb.test", bearer(tokens)); got.StatusCode != http.StatusUnauthorized || len(list.Apps) != 0 {
+		t.Fatalf("gate = %d, apps %v", got.StatusCode, list.Apps)
+	}
+}
+
+func TestAToolRevokingItsAccessTokenStopsThatTokenAtOnce(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t)
+	tool, tokens := w.connect(t)
+	w.env.GateCheck(t, "kb.test", bearer(tokens)) // cached
+	if status := w.env.Revoke(t, url.Values{"token": {tokens["access_token"].(string)}, "client_id": {tool}}); status != http.StatusOK {
+		t.Fatalf("revoke = %d", status)
+	}
+	if got := w.env.GateCheck(t, "kb.test", bearer(tokens)); got.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("gate = %d", got.StatusCode)
+	}
+	if status, _ := w.refresh(t, tool, tokens); status != http.StatusOK {
+		t.Fatalf("refresh = %d", status)
+	}
+}
+
 func TestTurningStepUpOnDisconnectsKnowledgesTools(t *testing.T) {
 	t.Parallel()
 	w := newWorld(t)

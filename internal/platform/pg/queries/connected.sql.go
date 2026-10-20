@@ -36,18 +36,45 @@ func (q *Queries) AccessTokensOfApp(ctx context.Context, connectedAppID uuid.UUI
 	return items, nil
 }
 
+const accessTokensOfClient = `-- name: AccessTokensOfClient :many
+SELECT t.id FROM connected_app_tokens t
+JOIN connected_apps c ON c.id = t.connected_app_id
+WHERE c.client_id = $1 AND t.kind = 'access'
+`
+
+func (q *Queries) AccessTokensOfClient(ctx context.Context, clientID string) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, accessTokensOfClient, clientID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []uuid.UUID{}
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const connectedAppAccess = `-- name: ConnectedAppAccess :one
-SELECT t.id, t.expires_at, c.id AS app_id, c.user_id, c.client_id FROM connected_app_tokens t
+SELECT t.id, t.expires_at, c.id AS app_id, c.user_id, c.client_id, c.registration_id FROM connected_app_tokens t
 JOIN connected_apps c ON c.id = t.connected_app_id
 WHERE t.id = $1 AND t.kind = 'access'
 `
 
 type ConnectedAppAccessRow struct {
-	ID        uuid.UUID
-	ExpiresAt time.Time
-	AppID     uuid.UUID
-	UserID    uuid.UUID
-	ClientID  string
+	ID             uuid.UUID
+	ExpiresAt      time.Time
+	AppID          uuid.UUID
+	UserID         uuid.UUID
+	ClientID       string
+	RegistrationID string
 }
 
 // A live access token, found by the id its sealed form carries.
@@ -60,6 +87,7 @@ func (q *Queries) ConnectedAppAccess(ctx context.Context, id uuid.UUID) (Connect
 		&i.AppID,
 		&i.UserID,
 		&i.ClientID,
+		&i.RegistrationID,
 	)
 	return i, err
 }
@@ -311,6 +339,15 @@ func (q *Queries) DeleteConnectedApp(ctx context.Context, id uuid.UUID) (int64, 
 	return result.RowsAffected(), nil
 }
 
+const deleteConnectedAppAccess = `-- name: DeleteConnectedAppAccess :exec
+DELETE FROM connected_app_tokens WHERE id = $1 AND kind = 'access'
+`
+
+func (q *Queries) DeleteConnectedAppAccess(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteConnectedAppAccess, id)
+	return err
+}
+
 const deleteConnectedAppsForClient = `-- name: DeleteConnectedAppsForClient :exec
 DELETE FROM connected_apps WHERE client_id = $1
 `
@@ -382,13 +419,21 @@ func (q *Queries) PruneConnectedAppTokens(ctx context.Context, expiresAt time.Ti
 }
 
 const pruneRegistrations = `-- name: PruneRegistrations :execrows
-DELETE FROM oauth_registrations r WHERE r.created_at < $1
+DELETE FROM oauth_registrations r
+WHERE (r.last_used_at IS NULL AND r.created_at < $1::timestamptz
+       OR r.last_used_at < $2::timestamptz)
   AND NOT EXISTS (SELECT 1 FROM connected_apps c WHERE c.registration_id = r.client_id)
 `
 
-// A registration nobody consented to gives nothing, so it goes after a day.
-func (q *Queries) PruneRegistrations(ctx context.Context, createdAt time.Time) (int64, error) {
-	result, err := q.db.Exec(ctx, pruneRegistrations, createdAt)
+type PruneRegistrationsParams struct {
+	Unconsented time.Time
+	Idle        time.Time
+}
+
+// A registration without a Connected App goes a day after it was made when nobody consented to
+// it, and once unused for as long as a refresh token lasts when somebody did.
+func (q *Queries) PruneRegistrations(ctx context.Context, arg PruneRegistrationsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, pruneRegistrations, arg.Unconsented, arg.Idle)
 	if err != nil {
 		return 0, err
 	}
@@ -396,7 +441,7 @@ func (q *Queries) PruneRegistrations(ctx context.Context, createdAt time.Time) (
 }
 
 const registrationByID = `-- name: RegistrationByID :one
-SELECT client_id, name, redirect_uris, created_at FROM oauth_registrations WHERE client_id = $1
+SELECT client_id, name, redirect_uris, created_at, last_used_at FROM oauth_registrations WHERE client_id = $1
 `
 
 func (q *Queries) RegistrationByID(ctx context.Context, clientID string) (OauthRegistration, error) {
@@ -407,6 +452,7 @@ func (q *Queries) RegistrationByID(ctx context.Context, clientID string) (OauthR
 		&i.Name,
 		&i.RedirectUris,
 		&i.CreatedAt,
+		&i.LastUsedAt,
 	)
 	return i, err
 }
@@ -449,5 +495,19 @@ DELETE FROM mcp_resources WHERE client_id = $1
 
 func (q *Queries) UnmarkMCPResource(ctx context.Context, clientID string) error {
 	_, err := q.db.Exec(ctx, unmarkMCPResource, clientID)
+	return err
+}
+
+const useRegistration = `-- name: UseRegistration :exec
+UPDATE oauth_registrations SET last_used_at = $2 WHERE client_id = $1
+`
+
+type UseRegistrationParams struct {
+	ClientID   string
+	LastUsedAt *time.Time
+}
+
+func (q *Queries) UseRegistration(ctx context.Context, arg UseRegistrationParams) error {
+	_, err := q.db.Exec(ctx, useRegistration, arg.ClientID, arg.LastUsedAt)
 	return err
 }
