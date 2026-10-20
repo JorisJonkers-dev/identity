@@ -42,6 +42,14 @@
       "X-Auth-Request-Actor"
     ]
   },
+  "stepUp": {
+    "path": "/.auth/step-up",
+    "query": {
+      "minutes": "how recent the two-factor proof must be, 1 to 60",
+      "rd": "the path on the app's own host to come back to"
+    },
+    "rule": "An app that needs a fresher proof than a Principal states redirects the browser to this path on its own host. The person comes back to rd once the session proved two-factor within minutes, and the first Gate check after it states the new twoFactorAt. A Principal that came by personal-token, tool or machine cannot step up: the app answers 403 without a redirect."
+  },
   "refusals": {
     "missing": "No signed header, whatever plain headers the request carries.",
     "wrong-typ": "The JWT's typ is not identity-principal+jwt.",

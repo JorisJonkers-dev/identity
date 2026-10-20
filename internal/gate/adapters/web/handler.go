@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -38,7 +39,7 @@ type UseCases interface {
 	Check(ctx context.Context, host, cookie string) (app.Verdict, error)
 	CheckBearer(ctx context.Context, host, secret string) (app.Verdict, error)
 	MCP(ctx context.Context, host string) bool
-	Start(ctx context.Context, ssoToken, host, state, returnPath string) (string, error)
+	Start(ctx context.Context, ssoToken, host, state, returnPath string, fresh time.Duration) (string, error)
 	Finish(ctx context.Context, host, code, state string) (string, string, error)
 	NewState() (string, error)
 }
@@ -89,6 +90,7 @@ func New(uc UseCases, cfg Config, logger *slog.Logger) (http.Handler, error) {
 	mux.HandleFunc("GET /gate/check", h.check)
 	mux.HandleFunc("GET /gate/start", h.start)
 	mux.HandleFunc("GET /.auth/callback", h.callback)
+	mux.HandleFunc("GET /.auth/step-up", h.stepUp)
 	return mux, nil
 }
 
@@ -208,7 +210,15 @@ func (h *Handler) noAccess(w http.ResponseWriter, r *http.Request, host string) 
 func (h *Handler) start(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	host := q.Get("host")
-	code, err := h.uc.Start(r.Context(), cookie(r, h.cfg.SessionCookie), host, q.Get("state"), q.Get("rd"))
+	var fresh time.Duration
+	if q.Has("fresh") {
+		var ok bool
+		if fresh, ok = window(q.Get("fresh")); !ok {
+			h.page(w, http.StatusBadRequest, "broken", nil)
+			return
+		}
+	}
+	code, err := h.uc.Start(r.Context(), cookie(r, h.cfg.SessionCookie), host, q.Get("state"), q.Get("rd"), fresh)
 	switch {
 	case err == nil:
 		target := h.scheme + "://" + host + "/.auth/callback?" + url.Values{"code": {code}}.Encode()
@@ -227,6 +237,33 @@ func (h *Handler) start(w http.ResponseWriter, r *http.Request) {
 	default:
 		h.fail(w, r, err)
 	}
+}
+
+// stepUp runs on the gated host: an app sends the browser here when it wants a two-factor proof no
+// older than minutes, and it comes back to rd on the host once the session has one.
+func (h *Handler) stepUp(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	if _, ok := window(q.Get("minutes")); !ok {
+		h.page(w, http.StatusBadRequest, "broken", nil)
+		return
+	}
+	state, err := h.uc.NewState()
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	http.SetCookie(w, hostCookie(stateCookie, state, stateMaxAge))
+	start := h.cfg.Issuer + "/gate/start?" + url.Values{"host": {r.Host}, "state": {state}, "rd": {app.SafePath(q.Get("rd"))}, "fresh": {q.Get("minutes")}}.Encode()
+	http.Redirect(w, r, start, http.StatusSeeOther)
+}
+
+// window is a step-up window in minutes, 1 to app.MaxFresh.
+func window(minutes string) (time.Duration, bool) {
+	n, err := strconv.Atoi(minutes)
+	if err != nil || n < 1 || time.Duration(n)*time.Minute > app.MaxFresh {
+		return 0, false
+	}
+	return time.Duration(n) * time.Minute, true
 }
 
 // callback runs on the gated host: it redeems the code in the browser holding the page's state and

@@ -35,6 +35,9 @@ var (
 	ErrTwoFactorNeeded = errors.New("the Client wants two-factor, and the User has none")
 )
 
+// MaxFresh is the freshest-proof window an app may ask the Gate for.
+const MaxFresh = time.Hour
+
 const (
 	// A code carries a sign-in from the Identity Provider to the host; it is redeemed at once.
 	codeLifetime = 2 * time.Minute
@@ -387,8 +390,9 @@ func (s *Service) signed(v Verdict, clientID string) (Verdict, error) {
 
 // Start runs on the Identity Provider's host, where the Single sign-on session is: it checks the
 // User may use the host's Client and returns the code to carry back to the host. The state is
-// the one the host's page set in that browser.
-func (s *Service) Start(ctx context.Context, ssoToken, host, state, returnPath string) (string, error) {
+// the one the host's page set in that browser. fresh is how recent a two-factor proof the app asks
+// for, 0 for none; the stricter of it and the Client's step-up window applies.
+func (s *Service) Start(ctx context.Context, ssoToken, host, state, returnPath string, fresh time.Duration) (string, error) {
 	client, err := s.clients.GatedClient(ctx, host)
 	if err != nil {
 		return "", err
@@ -406,7 +410,11 @@ func (s *Service) Start(ctx context.Context, ssoToken, host, state, returnPath s
 		}
 		return "", err
 	}
-	if client.StepUp > 0 && s.now().Sub(p.TwoFactorAt) > client.StepUp {
+	window := client.StepUp
+	if fresh > 0 && (window == 0 || fresh < window) {
+		window = fresh
+	}
+	if window > 0 && s.now().Sub(p.TwoFactorAt) > window {
 		if !p.TwoFactor {
 			return "", ErrTwoFactorNeeded
 		}
@@ -448,6 +456,8 @@ func (s *Service) Finish(ctx context.Context, host, code, state string) (string,
 	if err := s.store.CreateSession(ctx, hashOf(token), Session{Host: host, SessionID: c.SessionID}, now); err != nil {
 		return "", "", err
 	}
+	// A fresh sign-in may carry a fresher two-factor proof, which no cached check states yet.
+	s.Forget([]uuid.UUID{c.SessionID})
 	return token, c.ReturnPath, nil
 }
 

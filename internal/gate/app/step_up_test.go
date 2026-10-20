@@ -23,14 +23,14 @@ func steppingUp(proved time.Duration, twoFactor bool) *fixture {
 
 func TestAStepUpHostSignsInWithAProofInsideItsWindow(t *testing.T) {
 	f := steppingUp(5*time.Minute, true)
-	if _, err := f.Start(context.Background(), "sso", stats.Host, "s", "/"); err != nil {
+	if _, err := f.Start(context.Background(), "sso", stats.Host, "s", "/", 0); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestAStepUpHostAsksForAFresherProof(t *testing.T) {
 	f := steppingUp(5*time.Minute+time.Second, true)
-	if _, err := f.Start(context.Background(), "sso", stats.Host, "s", "/"); !errors.Is(err, app.ErrStepUpNeeded) {
+	if _, err := f.Start(context.Background(), "sso", stats.Host, "s", "/", 0); !errors.Is(err, app.ErrStepUpNeeded) {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -38,7 +38,7 @@ func TestAStepUpHostAsksForAFresherProof(t *testing.T) {
 func TestAStepUpHostSendsAUserWithNoTwoFactorToSetItUp(t *testing.T) {
 	f := steppingUp(time.Minute, false)
 	f.accounts.proof = time.Time{}
-	if _, err := f.Start(context.Background(), "sso", stats.Host, "s", "/"); !errors.Is(err, app.ErrTwoFactorNeeded) {
+	if _, err := f.Start(context.Background(), "sso", stats.Host, "s", "/", 0); !errors.Is(err, app.ErrTwoFactorNeeded) {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -67,5 +67,58 @@ func TestAStepUpHostsAnswerIsKeptOnlyForTheCachesTTLWhenItsWindowEndsLater(t *te
 	f.now = t0.Add(31 * time.Second)
 	if _, err := f.Check(context.Background(), stats.Host, cookie); !errors.Is(err, app.ErrNoAccess) {
 		t.Fatalf("after the TTL, inside the window = %v", err)
+	}
+}
+
+func TestAnAppAskingForAFresherProofThanTheSessionHasSendsItToStepUp(t *testing.T) {
+	f := newFixture()
+	f.accounts.proof, f.accounts.twoFactor = t0, true
+	f.now = t0.Add(10 * time.Minute)
+
+	if _, err := f.Start(context.Background(), "sso", stats.Host, "s", "/", 5*time.Minute); !errors.Is(err, app.ErrStepUpNeeded) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestAnAppAskingForAProofTheSessionAlreadyHasSignsInAtOnce(t *testing.T) {
+	f := newFixture()
+	f.accounts.proof, f.accounts.twoFactor = t0, true
+	f.now = t0.Add(4 * time.Minute)
+
+	if _, err := f.Start(context.Background(), "sso", stats.Host, "s", "/", 5*time.Minute); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAnAppAskingForAProofSendsAUserWithNoTwoFactorToSetItUp(t *testing.T) {
+	f := newFixture()
+
+	if _, err := f.Start(context.Background(), "sso", stats.Host, "s", "/", 5*time.Minute); !errors.Is(err, app.ErrTwoFactorNeeded) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestTheStricterOfTheAppsAskAndTheClientsWindowWins(t *testing.T) {
+	f := steppingUp(3*time.Minute, true)
+
+	if _, err := f.Start(context.Background(), "sso", stats.Host, "s", "/", 2*time.Minute); !errors.Is(err, app.ErrStepUpNeeded) {
+		t.Fatalf("the app's ask = %v", err)
+	}
+	if _, err := f.Start(context.Background(), "sso", stats.Host, "s", "/", 10*time.Minute); err != nil {
+		t.Fatalf("the Client's window = %v", err)
+	}
+}
+
+func TestASignInToAHostDropsItsSessionsCachedChecksOnEveryHost(t *testing.T) {
+	f := newFixture()
+	ctx := context.Background()
+	cookie := f.signedIn(t)
+	_, _ = f.Check(ctx, stats.Host, cookie)
+	reads := f.store.reads
+
+	f.signedIn(t)
+
+	if _, _ = f.Check(ctx, stats.Host, cookie); f.store.reads != reads+1 {
+		t.Fatal("the earlier host cookie's check was still answered from the cache")
 	}
 }
