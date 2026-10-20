@@ -31,10 +31,10 @@ func (d tokenDecrypter) Decrypt(token string) (string, error) {
 	return tokenID + ":" + subject, nil
 }
 
-// newCrypto is zitadel's default Crypto with Personal Tokens looked up first, and a Connected
-// App's access token sealed behind its prefix.
+// newCrypto seals with AES-256-GCM and looks Personal Tokens up first. It has no AES-CFB fallback:
+// that cipher is unauthenticated, so it opens random tokens.
 func newCrypto(key [32]byte, resolve resolver) op.Crypto {
 	sealed := op.NewAES256GCMCrypto(key, "")
 	apps := appSealer{sealed: sealed}
-	return op.NewCompositeCrypto(apps, []op.Decrypter{tokenDecrypter{resolve: resolve}, apps, sealed, op.NewAESDecrypter(key)})
+	return op.NewCompositeCrypto(apps, []op.Decrypter{tokenDecrypter{resolve: resolve}, apps, sealed})
 }
