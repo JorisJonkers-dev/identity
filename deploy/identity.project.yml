@@ -28,6 +28,9 @@ applications:
         audience: anonymous
         contentPolicy: strict
         routes:
+          # Anyone may register a tool, and each registration stores a row, so one client may
+          # register ten times an hour (deploy-kit ADR 0110). The rest of the host is not limited.
+          - { path: /oidc/register, match: exact, process: identity, surface: http, rateLimit: { requests: 10, per: 1h } }
           - { path: /, match: prefix, process: identity, surface: http }
 
     processes:
