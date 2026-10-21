@@ -211,6 +211,8 @@ type Querier interface {
 	TakePasswordReset(ctx context.Context, tokenHash []byte) (int64, error)
 	// The Clients the ended sessions signed into, removed as they are read.
 	TakeSessionClients(ctx context.Context, sessionIds []uuid.UUID) ([]SessionClient, error)
+	// A User's live sessions that signed into the Clients, removed as they are read.
+	TakeUserSessionClients(ctx context.Context, arg TakeUserSessionClientsParams) ([]SessionClient, error)
 	TouchConnectedApp(ctx context.Context, arg TouchConnectedAppParams) error
 	// A token's last use is written at most once a minute, not on every check.
 	TouchPersonalToken(ctx context.Context, arg TouchPersonalTokenParams) error

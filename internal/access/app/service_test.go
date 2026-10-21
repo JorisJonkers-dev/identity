@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -23,6 +24,9 @@ type store struct {
 	assignments []domain.Assignment
 	direct      []domain.UserAssignment
 	fail        map[string]error
+	// rolesReadsBeforeFailing is how many RolesByClient calls succeed before the rest fail; 0 never.
+	rolesReadsBeforeFailing int
+	rolesReads              int
 }
 
 func (s *store) err(name string) error { return s.fail[name] }
@@ -218,11 +222,22 @@ func (s *store) RolesOf(_ context.Context, userID uuid.UUID, clientID string) ([
 }
 
 func (s *store) RolesByClient(_ context.Context, userID uuid.UUID) (map[string][]string, error) {
+	s.rolesReads++
+	if s.rolesReadsBeforeFailing > 0 && s.rolesReads > s.rolesReadsBeforeFailing {
+		return nil, errBoom
+	}
 	held := map[string][]string{}
+	clients := []string{}
 	for _, a := range s.assignments {
-		roles, _ := s.RolesOf(context.Background(), userID, a.ClientID)
+		clients = append(clients, a.ClientID)
+	}
+	for _, a := range s.direct {
+		clients = append(clients, a.ClientID)
+	}
+	for _, c := range clients {
+		roles, _ := s.RolesOf(context.Background(), userID, c)
 		if len(roles) > 0 {
-			held[a.ClientID] = roles
+			held[c] = roles
 		}
 	}
 	return held, s.err("RolesByClient")
@@ -784,5 +799,110 @@ func TestMarkingAGroupFailsWhenItsMembersCannotBeTold(t *testing.T) {
 func TestTheClientsHeldBackComeFromTheStore(t *testing.T) {
 	if got, err := newFixture().svc.HeldBackClients(ctx, ada); err != nil || !slices.Equal(got, []string{"grafana"}) {
 		t.Fatalf("HeldBackClients = %v, %v", got, err)
+	}
+}
+
+// lost records who the Service said lost an App Role, as "user client,client".
+type lost []string
+
+func (l *lost) listen(f *fixture) {
+	f.svc.SetRolesLost(func(_ context.Context, userID uuid.UUID, clientIDs []string) {
+		*l = append(*l, userID.String()+" "+strings.Join(clientIDs, ","))
+	})
+}
+
+func TestTakingAUsersRoleAwayTellsThatTheyLostOneOnThatClient(t *testing.T) {
+	f := newFixture()
+	f.store.direct = []domain.UserAssignment{{UserID: ada, ClientID: "grafana", Role: "user"}, {UserID: ada, ClientID: "grafana", Role: "viewer"}}
+	var got lost
+	got.listen(f)
+
+	if err := f.svc.UnassignUser(ctx, asAdmin, domain.UserAssignment{UserID: ada, ClientID: "grafana", Role: "viewer"}); err != nil {
+		t.Fatal(err)
+	}
+
+	if want := (lost{ada.String() + " grafana"}); !slices.Equal(got, want) {
+		t.Fatalf("lost %v, want %v", got, want)
+	}
+}
+
+func TestTakingAGroupsRoleAwayTellsOnlyTheMembersWhoNoLongerHoldIt(t *testing.T) {
+	f := newFixture()
+	f.store.members = append(f.store.members, domain.Membership{GroupID: family.ID, UserID: ada}, domain.Membership{GroupID: family.ID, UserID: admin})
+	f.store.assignments = []domain.Assignment{{GroupID: family.ID, ClientID: "grafana", Role: "user"}}
+	f.store.direct = []domain.UserAssignment{{UserID: admin, ClientID: "grafana", Role: "user"}}
+	var got lost
+	got.listen(f)
+
+	if err := f.svc.Unassign(ctx, asAdmin, domain.Assignment{GroupID: family.ID, ClientID: "grafana", Role: "user"}); err != nil {
+		t.Fatal(err)
+	}
+
+	if want := (lost{ada.String() + " grafana"}); !slices.Equal(got, want) {
+		t.Fatalf("lost %v, want %v", got, want)
+	}
+}
+
+func TestAChangeThatTakesNoRoleAwayTellsNoOne(t *testing.T) {
+	f := newFixture()
+	f.store.members = append(f.store.members, domain.Membership{GroupID: family.ID, UserID: ada})
+	var got lost
+	got.listen(f)
+
+	if err := f.svc.RemoveMember(ctx, asAdmin, domain.Membership{GroupID: family.ID, UserID: ada}); err != nil || len(got) != 0 {
+		t.Fatalf("RemoveMember = %v, lost %v", err, got)
+	}
+}
+
+func TestTakingARoleAwayWithNoOneListeningStillTakesIt(t *testing.T) {
+	f := newFixture()
+	f.store.direct = []domain.UserAssignment{{UserID: ada, ClientID: "grafana", Role: "user"}}
+
+	if err := f.svc.UnassignUser(ctx, asAdmin, f.store.direct[0]); err != nil || len(f.store.direct) != 0 {
+		t.Fatalf("UnassignUser = %v, left %v", err, f.store.direct)
+	}
+}
+
+func TestTakingARoleAwayFailsWhenTheRolesHeldCannotBeRead(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		reads int
+	}{
+		{"before the change", 0},
+		{"after the change", 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFixture()
+			f.store.direct = []domain.UserAssignment{{UserID: ada, ClientID: "grafana", Role: "user"}}
+			if tc.reads == 0 {
+				f.store.fail["RolesByClient"] = errBoom
+			}
+			f.store.rolesReadsBeforeFailing = tc.reads
+
+			if err := f.svc.UnassignUser(ctx, asAdmin, f.store.direct[0]); !errors.Is(err, errBoom) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
+
+func TestTakingAGroupsRolesAwayFailsWhenItsMembersCannotBeRead(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		change operation
+	}{
+		{"Unassign", func(f *fixture, actor app.Actor) error {
+			return f.svc.Unassign(ctx, actor, domain.Assignment{GroupID: family.ID, ClientID: "grafana", Role: "user"})
+		}},
+		{"DeleteGroup", func(f *fixture, actor app.Actor) error { return f.svc.DeleteGroup(ctx, actor, family.ID) }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFixture()
+			f.store.fail["Memberships"] = errBoom
+
+			if err := tc.change(f, asAdmin); !errors.Is(err, errBoom) {
+				t.Fatalf("err = %v", err)
+			}
+		})
 	}
 }

@@ -96,6 +96,23 @@ func (r *requests) AddSessionClient(_ context.Context, sessionID uuid.UUID, clie
 	return nil
 }
 
+// TakeUserSessionClients takes by Client alone: every session in these fakes is the one User's.
+func (r *requests) TakeUserSessionClients(_ context.Context, _ uuid.UUID, clientIDs []string) ([]app.SessionClient, error) {
+	if err := r.fail["TakeUserSessionClients"]; err != nil {
+		return nil, err
+	}
+	var taken, kept []app.SessionClient
+	for _, sc := range r.signed {
+		if slices.Contains(clientIDs, sc.ClientID) {
+			taken = append(taken, sc)
+		} else {
+			kept = append(kept, sc)
+		}
+	}
+	r.signed = kept
+	return taken, nil
+}
+
 func (r *requests) TakeSessionClients(_ context.Context, sessionIDs []uuid.UUID) ([]app.SessionClient, error) {
 	if err := r.fail["TakeSessionClients"]; err != nil {
 		return nil, err
@@ -348,6 +365,30 @@ func TestASignOutSendsALogoutTokenToEachClientTheSessionsSignedInto(t *testing.T
 	f.requests.fail["TakeSessionClients"] = errBoom
 	if err := f.SignedOut(ctx, f.accounts.ada, []uuid.UUID{kept}); !errors.Is(err, errBoom) {
 		t.Fatalf("a failing store: %v", err)
+	}
+}
+
+func TestALostRoleSignsTheUserOutOfThatClientOnly(t *testing.T) {
+	f := newFixture()
+	ctx := context.Background()
+	lostOn, keptOn := uuid.New(), uuid.New()
+	_ = f.requests.AddSessionClient(ctx, lostOn, "spa")
+	_ = f.requests.AddSessionClient(ctx, keptOn, "web")
+
+	if err := f.RolesLost(ctx, f.accounts.ada, []string{"spa"}); err != nil {
+		t.Fatal(err)
+	}
+
+	if want := []string{"spa " + f.accounts.ada.String() + " " + lostOn.String()}; !slices.Equal(f.logouts.sent, want) {
+		t.Fatalf("sent %v, want %v", f.logouts.sent, want)
+	}
+}
+
+func TestALostRoleFailsWhenTheSessionsCannotBeRead(t *testing.T) {
+	f := newFixture()
+	f.requests.fail["TakeUserSessionClients"] = errBoom
+	if err := f.RolesLost(context.Background(), f.accounts.ada, []string{"spa"}); !errors.Is(err, errBoom) {
+		t.Fatalf("err = %v", err)
 	}
 }
 
