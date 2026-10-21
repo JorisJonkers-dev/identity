@@ -248,3 +248,35 @@ func (q *Queries) TakeSessionClients(ctx context.Context, sessionIds []uuid.UUID
 	}
 	return items, nil
 }
+
+const takeUserSessionClients = `-- name: TakeUserSessionClients :many
+DELETE FROM session_clients sc USING sessions s
+WHERE sc.session_id = s.id AND s.user_id = $1::uuid AND sc.client_id = ANY($2::text[])
+RETURNING sc.session_id, sc.client_id
+`
+
+type TakeUserSessionClientsParams struct {
+	UserID    uuid.UUID
+	ClientIds []string
+}
+
+// A User's live sessions that signed into the Clients, removed as they are read.
+func (q *Queries) TakeUserSessionClients(ctx context.Context, arg TakeUserSessionClientsParams) ([]SessionClient, error) {
+	rows, err := q.db.Query(ctx, takeUserSessionClients, arg.UserID, arg.ClientIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SessionClient{}
+	for rows.Next() {
+		var i SessionClient
+		if err := rows.Scan(&i.SessionID, &i.ClientID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

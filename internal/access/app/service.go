@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -114,21 +115,29 @@ type Overview struct {
 	People          []domain.Person
 }
 
+// RolesLost signs a User out of each Client where they lost an App Role, so the app's next sign-in
+// states the roles they hold now (identity#138).
+type RolesLost func(ctx context.Context, userID uuid.UUID, clientIDs []string)
+
 // Service is the access use cases.
 type Service struct {
-	store    Store
-	clients  Clients
-	people   People
-	audit    Audit
-	random   io.Reader
-	machines MachineStore
-	now      func() time.Time
+	store     Store
+	clients   Clients
+	people    People
+	audit     Audit
+	random    io.Reader
+	machines  MachineStore
+	now       func() time.Time
+	rolesLost RolesLost
 }
 
 // New returns a Service. random is where Group ids come from.
 func New(store Store, clients Clients, people People, audit Audit, random io.Reader) *Service {
 	return &Service{store: store, clients: clients, people: people, audit: audit, random: random}
 }
+
+// SetRolesLost is told of every User who loses an App Role, once the change is made.
+func (s *Service) SetRolesLost(f RolesLost) { s.rolesLost = f }
 
 // IsAdmin reports whether a User is in the admins Group.
 func (s *Service) IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error) {
@@ -273,7 +282,11 @@ func (s *Service) DeleteGroup(ctx context.Context, actor Actor, id uuid.UUID) er
 	if g.Admins {
 		return ErrAdminsGroup
 	}
-	if err := s.store.DeleteGroup(ctx, id); err != nil {
+	members, err := s.members(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := s.losing(ctx, members, func() error { return s.store.DeleteGroup(ctx, id) }); err != nil {
 		return err
 	}
 	s.audit.Record(ctx, audit.Event{Action: audit.GroupDeleted, Actor: actor.ID, Group: id, GroupName: g.Name})
@@ -314,7 +327,11 @@ func (s *Service) RemoveMember(ctx context.Context, actor Actor, m domain.Member
 	if err := s.admin(ctx, actor); err != nil {
 		return err
 	}
-	removed, err := s.store.RemoveMember(ctx, m)
+	var removed bool
+	err := s.losing(ctx, []uuid.UUID{m.UserID}, func() (err error) {
+		removed, err = s.store.RemoveMember(ctx, m)
+		return err
+	})
 	if removed {
 		s.recordMembership(ctx, audit.MemberRemoved, actor, m)
 	}
@@ -353,7 +370,15 @@ func (s *Service) Unassign(ctx context.Context, actor Actor, a domain.Assignment
 	if err := s.admin(ctx, actor); err != nil {
 		return err
 	}
-	removed, err := s.store.Unassign(ctx, a)
+	members, err := s.members(ctx, a.GroupID)
+	if err != nil {
+		return err
+	}
+	var removed bool
+	err = s.losing(ctx, members, func() (err error) {
+		removed, err = s.store.Unassign(ctx, a)
+		return err
+	})
 	if removed {
 		e := audit.Event{Action: audit.RoleRemoved, Actor: actor.ID, Client: a.ClientID, Group: a.GroupID, Role: a.Role}
 		if g, err := s.store.Group(ctx, a.GroupID); err == nil {
@@ -388,7 +413,11 @@ func (s *Service) UnassignUser(ctx context.Context, actor Actor, a domain.UserAs
 	if err := s.admin(ctx, actor); err != nil {
 		return err
 	}
-	removed, err := s.store.UnassignUser(ctx, a)
+	var removed bool
+	err := s.losing(ctx, []uuid.UUID{a.UserID}, func() (err error) {
+		removed, err = s.store.UnassignUser(ctx, a)
+		return err
+	})
 	if removed {
 		s.audit.Record(ctx, audit.Event{Action: audit.RoleRemoved, Actor: actor.ID, User: a.UserID, Client: a.ClientID, Role: a.Role})
 	}
@@ -408,11 +437,15 @@ func (s *Service) SetTwoFactor(ctx context.Context, actor Actor, id uuid.UUID, r
 	if g.Admins && !required {
 		return ErrAdminsNeedTwoFactor
 	}
-	if err := s.store.SetGroupTwoFactor(ctx, id, required); err != nil {
+	members, err := s.members(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := s.losing(ctx, members, func() error { return s.store.SetGroupTwoFactor(ctx, id, required) }); err != nil {
 		return err
 	}
 	if required && !g.RequiresTwoFactor {
-		if err := s.tellHeldBack(ctx, g); err != nil {
+		if err := s.tellHeldBack(ctx, g, members); err != nil {
 			return err
 		}
 	}
@@ -424,13 +457,9 @@ func (s *Service) SetTwoFactor(ctx context.Context, actor Actor, id uuid.UUID, r
 	return nil
 }
 
-// tellHeldBack mails each member of a Group that has just started requiring two-factor and who has
-// none, once (identity#88).
-func (s *Service) tellHeldBack(ctx context.Context, g domain.Group) error {
-	members, err := s.store.Memberships(ctx)
-	if err != nil {
-		return err
-	}
+// tellHeldBack mails each of a Group's members who has no two-factor that the Group has just started
+// requiring it, once (identity#88).
+func (s *Service) tellHeldBack(ctx context.Context, g domain.Group, members []uuid.UUID) error {
 	people, err := s.people.People(ctx)
 	if err != nil {
 		return err
@@ -439,12 +468,68 @@ func (s *Service) tellHeldBack(ctx context.Context, g domain.Group) error {
 	for _, p := range people {
 		without[p.ID] = !p.TwoFactor
 	}
-	for _, m := range members {
-		if m.GroupID == g.ID && without[m.UserID] {
-			if err := s.people.TwoFactorRequired(ctx, m.UserID, g.Name); err != nil {
+	for _, id := range members {
+		if without[id] {
+			if err := s.people.TwoFactorRequired(ctx, id, g.Name); err != nil {
 				return err
 			}
 		}
 	}
 	return nil
+}
+
+// members is the Users in a Group.
+func (s *Service) members(ctx context.Context, groupID uuid.UUID) ([]uuid.UUID, error) {
+	all, err := s.store.Memberships(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out []uuid.UUID
+	for _, m := range all {
+		if m.GroupID == groupID {
+			out = append(out, m.UserID)
+		}
+	}
+	return out, nil
+}
+
+// losing makes change, then tells rolesLost of each of users who lost an App Role by it, naming the
+// Clients they lost one on.
+func (s *Service) losing(ctx context.Context, users []uuid.UUID, change func() error) error {
+	before := make(map[uuid.UUID]map[string][]string, len(users))
+	for _, id := range users {
+		held, err := s.store.RolesByClient(ctx, id)
+		if err != nil {
+			return err
+		}
+		before[id] = held
+	}
+	if err := change(); err != nil {
+		return err
+	}
+	for _, id := range users {
+		after, err := s.store.RolesByClient(ctx, id)
+		if err != nil {
+			return err
+		}
+		if lost := lostClients(before[id], after); len(lost) > 0 && s.rolesLost != nil {
+			s.rolesLost(ctx, id, lost)
+		}
+	}
+	return nil
+}
+
+// lostClients is the Clients on which after lacks a role before held, in order.
+func lostClients(before, after map[string][]string) []string {
+	var lost []string
+	for client, roles := range before {
+		for _, role := range roles {
+			if !slices.Contains(after[client], role) {
+				lost = append(lost, client)
+				break
+			}
+		}
+	}
+	slices.Sort(lost)
+	return lost
 }

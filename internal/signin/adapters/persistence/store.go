@@ -95,3 +95,15 @@ func (s *Store) TakeSessionClients(ctx context.Context, sessionIDs []uuid.UUID) 
 	}
 	return out, nil
 }
+
+func (s *Store) TakeUserSessionClients(ctx context.Context, userID uuid.UUID, clientIDs []string) ([]app.SessionClient, error) {
+	rows, err := s.q.TakeUserSessionClients(ctx, queries.TakeUserSessionClientsParams{UserID: userID, ClientIds: clientIDs})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]app.SessionClient, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, app.SessionClient{SessionID: r.SessionID, ClientID: r.ClientID})
+	}
+	return out, nil
+}

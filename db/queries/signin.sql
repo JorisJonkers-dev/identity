@@ -29,6 +29,12 @@ INSERT INTO session_clients (session_id, client_id) VALUES ($1, $2) ON CONFLICT 
 -- The Clients the ended sessions signed into, removed as they are read.
 DELETE FROM session_clients WHERE session_id = ANY(sqlc.arg(session_ids)::uuid[]) RETURNING session_id, client_id;
 
+-- name: TakeUserSessionClients :many
+-- A User's live sessions that signed into the Clients, removed as they are read.
+DELETE FROM session_clients sc USING sessions s
+WHERE sc.session_id = s.id AND s.user_id = sqlc.arg(user_id)::uuid AND sc.client_id = ANY(sqlc.arg(client_ids)::text[])
+RETURNING sc.session_id, sc.client_id;
+
 -- name: StepUpMinutes :one
 SELECT minutes FROM step_up WHERE client_id = $1;
 

@@ -42,6 +42,8 @@ type Requests interface {
 	AddSessionClient(ctx context.Context, sessionID uuid.UUID, clientID string) error
 	// TakeSessionClients removes and returns the Clients the sessions signed into.
 	TakeSessionClients(ctx context.Context, sessionIDs []uuid.UUID) ([]SessionClient, error)
+	// TakeUserSessionClients removes and returns the User's sessions that signed into the Clients.
+	TakeUserSessionClients(ctx context.Context, userID uuid.UUID, clientIDs []string) ([]SessionClient, error)
 }
 
 // SessionClient is a Client a Single sign-on session signed into.
@@ -231,6 +233,24 @@ func (s *Service) SignedOut(ctx context.Context, userID uuid.UUID, sessionIDs []
 	if err != nil {
 		return err
 	}
+	s.logOut(ctx, userID, signed)
+	return nil
+}
+
+// RolesLost sends a logout token to each of the Clients for every session of the User that signed
+// into it, as the User lost an App Role there (identity#138). The next sign-in states the roles
+// the User holds now.
+func (s *Service) RolesLost(ctx context.Context, userID uuid.UUID, clientIDs []string) error {
+	signed, err := s.requests.TakeUserSessionClients(ctx, userID, clientIDs)
+	if err != nil {
+		return err
+	}
+	s.logOut(ctx, userID, signed)
+	return nil
+}
+
+// logOut sends a logout token for each signed-in session to its Client, when the Client takes one.
+func (s *Service) logOut(ctx context.Context, userID uuid.UUID, signed []SessionClient) {
 	for _, sc := range signed {
 		c, err := s.clients.Client(ctx, sc.ClientID)
 		if err != nil || c.BackChannelLogoutURI == "" {
@@ -238,7 +258,6 @@ func (s *Service) SignedOut(ctx context.Context, userID uuid.UUID, sessionIDs []
 		}
 		s.logouts.Send(ctx, c, userID, sc.SessionID)
 	}
-	return nil
 }
 
 // SaveCode records the code issued for a completed request; a request gets one code only.

@@ -107,6 +107,10 @@ func (r *requests) TakeSessionClients(context.Context, []uuid.UUID) ([]app.Sessi
 	return nil, r.fail
 }
 
+func (r *requests) TakeUserSessionClients(context.Context, uuid.UUID, []string) ([]app.SessionClient, error) {
+	return nil, r.fail
+}
+
 // noLogouts sends nothing: the Provider's flows never sign a session out.
 type noLogouts struct{}
 
