@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"testing"
 
+	adapter "github.com/JorisJonkers-dev/go-commons/identity"
+
 	"github.com/JorisJonkers-dev/identity/internal/platform/itest"
 )
 
@@ -39,7 +41,7 @@ func TestAUsersAccessTokenStatesTheirPrincipalAndTheSessionThatSignedThemIn(t *t
 
 	p := c.env.AccessTokenPrincipal(t, c.ada.AccessToken(t, wiki), "wiki")
 
-	if p["subject"] != c.adaID || p["kind"] != "user" || p["email"] != c.ada.Email || p["via"] != "session" || p["sid"] == nil || p["actor"] != nil {
+	if p.Subject != c.adaID || p.Kind != adapter.KindUser || p.Email != c.ada.Email || p.Via != adapter.ViaSession || p.SID == "" || p.Actor != nil {
 		t.Fatalf("principal = %v", p)
 	}
 }
@@ -51,7 +53,7 @@ func TestAUsersAccessTokenSaysWhenTheSessionProvedTwoFactor(t *testing.T) {
 
 	p := c.env.AccessTokenPrincipal(t, c.ada.AccessToken(t, wiki), "wiki")
 
-	if p["twoFactor"] != true || p["twoFactorAt"] == nil {
+	if !p.TwoFactor || p.TwoFactorAt == nil {
 		t.Fatalf("principal = %v", p)
 	}
 }
@@ -74,7 +76,7 @@ func TestAMachineIdentitysAccessTokenStatesAMachineWithNoEmailOrName(t *testing.
 
 	p := c.env.AccessTokenPrincipal(t, tokens["access_token"].(string), "grafana")
 
-	if p["subject"] != m.ID || p["kind"] != "machine" || p["via"] != "machine" || p["email"] != nil || p["name"] != nil {
+	if p.Subject != m.ID || p.Kind != adapter.KindMachine || p.Via != adapter.ViaMachine || p.Email != "" || p.Name != "" {
 		t.Fatalf("principal = %v", p)
 	}
 }
@@ -85,9 +87,9 @@ func TestAPersonalTokensIntrospectionStatesItsUserByPersonalToken(t *testing.T) 
 	var minted struct{ Secret string }
 	c.ada.Call(t, http.MethodPost, "/api/v1/profile/tokens", map[string]any{"name": "script", "clientId": "grafana", "days": 30}, http.StatusCreated, &minted)
 
-	p := itest.IntrospectionPrincipal(t, c.env.Introspect(t, "grafana", c.secret, minted.Secret), "grafana")
+	p := c.env.IntrospectionPrincipal(t, minted.Secret, "grafana", c.secret)
 
-	if p["subject"] != c.adaID || p["via"] != "personal-token" || p["sid"] != nil || p["actor"] != nil {
+	if p.Subject != c.adaID || p.Via != adapter.ViaPersonalToken || p.SID != "" || p.Actor != nil {
 		t.Fatalf("principal = %v", p)
 	}
 }
@@ -97,10 +99,9 @@ func TestAConnectedAppsIntrospectionNamesTheToolActingForTheUser(t *testing.T) {
 	c := startChannels(t)
 	tool, token := c.ada.ConnectedApp(t, "Claude Code", "https://grafana.test/mcp")
 
-	p := itest.IntrospectionPrincipal(t, c.env.Introspect(t, "grafana", c.secret, token), "grafana")
+	p := c.env.IntrospectionPrincipal(t, token, "grafana", c.secret)
 
-	actor, _ := p["actor"].(map[string]any)
-	if p["subject"] != c.adaID || p["via"] != "tool" || actor["id"] != tool || actor["name"] != "Claude Code" {
+	if p.Subject != c.adaID || p.Via != adapter.ViaTool || p.Actor == nil || p.Actor.ID != tool || p.Actor.Name != "Claude Code" {
 		t.Fatalf("principal = %v", p)
 	}
 }
