@@ -2,8 +2,8 @@
 #
 # release-please maintains a release PR that accumulates conventional commits
 # and, when merged, creates a vX.Y.Z git tag + GitHub Release and bumps the
-# version manifest. Publishing of artifacts (Maven/npm to GitHub Packages,
-# images to GHCR) hangs off the published-release event below.
+# version manifest. The server and migration images are published to GHCR at
+# that tag by the jobs below.
 #
 # This gives every repo an explicit, immutable version. Consumers pin exact
 # versions (see VERSIONING.md); nothing deploys or resolves from a moving
@@ -42,12 +42,32 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  publish:
+  # identity's server and its migration, at the release's tag, so a sign-in kit's flow-conformance
+  # suite (contract/flows) can run the identity whose contract it pins.
+  image:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
-    runs-on: ubuntu-latest
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/container-publish.yml@870429202376dac2e9434746941c54f9a2be605f # v0.33.0
+    with:
+      image-name: identity
+      version: ${{ needs.release-please.outputs.tag_name }}
+      software-version: ${{ needs.release-please.outputs.tag_name }}
+      platforms: linux/amd64,linux/arm64
     permissions:
       contents: read
-    steps:
-      # The GitHub Release is the artifact; add image publishing here when the service deploys.
-      - run: echo 'Released identity at ${{ needs.release-please.outputs.tag_name }}'
+      packages: write
+
+  migration-image:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/container-publish.yml@870429202376dac2e9434746941c54f9a2be605f # v0.33.0
+    with:
+      image-name: identity-migration
+      version: ${{ needs.release-please.outputs.tag_name }}
+      # The changelog's version, not the liquibase-runner base the image is built on.
+      software-version: ${{ needs.release-please.outputs.tag_name }}
+      dockerfile: Dockerfile.migration
+      platforms: linux/amd64,linux/arm64
+    permissions:
+      contents: read
+      packages: write
