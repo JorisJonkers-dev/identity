@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.0](https://github.com/JorisJonkers-dev/identity/compare/v0.3.1...v0.4.0) (2026-10-21)
+
+
+### Features
+
+* a native app asks for a fresh two-factor proof with acr_values=mfa and max_age ([#143](https://github.com/JorisJonkers-dev/identity/issues/143)) ([d89d2c5](https://github.com/JorisJonkers-dev/identity/commit/d89d2c5488206e411f371eb19e2e608073648fd9)), closes [#142](https://github.com/JorisJonkers-dev/identity/issues/142)
+* a role taken away signs the User out of that Client by back-channel logout ([#141](https://github.com/JorisJonkers-dev/identity/issues/141)) ([ec19a6c](https://github.com/JorisJonkers-dev/identity/commit/ec19a6c882759e62064e2cc5a55675e17692f5b6)), closes [#138](https://github.com/JorisJonkers-dev/identity/issues/138)
+* the flow-conformance suite native sign-in kits are held to ([#145](https://github.com/JorisJonkers-dev/identity/issues/145)) ([42668eb](https://github.com/JorisJonkers-dev/identity/commit/42668eb083dc5f1c560beae395742616a219d8ae))
+
+
+### Bug Fixes
+
+* identity's in-memory limiter forgets keys whose hits all expired, and holds at most 50 000 ([#137](https://github.com/JorisJonkers-dev/identity/issues/137)) ([201f839](https://github.com/JorisJonkers-dev/identity/commit/201f83968d945d8ffc406a306b0c930d74809ccb)), closes [#117](https://github.com/JorisJonkers-dev/identity/issues/117)
+
 ## [0.3.1](https://github.com/JorisJonkers-dev/identity/compare/v0.3.0...v0.3.1) (2026-10-21)
 
 
