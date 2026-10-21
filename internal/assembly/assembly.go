@@ -169,6 +169,11 @@ func New(ctx context.Context, cfg Config) (*Identity, error) {
 	}
 	logouts := signinoidc.NewLogouts(cfg.PublicURL, ring, &http.Client{}, cfg.Logger, time.Now)
 	signIn := signinapp.New(signinpersistence.New(q), cfg.Index, accounts.New(users), access, logouts, recorder, now, rand.Reader)
+	access.SetRolesLost(func(ctx context.Context, userID uuid.UUID, clientIDs []string) {
+		if err := signIn.RolesLost(ctx, userID, clientIDs); err != nil {
+			cfg.Logger.ErrorContext(ctx, "back-channel logout on a lost role", "error", err)
+		}
+	})
 	secretHashes := signinpersistence.NewClientSecrets(q, cfg.Store, time.Now)
 	secrets := signinapp.NewClientSecrets(secretHashes, secretstore.New(cfg.KV), cfg.Index, admins, recorder, rand.Reader)
 	serviceAccounts := cfg.ServiceAccounts

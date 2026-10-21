@@ -7,6 +7,8 @@ import (
 	"slices"
 	"testing"
 
+	adapter "github.com/JorisJonkers-dev/go-commons/identity"
+
 	"github.com/JorisJonkers-dev/identity/internal/platform/itest"
 	signindomain "github.com/JorisJonkers-dev/identity/internal/signin/domain"
 )
@@ -50,8 +52,8 @@ func TestTheGateSendsASessionsSignedPrincipalForTheClient(t *testing.T) {
 
 	p := env.Principal(t, answer, "stats")
 
-	if p["subject"] != id || p["kind"] != "user" || p["email"] != ada.Email || p["via"] != "session" || p["sid"] == nil ||
-		!slices.Equal(p["roles"].([]string), []string{"user"}) || p["twoFactor"] != false || p["actor"] != nil {
+	if p.Subject != id || p.Kind != adapter.KindUser || p.Email != ada.Email || p.Via != adapter.ViaSession || p.SID == "" ||
+		!slices.Equal(p.Roles, []string{"user"}) || p.TwoFactor || p.Actor != nil {
 		t.Fatalf("principal = %v", p)
 	}
 }
@@ -65,7 +67,7 @@ func TestTheGatesPrincipalSaysWhenTheSessionProvedTwoFactor(t *testing.T) {
 
 	p := env.Principal(t, answer, "stats")
 
-	if p["twoFactor"] != true || p["twoFactorAt"] == nil {
+	if !p.TwoFactor || p.TwoFactorAt == nil {
 		t.Fatalf("principal = %v", p)
 	}
 }
@@ -78,7 +80,7 @@ func TestTheGatesPrincipalForAPersonalTokenNamesNoSession(t *testing.T) {
 
 	p := env.Principal(t, answer, "stats")
 
-	if p["via"] != "personal-token" || p["sid"] != nil || p["actor"] != nil || p["twoFactor"] != false {
+	if p.Via != adapter.ViaPersonalToken || p.SID != "" || p.Actor != nil || p.TwoFactor {
 		t.Fatalf("principal = %v", p)
 	}
 }
@@ -92,8 +94,7 @@ func TestTheGatesPrincipalNamesAToolActingForAUser(t *testing.T) {
 
 	p := env.Principal(t, answer, "kb")
 
-	actor, _ := p["actor"].(map[string]any)
-	if p["subject"] != id || p["via"] != "tool" || actor["id"] != tool || actor["name"] != "Claude Code" || p["sid"] != nil {
+	if p.Subject != id || p.Via != adapter.ViaTool || p.Actor == nil || p.Actor.ID != tool || p.Actor.Name != "Claude Code" || p.SID != "" {
 		t.Fatalf("principal = %v", p)
 	}
 	if got := answer.Header.Get("X-Auth-Request-Actor"); got != "Claude Code" {

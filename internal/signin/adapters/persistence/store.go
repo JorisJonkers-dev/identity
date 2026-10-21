@@ -101,6 +101,18 @@ func (s *Store) TakeSessionClients(ctx context.Context, sessionIDs []uuid.UUID) 
 	return out, nil
 }
 
+func (s *Store) TakeUserSessionClients(ctx context.Context, userID uuid.UUID, clientIDs []string) ([]app.SessionClient, error) {
+	rows, err := s.q.TakeUserSessionClients(ctx, queries.TakeUserSessionClientsParams{UserID: userID, ClientIds: clientIDs})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]app.SessionClient, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, app.SessionClient{SessionID: r.SessionID, ClientID: r.ClientID})
+	}
+	return out, nil
+}
+
 // secondsOf is d in whole seconds, or NULL for none. It is at most domain.StalestProof, so it fits.
 func secondsOf(d time.Duration) pgtype.Int4 {
 	return pgtype.Int4{Int32: int32(d / time.Second), Valid: d > 0} //nolint:gosec // an hour at most

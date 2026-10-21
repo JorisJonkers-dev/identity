@@ -262,6 +262,7 @@ func WithAdmins(admins Admins) Option { return func(s *Service) { s.admins = adm
 // New returns a Service. publicURL is where links in mail point, with no trailing slash.
 func New(store Store, hasher Hasher, mailer Mailer, now func() time.Time, random io.Reader, publicURL string, opts ...Option) *Service {
 	s := &Service{store: store, hasher: hasher, mailer: mailer, now: now, random: random, publicURL: publicURL, matchTOTP: domain.MatchTOTP}
+	s.resets.window = resetWindow
 	for _, opt := range opts {
 		opt(s)
 	}
