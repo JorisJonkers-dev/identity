@@ -34,17 +34,24 @@ type StepUpSettings interface {
 // does. It is set once, before the Provider serves.
 func (s *Service) SetStepUps(settings StepUpSettings) { s.stepUps = settings }
 
-// fresh is nil when the Client wants no step-up or the session proved two-factor within its window.
-func (s *Service) fresh(ctx context.Context, signIn domain.SignIn, clientID string) error {
-	if s.stepUps == nil {
+// fresh is nil when the session proved two-factor within the stricter of the Client's step-up
+// window and the window the app asked for (identity#142), or when neither asks for one.
+func (s *Service) fresh(ctx context.Context, signIn domain.SignIn, clientID string, asked time.Duration) error {
+	window := asked
+	if s.stepUps != nil {
+		minutes, err := s.stepUps.StepUp(ctx, clientID)
+		if err != nil {
+			return err
+		}
+		if w := time.Duration(minutes) * time.Minute; w > 0 && (window == 0 || w < window) {
+			window = w
+		}
+	}
+	if window == 0 {
 		return nil
 	}
-	minutes, err := s.stepUps.StepUp(ctx, clientID)
-	if err != nil || minutes == 0 {
-		return err
-	}
 	// A session that never proved two-factor has a zero time, older than any window.
-	if s.now().Sub(signIn.TwoFactorAt) <= time.Duration(minutes)*time.Minute {
+	if s.now().Sub(signIn.TwoFactorAt) <= window {
 		return nil
 	}
 	has, err := s.accounts.HasTwoFactor(ctx, signIn.UserID)

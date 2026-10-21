@@ -162,7 +162,7 @@ func (s *Service) Complete(ctx context.Context, id uuid.UUID, sessionToken strin
 	if r.Resource != "" {
 		return s.completeConnected(ctx, r, signIn)
 	}
-	if err := s.admit(ctx, signIn, r.ClientID); err != nil {
+	if err := s.admit(ctx, signIn, r.ClientID, r.TwoFactorWithin); err != nil {
 		return err
 	}
 	if err := s.complete(ctx, r, signIn); err != nil {
@@ -192,12 +192,12 @@ func (s *Service) completeConnected(ctx context.Context, r domain.AuthRequest, s
 }
 
 // admit lets a User sign in to a Client while they hold an App Role there and their session is as
-// fresh as the Client wants.
-func (s *Service) admit(ctx context.Context, signIn domain.SignIn, clientID string) error {
+// fresh as the Client wants, and as the app asked.
+func (s *Service) admit(ctx context.Context, signIn domain.SignIn, clientID string, asked time.Duration) error {
 	if _, err := s.held(ctx, signIn, clientID); err != nil {
 		return err
 	}
-	return s.fresh(ctx, signIn, clientID)
+	return s.fresh(ctx, signIn, clientID, asked)
 }
 
 // held is the User's App Roles on a Client; ErrNoAccess, as an Audit Event, when they hold none.

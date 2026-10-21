@@ -1,0 +1,11 @@
+# An authorization request keeps how fresh a two-factor proof its app asked for with acr_values=mfa
+# and max_age, so completing it can ask for one (identity#142).
+databaseChangeLog:
+  - changeSet:
+      id: 0022-auth-request-fresh-proof
+      author: identity
+      changes:
+        - addColumn:
+            tableName: auth_requests
+            columns:
+              - column: {name: two_factor_within_seconds, type: integer}

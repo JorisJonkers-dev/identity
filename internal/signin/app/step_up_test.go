@@ -334,3 +334,35 @@ func TestStepUpFailsWhenTheConnectedAppsCannotBeReadOrEnded(t *testing.T) {
 		t.Fatalf("Set = %v, kept %v", err, f.settings.minutes)
 	}
 }
+
+// asking is a request to spa whose app asked for a two-factor proof within window.
+func (f *fixture) asking(t *testing.T, window time.Duration) uuid.UUID {
+	t.Helper()
+	r, err := f.Start(context.Background(), domain.AuthRequest{ClientID: "spa", State: "st", TwoFactorWithin: window})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r.ID
+}
+
+func TestAnAppAskingForAFresherProofThanTheClientsWindowGetsIt(t *testing.T) {
+	f, _ := stepping(10 * time.Minute)
+	if err := f.Complete(context.Background(), f.asking(t, 5*time.Minute), "tok"); !errors.Is(err, app.ErrStepUpNeeded) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestTheClientsWindowWinsWhenItIsFresherThanTheAppAsked(t *testing.T) {
+	f, _ := stepping(20 * time.Minute)
+	if err := f.Complete(context.Background(), f.asking(t, 30*time.Minute), "tok"); !errors.Is(err, app.ErrStepUpNeeded) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestAnAppAskingForAFreshProofOfAClientWithoutStepUpGetsIt(t *testing.T) {
+	f, s := stepping(10 * time.Minute)
+	s.minutes["spa"] = 0
+	if err := f.Complete(context.Background(), f.asking(t, 5*time.Minute), "tok"); !errors.Is(err, app.ErrStepUpNeeded) {
+		t.Fatalf("err = %v", err)
+	}
+}

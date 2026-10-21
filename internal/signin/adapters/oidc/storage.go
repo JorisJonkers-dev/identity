@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/go-jose/go-jose/v4"
@@ -54,6 +55,10 @@ func (s *storage) CreateAuthRequest(ctx context.Context, req *oidc.AuthRequest, 
 		ClientID: req.ClientID, RedirectURI: req.RedirectURI, Scopes: req.Scopes, State: req.State, Nonce: req.Nonce,
 		ResponseType: string(req.ResponseType), ResponseMode: string(req.ResponseMode),
 		CodeChallenge: req.CodeChallenge, CodeChallengeMethod: string(req.CodeChallengeMethod),
+	}
+	// An app asks for a fresh two-factor proof with acr_values=mfa, as recent as max_age says.
+	if slices.Contains(req.ACRValues, "mfa") {
+		r.TwoFactorWithin = domain.AskedProof(req.MaxAge)
 	}
 	if isRegistration(req.ClientID) {
 		resource, err := s.resourceOf(ctx)
