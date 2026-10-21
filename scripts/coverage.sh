@@ -74,13 +74,14 @@ module=$(go list -m)
 
 # Branch mode counts each branch taken; condition mode counts each operand of && and || both ways.
 # Each package is instrumented and tested on its own, so they run side by side, one per CPU.
+# gobco tests a fresh copy of the module each run; -trimpath stops the build cache keying on its path.
 jobs=$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)
 gobco_total() {
   mode=$1
   shift
   reports=$(mktemp -d "$copy/.gobco-$mode.XXXXXX")
   for package in $unit; do echo "${package#"$module"/}"; done |
-    xargs -P "$jobs" -I{} sh -c 'cd "$1" && go tool gobco $2 "./$3" >"$4/$(echo "$3" | tr / _).txt" 2>&1' _ "$copy" "$*" {} "$reports" ||
+    xargs -P "$jobs" -I{} sh -c 'cd "$1" && go tool gobco -test -trimpath $2 "./$3" >"$4/$(echo "$3" | tr / _).txt" 2>&1' _ "$copy" "$*" {} "$reports" ||
     true # a package whose gobco failed has no coverage line, so the loop below prints it and fails
   taken=0
   total=0
