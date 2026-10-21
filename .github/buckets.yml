@@ -14,6 +14,7 @@ buckets:
     - 'deploy/crd/**' # the integration tests apply it to a real API server
     - 'deploy/alerts/**' # the integration tests run promtool on it
     - 'contract/principal/**' # the Principal contract, which the Go tests hold the Gate to
+    - 'contract/flows/**' # the flow-conformance suite, vetted with the Go lint
   # The schema and what migrates it.
   db:
     - 'db/**'
@@ -55,6 +56,8 @@ fixtures:
   web/embed.go: [go]
   contract/principal/mapping.json: [go]
   contract/principal/go.mod: [go]
+  contract/flows/scenarios.go: [go]
+  contract/flows/README.md: [go]
   go.mod: [go]
   go.sum: [go]
   .golangci.yml: [go]
