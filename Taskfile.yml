@@ -64,6 +64,11 @@ tasks:
       # The Principal contract is a module of its own, which adapters pin by its tag.
       - cmd: go vet ./...
         dir: contract/principal
+      # So is its flow-conformance suite, which sign-in kits pin by theirs.
+      - cmd: go vet ./...
+        dir: contract/flows
+      - cmd: golangci-lint run ./...
+        dir: contract/flows
 
   lint:spec:
     desc: OpenAPI conformance; Redocly recommended-strict, Spectral with OWASP, vacuum

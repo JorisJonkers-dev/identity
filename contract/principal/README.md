@@ -13,6 +13,9 @@ a version of this directory and is held to its conformance vectors.
 - `vectors/introspection/*.json` (since 1.1): identity's introspection answer about a Personal Token
   or a Connected App's token, and the Principal or the refusal it must conclude.
 
+Native sign-in kits are held to the flow-conformance suite in [`contract/flows`](../flows/README.md)
+as well: sign in, sign out everywhere, a role taken away, and step-up, against a real identity.
+
 ## Pinning a version
 
 Each release is tagged `contract/principal/vX.Y.Z`.
