@@ -4,9 +4,9 @@ go 1.26.4
 
 require (
 	github.com/JorisJonkers-dev/identity/contract/principal v1.1.1
-	github.com/moby/moby/api v1.55.0
+	github.com/moby/moby/api v1.56.1
 	github.com/pquerna/otp v1.5.0
-	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
 	github.com/testcontainers/testcontainers-go v0.44.0
 )
 

@@ -19,7 +19,7 @@ services:
   # Catches every mail a local run or the e2e suite sends; its API is how the e2e suite reads the
   # confirmation link. Never in a deployment, where mail goes to Stalwart over TLS (docs/adr/0012).
   mailpit:
-    image: axllent/mailpit:v1.27.10
+    image: axllent/mailpit:v1.31.5
     ports:
       - "21025:1025"
       - "28025:8025"
@@ -31,7 +31,7 @@ services:
   # A dev-mode Vault, for the transit key that seals TOTP secrets (docs/adr/0013). In memory and
   # unsealed, with a fixed root token: local runs and the e2e suite only. `task db` makes the key.
   vault:
-    image: hashicorp/vault:1.19.0
+    image: hashicorp/vault:1.21.4
     environment:
       VAULT_DEV_ROOT_TOKEN_ID: dev-only-root
       VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
@@ -43,7 +43,7 @@ services:
       retries: 30
 
   vault-init:
-    image: hashicorp/vault:1.19.0
+    image: hashicorp/vault:1.21.4
     profiles: [migrate]
     environment:
       VAULT_ADDR: http://vault:8200

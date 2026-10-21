@@ -1,7 +1,7 @@
 {
   "name": "identity",
   "private": true,
-  "packageManager": "pnpm@12.6.0",
+  "packageManager": "pnpm@12.13.0",
   "engines": {
     "node": "v26.12.0"
   }
