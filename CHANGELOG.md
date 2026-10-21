@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/JorisJonkers-dev/identity/compare/v0.3.0...v0.3.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* one release pull request per component, so each title carries its version ([#139](https://github.com/JorisJonkers-dev/identity/issues/139)) ([1e07833](https://github.com/JorisJonkers-dev/identity/commit/1e078330f40fa503e6ef16ecbcec947e661f2f02))
+
 ## [0.3.0](https://github.com/JorisJonkers-dev/identity/compare/v0.2.0...v0.3.0) (2026-10-20)
 
 
