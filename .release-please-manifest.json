@@ -1,5 +1,5 @@
 {
   ".": "0.4.0",
-  "contract/principal": "1.1.1",
+  "contract/principal": "1.2.0",
   "contract/flows": "0.1.0"
 }
