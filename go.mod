@@ -1,6 +1,6 @@
 module github.com/JorisJonkers-dev/identity
 
-go 1.27.3
+go 1.26.4
 
 // pnpm installs JavaScript packages beside the Go sources; some of them ship .go files.
 ignore node_modules
@@ -12,7 +12,7 @@ tool (
 )
 
 require (
-	github.com/JorisJonkers-dev/go-commons v0.3.0
+	github.com/JorisJonkers-dev/go-commons v0.3.1
 	github.com/descope/virtualwebauthn v1.0.3
 	github.com/go-faster/errors v0.8.0
 	github.com/go-faster/jx v1.2.0
