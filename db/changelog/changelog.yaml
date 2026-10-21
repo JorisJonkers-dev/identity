@@ -65,3 +65,6 @@ databaseChangeLog:
   - include:
       file: 0021-auth-request-two-factor-at.yaml
       relativeToChangelogFile: true
+  - include:
+      file: 0022-auth-request-fresh-proof.yaml
+      relativeToChangelogFile: true

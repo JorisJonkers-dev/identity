@@ -70,8 +70,27 @@ type AuthRequest struct {
 	ExpiresAt           time.Time
 	// Resource is the Client a Connected App's request is for (identity#23); empty for any other.
 	Resource string
+	// TwoFactorWithin is how fresh a two-factor proof the app asked for (identity#142); 0 when it
+	// asked for none.
+	TwoFactorWithin time.Duration
 	// SignIn is who completed the request; nil until someone has.
 	SignIn *SignIn
+}
+
+// The freshest and the stalest two-factor proof an app may ask for with acr_values=mfa.
+const (
+	FreshestProof = time.Minute
+	StalestProof  = time.Hour
+)
+
+// AskedProof is the two-factor proof window an app asks for with max_age, in seconds, kept between
+// FreshestProof and StalestProof; StalestProof when it names none.
+func AskedProof(maxAge *uint) time.Duration {
+	if maxAge == nil {
+		return StalestProof
+	}
+	seconds := min(*maxAge, uint(StalestProof/time.Second))
+	return max(time.Duration(seconds)*time.Second, FreshestProof) //nolint:gosec // at most an hour of seconds
 }
 
 // SignIn is a User's Single sign-on session vouching for an AuthRequest.

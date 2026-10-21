@@ -4,6 +4,7 @@ package persistence
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -28,6 +29,7 @@ func (s *Store) CreateRequest(ctx context.Context, r domain.AuthRequest) error {
 		ResponseType: r.ResponseType, ResponseMode: r.ResponseMode,
 		CodeChallenge: r.CodeChallenge, CodeChallengeMethod: r.CodeChallengeMethod,
 		CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt, Resource: pgtype.Text{String: r.Resource, Valid: r.Resource != ""},
+		TwoFactorWithinSeconds: secondsOf(r.TwoFactorWithin),
 	})
 }
 
@@ -70,6 +72,9 @@ func toRequest(row queries.AuthRequest, err error) (domain.AuthRequest, error) {
 		CodeChallenge: row.CodeChallenge, CodeChallengeMethod: row.CodeChallengeMethod,
 		CreatedAt: row.CreatedAt, ExpiresAt: row.ExpiresAt, Resource: row.Resource.String,
 	}
+	if row.TwoFactorWithinSeconds.Valid {
+		r.TwoFactorWithin = time.Duration(row.TwoFactorWithinSeconds.Int32) * time.Second
+	}
 	// The three are written together by CompleteAuthRequest, so one stands for all.
 	if row.UserID != nil {
 		r.SignIn = &domain.SignIn{UserID: *row.UserID, SessionID: *row.SessionID, At: *row.AuthTime, Methods: row.Methods}
@@ -106,4 +111,9 @@ func (s *Store) TakeUserSessionClients(ctx context.Context, userID uuid.UUID, cl
 		out = append(out, app.SessionClient{SessionID: r.SessionID, ClientID: r.ClientID})
 	}
 	return out, nil
+}
+
+// secondsOf is d in whole seconds, or NULL for none. It is at most domain.StalestProof, so it fits.
+func secondsOf(d time.Duration) pgtype.Int4 {
+	return pgtype.Int4{Int32: int32(d / time.Second), Valid: d > 0} //nolint:gosec // an hour at most
 }

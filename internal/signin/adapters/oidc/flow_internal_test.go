@@ -253,6 +253,16 @@ func TestAStepUpAppSendsASessionThatNeverProvedTwoFactorToProveIt(t *testing.T) 
 	redirect(t, e.get(t, login, true), http.StatusSeeOther, "/signin/step-up?authRequestID="+login[strings.Index(login, "=")+1:])
 }
 
+func TestAnAppAskingForTwoFactorWithinMaxAgeSendsAStaleSessionToStepUp(t *testing.T) {
+	e := newEnv(t)
+	e.accounts.twoFactor = true
+	q := authorizeQuery("web", "https://web.test/cb", "")
+	q.Set("acr_values", "mfa")
+	q.Set("max_age", "300")
+	login := e.loginURL(t, q)
+	redirect(t, e.get(t, login, true), http.StatusSeeOther, "/signin/step-up?authRequestID="+login[strings.Index(login, "=")+1:])
+}
+
 func TestAStepUpAppSendsAUserWithNoTwoFactorToSetItUp(t *testing.T) {
 	e := newEnv(t)
 	e.stepUps["web"] = 5

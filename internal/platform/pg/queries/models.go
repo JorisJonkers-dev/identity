@@ -39,25 +39,26 @@ type AuditEvent struct {
 }
 
 type AuthRequest struct {
-	ID                  uuid.UUID
-	ClientID            string
-	RedirectUri         string
-	Scopes              []string
-	State               string
-	Nonce               string
-	ResponseType        string
-	ResponseMode        string
-	CodeChallenge       string
-	CodeChallengeMethod string
-	CreatedAt           time.Time
-	ExpiresAt           time.Time
-	UserID              *uuid.UUID
-	SessionID           *uuid.UUID
-	AuthTime            *time.Time
-	CodeHash            []byte
-	Methods             []string
-	Resource            pgtype.Text
-	TwoFactorAt         *time.Time
+	ID                     uuid.UUID
+	ClientID               string
+	RedirectUri            string
+	Scopes                 []string
+	State                  string
+	Nonce                  string
+	ResponseType           string
+	ResponseMode           string
+	CodeChallenge          string
+	CodeChallengeMethod    string
+	CreatedAt              time.Time
+	ExpiresAt              time.Time
+	UserID                 *uuid.UUID
+	SessionID              *uuid.UUID
+	AuthTime               *time.Time
+	CodeHash               []byte
+	Methods                []string
+	Resource               pgtype.Text
+	TwoFactorAt            *time.Time
+	TwoFactorWithinSeconds pgtype.Int4
 }
 
 type ClientSecret struct {

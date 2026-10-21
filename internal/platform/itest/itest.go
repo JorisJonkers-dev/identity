@@ -428,12 +428,18 @@ func (b *Browser) Call(t *testing.T, method, path string, body any, want int, ou
 }
 
 // Authorize starts a sign-in to the native Client c at its first redirect URI, as the app's sign-in
-// button does, and returns the login step identity sends the browser to.
-func (b *Browser) Authorize(t *testing.T, c signindomain.Client) string {
+// button does, and returns the login step identity sends the browser to. extra adds parameters to
+// the request, such as acr_values.
+func (b *Browser) Authorize(t *testing.T, c signindomain.Client, extra ...url.Values) string {
 	t.Helper()
 	q := url.Values{
 		"client_id": {c.ID}, "redirect_uri": {c.RedirectURIs[0]}, "response_type": {"code"}, "scope": {"openid"},
 		"state": {"st"}, "code_challenge": {"E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"}, "code_challenge_method": {"S256"},
+	}
+	for _, e := range extra {
+		for k, v := range e {
+			q[k] = v
+		}
 	}
 	return b.Follow(t, "/oidc/authorize?"+q.Encode())
 }

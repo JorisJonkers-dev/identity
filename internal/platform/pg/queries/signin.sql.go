@@ -28,7 +28,7 @@ func (q *Queries) AddSessionClient(ctx context.Context, arg AddSessionClientPara
 }
 
 const authRequestByID = `-- name: AuthRequestByID :one
-SELECT id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode, code_challenge, code_challenge_method, created_at, expires_at, user_id, session_id, auth_time, code_hash, methods, resource, two_factor_at FROM auth_requests WHERE id = $1
+SELECT id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode, code_challenge, code_challenge_method, created_at, expires_at, user_id, session_id, auth_time, code_hash, methods, resource, two_factor_at, two_factor_within_seconds FROM auth_requests WHERE id = $1
 `
 
 func (q *Queries) AuthRequestByID(ctx context.Context, id uuid.UUID) (AuthRequest, error) {
@@ -54,6 +54,7 @@ func (q *Queries) AuthRequestByID(ctx context.Context, id uuid.UUID) (AuthReques
 		&i.Methods,
 		&i.Resource,
 		&i.TwoFactorAt,
+		&i.TwoFactorWithinSeconds,
 	)
 	return i, err
 }
@@ -98,24 +99,25 @@ func (q *Queries) CompleteAuthRequest(ctx context.Context, arg CompleteAuthReque
 
 const createAuthRequest = `-- name: CreateAuthRequest :exec
 INSERT INTO auth_requests (id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode,
-    code_challenge, code_challenge_method, created_at, expires_at, resource)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+    code_challenge, code_challenge_method, created_at, expires_at, resource, two_factor_within_seconds)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 `
 
 type CreateAuthRequestParams struct {
-	ID                  uuid.UUID
-	ClientID            string
-	RedirectUri         string
-	Scopes              []string
-	State               string
-	Nonce               string
-	ResponseType        string
-	ResponseMode        string
-	CodeChallenge       string
-	CodeChallengeMethod string
-	CreatedAt           time.Time
-	ExpiresAt           time.Time
-	Resource            pgtype.Text
+	ID                     uuid.UUID
+	ClientID               string
+	RedirectUri            string
+	Scopes                 []string
+	State                  string
+	Nonce                  string
+	ResponseType           string
+	ResponseMode           string
+	CodeChallenge          string
+	CodeChallengeMethod    string
+	CreatedAt              time.Time
+	ExpiresAt              time.Time
+	Resource               pgtype.Text
+	TwoFactorWithinSeconds pgtype.Int4
 }
 
 func (q *Queries) CreateAuthRequest(ctx context.Context, arg CreateAuthRequestParams) error {
@@ -133,6 +135,7 @@ func (q *Queries) CreateAuthRequest(ctx context.Context, arg CreateAuthRequestPa
 		arg.CreatedAt,
 		arg.ExpiresAt,
 		arg.Resource,
+		arg.TwoFactorWithinSeconds,
 	)
 	return err
 }
@@ -192,7 +195,7 @@ func (q *Queries) StepUpMinutes(ctx context.Context, clientID string) (int32, er
 }
 
 const takeAuthRequestByCodeHash = `-- name: TakeAuthRequestByCodeHash :one
-DELETE FROM auth_requests WHERE code_hash = $1 RETURNING id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode, code_challenge, code_challenge_method, created_at, expires_at, user_id, session_id, auth_time, code_hash, methods, resource, two_factor_at
+DELETE FROM auth_requests WHERE code_hash = $1 RETURNING id, client_id, redirect_uri, scopes, state, nonce, response_type, response_mode, code_challenge, code_challenge_method, created_at, expires_at, user_id, session_id, auth_time, code_hash, methods, resource, two_factor_at, two_factor_within_seconds
 `
 
 // Redeeming a code removes its request in the same statement, so two exchanges racing with one
@@ -220,6 +223,7 @@ func (q *Queries) TakeAuthRequestByCodeHash(ctx context.Context, codeHash []byte
 		&i.Methods,
 		&i.Resource,
 		&i.TwoFactorAt,
+		&i.TwoFactorWithinSeconds,
 	)
 	return i, err
 }
