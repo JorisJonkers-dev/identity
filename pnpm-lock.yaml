@@ -207,16 +207,16 @@ importers:
     devDependencies:
       '@axe-core/playwright':
         specifier: 4.13.0
-        version: 4.13.0(playwright-core@1.64.0)
+        version: 4.13.0(playwright-core@1.64.1)
       '@hey-api/openapi-ts':
         specifier: 0.99.0
         version: 0.99.0(magicast@0.5.5)(typescript@5.9.3)
       '@jorisjonkers-dev/vue-web-commons':
         specifier: https://github.com/JorisJonkers-dev/vue-web-commons/releases/download/v0.8.0/jorisjonkers-dev-vue-web-commons-0.8.0.tgz
-        version: https://github.com/JorisJonkers-dev/vue-web-commons/releases/download/v0.8.0/jorisjonkers-dev-vue-web-commons-0.8.0.tgz(@grafana/faro-web-sdk@2.12.1)(@grafana/faro-web-tracing@2.12.1(supports-color@7.2.0))(@playwright/test@1.64.0)(@vitejs/plugin-vue@6.0.10(vite@8.3.4(@types/node@26.6.5)(jiti@2.7.0)(yaml@2.9.1))(vue@3.5.44(typescript@5.9.3)))(dependency-cruiser@18.6.0)(eslint@10.12.0(jiti@2.7.0)(supports-color@7.2.0))(pinia@3.0.4(typescript@5.9.3)(vue@3.5.44(typescript@5.9.3)))(typescript@5.9.3)(vite@8.3.4(@types/node@26.6.5)(jiti@2.7.0)(yaml@2.9.1))(vitest@5.0.4)(vue-router@5.4.0(@vue/compiler-sfc@3.5.43)(pinia@3.0.4(typescript@5.9.3)(vue@3.5.44(typescript@5.9.3)))(rolldown@1.2.13)(rollup@2.80.0)(vite@8.3.4(@types/node@26.6.5)(jiti@2.7.0)(yaml@2.9.1))(vue@3.5.44(typescript@5.9.3)))(vue@3.5.44(typescript@5.9.3))
+        version: https://github.com/JorisJonkers-dev/vue-web-commons/releases/download/v0.8.0/jorisjonkers-dev-vue-web-commons-0.8.0.tgz(@grafana/faro-web-sdk@2.12.1)(@grafana/faro-web-tracing@2.12.1(supports-color@7.2.0))(@playwright/test@1.64.1)(@vitejs/plugin-vue@6.0.10(vite@8.3.4(@types/node@26.6.5)(jiti@2.7.0)(yaml@2.9.1))(vue@3.5.44(typescript@5.9.3)))(dependency-cruiser@18.6.0)(eslint@10.12.0(jiti@2.7.0)(supports-color@7.2.0))(pinia@3.0.4(typescript@5.9.3)(vue@3.5.44(typescript@5.9.3)))(typescript@5.9.3)(vite@8.3.4(@types/node@26.6.5)(jiti@2.7.0)(yaml@2.9.1))(vitest@5.0.4)(vue-router@5.4.0(@vue/compiler-sfc@3.5.43)(pinia@3.0.4(typescript@5.9.3)(vue@3.5.44(typescript@5.9.3)))(rolldown@1.2.13)(rollup@2.80.0)(vite@8.3.4(@types/node@26.6.5)(jiti@2.7.0)(yaml@2.9.1))(vue@3.5.44(typescript@5.9.3)))(vue@3.5.44(typescript@5.9.3))
       '@playwright/test':
-        specifier: 1.64.0
-        version: 1.64.0
+        specifier: 1.64.1
+        version: 1.64.1
       '@stryker-mutator/core':
         specifier: 10.0.0
         version: 10.0.0(@types/node@26.6.5)
@@ -1017,8 +1017,8 @@ packages:
   '@oxc-project/types@0.153.0':
     resolution: {integrity: sha512-jSNrRIyvPVLL5E1z/tS5zLAprosGz/FuI1PWwEOz59j3E4TTTzSpqKb/RDGqJhhW0QHYISGXxq582wGx6T11Tw==}
 
-  '@playwright/test@1.64.0':
-    resolution: {integrity: sha512-oTN9FNYuN6bqQMwiho6jJKLCG2/QOYCixGXuCjRmzOq23eODeukuY2XiAVoVpAECbuezMt1MHQjAiQxK8F+Y+g==}
+  '@playwright/test@1.64.1':
+    resolution: {integrity: sha512-IaYGml/nSOiZWROfPtuIL7neuu9qDOZ3TNvNljUIrhDMxiGTgPjzj/g9p9RxpS2tSepPDRY+UwAaEeiKtUvIAg==}
     engines: {node: '>=20'}
     hasBin: true
 
@@ -3085,13 +3085,13 @@ packages:
   pkg-types@2.3.3:
     resolution: {integrity: sha512-j/lCFdcppV0JxWpCEITdbDltBxPP6cHT+yNJ6Go2OgoSA9518X847X9z0p6LtA4Nc16+eQzCZjRrWanTGvHJ5w==}
 
-  playwright-core@1.64.0:
-    resolution: {integrity: sha512-T9r+MZkTECl2+oUcZ26YgZzTrYidTsIhYYkJix+6iDOymOb1FB2RLLSOxRGnZGv5DStt+aduIVbt+E8WygXYpg==}
+  playwright-core@1.64.1:
+    resolution: {integrity: sha512-BC4s8y6SEVA6Q1rSxZTto8hI1KUI3xXlHGZgvGqP4IqPdI/a6FX9H29IDNz7vKo9l21b6LfYosScPL6M3xxyDQ==}
     engines: {node: '>=20'}
     hasBin: true
 
-  playwright@1.64.0:
-    resolution: {integrity: sha512-kVzTnYFYEyQ9RGzBjNCd2+yEqWmVbxl3AHPynv3qQ6JTjv4a+kwRcnqQwIpuP3NnrnIrE/Q6wWAIAvMfIE2/Yg==}
+  playwright@1.64.1:
+    resolution: {integrity: sha512-HCrVhHr5QQuwYoswEUGTb7gGp522yflbv/ST8nF4sFWGuLjQCt17Q/EubpGGSNKYn1tsTCPZxqHhHCfVURu7UA==}
     engines: {node: '>=20'}
     hasBin: true
 
@@ -3885,10 +3885,10 @@ snapshots:
     dependencies:
       '@types/json-schema': 7.0.15
 
-  '@axe-core/playwright@4.13.0(playwright-core@1.64.0)':
+  '@axe-core/playwright@4.13.0(playwright-core@1.64.1)':
     dependencies:
       axe-core: 4.13.0
-      playwright-core: 1.64.0
+      playwright-core: 1.64.1
 
   '@babel/code-frame@8.0.6':
     dependencies:
@@ -4419,7 +4419,7 @@ snapshots:
     optionalDependencies:
       '@types/node': 26.6.5
 
-  '@jorisjonkers-dev/vue-web-commons@https://github.com/JorisJonkers-dev/vue-web-commons/releases/download/v0.8.0/jorisjonkers-dev-vue-web-commons-0.8.0.tgz(@grafana/faro-web-sdk@2.12.1)(@grafana/faro-web-tracing@2.12.1(supports-color@7.2.0))(@playwright/test@1.64.0)(@vitejs/plugin-vue@6.0.10(vite@8.3.4(@types/node@26.6.5)(jiti@2.7.0)(yaml@2.9.1))(vue@3.5.44(typescript@5.9.3)))(dependency-cruiser@18.6.0)(eslint@10.12.0(jiti@2.7.0)(supports-color@7.2.0))(pinia@3.0.4(typescript@5.9.3)(vue@3.5.44(typescript@5.9.3)))(typescript@5.9.3)(vite@8.3.4(@types/node@26.6.5)(jiti@2.7.0)(yaml@2.9.1))(vitest@5.0.4)(vue-router@5.4.0(@vue/compiler-sfc@3.5.43)(pinia@3.0.4(typescript@5.9.3)(vue@3.5.44(typescript@5.9.3)))(rolldown@1.2.13)(rollup@2.80.0)(vite@8.3.4(@types/node@26.6.5)(jiti@2.7.0)(yaml@2.9.1))(vue@3.5.44(typescript@5.9.3)))(vue@3.5.44(typescript@5.9.3))':
+  '@jorisjonkers-dev/vue-web-commons@https://github.com/JorisJonkers-dev/vue-web-commons/releases/download/v0.8.0/jorisjonkers-dev-vue-web-commons-0.8.0.tgz(@grafana/faro-web-sdk@2.12.1)(@grafana/faro-web-tracing@2.12.1(supports-color@7.2.0))(@playwright/test@1.64.1)(@vitejs/plugin-vue@6.0.10(vite@8.3.4(@types/node@26.6.5)(jiti@2.7.0)(yaml@2.9.1))(vue@3.5.44(typescript@5.9.3)))(dependency-cruiser@18.6.0)(eslint@10.12.0(jiti@2.7.0)(supports-color@7.2.0))(pinia@3.0.4(typescript@5.9.3)(vue@3.5.44(typescript@5.9.3)))(typescript@5.9.3)(vite@8.3.4(@types/node@26.6.5)(jiti@2.7.0)(yaml@2.9.1))(vitest@5.0.4)(vue-router@5.4.0(@vue/compiler-sfc@3.5.43)(pinia@3.0.4(typescript@5.9.3)(vue@3.5.44(typescript@5.9.3)))(rolldown@1.2.13)(rollup@2.80.0)(vite@8.3.4(@types/node@26.6.5)(jiti@2.7.0)(yaml@2.9.1))(vue@3.5.44(typescript@5.9.3)))(vue@3.5.44(typescript@5.9.3))':
     dependencies:
       '@grafana/faro-web-sdk': 2.12.1
       '@grafana/faro-web-tracing': 2.12.1(supports-color@7.2.0)
@@ -4427,7 +4427,7 @@ snapshots:
       vue: 3.5.44(typescript@5.9.3)
       vue-router: 5.4.0(@vue/compiler-sfc@3.5.43)(pinia@3.0.4(typescript@5.9.3)(vue@3.5.44(typescript@5.9.3)))(rolldown@1.2.13)(rollup@2.80.0)(vite@8.3.4(@types/node@26.6.5)(jiti@2.7.0)(yaml@2.9.1))(vue@3.5.44(typescript@5.9.3))
     optionalDependencies:
-      '@playwright/test': 1.64.0
+      '@playwright/test': 1.64.1
       '@vitejs/plugin-vue': 6.0.10(vite@8.3.4(@types/node@26.6.5)(jiti@2.7.0)(yaml@2.9.1))(vue@3.5.44(typescript@5.9.3))
       dependency-cruiser: 18.6.0
       eslint: 10.12.0(jiti@2.7.0)(supports-color@7.2.0)
@@ -4637,9 +4637,9 @@ snapshots:
 
   '@oxc-project/types@0.153.0': {}
 
-  '@playwright/test@1.64.0':
+  '@playwright/test@1.64.1':
     dependencies:
-      playwright: 1.64.0
+      playwright: 1.64.1
 
   '@redocly/cli@2.63.0': {}
 
@@ -6923,11 +6923,11 @@ snapshots:
       exsolve: 1.1.1
       pathe: 2.0.3
 
-  playwright-core@1.64.0: {}
+  playwright-core@1.64.1: {}
 
-  playwright@1.64.0:
+  playwright@1.64.1:
     dependencies:
-      playwright-core: 1.64.0
+      playwright-core: 1.64.1
 
   pony-cause@1.1.1: {}
 
