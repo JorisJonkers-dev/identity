@@ -97,12 +97,154 @@ jobs:
             ~/go/pkg/mod
           key: ${{ steps.go-cache.outputs.cache-primary-key }}
 
-  e2e:
-    name: End-to-end with axe
+  # The binary the e2e shards run, built once, and the Playwright version the lockfile resolves, so
+  # the shards' image always carries the browsers that version expects, also after Renovate bumps it.
+  e2e-build:
+    name: End-to-end build
     needs: changes
     if: ${{ fromJSON(needs.changes.outputs.run).app }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
+    outputs:
+      playwright: ${{ steps.playwright.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Read the Playwright version
+        id: playwright
+        run: |
+          set -euo pipefail
+          version="$(grep -m1 -E "^  '@playwright/test@[0-9]" pnpm-lock.yaml | sed -E "s/^  '@playwright\/test@([0-9][^']*)':.*/\1/")"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "no @playwright/test version in pnpm-lock.yaml" >&2; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: jdx/mise-action@fc42bcc7ddbf51124c30f95a877a0c5168a3bfde # v5.2.1
+        with:
+          cache: true
+          cache_save: ${{ github.event_name == 'push' }}
+
+      - name: Build the binary
+        run: mise exec -- task build
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-binary
+          path: bin/identity
+          retention-days: 1
+
+  # Each device in two shards. The official Playwright image already holds the browsers and every
+  # system package they need, so no job waits on an apt mirror. What `task db` starts with compose
+  # are service containers here, reached by their names; the migration and the transit keys run as
+  # container steps on the same network, from the images compose uses.
+  e2e:
+    name: End-to-end (${{ matrix.project }} ${{ matrix.shard }})
+    needs: [changes, e2e-build]
+    if: ${{ fromJSON(needs.changes.outputs.run).app }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: mcr.microsoft.com/playwright:v${{ needs.e2e-build.outputs.playwright }}-noble
+      options: --ipc=host
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: app
+        options: >-
+          --health-cmd "pg_isready -U app"
+          --health-interval 2s
+          --health-retries 30
+      mailpit:
+        image: axllent/mailpit:v1.31.5
+        options: >-
+          --health-cmd "/mailpit readyz"
+          --health-interval 2s
+          --health-retries 30
+      vault:
+        image: hashicorp/vault:1.21.4
+        env:
+          VAULT_DEV_ROOT_TOKEN_ID: dev-only-root
+          VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+        options: >-
+          --health-cmd "wget -qO- http://127.0.0.1:8200/v1/sys/health"
+          --health-interval 2s
+          --health-retries 30
+    env:
+      # Firefox refuses a HOME the container's root user does not own; mise installs under it too.
+      HOME: /root
+      DATABASE_URL: postgres://app:app@postgres:5432/app?sslmode=disable
+      E2E_SMTP_ADDR: mailpit:1025
+      E2E_MAILPIT_URL: http://mailpit:8025
+      E2E_VAULT_ADDR: http://vault:8200
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [desktop, phone]
+        shard: [1/2, 2/2]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # compose.yaml's `migrate`: the cluster's runner and changelog, signed in as the service's user.
+      - name: Migrate Postgres with liquibase-runner
+        uses: docker://ghcr.io/jorisjonkers-dev/liquibase-runner:v0.2.0@sha256:5e0f07bea045f35170f9d66ececa2de5ba198bf8ba51a2d11234e3c1b44ff7ea
+        env:
+          DATABASE_HOST: postgres
+          DATABASE_PORT: "5432"
+          DATABASE_NAME: app
+          DATABASE_USERNAME: app
+          DATABASE_PASSWORD: app
+        with:
+          entrypoint: sh
+          args: -c "cp -r db/changelog /liquibase/ && exec runner ci up 000000000000"
+
+      # compose.yaml's `vault-init`: the transit keys that seal TOTP secrets and sign tokens.
+      - name: Make the transit keys
+        uses: docker://hashicorp/vault:1.21.4
+        env:
+          VAULT_ADDR: http://vault:8200
+          VAULT_TOKEN: dev-only-root
+        with:
+          entrypoint: sh
+          args: -c "vault secrets enable transit && vault write -f transit/keys/identity-totp && vault write -f transit/keys/identity-signing"
+
+      # Only what the suite needs; the image brings the browsers.
+      - uses: jdx/mise-action@fc42bcc7ddbf51124c30f95a877a0c5168a3bfde # v5.2.1
+        with:
+          cache: true
+          cache_save: ${{ github.event_name == 'push' }}
+          install_args: node pnpm task
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: e2e-binary
+          path: bin
+
+      # An artifact does not keep the file mode.
+      - run: chmod +x bin/identity
+
+      - name: End-to-end with axe
+        env:
+          PROJECT: ${{ matrix.project }}
+          SHARD: ${{ matrix.shard }}
+        run: task e2e:ci -- "--project=$PROJECT" "--shard=$SHARD"
+
+      - name: Keep the shard's report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: blob-report-${{ matrix.project }}-${{ strategy.job-index }}
+          path: web/blob-report
+          retention-days: 7
+
+  # One HTML report from every shard, for reading a failure. Not part of Pipeline Complete.
+  e2e-report:
+    name: End-to-end report
+    if: ${{ !cancelled() && needs.e2e.result != 'skipped' }}
+    needs: e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -110,9 +252,25 @@ jobs:
         with:
           cache: true
           cache_save: ${{ github.event_name == 'push' }}
+          install_args: node pnpm task
 
-      - name: End-to-end with axe
-        run: mise exec -- task e2e
+      - name: Install JS tooling
+        run: task install
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: all-blob-reports
+          pattern: blob-report-*
+          merge-multiple: true
+
+      - name: Merge the reports
+        run: pnpm --filter @identity/web exec playwright merge-reports --reporter html ../all-blob-reports
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report
+          path: web/playwright-report
+          retention-days: 7
 
   # A quarantined test must name its issue and run out within 14 days (estate testing standards).
   quarantine:
@@ -163,7 +321,7 @@ jobs:
   pipeline-complete:
     name: Pipeline Complete
     if: ${{ always() }}
-    needs: [changes, check, e2e, images, quarantine]
+    needs: [changes, check, e2e-build, e2e, images, quarantine]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

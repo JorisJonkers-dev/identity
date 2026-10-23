@@ -3,7 +3,8 @@ import { createHmac } from 'node:crypto'
 import AxeBuilder from '@axe-core/playwright'
 import { expect, type Page } from '@playwright/test'
 
-const mailpit = 'http://localhost:28025'
+// The compose Mailpit's API; CI's e2e job names its service container in E2E_MAILPIT_URL.
+const mailpit = process.env.E2E_MAILPIT_URL ?? 'http://localhost:28025'
 
 // axe cannot measure contrast over a gradient and passes it silently, so the glow behind the page
 // and the glass's sheen give way to their flat colours while it looks, and motion stops so nothing is

@@ -69,7 +69,7 @@ How the repository is laid out and worked on.
 | `web/tests/e2e/` | Playwright with axe, on a desktop and a phone, against the built binary |
 | `mise.toml`, `Taskfile.yml` | The pinned toolchain, and every command: `task` lists them |
 | `Dockerfile` | Builds the web app, embeds it, ships a static binary on `distroless/static:nonroot` |
-| `.github/workflows/ci.yml`, `.github/buckets.yml` | A `changes` job decides from the buckets file which jobs a diff reaches; one job per `task check` task, `task e2e` and each image build; `Pipeline Complete`, the one required check, passes when every job passed or was not reached |
+| `.github/workflows/ci.yml`, `.github/buckets.yml` | A `changes` job decides from the buckets file which jobs a diff reaches; one job per `task check` task and each image build; the e2e suite as one build of the binary, then `task e2e:ci` per device and shard in the Playwright image, with Postgres, Mailpit and Vault as service containers, merged into one HTML report that is not a required job; `Pipeline Complete`, the one required check, passes when every job passed or was not reached |
 | `.github/workflows/release.yml`, `release-please-config.json` | release-please, as in the rest of the estate |
 | `deploy/alerts/` | The `PrometheusRule` the observability project carries for identity, and its promtool test. identity serves `/metrics` on `METRICS_ADDR` (`:9090`), which the edge never routes |
 | `deploy/crd/` | The cluster-scoped `Client` kind (`identity.jorisjonkers.dev/v1`) deploy-kit renders, with the CEL rules the API server holds every Client to. identity needs `get`, `list` and `watch` on `clients` |
