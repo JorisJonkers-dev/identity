@@ -141,6 +141,11 @@ tasks:
     env:
       DATABASE_URL: "{{.DATABASE_URL}}"
 
+  e2e:ci:
+    desc: "The e2e suite alone, as CI runs it in the Playwright image: the binary already built, the browsers installed, the database migrated, DATABASE_URL and the E2E_* service addresses set. Playwright options go after --, e.g. task e2e:ci -- --project=phone --shard=1/2"
+    deps: [install]
+    cmd: pnpm --filter @{{.APP}}/web e2e {{.CLI_ARGS}}
+
   secrets:
     desc: Scan the working tree for secrets
     cmd: gitleaks dir --no-banner --redact .

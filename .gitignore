@@ -80,6 +80,8 @@ web/dist/*
 web/coverage/
 web/playwright-report/
 web/test-results/
+web/blob-report/
+all-blob-reports/
 
 # Task's checksum state: machine-local. Tracked, it tells a fresh clone that `install` already ran.
 .task/
