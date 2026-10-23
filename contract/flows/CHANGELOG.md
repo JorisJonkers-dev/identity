@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/JorisJonkers-dev/identity/compare/contract/flows/v0.1.0...contract/flows/v0.1.1) (2026-10-23)
+
+
+### Bug Fixes
+
+* **deps:** update minor and patch dependencies ([#136](https://github.com/JorisJonkers-dev/identity/issues/136)) ([52dec69](https://github.com/JorisJonkers-dev/identity/commit/52dec6998d01df05ac7fafd156437842e4add337))
+
 ## 0.1.0 (2026-10-21)
 
 
