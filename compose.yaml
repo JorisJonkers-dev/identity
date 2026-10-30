@@ -19,7 +19,7 @@ services:
   # Catches every mail a local run or the e2e suite sends; its API is how the e2e suite reads the
   # confirmation link. Never in a deployment, where mail goes to Stalwart over TLS (docs/adr/0012).
   mailpit:
-    image: axllent/mailpit:v1.31.5
+    image: axllent/mailpit:v1.32.0
     ports:
       - "21025:1025"
       - "28025:8025"

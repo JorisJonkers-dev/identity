@@ -6,6 +6,8 @@ github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c h1:udKWzYgxTojEK
 github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c/go.mod h1:xomTg63KZ2rFqZQzSB4Vz2SUXa1BpHTVz9L5PTmPC4E=
 github.com/JorisJonkers-dev/go-commons v0.3.1 h1:e3h7EvOVMvWjKlT/BS71uW4zRcPKjgLDV3Mqe7GG9xw=
 github.com/JorisJonkers-dev/go-commons v0.3.1/go.mod h1:MDMmXN5a2sMyrManoilVafUsGLzgu+of9HBigXuFgLM=
+github.com/JorisJonkers-dev/go-commons v0.4.0 h1:exihgz4QcSx3roc7jjleDUZHI0uVQhYwZ2BN0N8xgtg=
+github.com/JorisJonkers-dev/go-commons v0.4.0/go.mod h1:4B3vos91IKoqD9PqI2Eow0Cy7my165ycxepLBEH8tvg=
 github.com/JorisJonkers-dev/identity/contract/principal v1.1.1 h1:k6oU/Y+f1GSc1xDhKESxpD2dqjXSVT8/SN3f/9h1p1E=
 github.com/JorisJonkers-dev/identity/contract/principal v1.1.1/go.mod h1:0SHKF5qroPPzolx/PtbnY+/Ywwwmi7rmxZKcWTzg5w0=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
@@ -14,6 +16,8 @@ github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/bmatcuk/doublestar/v4 v4.10.2 h1:eF7W7HWKg3z9NrWV9pTLnNeoXaqq3Tq9DNKXVMfoCnw=
 github.com/bmatcuk/doublestar/v4 v4.10.2/go.mod h1:xBQ8jztBU6kakFMg+8WGxn0c6z1fTSPVIjEY1Wr7jzc=
+github.com/bmatcuk/doublestar/v4 v4.10.3 h1:1UIv1+fqH3++ViVkpnaPTB+Pi1UHycnPFAq14zgK+gI=
+github.com/bmatcuk/doublestar/v4 v4.10.3/go.mod h1:xBQ8jztBU6kakFMg+8WGxn0c6z1fTSPVIjEY1Wr7jzc=
 github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc h1:biVzkmvwrH8WK8raXaxBx6fRVTlJILwEwQGL1I/ByEI=
 github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc/go.mod h1:paBWMcWSl3LHKBqUq+rly7CNSldXjb2rDl3JlRe0mD8=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
@@ -279,6 +283,8 @@ github.com/yusufpapurcu/wmi v1.2.4 h1:zFUKzehAFReQwLys1b/iSMl+JQGSCSjtVqQn9bBrPo
 github.com/yusufpapurcu/wmi v1.2.4/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=
 github.com/zitadel/oidc/v3 v3.51.14 h1:gVuKmazBpMLv92Rzjfc+/gYOf3ZwUe70whbowfHsnbM=
 github.com/zitadel/oidc/v3 v3.51.14/go.mod h1:yqb3jGISsGVoZ9rU3AjG3CwtJ2WewSptbisqQuA8Shc=
+github.com/zitadel/oidc/v3 v3.51.16 h1:yx6YApCQUNBPTC30czcIMUJFqjXtidf9B9eXHbmlZwE=
+github.com/zitadel/oidc/v3 v3.51.16/go.mod h1:0pDn9SKpGiqQ4LN7E8MCsO11NG5c/PpTR1TitQPLmNg=
 github.com/zitadel/schema v1.3.2 h1:gfJvt7dOMfTmxzhscZ9KkapKo3Nei3B6cAxjav+lyjI=
 github.com/zitadel/schema v1.3.2/go.mod h1:IZmdfF9Wu62Zu6tJJTH3UsArevs3Y4smfJIj3L8fzxw=
 go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=
