@@ -47,7 +47,7 @@ jobs:
   image:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
-    uses: JorisJonkers-dev/github-workflows/.github/workflows/container-publish.yml@16d241e44f03c5cc4696d2d0de615717a61ef3c0 # v0.36.0
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/container-publish.yml@f3bb6cabaa6ee33694f8632ce273a4e703d60780 # v0.38.0
     with:
       image-name: identity
       version: ${{ needs.release-please.outputs.tag_name }}
@@ -60,7 +60,7 @@ jobs:
   migration-image:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
-    uses: JorisJonkers-dev/github-workflows/.github/workflows/container-publish.yml@16d241e44f03c5cc4696d2d0de615717a61ef3c0 # v0.36.0
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/container-publish.yml@f3bb6cabaa6ee33694f8632ce273a4e703d60780 # v0.38.0
     with:
       image-name: identity-migration
       version: ${{ needs.release-please.outputs.tag_name }}
