@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.28
 # One image: the Go binary serves the API and embeds the web build (web/embed.go).
 
-FROM --platform=$BUILDPLATFORM node:24.22.0-alpine AS web
+FROM --platform=$BUILDPLATFORM node:24.22.1-alpine AS web
 RUN npm install -g pnpm@12.6.0
 WORKDIR /src
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
