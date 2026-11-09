@@ -47,12 +47,15 @@ jobs:
   image:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
-    uses: JorisJonkers-dev/github-workflows/.github/workflows/container-publish.yml@ab93bf1c435304c5933ab33f9febe087ff8be214 # v0.43.0
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/container-publish.yml@f8f0a5ae583913de18143bbbbe0db9ecab970435 # v0.45.0
     with:
       image-name: identity
       version: ${{ needs.release-please.outputs.tag_name }}
       software-version: ${{ needs.release-please.outputs.tag_name }}
       platforms: linux/amd64,linux/arm64
+      require-package-proxy: true
+    secrets:
+      PACKAGES_PROXY_TOKEN: ${{ secrets.PACKAGES_PROXY_TOKEN }}
     permissions:
       contents: read
       packages: write
@@ -60,7 +63,7 @@ jobs:
   migration-image:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
-    uses: JorisJonkers-dev/github-workflows/.github/workflows/container-publish.yml@ab93bf1c435304c5933ab33f9febe087ff8be214 # v0.43.0
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/container-publish.yml@f8f0a5ae583913de18143bbbbe0db9ecab970435 # v0.45.0
     with:
       image-name: identity-migration
       version: ${{ needs.release-please.outputs.tag_name }}
@@ -68,6 +71,9 @@ jobs:
       software-version: ${{ needs.release-please.outputs.tag_name }}
       dockerfile: Dockerfile.migration
       platforms: linux/amd64,linux/arm64
+      require-package-proxy: true
+    secrets:
+      PACKAGES_PROXY_TOKEN: ${{ secrets.PACKAGES_PROXY_TOKEN }}
     permissions:
       contents: read
       packages: write
