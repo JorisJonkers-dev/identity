@@ -24,9 +24,12 @@ permissions:
 
 jobs:
   changes:
-    uses: JorisJonkers-dev/github-workflows/.github/workflows/path-buckets.yml@ab93bf1c435304c5933ab33f9febe087ff8be214 # v0.43.0
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/path-buckets.yml@f8f0a5ae583913de18143bbbbe0db9ecab970435 # v0.45.0
     with:
       workflows: .github/workflows/ci.yml
+      require-package-proxy: true
+    secrets:
+      PACKAGES_PROXY_TOKEN: ${{ secrets.PACKAGES_PROXY_TOKEN }}
 
   check:
     name: Check (${{ matrix.task }})
@@ -276,20 +279,23 @@ jobs:
 
   # A quarantined test must name its issue and run out within 14 days (estate testing standards).
   quarantine:
-    uses: JorisJonkers-dev/github-workflows/.github/workflows/quarantine-check.yml@ab93bf1c435304c5933ab33f9febe087ff8be214 # v0.43.0
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/quarantine-check.yml@f8f0a5ae583913de18143bbbbe0db9ecab970435 # v0.45.0
 
   # Mutants that survive on the changed lines, as one pull request comment. A report: it never fails
   # the build, so Pipeline Complete does not wait on it.
   mutation:
     needs: changes
     if: ${{ github.event_name == 'pull_request' }}
-    uses: JorisJonkers-dev/github-workflows/.github/workflows/mutation-report.yml@ab93bf1c435304c5933ab33f9febe087ff8be214 # v0.43.0
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/mutation-report.yml@f8f0a5ae583913de18143bbbbe0db9ecab970435 # v0.45.0
     permissions:
       contents: read
       pull-requests: write
     with:
       go-directory: ${{ fromJSON(needs.changes.outputs.run).go && '.' || '' }}
       web-directory: ${{ fromJSON(needs.changes.outputs.run).web && 'web' || '' }}
+      require-package-proxy: true
+    secrets:
+      PACKAGES_PROXY_TOKEN: ${{ secrets.PACKAGES_PROXY_TOKEN }}
 
   # The image builds need the Docker daemon the runner has, so they are not a task.
   images:
