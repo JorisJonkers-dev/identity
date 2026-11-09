@@ -65,7 +65,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: ${{ matrix.on == 'true' }}
 
-      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         if: ${{ matrix.on == 'true' }}
         with:
           cache: true
@@ -122,7 +122,7 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
       # Only what the build needs.
-      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         with:
           cache: true
           cache_save: ${{ github.event_name == 'push' }}
@@ -162,7 +162,7 @@ jobs:
           --health-interval 2s
           --health-retries 30
       mailpit:
-        image: axllent/mailpit:v1.32.0@sha256:0790692be935ea4420d085694f7985b1f692ca6a8771ab0e0bd8ba75ac180498
+        image: axllent/mailpit:v1.33.0@sha256:9b3a463be15354c0f0eba91697d80e3e0d8a5623ef0e627cacc836bc17fd5231
         options: >-
           --health-cmd "/mailpit readyz"
           --health-interval 2s
@@ -215,7 +215,7 @@ jobs:
           args: -c "vault secrets enable transit && vault write -f transit/keys/identity-totp && vault write -f transit/keys/identity-signing"
 
       # Only what the suite needs; the image brings the browsers.
-      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         with:
           cache: true
           cache_save: ${{ github.event_name == 'push' }}
@@ -253,7 +253,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         with:
           cache: true
           cache_save: ${{ github.event_name == 'push' }}
