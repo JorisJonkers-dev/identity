@@ -36,7 +36,7 @@ export async function expectAccessible(page: Page) {
   await saved.evaluate((before) => {
     for (const [el, css] of before) el.style.cssText = css
   })
-  expect(violations.map((v) => `${v.id}: ${v.help}`)).toEqual([])
+  expect(violations.map((v) => `${v.id}: ${v.help} [${v.nodes.map((n) => n.target.join(" ")).join(" | ")}]`)).toEqual([])
 }
 
 /** Opens the Admin view: the switch in the bar, or on a phone the menu. */
