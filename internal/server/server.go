@@ -4,6 +4,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net"
@@ -101,7 +102,13 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 	srv := &http.Server{Handler: s.Handler(), ReadHeaderTimeout: readHeaderTimeout}
 
 	errs := make(chan error, 1)
-	go func() { errs <- srv.Serve(ln) }()
+	go func() {
+		err := srv.Serve(ln)
+		if errors.Is(err, http.ErrServerClosed) {
+			err = nil
+		}
+		errs <- err
+	}()
 	s.serving.Store(true)
 	s.logger.Info("listening", "addr", ln.Addr().String(), "version", s.version)
 
@@ -116,9 +123,9 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 	if err := srv.Shutdown(drain); err != nil {
 		return err
 	}
-	<-errs // http.ErrServerClosed: Serve returns nothing else once Shutdown has run
+	err := <-errs
 	s.logger.Info("stopped")
-	return nil
+	return err
 }
 
 func plain(w http.ResponseWriter, code int, body string) {

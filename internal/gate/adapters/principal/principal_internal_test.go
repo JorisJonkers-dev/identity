@@ -55,7 +55,7 @@ var (
 // verified is the JWT a Signer made, verified with k: its typ, its key id and its claims.
 func verified(t *testing.T, token string, k key) (typ, kid string, c map[string]any) {
 	t.Helper()
-	jws, err := jose.ParseSigned(token, []jose.SignatureAlgorithm{jose.RS256})
+	jws, err := jose.ParseSignedCompact(token, []jose.SignatureAlgorithm{jose.RS256})
 	if err != nil {
 		t.Fatal(err)
 	}

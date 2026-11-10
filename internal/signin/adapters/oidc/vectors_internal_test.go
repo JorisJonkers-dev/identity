@@ -399,7 +399,7 @@ func committedJWKS(t *testing.T) jose.JSONWebKeySet {
 
 // readToken is a reader of the contract's access-token channel, written from mapping.json alone.
 func readToken(v tokenVector, keys jose.JSONWebKeySet) (*stated, string) {
-	jws, err := jose.ParseSigned(v.Token, []jose.SignatureAlgorithm{jose.RS256})
+	jws, err := jose.ParseSignedCompact(v.Token, []jose.SignatureAlgorithm{jose.RS256})
 	if err != nil {
 		return nil, "bad-signature"
 	}
