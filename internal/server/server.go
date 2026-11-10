@@ -116,7 +116,7 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 	if err := srv.Shutdown(drain); err != nil {
 		return err
 	}
-	<-errs // http.ErrServerClosed: Serve returns nothing else once Shutdown has run
+	_ = <-errs // http.ErrServerClosed: Serve returns nothing else once Shutdown has run
 	s.logger.Info("stopped")
 	return nil
 }

@@ -284,7 +284,7 @@ func read(v vector, keys jose.JSONWebKeySet) (*stated, string) {
 	if token == "" {
 		return nil, "missing"
 	}
-	jws, err := jose.ParseSigned(token, []jose.SignatureAlgorithm{jose.RS256})
+	jws, err := jose.ParseSignedCompact(token, []jose.SignatureAlgorithm{jose.RS256})
 	if err != nil {
 		return nil, "bad-signature"
 	}

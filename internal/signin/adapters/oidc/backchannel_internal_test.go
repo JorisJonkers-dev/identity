@@ -42,7 +42,7 @@ func TestALogoutTokenIsSignedAndNamesTheSession(t *testing.T) {
 	if r.Method != http.MethodPost || r.URL.Path != "/logout" || r.Header.Get("Content-Type") != "application/x-www-form-urlencoded" {
 		t.Fatalf("request = %s %s %s", r.Method, r.URL.Path, r.Header.Get("Content-Type"))
 	}
-	signed, err := jose.ParseSigned(r.PostForm.Get("logout_token"), []jose.SignatureAlgorithm{jose.RS256})
+	signed, err := jose.ParseSignedCompact(r.PostForm.Get("logout_token"), []jose.SignatureAlgorithm{jose.RS256})
 	if err != nil {
 		t.Fatal(err)
 	}
