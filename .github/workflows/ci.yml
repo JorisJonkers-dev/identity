@@ -259,6 +259,10 @@ jobs:
           cache_save: ${{ github.event_name == 'push' }}
           install_args: node pnpm task
 
+      - uses: JorisJonkers-dev/github-workflows/actions/setup-package-proxy@2814b76fc3f5bd4f02a6e4a0fa789f1307757daa # v0.45.4
+        with:
+          token: ${{ secrets.PACKAGES_PROXY_TOKEN }}
+
       - name: Install JS tooling
         run: task install
 
