@@ -56,7 +56,7 @@ services:
   # `task db` runs this once Postgres is healthy: the same runner and changelog as the cluster,
   # signed in with the compose credentials instead of Vault. Not started by `docker compose up`.
   migrate:
-    image: ghcr.io/jorisjonkers-dev/liquibase-runner:v0.2.0@sha256:5e0f07bea045f35170f9d66ececa2de5ba198bf8ba51a2d11234e3c1b44ff7ea
+    image: ghcr.io/jorisjonkers-dev/liquibase-runner:v0.2.1@sha256:0dd3700706a8f83f94f014dd41ab535068ce556e6b1150aee8b9dcc33edc3f67
     profiles: [migrate]
     command: ["ci", "up", "000000000000"]
     environment:
