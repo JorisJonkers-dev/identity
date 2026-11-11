@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/JorisJonkers-dev/identity/compare/v0.4.1...v0.4.2) (2026-11-11)
+
+
+### Bug Fixes
+
+* **deps:** update minor and patch dependencies ([#161](https://github.com/JorisJonkers-dev/identity/issues/161)) ([53dbb3c](https://github.com/JorisJonkers-dev/identity/commit/53dbb3c8a141ef01757d59357fe9704b1fb606cd))
+
 ## [0.4.1](https://github.com/JorisJonkers-dev/identity/compare/v0.4.0...v0.4.1) (2026-10-21)
 
 
