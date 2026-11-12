@@ -110,7 +110,7 @@ describe('the Tokens page', () => {
     })
     await button(wrapper, 'New token').trigger('click')
     await wrapper.get('#nt-name').setValue('grafana-cli')
-    await wrapper.get('.dd-btn[aria-label="App"]').trigger('click')
+    await wrapper.get('.dd-btn[data-dd="App"]').trigger('click')
     await wrapper.findAll('[role="option"]').find((o) => o.text() === 'Vault')?.trigger('click')
     await button(wrapper, '30 days').trigger('click')
     await wrapper.get('form[role="dialog"]').trigger('submit')

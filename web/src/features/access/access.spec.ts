@@ -89,7 +89,7 @@ function button(wrapper: { findAll: (selector: string) => DOMWrapper<Element>[] 
 }
 
 async function pick(wrapper: VueWrapper, label: string, option: string) {
-  await wrapper.get(`.dd-btn[aria-label="${label}"]`).trigger('click')
+  await wrapper.get(`.dd-btn[data-dd="${label}"]`).trigger('click')
   await wrapper
     .get(`.dd-menu[aria-label="${label}"]`)
     .findAll('[role="option"]')
@@ -348,7 +348,7 @@ describe('the Groups page', () => {
 
   it('opens and closes a dropdown from its button', async () => {
     const { wrapper } = await mountAt('/admin/groups', server().answers)
-    const role = () => wrapper.get('.dd-btn[aria-label="Role"]')
+    const role = () => wrapper.get('.dd-btn[data-dd="Role"]')
     await role().trigger('click')
     expect(role().attributes('aria-expanded')).toBe('true')
     await role().trigger('click')
@@ -357,7 +357,7 @@ describe('the Groups page', () => {
 
   it('closes a dropdown on Escape or a click elsewhere, not a click inside', async () => {
     const { wrapper } = await mountAt('/admin/groups', server().answers, { attach: true })
-    const role = () => wrapper.get('.dd-btn[aria-label="Role"]')
+    const role = () => wrapper.get('.dd-btn[data-dd="Role"]')
     await role().trigger('click')
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     await settle()

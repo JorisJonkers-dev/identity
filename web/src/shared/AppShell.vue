@@ -92,7 +92,7 @@ function leave() {
           </nav>
         </details>
         <details v-if="me" class="menu">
-          <summary class="me-btn" :aria-label="me.name"><PersonAvatar :name="me.name" /><Icon name="chev" /></summary>
+          <summary class="me-btn"><span class="sr-only">{{ me.name }}</span><PersonAvatar :name="me.name" /><Icon name="chev" /></summary>
           <div class="sheet">
             <div class="sheet-who"><PersonAvatar :name="me.name" size="lg" /><div><b>{{ me.name }}</b><small>{{ me.email }}</small></div></div>
             <RouterLink to="/account">Account</RouterLink><RouterLink to="/security">Security</RouterLink><RouterLink to="/tokens">Tokens</RouterLink>

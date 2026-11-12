@@ -162,6 +162,7 @@ a { color: inherit; }
 .i { width: 16px; height: 16px; flex: none; }
 .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: -1px; padding: 0; border: 0; }
 [hidden] { display: none !important; }
 
 /* ---------- glass ---------- */
@@ -1381,7 +1382,7 @@ body.has-picks .bulk { visibility: visible; opacity: 1; transition: transform .2
 .dd-btn { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px 0 12px; border-radius: 10px; color: var(--ink); font: 500 13.5px var(--sans); cursor: pointer; white-space: nowrap;
   background: linear-gradient(180deg, var(--lg-top), var(--lg-bot)); border: 1px solid var(--lg-edge); box-shadow: inset 0 1px 0 var(--lg-hi), 0 1px 2px rgb(0 0 0 / 0.15); }
 .dd-btn:hover { border-color: var(--line-2); }
-.dd-btn > .i:first-child { width: 15px; height: 15px; color: var(--ink-3); }
+.dd-btn > .i:not(.dd-chev) { width: 15px; height: 15px; color: var(--ink-3); }
 .dd-chev { width: 14px; height: 14px; color: var(--ink-3); margin-left: 2px; transition: transform .14s ease-out; }
 .dd.open .dd-btn { box-shadow: inset 0 1px 0 var(--lg-hi), 0 0 0 3px var(--ring); border-color: var(--accent-line); }
 .dd.open .dd-chev { transform: rotate(180deg); }

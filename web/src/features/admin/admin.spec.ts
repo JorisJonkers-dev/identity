@@ -123,7 +123,7 @@ describe('the Audit page', () => {
     'GET /api/v1/audit': events,
   })
   const pick = async (wrapper: VueWrapper, label: string, option: string) => {
-    await wrapper.get(`.dd-btn[aria-label="${label}"]`).trigger('click')
+    await wrapper.get(`.dd-btn[data-dd="${label}"]`).trigger('click')
     await wrapper
       .get(`.dd-menu[aria-label="${label}"]`)
       .findAll('[role="option"]')
@@ -181,13 +181,13 @@ describe('the Audit page', () => {
     await pick(wrapper, 'Person', 'Noor Bakker')
     await pick(wrapper, 'App', 'Grafana')
     expect(router.currentRoute.value.query).toEqual({ user: ids.noor, client: 'grafana' })
-    expect(wrapper.get('.dd-btn[aria-label="Person"]').text()).toBe('Noor Bakker')
+    expect(wrapper.get('.dd-btn[data-dd="Person"] .dd-l').text()).toBe('Noor Bakker')
   })
 
   it('takes a filter from the address and ignores a kind there is not', async () => {
     const { wrapper } = await mountAt(`/admin/audit?kind=teleports&user=${ids.noor}`, answers(() => page([gave])))
     expect(button(wrapper, 'All').attributes('aria-pressed')).toBe('true')
-    expect(wrapper.get('.dd-btn[aria-label="Person"]').text()).toBe('Noor Bakker')
+    expect(wrapper.get('.dd-btn[data-dd="Person"] .dd-l').text()).toBe('Noor Bakker')
   })
 
   it('reads older events a page at a time', async () => {
@@ -212,6 +212,6 @@ describe('the Audit page', () => {
 
   it('leaves the person blank when the address names someone it does not know', async () => {
     const { wrapper } = await mountAt('/admin/audit?user=00000000-0000-4000-8000-0000000000ff', answers(() => page([])))
-    expect(wrapper.get('.dd-btn[aria-label="Person"] .dd-l').text()).toBe('')
+    expect(wrapper.get('.dd-btn[data-dd="Person"] .dd-l').text()).toBe('')
   })
 })

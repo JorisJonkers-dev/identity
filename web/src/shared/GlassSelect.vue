@@ -40,7 +40,8 @@ onBeforeUnmount(() => {
 
 <template>
   <div ref="root" :class="['dd', { open, sm: small }]">
-    <button class="dd-btn" type="button" aria-haspopup="listbox" :aria-expanded="open" :aria-label="label" @click="open = !open">
+    <button class="dd-btn" type="button" aria-haspopup="listbox" :aria-expanded="open" :data-dd="label" @click="open = !open">
+      <span class="sr-only">{{ label }}</span>
       <Icon v-if="icon" :name="icon" />
       <span class="dd-l">{{ shown }}</span>
       <Icon name="chev" class="dd-chev" />
