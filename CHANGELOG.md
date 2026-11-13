@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.3](https://github.com/JorisJonkers-dev/identity/compare/v0.4.2...v0.4.3) (2026-11-12)
+
+
+### Bug Fixes
+
+* **ci:** cover the report job's install with the packages proxy ([#189](https://github.com/JorisJonkers-dev/identity/issues/189)) ([2786d0d](https://github.com/JorisJonkers-dev/identity/commit/2786d0d5853ec2d21b2a00fece5951c6dcb16e3b))
+* **hygiene:** never cancel a run of the required hygiene checks ([#193](https://github.com/JorisJonkers-dev/identity/issues/193)) ([0043fe4](https://github.com/JorisJonkers-dev/identity/commit/0043fe485c60ba950cdb8ca23de7947ed5c2060d))
+
 ## [0.4.2](https://github.com/JorisJonkers-dev/identity/compare/v0.4.1...v0.4.2) (2026-11-11)
 
 
