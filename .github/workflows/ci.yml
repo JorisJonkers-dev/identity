@@ -65,7 +65,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: ${{ matrix.on == 'true' }}
 
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         if: ${{ matrix.on == 'true' }}
         with:
           cache: true
@@ -122,7 +122,7 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
       # Only what the build needs.
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           cache: true
           cache_save: ${{ github.event_name == 'push' }}
@@ -162,7 +162,7 @@ jobs:
           --health-interval 2s
           --health-retries 30
       mailpit:
-        image: axllent/mailpit:v1.33.0@sha256:9b3a463be15354c0f0eba91697d80e3e0d8a5623ef0e627cacc836bc17fd5231
+        image: axllent/mailpit:v1.33.1@sha256:aef2aacc11f075ec0fb6874275ee4a421e688e11a96ebb296134d1735c7761ce
         options: >-
           --health-cmd "/mailpit readyz"
           --health-interval 2s
@@ -193,7 +193,7 @@ jobs:
 
       # compose.yaml's `migrate`: the cluster's runner and changelog, signed in as the service's user.
       - name: Migrate Postgres with liquibase-runner
-        uses: docker://ghcr.io/jorisjonkers-dev/liquibase-runner:v0.2.1@sha256:0dd3700706a8f83f94f014dd41ab535068ce556e6b1150aee8b9dcc33edc3f67
+        uses: docker://ghcr.io/jorisjonkers-dev/liquibase-runner:v0.2.2@sha256:6b5d99f0af62b3f44eff7475cc48852ba0d8d33aa45cc6df255e5dcf849bebbc
         env:
           DATABASE_HOST: postgres
           DATABASE_PORT: "5432"
@@ -215,7 +215,7 @@ jobs:
           args: -c "vault secrets enable transit && vault write -f transit/keys/identity-totp && vault write -f transit/keys/identity-signing"
 
       # Only what the suite needs; the image brings the browsers.
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           cache: true
           cache_save: ${{ github.event_name == 'push' }}
@@ -253,7 +253,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           cache: true
           cache_save: ${{ github.event_name == 'push' }}
