@@ -1,7 +1,7 @@
-# syntax=docker/dockerfile:1.28
+# syntax=docker/dockerfile:1.29
 # One image: the Go binary serves the API and embeds the web build (web/embed.go).
 
-FROM --platform=$BUILDPLATFORM node:24.22.1-alpine AS web
+FROM --platform=$BUILDPLATFORM node:24.22.3-alpine AS web
 RUN --mount=type=secret,id=packages-npmrc,target=/run/secrets/packages-npmrc,required=false \
     NPM_CONFIG_USERCONFIG=/run/secrets/packages-npmrc npm install -g pnpm@12.6.0
 WORKDIR /src
@@ -16,7 +16,7 @@ COPY web web
 RUN pnpm --filter @identity/web build
 
 # Cross-compiles on the build platform, so a multi-arch build needs no emulation for the Go stage.
-FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS build
 ARG GOPROXY
 WORKDIR /src
 COPY go.mod go.sum ./
